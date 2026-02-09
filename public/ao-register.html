@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Officer Registration - CS Form No. 6</title>
+    <script src="/modal-alert.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #003366 0%, #004080 50%, #0059b3 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 600px;
+            overflow: hidden;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            text-align: center;
+            position: relative;
+            min-height: 160px;
+        }
+        
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .header-logo {
+            width: 70px;
+            height: 70px;
+            flex-shrink: 0;
+            position: absolute;
+            left: 30px;
+        }
+        
+        .header img.coat-of-arms {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 10px;
+            margin-right: 30px;
+        }
+        
+        .header img.division-logo {
+            width: 70px;
+            height: 70px;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .header p {
+            font-size: 12px;
+            opacity: 0.95;
+        }
+        
+        .header h2 {
+            font-size: 15px;
+            margin-top: 8px;
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .back-link {
+            text-align: center;
+            padding: 15px 30px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .back-link a {
+            color: #d32f2f;
+            text-decoration: none;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.3s;
+        }
+        
+        .back-link a:hover {
+            color: #b71c1c;
+            text-decoration: underline;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            background: none;
+            border: none;
+            font-size: 14px;
+        }
+        
+        .tab:hover {
+            background: #e8e8e8;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #1e3c72;
+            border-bottom-color: #1e3c72;
+        }
+        
+        .form-container {
+            padding: 30px;
+        }
+        
+        .form-section {
+            display: none;
+        }
+        
+        .form-section.active {
+            display: block;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        .form-group {
+            margin-bottom: 18px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .required {
+            color: #d32f2f;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            background-color: white;
+        }
+        
+        .form-group select {
+            cursor: pointer;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #1e3c72;
+            box-shadow: 0 0 0 3px rgba(30,60,114,0.1);
+        }
+        
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #dc3545;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .password-strength {
+            height: 5px;
+            background: #ddd;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .password-strength .bar {
+            height: 100%;
+            width: 0;
+            background: #4caf50;
+            transition: all 0.3s;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+        
+        .error-message {
+            color: #d32f2f;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+        
+        .message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .salary-display {
+            background: #fff3e0;
+            border: 2px solid #1e3c72;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .salary-display label {
+            font-size: 12px;
+            color: #666;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .salary-display .amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+        
+        .salary-display .grade-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+        }
+        
+        .btn-primary {
+            background: #1e3c72;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #152850;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30,60,114,0.3);
+        }
+        
+        .btn-danger {
+            background: #d32f2f;
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #b71c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(211,47,47,0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        
+        .btn.loading .spinner {
+            display: block;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .toggle-mode {
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .toggle-mode a {
+            color: #1e3c72;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        
+        .toggle-mode a:hover {
+            color: #0d1f38;
+            text-decoration: underline;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #eee;
+            background: #f5f5f5;
+        }
+        
+        @media (max-width: 600px) {
+            .form-container {
+                padding: 20px;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+            
+            .form-row .form-group {
+                flex: auto;
+            }
+            
+            .header {
+                padding: 15px 20px;
+                min-height: 140px;
+            }
+            
+            .header-logo {
+                width: 50px;
+                height: 50px;
+                left: 15px;
+            }
+            
+            .header img.coat-of-arms {
+                width: 60px;
+                height: 60px;
+                margin-right: 30px;
+            }
+            
+            .header h1 {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="header">
+            <div class="header-logo">
+                <img src="/sipalay_logo.png" alt="Sipalay Division Logo" class="division-logo" onerror="this.style.display='none'">
+            </div>
+            <div class="header-content">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Coat_of_arms_of_the_Philippines.svg/1200px-Coat_of_arms_of_the_Philippines.svg.png" alt="Logo" class="coat-of-arms" onerror="this.style.display='none'">
+                <p>Republic of the Philippines</p>
+                <h1>Department of Education</h1>
+                <p>NEGROS ISLAND REGION</p>
+                <p style="font-weight: bold; color: #FFD700; font-size: 16px; margin-top: 8px;">SCHOOLS DIVISION OF SIPALAY CITY</p>
+            </div>
+        </div>
+        
+        <div class="back-link">
+            <a href="/">← Back to Main Menu</a>
+        </div>
+        
+        <div class="tabs">
+            <button type="button" class="tab active" data-tab="login">AO LOGIN</button>
+            <button type="button" class="tab" data-tab="register">CREATE AO ACCOUNT</button>
+        </div>
+        
+        <div class="form-container">
+            <!-- AO Login Form -->
+            <div id="loginForm" class="form-section active">
+                <div id="loginMessage" class="message"></div>
+                
+                <div class="info-box">
+                    <strong>Admin Officer Portal:</strong> Only authorized Administrative Officers should login here to review and approve leave applications.
+                </div>
+                
+                <form onsubmit="handleAOLogin(event)">
+                    <div class="form-group">
+                        <label>DepEd Email <span class="required">*</span></label>
+                        <input type="email" id="loginEmail" placeholder="example@deped.gov.ph" required>
+                        <p class="hint">Use your official DepEd email address</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password <span class="required">*</span></label>
+                        <input type="password" id="loginPassword" placeholder="Enter 6-digit password" maxlength="6" pattern="[0-9]{6}" required>
+                        <p class="hint">Enter your 6-digit numeric password</p>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="loginBtn">
+                        <span>AO LOGIN</span>
+                        <div class="spinner"></div>
+                    </button>
+                </form>
+                
+                <div class="toggle-mode">
+                    Don't have an AO account? <a onclick="switchTab('register')">Create one here</a>
+                </div>
+            </div>
+            
+            <!-- AO Registration Form -->
+            <div id="registerForm" class="form-section">
+                <div id="registerMessage" class="message"></div>
+                
+                <div class="info-box">
+                    <strong>Create AO Account:</strong> Register a new Administrative Officer account to access the leave approval portal.
+                </div>
+                
+                <form onsubmit="handleAORegister(event)">
+                    <div class="form-group">
+                        <label>Full Name <span class="required">*</span></label>
+                        <input type="text" id="regFullName" placeholder="Last Name, First Name Middle Name" required>
+                        <p class="hint">Format: DELA CRUZ, JUAN SANTOS</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>AO Email <span class="required">*</span></label>
+                        <input type="email" id="regEmail" placeholder="example@deped.gov.ph" required>
+                        <p class="hint">Must be a valid DepEd email ending with @deped.gov.ph</p>
+                        <div id="emailError" class="error-message">Please use a valid DepEd email (@deped.gov.ph)</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password <span class="required">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="regPassword" placeholder="Min 6 chars, max 24 (letters, numbers, special char)" maxlength="24" oninput="validatePassword(this)" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('regPassword')">👁️</button>
+                        </div>
+                        <div class="password-strength"><div class="bar" id="strengthBar"></div></div>
+                        <p class="hint">6-24 characters, alphanumeric + special character (!@#$%^&* etc.)</p>
+                        <div id="passwordError" class="error-message">Password must be 6-24 chars with letters, numbers, and special character</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirm Password <span class="required">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="regConfirmPassword" placeholder="Re-enter password" maxlength="24" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('regConfirmPassword')">👁️</button>
+                        </div>
+                        <div id="confirmError" class="error-message">Passwords do not match</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Office/Division <span class="required">*</span></label>
+                        <select id="regOffice" required>
+                            <option value="">-- Select School/Office --</option>
+                            <optgroup label="Elementary Schools">
+                                <option value="Agripino Alvarez Elementary School">Agripino Alvarez Elementary School</option>
+                                <option value="Banag Elementary School">Banag Elementary School</option>
+                                <option value="Barangay V Elementary School">Barangay V Elementary School</option>
+                                <option value="Barasbarasan Elementary School">Barasbarasan Elementary School</option>
+                                <option value="Barasbarasan Elementary School - Indangawan Annex">Barasbarasan Elementary School - Indangawan Annex</option>
+                                <option value="Bawog Elementary School">Bawog Elementary School</option>
+                                <option value="Binotusan Elementary School">Binotusan Elementary School</option>
+                                <option value="Binulig Elementary School">Binulig Elementary School</option>
+                                <option value="Bungabunga Elementary School">Bungabunga Elementary School</option>
+                                <option value="Cabadiangan Elementary School">Cabadiangan Elementary School</option>
+                                <option value="Calangcang Elementary School">Calangcang Elementary School</option>
+                                <option value="Calat-an Elementary School">Calat-an Elementary School</option>
+                                <option value="Cambogui-ot Elementary School">Cambogui-ot Elementary School</option>
+                                <option value="Camindangan Elementary School">Camindangan Elementary School</option>
+                                <option value="Cansauro Elementary School">Cansauro Elementary School</option>
+                                <option value="Cantaca Elementary School">Cantaca Elementary School</option>
+                                <option value="Canturay Elementary School">Canturay Elementary School</option>
+                                <option value="Cartagena Elementary School">Cartagena Elementary School</option>
+                                <option value="Cayhagan Elementary School">Cayhagan Elementary School</option>
+                                <option value="Crossing Tanduay Elementary School">Crossing Tanduay Elementary School</option>
+                                <option value="Genaro P. Alvarez Elementary School">Genaro P. Alvarez Elementary School</option>
+                                <option value="Genaro P. Alvarez Elementary School II">Genaro P. Alvarez Elementary School II</option>
+                                <option value="Gil M. Montilla Elementary School">Gil M. Montilla Elementary School</option>
+                                <option value="Hda. Maricalum Elementary School">Hda. Maricalum Elementary School</option>
+                                <option value="Manlucahoc Elementary School">Manlucahoc Elementary School</option>
+                                <option value="Maricalum Elementary School">Maricalum Elementary School</option>
+                                <option value="Nabulao Elementary School">Nabulao Elementary School</option>
+                                <option value="Nabulao Elementary School - Buyog Annex">Nabulao Elementary School - Buyog Annex</option>
+                                <option value="Nauhang Primary School">Nauhang Primary School</option>
+                                <option value="Patag Magbanua Elementary School">Patag Magbanua Elementary School</option>
+                            </optgroup>
+                            <optgroup label="Secondary Schools">
+                                <option value="Cambogui-ot National High School">Cambogui-ot National High School</option>
+                                <option value="Camindangan National High School">Camindangan National High School</option>
+                                <option value="Cayhagan National High School">Cayhagan National High School</option>
+                                <option value="Gil Montilla National High School">Gil Montilla National High School</option>
+                                <option value="Gil Montilla NHS - Binulig Extension">Gil Montilla NHS - Binulig Extension</option>
+                                <option value="Gil Montilla NHS - Cabadiangan Extension">Gil Montilla NHS - Cabadiangan Extension</option>
+                                <option value="Gil Montilla NHS - Crossing Tanduay Extension">Gil Montilla NHS - Crossing Tanduay Extension</option>
+                                <option value="Gil Montilla NHS - Manlucahoc Extension">Gil Montilla NHS - Manlucahoc Extension</option>
+                                <option value="Jacinto Montilla Memorial National High School">Jacinto Montilla Memorial National High School</option>
+                                <option value="Leodegario Ponce Gonzales National High School">Leodegario Ponce Gonzales National High School</option>
+                                <option value="Mariano Gemora National High School">Mariano Gemora National High School</option>
+                                <option value="Maricalum Farm School">Maricalum Farm School</option>
+                                <option value="Nabulao National High School">Nabulao National High School</option>
+                                <option value="Sipalay City National High School">Sipalay City National High School</option>
+                            </optgroup>
+                            <optgroup label="Integrated Schools">
+                                <option value="Dungga Integrated School">Dungga Integrated School</option>
+                                <option value="Dung-i Integrated School">Dung-i Integrated School</option>
+                                <option value="Macarandan Integrated School">Macarandan Integrated School</option>
+                                <option value="Mauboy Integrated School">Mauboy Integrated School</option>
+                                <option value="Omas Integrated School">Omas Integrated School</option>
+                                <option value="Tugas Integrated School">Tugas Integrated School</option>
+                                <option value="Vista Alegre Integrated School">Vista Alegre Integrated School</option>
+                            </optgroup>
+                            <optgroup label="Division Office">
+                                <option value="CID">CID - Curriculum Implementation Division</option>
+                                <option value="Division Office Proper">Division Office Proper</option>
+                                <option value="OSDS">OSDS - Office of the Schools Division Superintendent</option>
+                                <option value="SGOD">SGOD - School Governance and Operations Division</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Position <span class="required">*</span></label>
+                        <select id="regPosition" onchange="updateSalaryFromPosition()" required>
+                            <option value="">-- Select Position --</option>
+                            <optgroup label="Administrative">
+                                <option value="Administrative Officer V" data-sg="18">Administrative Officer V (SG-18)</option>
+                                <option value="Administrative Officer IV" data-sg="15">Administrative Officer IV (SG-15)</option>
+                                <option value="Administrative Officer II" data-sg="11">Administrative Officer II (SG-11)</option>
+                                <option value="Administrative Assistant III" data-sg="9">Administrative Assistant III (SG-9)</option>
+                                <option value="Administrative Assistant II" data-sg="8">Administrative Assistant II (SG-8)</option>
+                                <option value="Administrative Aide VI" data-sg="6">Administrative Aide VI (SG-6)</option>
+                                <option value="Administrative Aide IV" data-sg="4">Administrative Aide IV (SG-4)</option>
+                            </optgroup>
+                            <optgroup label="Finance & Planning">
+                                <option value="Accountant III" data-sg="19">Accountant III (SG-19)</option>
+                                <option value="Planning Officer III" data-sg="18">Planning Officer III (SG-18)</option>
+                                <option value="Project Development Officer II" data-sg="15">Project Development Officer II (SG-15)</option>
+                                <option value="Project Development Officer I" data-sg="11">Project Development Officer I (SG-11)</option>
+                            </optgroup>
+                            <optgroup label="Technical & IT">
+                                <option value="Information Technology Officer I" data-sg="19">Information Technology Officer I (SG-19)</option>
+                                <option value="Engineer III" data-sg="19">Engineer III (SG-19)</option>
+                            </optgroup>
+                            <optgroup label="Legal">
+                                <option value="Attorney III" data-sg="21">Attorney III (SG-21)</option>
+                                <option value="Legal Assistant I" data-sg="10">Legal Assistant I (SG-10)</option>
+                            </optgroup>
+                            <optgroup label="Medical/Health">
+                                <option value="Medical Officer III" data-sg="21">Medical Officer III (SG-21)</option>
+                                <option value="Dentist II" data-sg="17">Dentist II (SG-17)</option>
+                                <option value="Nurse II" data-sg="16">Nurse II (SG-16)</option>
+                            </optgroup>
+                            <optgroup label="Records & Library">
+                                <option value="Registrar I" data-sg="11">Registrar I (SG-11)</option>
+                                <option value="Librarian II" data-sg="15">Librarian II (SG-15)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Salary Grade <span class="required">*</span></label>
+                            <input type="text" id="regSalaryGrade" readonly placeholder="Auto-filled">
+                        </div>
+                        <div class="form-group">
+                            <label>Step Increment <span class="required">*</span></label>
+                            <select id="regStep" onchange="updateSalaryAmount()" required>
+                                <option value="">-- Select --</option>
+                                <option value="1">Step 1</option>
+                                <option value="2">Step 2</option>
+                                <option value="3">Step 3</option>
+                                <option value="4">Step 4</option>
+                                <option value="5">Step 5</option>
+                                <option value="6">Step 6</option>
+                                <option value="7">Step 7</option>
+                                <option value="8">Step 8</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="salary-display">
+                        <label>Monthly Basic Salary</label>
+                        <div class="amount" id="salaryAmount">PHP 0.00</div>
+                        <div class="grade-info" id="gradeInfo">Select position and step increment</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-danger" id="registerBtn">
+                        <span>REGISTER</span>
+                        <div class="spinner"></div>
+                    </button>
+                </form>
+                
+                <div class="toggle-mode">
+                    Already have an AO account? <a onclick="switchTab('login')">Login here</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>2026 Schools Division of Sipalay City</p>
+            <p style="font-size: 11px; opacity: 0.8; margin-top: 8px;">© 2026 - All rights reserved</p>
+        </div>
+    </div>
+    
+    <script>
+        // Third Tranche Salary Schedule (DepEd SDO Sipalay Master File - January 2026)
+        const salaryTable = {
+            1: [14634, 14730, 14849, 14968, 15089, 15211, 15333, 15456],
+            2: [15522, 15636, 15752, 15869, 15986, 16103, 16223, 16342],
+            3: [16451, 16570, 16690, 16812, 16935, 17059, 17185, 17312],
+            4: [17562, 17664, 17767, 17871, 17976, 18082, 18189, 18297],
+            5: [18784, 18896, 19009, 19123, 19238, 19354, 19471, 19589],
+            6: [19716, 19851, 19987, 20124, 20262, 20401, 20541, 20682],
+            7: [21318, 21496, 21676, 21859, 22044, 22231, 22421, 22613],
+            8: [22423, 22627, 22832, 23038, 23246, 23456, 23667, 23880],
+            9: [24329, 24523, 24718, 24915, 25114, 25315, 25521, 25729],
+            10: [26917, 27105, 27295, 27487, 27681, 27877, 28075, 28275],
+            11: [31705, 31820, 32109, 32401, 32697, 32998, 33302, 33611],
+            12: [33947, 34069, 34357, 34648, 34942, 35239, 35539, 35842],
+            13: [36125, 36283, 36599, 36919, 37243, 37572, 37905, 38241],
+            14: [38764, 39141, 39523, 39909, 40299, 40693, 41091, 41493],
+            15: [42178, 42594, 43015, 43440, 43869, 44303, 44741, 45183],
+            16: [45694, 46152, 46615, 47083, 47556, 48033, 48515, 49002],
+            17: [49560, 50066, 50576, 51091, 51611, 52136, 52666, 53201],
+            18: [53818, 54371, 54933, 55499, 56074, 56654, 57243, 57837],
+            19: [59153, 59966, 60793, 61632, 62486, 63353, 64234, 65132],
+            20: [66052, 66970, 67904, 68853, 69818, 70799, 71798, 72814],
+            21: [73303, 74404, 75523, 76661, 77818, 78995, 80193, 81411],
+            22: [81796, 82963, 84151, 85356, 86581, 87828, 89095, 90385],
+            23: [102537, 104393, 106281, 108202, 110157, 112147, 114174, 116239],
+            24: [103901, 105341, 105841, 107365, 108909, 110476, 112067, 113682],
+            25: [116643, 118310, 120005, 121729, 123483, 125269, 127085, 128934],
+            26: [158273, 161230, 164252, 167339, 170495, 173721, 177020, 180395],
+            27: [183850, 187387, 191001, 194695, 198471, 202332, 206283, 210326],
+            28: [214467, 218701, 223041, 227492, 232058, 236743, 241551, 246489],
+            29: [251563, 256781, 262150, 267679, 273376, 279249, 285309, 291567],
+            30: [298033, 304721, 311644, 318817, 326260, 333988, 342024, 350387],
+            31: [359105, 368210, 377743, 387756, 398304, 409456, 421288, 433885],
+            32: [447338, 461611, 476801, 492975, 510218, 528621, 548284, 569316],
+            33: [449157, 462329]
+        };
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                document.querySelector('.tab:nth-child(1)').classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+            } else if (tab === 'register') {
+                document.querySelector('.tab:nth-child(2)').classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+            }
+            
+            document.getElementById('loginMessage').className = 'message';
+            document.getElementById('registerMessage').className = 'message';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+        });
+        
+        function validatePassword(input) {
+            const value = input.value;
+            const bar = document.getElementById('strengthBar');
+            bar.style.width = (value.length / 6) * 100 + '%';
+        }
+        
+        function updateSalaryFromPosition() {
+            const positionSelect = document.getElementById('regPosition');
+            const selectedOption = positionSelect.selectedOptions[0];
+            const salaryGrade = selectedOption.dataset.sg || '';
+            
+            document.getElementById('regSalaryGrade').value = salaryGrade ? 'SG-' + salaryGrade : '';
+            document.getElementById('regStep').value = '';
+            document.getElementById('salaryAmount').textContent = 'PHP 0.00';
+            document.getElementById('gradeInfo').textContent = 'Select step increment';
+        }
+
+        function updateSalaryAmount() {
+            const positionSelect = document.getElementById('regPosition');
+            const selectedOption = positionSelect.selectedOptions[0];
+            const salaryGrade = parseInt(selectedOption.dataset.sg) || 0;
+            const step = parseInt(document.getElementById('regStep').value) || 0;
+            
+            if (salaryGrade && step) {
+                const salary = salaryTable[salaryGrade][step - 1];
+                document.getElementById('salaryAmount').textContent = 'PHP ' + salary.toLocaleString('en-PH', {minimumFractionDigits: 2});
+                document.getElementById('gradeInfo').textContent = 'Salary Grade ' + salaryGrade + ' - Step ' + step;
+            } else {
+                document.getElementById('salaryAmount').textContent = 'PHP 0.00';
+                document.getElementById('gradeInfo').textContent = 'Select position and step increment';
+            }
+        }
+
+        async function handleAOLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const messageDiv = document.getElementById('loginMessage');
+            const btn = document.getElementById('loginBtn');
+            
+            messageDiv.style.display = 'none';
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/ao-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    sessionStorage.setItem('user', JSON.stringify(result.user));
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Login successful! Redirecting...';
+                    messageDiv.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = '/ao-dashboard';
+                    }, 1500);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = result.error || 'Login failed';
+                    messageDiv.style.display = 'block';
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'An error occurred. Please try again.';
+                messageDiv.style.display = 'block';
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        async function handleAORegister(event) {
+            event.preventDefault();
+            const fullName = document.getElementById('regFullName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+            const office = document.getElementById('regOffice').value;
+            const position = document.getElementById('regPosition').value;
+            const salaryGrade = document.getElementById('regSalaryGrade').value;
+            const step = document.getElementById('regStep').value;
+            const messageDiv = document.getElementById('registerMessage');
+            const btn = document.getElementById('registerBtn');
+            
+            messageDiv.style.display = 'none';
+            
+            // Validation - require @deped.gov.ph email
+            if (!email.toLowerCase().endsWith('@deped.gov.ph')) {
+                document.getElementById('emailError').style.display = 'block';
+                document.getElementById('regEmail').classList.add('error');
+                return;
+            }
+            document.getElementById('emailError').style.display = 'none';
+            document.getElementById('regEmail').classList.remove('error');
+            
+            if (password !== confirmPassword) {
+                document.getElementById('confirmError').style.display = 'block';
+                document.getElementById('regConfirmPassword').classList.add('error');
+                return;
+            }
+            document.getElementById('confirmError').style.display = 'none';
+            document.getElementById('regConfirmPassword').classList.remove('error');
+            
+            if (password.length !== 6 || !/^\d{6}$/.test(password)) {
+                document.getElementById('passwordError').style.display = 'block';
+                document.getElementById('regPassword').classList.add('error');
+                return;
+            }
+            document.getElementById('passwordError').style.display = 'none';
+            document.getElementById('regPassword').classList.remove('error');
+            
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/ao-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fullName,
+                        email,
+                        password,
+                        office,
+                        position,
+                        salaryGrade,
+                        step
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Registration successful! Redirecting to login...';
+                    messageDiv.style.display = 'block';
+                    setTimeout(() => {
+                        switchTab('login');
+                        btn.classList.remove('loading');
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = result.error || 'Registration failed';
+                    messageDiv.style.display = 'block';
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'An error occurred. Please try again.';
+                messageDiv.style.display = 'block';
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

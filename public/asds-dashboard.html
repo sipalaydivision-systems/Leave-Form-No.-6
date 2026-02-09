@@ -1,0 +1,2570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASDS Portal - Dashboard</title>
+    <script src="/modal-alert.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%);
+            min-height: 100vh;
+            padding-top: 70px;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .navbar h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .dashboard-header h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .dashboard-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .dashboard-content {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .placeholder-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .placeholder-text {
+            color: #999;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .placeholder-subtext {
+            color: #bbb;
+            font-size: 14px;
+        }
+
+        /* Logout Modal Styles */
+        .logout-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-content {
+            background-color: #f9f9f9;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .logout-modal-body {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .logout-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .logout-modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .logout-confirm-btn {
+            background-color: #c62828;
+            color: white;
+        }
+
+        .logout-confirm-btn:hover {
+            background-color: #941e1e;
+        }
+
+        .logout-cancel-btn {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+
+        .logout-cancel-btn:hover {
+            background-color: #bdbdbd;
+        }
+
+        .stats-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .applications-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .applications-section h3 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 22px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            table-layout: fixed;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e8e8e8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-weight: 600;
+            color: white;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        td {
+            color: #444;
+            font-weight: 500;
+            font-size: 12px;
+        }
+
+        td:first-child {
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        tr:hover {
+            background: #f0f4ff;
+            transition: background 0.2s ease;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .status-pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            margin: 2px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn-view {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+        }
+
+        .btn-approve {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            color: #2e7d32;
+        }
+
+        .btn-recommend {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+        }
+
+        .btn-recommend:hover {
+            background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+        }
+
+        .btn-reject {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            color: #c62828;
+        }
+
+        .action-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .awaiting-text {
+            color: #2196f3;
+            font-size: 11px;
+            font-weight: 500;
+            font-style: italic;
+            font-size: 10px;
+        }
+
+        /* ASDS Approval Modal Styles */
+        .asds-approval-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .asds-approval-modal.active {
+            display: flex;
+        }
+
+        .asds-approval-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .asds-approval-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .asds-approval-modal-header h3 {
+            color: #333;
+            font-size: 18px;
+        }
+
+        .asds-modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .asds-form-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .asds-form-section-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .asds-form-group {
+            margin-bottom: 15px;
+        }
+
+        .asds-form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .asds-form-group input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .asds-radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .asds-radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            transition: all 0.2s;
+        }
+
+        .asds-radio-group label:hover {
+            border-color: #667eea;
+        }
+
+        .asds-radio-group input[type="radio"]:checked + span {
+            font-weight: bold;
+        }
+
+        .required-star {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .asds-signature-section {
+            margin-top: 15px;
+        }
+
+        .asds-signature-canvas {
+            border: 1px solid #999;
+            background: white;
+            cursor: crosshair;
+            display: block;
+            margin: 10px 0;
+            width: 100%;
+            height: 100px;
+        }
+
+        .asds-signature-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .asds-signature-controls button {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            background: #f8f9fa;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .asds-signature-controls button:hover {
+            background: #e9ecef;
+        }
+
+        .asds-signature-error {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .asds-signature-error.show {
+            display: block;
+        }
+
+        .asds-upload-input {
+            display: none;
+        }
+
+        .asds-btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .asds-btn-submit:hover {
+            opacity: 0.9;
+        }
+
+        .asds-btn-submit:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Alert Modal Styles */
+        .alert-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .alert-modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 25px;
+            border: none;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .alert-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f8d7da;
+        }
+
+        .alert-modal-header .alert-icon {
+            font-size: 28px;
+        }
+
+        .alert-modal-body {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .alert-modal-footer {
+            display: flex;
+            justify-content: center;
+        }
+
+        .alert-modal-btn {
+            padding: 12px 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            background-color: #dc3545;
+            color: white;
+            transition: background-color 0.2s;
+        }
+
+        .alert-modal-btn:hover {
+            background-color: #c82333;
+        }
+
+        .btn-reject {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .btn-return {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-body p {
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-body strong {
+            display: inline-block;
+            width: 120px;
+            color: #666;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer .btn {
+            padding: 10px 25px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+                padding: 12px 15px;
+            }
+
+            .navbar h1 {
+                font-size: 18px;
+            }
+
+            .container {
+                margin-top: 150px;
+            }
+
+            .dashboard-header {
+                padding: 20px;
+            }
+
+            .dashboard-header h2 {
+                font-size: 22px;
+            }
+
+            .dashboard-content {
+                padding: 20px;
+            }
+        }
+
+        /* Demographics Section Styles */
+        .demographics-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .demographics-section h3 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 20px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+
+        .chart-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 200px;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .bar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bar-label {
+            min-width: 120px;
+            font-size: 12px;
+            color: #333;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bar-container {
+            flex: 1;
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+        }
+
+        .bar-value {
+            font-size: 11px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-box.alt {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-box.alt2 {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-box.alt3 {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-box-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-box-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        /* Donut Chart Styles */
+        .donut-chart {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 10px;
+        }
+
+        .donut-ring {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        .donut-ring svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .donut-segment {
+            fill: none;
+            stroke-width: 25;
+            stroke-linecap: round;
+        }
+
+        .donut-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .donut-total {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .donut-label {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .donut-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .legend-text {
+            color: #555;
+        }
+
+        .legend-value {
+            font-weight: bold;
+            color: #333;
+            margin-left: auto;
+        }
+
+        /* Vertical Bar Chart Styles */
+        .vertical-bars {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 150px;
+            padding: 10px 5px;
+            gap: 8px;
+        }
+
+        .vbar-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            max-width: 60px;
+        }
+
+        .vbar-container {
+            width: 100%;
+            height: 120px;
+            background: #e0e0e0;
+            border-radius: 5px 5px 0 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            overflow: hidden;
+        }
+
+        .vbar-fill {
+            width: 100%;
+            border-radius: 5px 5px 0 0;
+            transition: height 0.5s ease;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 5px;
+        }
+
+        .vbar-value {
+            font-size: 11px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .vbar-label {
+            font-size: 9px;
+            color: #555;
+            text-align: center;
+            margin-top: 5px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .trends-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .trends-section h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .trends-chart-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 150px;
+        }
+
+        /* Heatmap Chart Styles */
+        .heatmap-container {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+
+        .heatmap-chart {
+            min-width: 100%;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .heatmap-table th {
+            padding: 8px 4px;
+            text-align: center;
+            font-weight: 600;
+            color: #555;
+            background: #f8f9fa;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .heatmap-table th.school-header {
+            text-align: left;
+            min-width: 150px;
+            max-width: 200px;
+        }
+
+        .heatmap-table td {
+            padding: 6px 4px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .heatmap-table td.school-name {
+            text-align: left;
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .heatmap-cell {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            line-height: 28px;
+            font-weight: bold;
+            color: #fff;
+            font-size: 10px;
+        }
+
+        .heatmap-cell.empty {
+            background: #f0f0f0;
+            color: #ccc;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .legend-scale {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .legend-block {
+            width: 20px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        /* Top 5 Leaderboard Styles */
+        .top-5-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .top-5-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        .top-5-item:hover {
+            transform: translateX(5px);
+        }
+
+        .top-5-item.gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        }
+
+        .top-5-item.silver {
+            background: linear-gradient(135deg, #c0c0c0 0%, #e0e0e0 100%);
+        }
+
+        .top-5-item.bronze {
+            background: linear-gradient(135deg, #cd7f32 0%, #daa06d 100%);
+        }
+
+        .top-5-rank {
+            font-size: 18px;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .top-5-name {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .top-5-count {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2196F3;
+            background: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .top-5-item.gold .top-5-count {
+            background: rgba(255,255,255,0.9);
+            color: #856404;
+        }
+
+        .top-5-item.silver .top-5-count {
+            background: rgba(255,255,255,0.9);
+            color: #666;
+        }
+
+        .top-5-item.bronze .top-5-count {
+            background: rgba(255,255,255,0.9);
+            color: #8b4513;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <h1>ASDS Portal</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="dashboard-header">
+            <h2>Welcome to ASDS Dashboard</h2>
+            <p>Review and approve HR-approved leave applications</p>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-number" id="pendingCount">0</div>
+                <div class="stat-label">Pending Approval</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="approvedCount">0</div>
+                <div class="stat-label">Approved Today</div>
+            </div>
+        </div>
+
+        <!-- Demographics Section -->
+        <div class="demographics-section">
+            <h3>📊 System Demographics & Overview</h3>
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <div class="chart-title">Users by School/Office</div>
+                    <div class="bar-chart" id="departmentBars"></div>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Leave Applications Status</div>
+                    <div class="donut-chart" id="statusDonut"></div>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Applications by Leave Type</div>
+                    <div class="vertical-bars" id="leaveTypeBars"></div>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">🏆 Top 5 Leave Takers (<span id="currentYear"></span>)</div>
+                    <div class="top-5-list" id="topLeaveTakers"></div>
+                </div>
+            </div>
+
+            <!-- Trends Section -->
+            <div class="trends-section">
+                <h4>📈 Leave Application Trends by School/Office</h4>
+                <div class="heatmap-container">
+                    <div class="heatmap-chart" id="schoolTrendsHeatmap"></div>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="demographicsStats">
+                <div class="stat-box">
+                    <div class="stat-box-number" id="totalUsers">0</div>
+                    <div class="stat-box-label">Total Registered Users</div>
+                </div>
+                <div class="stat-box alt">
+                    <div class="stat-box-number" id="totalApplications">0</div>
+                    <div class="stat-box-label">Total Applications</div>
+                </div>
+                <div class="stat-box alt2">
+                    <div class="stat-box-number" id="approvedApps">0</div>
+                    <div class="stat-box-label">Approved Applications</div>
+                </div>
+                <div class="stat-box alt3">
+                    <div class="stat-box-number" id="pendingApps">0</div>
+                    <div class="stat-box-label">Pending Applications</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="applications-section">
+            <h3>📋 Leave Applications</h3>
+            
+            <!-- Search and Filter Section -->
+            <div style="margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 250px;">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="🔍 Search by employee name..." 
+                        style="width: 100%; padding: 10px 15px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; transition: border-color 0.3s;"
+                        onkeyup="filterApplications()"
+                    />
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button 
+                        class="filter-btn active" 
+                        onclick="setStatusFilter('all')"
+                        style="padding: 8px 15px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+                    >
+                        All
+                    </button>
+                    <button 
+                        class="filter-btn" 
+                        onclick="setStatusFilter('approved')"
+                        style="padding: 8px 15px; border: 2px solid #4caf50; background: white; color: #4caf50; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+                    >
+                        Forwarded/Approved
+                    </button>
+                    <button 
+                        class="filter-btn" 
+                        onclick="setStatusFilter('rejected')"
+                        style="padding: 8px 15px; border: 2px solid #f44336; background: white; color: #f44336; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+                    >
+                        Rejected
+                    </button>
+                    <button 
+                        class="filter-btn" 
+                        onclick="setStatusFilter('pending')"
+                        style="padding: 8px 15px; border: 2px solid #ff9800; background: white; color: #ff9800; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+                    >
+                        Pending Review
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                <span id="resultsCount">Showing all applications</span>
+            </div>
+            
+            <div class="table-container">
+                <table id="applicationsTable">
+                    <thead>
+                        <tr>
+                            <th>Teacher Name</th>
+                            <th>Leave Type</th>
+                            <th>Date From</th>
+                            <th>Date To</th>
+                            <th>Working Days</th>
+                            <th>Status</th>
+                            <th>Filed Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="applicationsBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 40px; color: #999;">Loading applications...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>📋 CS Form No. 6 - Application Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody" class="modal-body" style="max-height: 60vh; overflow-y: auto;"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="logout-modal">
+        <div class="logout-modal-content">
+            <div class="logout-modal-header">Confirm Logout</div>
+            <div class="logout-modal-body">Are you sure you want to logout?</div>
+            <div class="logout-modal-footer">
+                <button class="logout-modal-btn logout-cancel-btn" onclick="closeLogoutModal()">Cancel</button>
+                <button class="logout-modal-btn logout-confirm-btn" onclick="confirmLogout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ASDS Approval Modal -->
+    <div id="asdsApprovalModal" class="asds-approval-modal">
+        <div class="asds-approval-modal-content">
+            <div class="asds-approval-modal-header">
+                <h3>📋 SECTION 7.B - RECOMMENDATION</h3>
+                <button class="asds-modal-close" onclick="closeAsdsApprovalModal()">×</button>
+            </div>
+            
+            <!-- Applicant Info -->
+            <div style="background: #e3f2fd; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                    <div><strong>Applicant:</strong> <span id="asdsApplicantName">-</span></div>
+                    <div><strong>Leave Type:</strong> <span id="asdsLeaveType">-</span></div>
+                    <div><strong>Leave Dates:</strong> <span id="asdsLeaveDates">-</span></div>
+                    <div><strong>Days:</strong> <span id="asdsLeaveDays">-</span></div>
+                </div>
+            </div>
+            
+            <form id="asdsApprovalForm" onsubmit="submitAsdsRecommendation(event)">
+                
+                <!-- OIC-ASDS Name -->
+                <div class="asds-form-section">
+                    <div class="asds-form-section-title">Recommending OIC-Assistant Schools Division Superintendent</div>
+                    
+                    <div class="asds-form-group">
+                        <label>Full Name: <span class="required-star">*</span></label>
+                        <input type="text" id="asdsOfficerName" placeholder="Enter the name of the recommending OIC-ASDS" required>
+                    </div>
+                    
+                    <!-- Signature Section -->
+                    <div class="asds-signature-section">
+                        <label>Signature: <span class="required-star">*</span></label>
+                        <canvas id="asdsSignaturePad" class="asds-signature-canvas" width="400" height="100"></canvas>
+                        <div class="asds-signature-controls">
+                            <button type="button" onclick="clearAsdsSignature()">🗑️ Clear</button>
+                            <button type="button" onclick="document.getElementById('asdsSignatureUpload').click()">📁 Upload Image</button>
+                            <input type="file" id="asdsSignatureUpload" class="asds-upload-input" accept="image/*" onchange="uploadAsdsSignature(event)">
+                        </div>
+                        <div id="asdsSignatureError" class="asds-signature-error">Signature is required</div>
+                    </div>
+                </div>
+                
+                <!-- Recommendation Options -->
+                <div class="asds-form-section">
+                    <div class="asds-form-section-title">Recommendation <span class="required-star">*</span></div>
+                    
+                    <div class="asds-radio-group">
+                        <label style="border-color: #4caf50;">
+                            <input type="radio" name="asdsRecommendation" value="approve">
+                            <span style="color: #2e7d32;">✓ Recommend for Approval and forward to SDS</span>
+                        </label>
+                        <label style="border-color: #ff9800;">
+                            <input type="radio" name="asdsRecommendation" value="return">
+                            <span style="color: #e65100;">↩️ Return for Compliance (lacking documents)</span>
+                        </label>
+                        <label style="border-color: #f44336;">
+                            <input type="radio" name="asdsRecommendation" value="disapprove">
+                            <span style="color: #c62828;">✗ Recommend for Disapproval</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Remarks (for return/disapprove) -->
+                <div class="asds-form-section" id="asdsRemarksSection" style="display: none;">
+                    <div class="asds-form-section-title">Reason/Remarks <span class="required-star">*</span></div>
+                    <div class="asds-form-group">
+                        <textarea id="asdsRemarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;" placeholder="Enter reason for returning or disapproving..."></textarea>
+                    </div>
+                </div>
+                
+                <button type="submit" class="asds-btn-submit" id="asdsSubmitBtn">
+                    📤 Submit Recommendation
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alert Modal for Validation Errors -->
+    <div id="alertModal" class="alert-modal">
+        <div class="alert-modal-content">
+            <div class="alert-modal-header">
+                <span class="alert-icon">⚠️</span>
+                <span id="alertModalTitle">Required Fields Missing</span>
+            </div>
+            <div class="alert-modal-body" id="alertModalBody">
+                Please fill in all required fields.
+            </div>
+            <div class="alert-modal-footer">
+                <button class="alert-modal-btn" onclick="closeAlertModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let applications = [];
+        let currentAppId = null;
+        let currentStatusFilter = 'all';
+        let currentSearchQuery = '';
+        
+        // Get logged in user's name
+        function getLoggedInUserName() {
+            try {
+                const asdsUser = JSON.parse(localStorage.getItem('asdsUser') || '{}');
+                return asdsUser.fullName || asdsUser.name || 'ASDS Officer';
+            } catch (e) {
+                return 'ASDS Officer';
+            }
+        }
+
+        // Define getLeaveTypeLabel function early so it's available for all functions
+        function getLeaveTypeLabel(leaveType) {
+            const labels = {
+                'leave_vl': 'Vacation Leave',
+                'leave_sl': 'Sick Leave',
+                'leave_spl': 'Special Privilege',
+                'leave_ml': 'Maternity Leave',
+                'leave_pl': 'Paternity Leave',
+                'leave_mfl': 'Mandatory Leave',
+                'leave_solo': 'Solo Parent Leave',
+                'leave_study': 'Study Leave',
+                'leave_vawc': 'VAWC Leave',
+                'leave_rehab': 'Rehabilitation Leave',
+                'leave_women': 'Women Benefits',
+                'leave_calamity': 'Calamity Leave',
+                'leave_adoption': 'Adoption Leave'
+            };
+            return labels[leaveType] || leaveType || 'N/A';
+        }
+
+        // Search and Filter Functions
+        function setStatusFilter(status) {
+            currentStatusFilter = status;
+            
+            // Update button styles
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                if (status === 'all') {
+                    buttons[0].classList.add('active');
+                    buttons[0].style.background = '#667eea';
+                    buttons[0].style.color = 'white';
+                } else if (btn.textContent.toLowerCase().includes(status)) {
+                    btn.classList.add('active');
+                    const color = btn.style.borderColor;
+                    btn.style.background = color;
+                    btn.style.color = 'white';
+                }
+                
+                // Reset non-active buttons
+                if (!btn.classList.contains('active')) {
+                    btn.style.background = 'white';
+                    btn.style.color = btn.style.borderColor;
+                }
+            });
+            
+            filterApplications();
+        }
+
+        function filterApplications() {
+            const searchInput = document.getElementById('searchInput');
+            currentSearchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            
+            let filtered = applications;
+            
+            // Filter by search query
+            if (currentSearchQuery) {
+                filtered = filtered.filter(app => {
+                    const name = (app.employeeName || '').toLowerCase();
+                    return name.includes(currentSearchQuery);
+                });
+            }
+            
+            // Filter by status
+            if (currentStatusFilter !== 'all') {
+                filtered = filtered.filter(app => {
+                    const status = (app.status || 'pending').toLowerCase();
+                    const currentApprover = (app.currentApprover || '').toUpperCase();
+                    
+                    if (currentStatusFilter === 'approved') {
+                        // Show fully approved OR forwarded to SDS
+                        return status === 'approved' || (currentApprover === 'SDS' && app.asdsApprovedAt);
+                    } else if (currentStatusFilter === 'rejected') {
+                        return status === 'rejected';
+                    } else if (currentStatusFilter === 'pending') {
+                        // Show only applications pending ASDS review
+                        return currentApprover === 'ASDS' && status !== 'approved' && status !== 'rejected';
+                    }
+                    return true;
+                });
+            }
+            
+            // Update results count
+            const resultsCount = document.getElementById('resultsCount');
+            if (resultsCount) {
+                let countText = `Showing ${filtered.length} `;
+                if (filtered.length === 1) {
+                    countText += 'application';
+                } else {
+                    countText += 'applications';
+                }
+                if (currentSearchQuery) {
+                    countText += ` matching "${currentSearchQuery}"`;
+                }
+                resultsCount.textContent = countText;
+            }
+            
+            renderFilteredApplications(filtered);
+        }
+
+        function renderFilteredApplications(appsToRender) {
+            const tbody = document.getElementById('applicationsBody');
+
+            if (appsToRender.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 50px; color: #999; font-style: italic;">No applications found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = appsToRender.map(app => {
+                const status = (app.status || 'pending').toLowerCase();
+                const currentApprover = (app.currentApprover || '').toUpperCase();
+                const isApproved = status === 'approved';
+                const isRejected = status === 'rejected';
+                const isForwardedToSDS = currentApprover === 'SDS' && app.asdsApprovedAt;
+                const isPendingAsds = currentApprover === 'ASDS';
+                
+                // Safely encode the app.id for use in onclick handlers
+                const safeId = typeof app.id === 'string' ? "'" + app.id.replace(/'/g, "\\'") + "'" : app.id;
+                
+                let statusBadge;
+                if (isApproved) {
+                    statusBadge = '<span class="status-badge" style="background: #4caf50; color: white;">✓ APPROVED</span>';
+                } else if (isRejected) {
+                    statusBadge = '<span class="status-badge" style="background: #e53935; color: white;">✗ REJECTED</span>';
+                } else if (isForwardedToSDS) {
+                    statusBadge = '<span class="status-badge" style="background: #1e88e5; color: white;">→ TO SDS</span>';
+                } else if (isPendingAsds) {
+                    statusBadge = '<span class="status-badge" style="background: #fb8c00; color: white;">⏳ PENDING</span>';
+                } else {
+                    statusBadge = '<span class="status-badge" style="background: #757575; color: white;">PENDING</span>';
+                }
+                
+                let actionButtons;
+                if (isApproved || isRejected) {
+                    actionButtons = `<div class="action-cell"><button class="btn btn-view" onclick="viewDetails(${safeId})">👁️</button></div>`;
+                } else if (isForwardedToSDS) {
+                    actionButtons = `<div class="action-cell">
+                        <button class="btn btn-view" onclick="viewDetails(${safeId})">👁️</button>
+                        <span class="awaiting-text">Awaiting</span>
+                    </div>`;
+                } else {
+                    actionButtons = `<div class="action-cell">
+                        <button class="btn btn-view" onclick="viewDetails(${safeId})">👁️</button>
+                        <button class="btn btn-recommend" onclick="openAsdsApprovalModal(${safeId})">📋</button>
+                    </div>`;
+                }
+                
+                // Format dates nicely - compact format
+                const dateFrom = app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
+                const dateTo = app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
+                const filedDate = app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
+                
+                return `
+                    <tr>
+                        <td title="${app.employeeName || 'N/A'}">${app.employeeName || 'N/A'}</td>
+                        <td><span style="background: #f3e5f5; color: #7b1fa2; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;">${getLeaveTypeLabel(app.leaveType)}</span></td>
+                        <td>${dateFrom}</td>
+                        <td>${dateTo}</td>
+                        <td style="text-align: center; font-weight: 600;">${app.numDays || 0}</td>
+                        <td>${statusBadge}</td>
+                        <td>${filedDate}</td>
+                        <td>${actionButtons}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Load applications on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            loadAllApplications();
+            loadDemographics();
+        });
+
+        async function loadDemographics() {
+            try {
+                const usersResponse = await fetch('/api/all-users');
+                const appsResponse = await fetch('/api/all-applications');
+
+                const usersData = await usersResponse.json();
+                const appsData = await appsResponse.json();
+
+                const users = (usersData && usersData.users) ? usersData.users : [];
+                const allApps = (appsData && appsData.applications) ? appsData.applications : [];
+
+                // Count users by department
+                const departmentCounts = {};
+                users.forEach(user => {
+                    const dept = user.office || user.school || 'Unknown';
+                    departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
+                });
+
+                // Count applications by status
+                const statusCounts = { 'Approved': 0, 'Pending': 0, 'Rejected': 0 };
+                const leaveTypeCounts = {};
+                const schoolMonthlyData = {};
+                const employeeLeaveCounts = {};
+                const currentYear = new Date().getFullYear();
+
+                allApps.forEach(app => {
+                    const status = app.status || 'Pending';
+                    if (status.includes('approved')) statusCounts['Approved']++;
+                    else if (status.includes('rejected')) statusCounts['Rejected']++;
+                    else statusCounts['Pending']++;
+
+                    const leaveType = getLeaveTypeLabel(app.leaveType) || 'Other';
+                    leaveTypeCounts[leaveType] = (leaveTypeCounts[leaveType] || 0) + 1;
+
+                    // Count by school/office and month for heatmap
+                    const school = app.office || app.school || 'Unknown';
+                    if (!schoolMonthlyData[school]) {
+                        schoolMonthlyData[school] = new Array(12).fill(0);
+                    }
+                    if (app.dateFrom) {
+                        const date = new Date(app.dateFrom);
+                        if (!isNaN(date.getTime())) {
+                            const month = date.getMonth();
+                            schoolMonthlyData[school][month]++;
+
+                            // Count employee leave for current year only
+                            if (date.getFullYear() === currentYear) {
+                                const empName = app.employeeName || 'Unknown';
+                                employeeLeaveCounts[empName] = (employeeLeaveCounts[empName] || 0) + 1;
+                            }
+                        }
+                    }
+                });
+
+                // Calculate top 5 leave takers for current year
+                const top5LeaveTakers = Object.entries(employeeLeaveCounts)
+                    .map(([name, count]) => ({ name, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 5);
+
+                // Update statistics
+                document.getElementById('totalUsers').textContent = users.length;
+                document.getElementById('totalApplications').textContent = allApps.length;
+                document.getElementById('approvedApps').textContent = statusCounts['Approved'];
+                document.getElementById('pendingApps').textContent = statusCounts['Pending'];
+
+                // Create variety of charts
+                createBarChart('departmentBars', departmentCounts, ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']);
+                createDonutChart('statusDonut', statusCounts, ['#4CAF50', '#FF9800', '#F44336']);
+                createVerticalBarChart('leaveTypeBars', leaveTypeCounts, ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']);
+                createTop5Chart('topLeaveTakers', top5LeaveTakers);
+
+                // Create heatmap chart for school trends
+                createHeatmapChart('schoolTrendsHeatmap', schoolMonthlyData, '#667eea');
+            } catch (error) {
+                console.error('Error loading demographics:', error);
+            }
+        }
+
+        function createBarChart(containerId, data, colors) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const entries = Object.entries(data);
+            if (entries.length === 0) {
+                container.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">No data available</div>';
+                return;
+            }
+
+            const maxValue = Math.max(...Object.values(data));
+            let html = '';
+
+            entries.forEach(([label, value], index) => {
+                const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                const color = colors[index % colors.length];
+                html += `
+                    <div class="bar-item">
+                        <div class="bar-label" title="${label}">${label}</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: ${percentage}%; background: ${color};">
+                                <span class="bar-value">${value}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function createDonutChart(containerId, data, colors) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const entries = Object.entries(data);
+            const total = Object.values(data).reduce((a, b) => a + b, 0);
+
+            if (total === 0) {
+                container.innerHTML = '<div style="color: #999; text-align: center; padding: 40px;">No data available</div>';
+                return;
+            }
+
+            // Create SVG donut segments
+            const radius = 47;
+            const circumference = 2 * Math.PI * radius;
+            let offset = 0;
+            let segments = '';
+
+            entries.forEach(([label, value], index) => {
+                const percentage = (value / total) * 100;
+                const strokeLength = (percentage / 100) * circumference;
+                const color = colors[index % colors.length];
+                segments += `<circle class="donut-segment" cx="60" cy="60" r="${radius}" 
+                    stroke="${color}" 
+                    stroke-dasharray="${strokeLength} ${circumference}" 
+                    stroke-dashoffset="-${offset}"/>`;
+                offset += strokeLength;
+            });
+
+            // Create legend
+            let legend = entries.map(([label, value], index) => `
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${colors[index % colors.length]}"></div>
+                    <span class="legend-text">${label}</span>
+                    <span class="legend-value">${value}</span>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="donut-ring">
+                    <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e0e0e0" stroke-width="25"/>
+                        ${segments}
+                    </svg>
+                    <div class="donut-center">
+                        <div class="donut-total">${total}</div>
+                        <div class="donut-label">Total</div>
+                    </div>
+                </div>
+                <div class="donut-legend">${legend}</div>
+            `;
+        }
+
+        function createVerticalBarChart(containerId, data, colors) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const entries = Object.entries(data);
+            if (entries.length === 0) {
+                container.innerHTML = '<div style="color: #999; text-align: center; padding: 40px;">No data available</div>';
+                return;
+            }
+
+            const maxValue = Math.max(...Object.values(data));
+            let html = '';
+
+            entries.forEach(([label, value], index) => {
+                const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                const color = colors[index % colors.length];
+                // Shorten label for display
+                const shortLabel = label.length > 8 ? label.substring(0, 7) + '...' : label;
+                html += `
+                    <div class="vbar-item" title="${label}: ${value}">
+                        <div class="vbar-container">
+                            <div class="vbar-fill" style="height: ${percentage}%; background: ${color};">
+                                <span class="vbar-value">${value}</span>
+                            </div>
+                        </div>
+                        <div class="vbar-label">${shortLabel}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function createHeatmapChart(containerId, schoolData, baseColor) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const schools = Object.keys(schoolData);
+
+            if (schools.length === 0) {
+                container.innerHTML = '<div style="color: #999; text-align: center; padding: 40px;">No data available</div>';
+                return;
+            }
+
+            // Find max value for color intensity
+            let maxValue = 0;
+            schools.forEach(school => {
+                const max = Math.max(...schoolData[school]);
+                if (max > maxValue) maxValue = max;
+            });
+            if (maxValue === 0) maxValue = 1;
+
+            // Sort schools by total applications
+            const sortedSchools = schools.sort((a, b) => {
+                const totalA = schoolData[a].reduce((sum, val) => sum + val, 0);
+                const totalB = schoolData[b].reduce((sum, val) => sum + val, 0);
+                return totalB - totalA;
+            });
+
+            // Color gradient function (blue-purple for ASDS)
+            function getColor(value) {
+                if (value === 0) return '#f0f0f0';
+                const intensity = Math.min(value / maxValue, 1);
+                const colors = [
+                    { r: 230, g: 235, b: 250 },  // Light blue
+                    { r: 102, g: 126, b: 234 }   // Blue-purple
+                ];
+                const r = Math.round(colors[0].r + (colors[1].r - colors[0].r) * intensity);
+                const g = Math.round(colors[0].g + (colors[1].g - colors[0].g) * intensity);
+                const b = Math.round(colors[0].b + (colors[1].b - colors[0].b) * intensity);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            // Build table header
+            let headerRow = '<tr><th class="school-header">School/Office</th>';
+            months.forEach(m => {
+                headerRow += `<th>${m}</th>`;
+            });
+            headerRow += '<th>Total</th></tr>';
+
+            // Build table rows
+            let rows = '';
+            sortedSchools.forEach(school => {
+                const total = schoolData[school].reduce((sum, val) => sum + val, 0);
+                const shortName = school.length > 25 ? school.substring(0, 24) + '...' : school;
+                rows += `<tr><td class="school-name" title="${school}">${shortName}</td>`;
+                schoolData[school].forEach((val, monthIndex) => {
+                    const color = getColor(val);
+                    const textColor = val > maxValue * 0.5 ? '#fff' : '#333';
+                    rows += `<td><span class="heatmap-cell" 
+                        style="background: ${color}; color: ${textColor}; cursor: pointer;" 
+                        data-school="${school}" 
+                        data-month="${monthIndex}" 
+                        onclick="showHeatmapDetails('${school.replace(/'/g, "\\'")}', ${monthIndex}, '${months[monthIndex]}')">${val || '-'}</span></td>`;
+                });
+                rows += `<td><strong>${total}</strong></td></tr>`;
+            });
+
+            container.innerHTML = `
+                <table class="heatmap-table">
+                    <thead>${headerRow}</thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div class="heatmap-legend">
+                    <span>Low</span>
+                    <div class="legend-scale">
+                        <div class="legend-block" style="background: #f0f0f0;"></div>
+                        <div class="legend-block" style="background: #e6ebfa;"></div>
+                        <div class="legend-block" style="background: #b4c4f0;"></div>
+                        <div class="legend-block" style="background: #8499e5;"></div>
+                        <div class="legend-block" style="background: #667eea;"></div>
+                    </div>
+                    <span>High</span>
+                </div>
+            `;
+        }
+
+        function showHeatmapDetails(school, monthIndex, monthName) {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            // Get all applications from the current dataset
+            fetch('/api/all-applications')
+                .then(res => res.json())
+                .then(data => {
+                    const allApps = (data && data.applications) ? data.applications : [];
+                    const currentYear = new Date().getFullYear();
+                    
+                    // Filter applications for this school and month
+                    const applicants = allApps.filter(app => {
+                        if (!app.dateFrom) return false;
+                        const date = new Date(app.dateFrom);
+                        if (isNaN(date.getTime())) return false;
+                        
+                        const appSchool = app.office || app.school || 'Unknown';
+                        const appMonth = date.getMonth();
+                        const appYear = date.getFullYear();
+                        
+                        return appSchool === school && appMonth === monthIndex && appYear === currentYear;
+                    }).slice(0, 5); // Get first 5
+
+                    // Show modal with details
+                    const modalBody = document.getElementById('modalBody');
+                    const modalFooter = document.getElementById('modalFooter');
+                    
+                    let applicantsList = '<div class="heatmap-details">';
+                    if (applicants.length === 0) {
+                        applicantsList += '<p style="color: #999; text-align: center; padding: 20px;">No applicants found for this period</p>';
+                    } else {
+                        applicantsList += `<h4 style="margin-bottom: 15px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Applicants - ${school} (${months[monthIndex]} ${currentYear})</h4>`;
+                        applicantsList += '<div style="max-height: 400px; overflow-y: auto;">';
+                        applicants.forEach((app, index) => {
+                            applicantsList += `
+                                <div style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: bold; color: #333;">${index + 1}. ${app.employeeName || 'N/A'}</div>
+                                        <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                                            <strong>Leave Type:</strong> ${getLeaveTypeLabel(app.leaveType)}<br>
+                                            <strong>Days:</strong> ${app.numDays || 0}<br>
+                                            <strong>Dates:</strong> ${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        applicantsList += '</div>';
+                    }
+                    applicantsList += '</div>';
+                    
+                    modalBody.innerHTML = applicantsList;
+                    modalFooter.innerHTML = '<button class="btn" onclick="closeModal();" style="background: #667eea; color: white;">Close</button>';
+                    document.getElementById('detailsModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error loading heatmap details:', error);
+                    alert('Error loading applicant details');
+                });
+        }
+
+        function createTop5Chart(containerId, data) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Update current year display
+            const currentYear = new Date().getFullYear();
+            const yearSpan = document.getElementById('currentYear');
+            if (yearSpan) yearSpan.textContent = currentYear;
+
+            if (data.length === 0) {
+                container.innerHTML = '<div style="color: #999; text-align: center; padding: 40px;">No leave data for this year</div>';
+                return;
+            }
+
+            const rankEmojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+            const rankClasses = ['gold', 'silver', 'bronze', '', ''];
+
+            let html = '';
+            data.forEach((item, index) => {
+                const rankClass = rankClasses[index] || '';
+                html += `
+                    <div class="top-5-item ${rankClass}">
+                        <span class="top-5-rank">${rankEmojis[index]}</span>
+                        <span class="top-5-name" title="${item.name}">${item.name}</span>
+                        <span class="top-5-count">${item.count} leave${item.count > 1 ? 's' : ''}</span>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function loadAllApplications() {
+            try {
+                // Load all applications to filter by ASDS-related status
+                const allAppsResponse = await fetch('/api/all-applications');
+                const allAppsResult = await allAppsResponse.json();
+                
+                const allApps = allAppsResult.applications || [];
+                
+                // Filter for ASDS-relevant applications:
+                // 1. Pending for ASDS review (currentApprover === 'ASDS')
+                // 2. Forwarded to SDS (currentApprover === 'SDS' and has ASDS approval)
+                // 3. Fully approved (status === 'approved')
+                // 4. Rejected (status === 'rejected')
+                applications = allApps.filter(app => {
+                    const currentApprover = (app.currentApprover || '').toUpperCase();
+                    const status = (app.status || '').toLowerCase();
+                    
+                    // Show if pending for ASDS
+                    if (currentApprover === 'ASDS') return true;
+                    
+                    // Show if forwarded to SDS (ASDS already approved)
+                    if (currentApprover === 'SDS' && app.asdsApprovedAt) return true;
+                    
+                    // Show if finally approved (whole workflow complete)
+                    if (status === 'approved') return true;
+                    
+                    // Show if rejected (by any approver including ASDS)
+                    if (status === 'rejected') return true;
+                    
+                    return false;
+                });
+                
+                renderApplications();
+                updateStats();
+            } catch (error) {
+                console.error('Error loading applications:', error);
+            }
+        }
+
+        function updateStats() {
+            const pendingCount = applications.filter(a => (a.currentApprover || '').toUpperCase() === 'ASDS').length;
+            const approvedCount = applications.filter(a => a.asdsApprovedAt).length;
+            document.getElementById('pendingCount').textContent = pendingCount;
+            document.getElementById('approvedCount').textContent = approvedCount;
+        }
+
+        function renderApplications() {
+            filterApplications();
+        }
+
+        async function loadApplications() {
+            // This is now handled by loadAllApplications - keeping for compatibility
+            await loadAllApplications();
+        }
+
+        function viewDetails(appId) {
+            const app = applications.find(a => a.id === appId);
+            if (!app) return;
+
+            currentAppId = appId;
+            
+            // Parse name
+            const nameParts = (app.employeeName || '').split(',');
+            const lastName = nameParts[0]?.trim() || '';
+            const firstMiddle = nameParts[1]?.trim().split(' ') || [];
+            const firstName = firstMiddle[0] || '';
+            const middleName = firstMiddle.slice(1).join(' ') || '';
+            
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="leave-form-view" id="printableForm">
+                    <style>
+                        .leave-form-view { font-family: Arial, sans-serif; font-size: 11px; line-height: 1.4; background: white; padding: 15px; }
+                        .form-view-header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                        .form-view-header h3 { font-size: 14px; margin: 5px 0; }
+                        .form-view-title { text-align: center; font-weight: bold; font-size: 14px; margin: 15px 0; background: #f0f0f0; padding: 8px; border: 1px solid #000; }
+                        .form-view-row { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                        .form-view-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
+                        .form-view-cell { padding: 8px; border-right: 1px solid #000; }
+                        .form-view-cell:last-child { border-right: none; }
+                        .form-view-cell label { font-weight: bold; font-size: 9px; color: #333; display: block; margin-bottom: 3px; }
+                        .form-view-cell .value { font-size: 12px; color: #000; font-weight: 500; }
+                        .form-view-section { background: #f5f5f5; padding: 8px; font-weight: bold; font-size: 10px; text-align: center; border: 1px solid #000; border-top: none; }
+                        .form-view-details { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                        .form-view-column { padding: 10px; font-size: 10px; }
+                        .form-view-column:first-child { border-right: 1px solid #000; }
+                        .form-view-column h4 { font-size: 10px; margin-bottom: 8px; text-decoration: underline; }
+                        .leave-type-item { display: flex; align-items: flex-start; margin-bottom: 4px; }
+                        .leave-type-item .checkbox { width: 14px; height: 14px; border: 1px solid #000; margin-right: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+                        .leave-type-item .checkbox.checked { background: #4caf50; color: white; }
+                        .credits-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9px; }
+                        .credits-table th, .credits-table td { border: 1px solid #000; padding: 5px; text-align: center; }
+                        .credits-table th { background: #f0f0f0; }
+                        .approval-history { margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px; }
+                    </style>
+                    
+                    <div class="form-view-header">
+                        <p style="font-style: italic;">Republic of the Philippines</p>
+                        <h3>Department of Education</h3>
+                        <p>NEGROS ISLAND REGION</p>
+                        <p style="font-weight: bold;">SCHOOLS DIVISION OF SIPALAY CITY</p>
+                    </div>
+                    
+                    <div class="form-view-title">APPLICATION FOR LEAVE</div>
+                    
+                    <div class="form-view-row" style="border-top: 1px solid #000;">
+                        <div class="form-view-cell">
+                            <label>1. OFFICE/DEPARTMENT/SCHOOL</label>
+                            <div class="value">${app.office || 'N/A'}</div>
+                        </div>
+                        <div class="form-view-cell">
+                            <label>2. NAME (Last, First, Middle)</label>
+                            <div class="value">${lastName}, ${firstName} ${middleName}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-view-row three-col">
+                        <div class="form-view-cell">
+                            <label>3. DATE OF FILING</label>
+                            <div class="value">${app.dateOfFiling || 'N/A'}</div>
+                        </div>
+                        <div class="form-view-cell">
+                            <label>4. POSITION</label>
+                            <div class="value">${app.position || 'N/A'}</div>
+                        </div>
+                        <div class="form-view-cell">
+                            <label>5. SALARY</label>
+                            <div class="value">${app.salary || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-view-section">6. DETAILS OF APPLICATION</div>
+                    
+                    <div class="form-view-details">
+                        <div class="form-view-column">
+                            <h4>6.A TYPE OF LEAVE</h4>
+                            <div class="leave-type-item">
+                                <div class="checkbox checked">✓</div>
+                                <span><strong>${getLeaveTypeLabel(app.leaveType)}</strong></span>
+                            </div>
+                        </div>
+                        <div class="form-view-column">
+                            <h4>6.C & D DETAILS</h4>
+                            <div class="value"><strong>Days:</strong> ${app.numDays || 0}</div>
+                            <div class="value"><strong>From:</strong> ${app.dateFrom || 'N/A'}</div>
+                            <div class="value"><strong>To:</strong> ${app.dateTo || 'N/A'}</div>
+                            <div class="value"><strong>Commutation:</strong> ${app.commutation === 'requested' ? 'Requested' : 'Not Requested'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-view-section">7. LEAVE CREDITS</div>
+                    <div style="padding: 10px; border: 1px solid #000; border-top: none;">
+                        <table class="credits-table">
+                            <tr>
+                                <th></th>
+                                <th>Vacation Leave</th>
+                                <th>Sick Leave</th>
+                            </tr>
+                            <tr>
+                                <td>Total Earned</td>
+                                <td>${app.vlEarned || '0.000'}</td>
+                                <td>${app.slEarned || '0.000'}</td>
+                            </tr>
+                            <tr>
+                                <td>Less this Application</td>
+                                <td>${app.vlLess || '0'}</td>
+                                <td>${app.slLess || '0'}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Balance</strong></td>
+                                <td><strong>${app.vlBalance || '0.000'}</strong></td>
+                                <td><strong>${app.slBalance || '0.000'}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    ${app.approvalHistory && app.approvalHistory.length > 0 ? `
+                    <div class="approval-history">
+                        <h4 style="margin-bottom: 8px; font-size: 11px;">Approval History</h4>
+                        ${app.approvalHistory.map(h => `
+                            <div style="font-size: 10px; padding: 5px; border-bottom: 1px solid #e0e0e0;">
+                                <strong>${h.portal}</strong>: ${h.action} on ${new Date(h.timestamp).toLocaleString()}
+                                ${h.remarks ? '<br><em>Remarks: ' + h.remarks + '</em>' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            document.getElementById('modalFooter').innerHTML = `
+                <button class="btn" style="background: #666;" onclick="printLeaveForm()">🖨️ Print</button>
+                <button class="btn btn-recommend" onclick="closeModal(); openAsdsApprovalModal(${appId});">📋 Review & Recommend</button>
+            `;
+
+            document.getElementById('detailsModal').classList.add('active');
+        }
+
+        function printLeaveForm() {
+            const printContent = document.getElementById('printableForm').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write('<html><head><title>Leave Application</title></head><body>' + printContent + '</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        function closeModal() {
+            document.getElementById('detailsModal').classList.remove('active');
+        }
+
+        // ========== ASDS APPROVAL MODAL FUNCTIONS ==========
+        let asdsSignatureCanvas = null;
+        let asdsSignatureCtx = null;
+        let asdsIsDrawing = false;
+        let currentAsdsAppId = null;
+
+        function openAsdsApprovalModal(appId) {
+            const app = applications.find(a => a.id === appId);
+            if (!app) return;
+
+            currentAsdsAppId = appId;
+
+            // Populate applicant info
+            document.getElementById('asdsApplicantName').textContent = app.employeeName || 'N/A';
+            document.getElementById('asdsLeaveType').textContent = getLeaveTypeLabel(app.leaveType);
+            document.getElementById('asdsLeaveDates').textContent = `${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'}`;
+            document.getElementById('asdsLeaveDays').textContent = app.numDays || '0';
+
+            // Reset form
+            document.getElementById('asdsApprovalForm').reset();
+            document.getElementById('asdsRemarksSection').style.display = 'none';
+            clearAsdsSignature();
+
+            // Initialize signature pad
+            initAsdsSignaturePad();
+
+            // Add change listener for recommendation radio buttons
+            document.querySelectorAll('input[name="asdsRecommendation"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const remarksSection = document.getElementById('asdsRemarksSection');
+                    if (this.value === 'return' || this.value === 'disapprove') {
+                        remarksSection.style.display = 'block';
+                    } else {
+                        remarksSection.style.display = 'none';
+                    }
+                });
+            });
+
+            document.getElementById('asdsApprovalModal').classList.add('active');
+        }
+
+        function closeAsdsApprovalModal() {
+            document.getElementById('asdsApprovalModal').classList.remove('active');
+            currentAsdsAppId = null;
+        }
+
+        function initAsdsSignaturePad() {
+            asdsSignatureCanvas = document.getElementById('asdsSignaturePad');
+            if (!asdsSignatureCanvas) return;
+
+            asdsSignatureCtx = asdsSignatureCanvas.getContext('2d');
+
+            // Resize canvas to match displayed size - use setTimeout to ensure modal is fully visible
+            setTimeout(() => {
+                resizeAsdsCanvas();
+            }, 100);
+
+            // Remove existing listeners to prevent duplicates
+            asdsSignatureCanvas.removeEventListener('mousedown', asdsStartDrawing);
+            asdsSignatureCanvas.removeEventListener('mousemove', asdsDraw);
+            asdsSignatureCanvas.removeEventListener('mouseup', asdsStopDrawing);
+            asdsSignatureCanvas.removeEventListener('mouseout', asdsStopDrawing);
+
+            // Set up drawing
+            asdsSignatureCanvas.addEventListener('mousedown', asdsStartDrawing);
+            asdsSignatureCanvas.addEventListener('mousemove', asdsDraw);
+            asdsSignatureCanvas.addEventListener('mouseup', asdsStopDrawing);
+            asdsSignatureCanvas.addEventListener('mouseout', asdsStopDrawing);
+
+            // Touch support
+            asdsSignatureCanvas.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const pos = getAsdsCanvasPos(touch.clientX, touch.clientY);
+                asdsIsDrawing = true;
+                asdsSignatureCtx.beginPath();
+                asdsSignatureCtx.moveTo(pos.x, pos.y);
+            });
+            asdsSignatureCanvas.addEventListener('touchmove', function(e) {
+                if (!asdsIsDrawing) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                const pos = getAsdsCanvasPos(touch.clientX, touch.clientY);
+                asdsSignatureCtx.lineTo(pos.x, pos.y);
+                asdsSignatureCtx.strokeStyle = '#000';
+                asdsSignatureCtx.lineWidth = 2;
+                asdsSignatureCtx.lineCap = 'round';
+                asdsSignatureCtx.stroke();
+            });
+            asdsSignatureCanvas.addEventListener('touchend', asdsStopDrawing);
+        }
+
+        function resizeAsdsCanvas() {
+            if (!asdsSignatureCanvas) return;
+            const rect = asdsSignatureCanvas.getBoundingClientRect();
+            // Only resize if canvas is visible (has dimensions)
+            if (rect.width > 0 && rect.height > 0) {
+                asdsSignatureCanvas.width = rect.width;
+                asdsSignatureCanvas.height = rect.height;
+            }
+        }
+
+        function getAsdsCanvasPos(clientX, clientY) {
+            const rect = asdsSignatureCanvas.getBoundingClientRect();
+            const scaleX = asdsSignatureCanvas.width / rect.width;
+            const scaleY = asdsSignatureCanvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function asdsStartDrawing(e) {
+            asdsIsDrawing = true;
+            const pos = getAsdsCanvasPos(e.clientX, e.clientY);
+            asdsSignatureCtx.beginPath();
+            asdsSignatureCtx.moveTo(pos.x, pos.y);
+        }
+
+        function asdsDraw(e) {
+            if (!asdsIsDrawing) return;
+            const pos = getAsdsCanvasPos(e.clientX, e.clientY);
+            asdsSignatureCtx.lineTo(pos.x, pos.y);
+            asdsSignatureCtx.strokeStyle = '#000';
+            asdsSignatureCtx.lineWidth = 2;
+            asdsSignatureCtx.lineCap = 'round';
+            asdsSignatureCtx.stroke();
+        }
+
+        function asdsStopDrawing() {
+            asdsIsDrawing = false;
+        }
+
+        function clearAsdsSignature() {
+            if (!asdsSignatureCanvas || !asdsSignatureCtx) {
+                asdsSignatureCanvas = document.getElementById('asdsSignaturePad');
+                if (asdsSignatureCanvas) asdsSignatureCtx = asdsSignatureCanvas.getContext('2d');
+            }
+            if (asdsSignatureCanvas && asdsSignatureCtx) {
+                asdsSignatureCtx.clearRect(0, 0, asdsSignatureCanvas.width, asdsSignatureCanvas.height);
+            }
+            const errorEl = document.getElementById('asdsSignatureError');
+            if (errorEl) errorEl.classList.remove('show');
+        }
+
+        function uploadAsdsSignature(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    if (!asdsSignatureCanvas || !asdsSignatureCtx) {
+                        asdsSignatureCanvas = document.getElementById('asdsSignaturePad');
+                        if (asdsSignatureCanvas) asdsSignatureCtx = asdsSignatureCanvas.getContext('2d');
+                    }
+                    if (asdsSignatureCanvas && asdsSignatureCtx) {
+                        asdsSignatureCtx.clearRect(0, 0, asdsSignatureCanvas.width, asdsSignatureCanvas.height);
+                        const scale = Math.min(asdsSignatureCanvas.width / img.width, asdsSignatureCanvas.height / img.height);
+                        const x = (asdsSignatureCanvas.width - img.width * scale) / 2;
+                        const y = (asdsSignatureCanvas.height - img.height * scale) / 2;
+                        asdsSignatureCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            const errorEl = document.getElementById('asdsSignatureError');
+            if (errorEl) errorEl.classList.remove('show');
+        }
+
+        function hasAsdsSignature() {
+            if (!asdsSignatureCanvas || !asdsSignatureCtx) return false;
+            const imageData = asdsSignatureCtx.getImageData(0, 0, asdsSignatureCanvas.width, asdsSignatureCanvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] !== 0) return true;
+            }
+            return false;
+        }
+
+        function getAsdsSignatureData() {
+            if (!asdsSignatureCanvas) return null;
+            return asdsSignatureCanvas.toDataURL('image/png');
+        }
+
+        function showAlertModal(message, title = 'Required Fields Missing') {
+            const modal = document.getElementById('alertModal');
+            const titleEl = document.getElementById('alertModalTitle');
+            const bodyEl = document.getElementById('alertModalBody');
+
+            titleEl.textContent = title;
+            bodyEl.innerHTML = message;
+            modal.style.display = 'block';
+        }
+
+        function closeAlertModal() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        async function submitAsdsRecommendation(event) {
+            event.preventDefault();
+
+            if (!currentAsdsAppId) {
+                showAlertModal('No application selected', 'Error');
+                return;
+            }
+
+            // Validate OIC-ASDS Name
+            const asdsOfficerName = document.getElementById('asdsOfficerName')?.value?.trim();
+            if (!asdsOfficerName) {
+                showAlertModal('❌ OIC-Assistant Schools Division Superintendent Name is required');
+                document.getElementById('asdsOfficerName')?.focus();
+                return;
+            }
+
+            // Validate Signature
+            if (!hasAsdsSignature()) {
+                showAlertModal('❌ Signature is required. Please draw or upload a signature.');
+                const errorEl = document.getElementById('asdsSignatureError');
+                if (errorEl) errorEl.classList.add('show');
+                document.getElementById('asdsSignaturePad')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            // Validate Recommendation
+            const recommendation = document.querySelector('input[name="asdsRecommendation"]:checked')?.value;
+            if (!recommendation) {
+                showAlertModal('❌ Please select a recommendation (Approve, Return, or Disapprove)');
+                return;
+            }
+
+            // Validate Remarks for return/disapprove
+            const remarks = document.getElementById('asdsRemarks')?.value?.trim() || '';
+            if ((recommendation === 'return' || recommendation === 'disapprove') && !remarks) {
+                showAlertModal('❌ Please provide a reason for ' + (recommendation === 'return' ? 'returning' : 'disapproving') + ' this application');
+                document.getElementById('asdsRemarks')?.focus();
+                return;
+            }
+
+            // Get signature data
+            const asdsOfficerSignature = getAsdsSignatureData();
+
+            // Disable submit button
+            const submitBtn = document.getElementById('asdsSubmitBtn');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                // Map recommendation to action
+                let apiAction;
+                if (recommendation === 'approve') apiAction = 'approved';
+                else if (recommendation === 'return') apiAction = 'returned';
+                else apiAction = 'rejected';
+
+                const response = await fetch('/api/approve-leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        applicationId: currentAsdsAppId,
+                        action: apiAction,
+                        approverPortal: 'ASDS',
+                        approverName: getLoggedInUserName(),
+                        remarks: recommendation === 'approve' ? 'Recommended for approval' : remarks,
+                        asdsOfficerName: asdsOfficerName,
+                        asdsOfficerSignature: asdsOfficerSignature
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    let successMsg;
+                    if (recommendation === 'approve') successMsg = '✓ Application recommended and forwarded to SDS for final approval!';
+                    else if (recommendation === 'return') successMsg = '✓ Application returned to HR for compliance!';
+                    else successMsg = '✓ Application recommended for disapproval!';
+
+                    alert(successMsg);
+                    closeAsdsApprovalModal();
+                    loadApplications();
+                } else {
+                    showAlertModal('Error: ' + (result.error || 'Unknown error'), 'Error');
+                }
+            } catch (error) {
+                showAlertModal('Error: ' + error.message, 'Error');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        // Keep legacy functions for compatibility
+        async function approveApp(appId) {
+            openAsdsApprovalModal(appId);
+        }
+
+        async function returnApp(appId) {
+            openAsdsApprovalModal(appId);
+        }
+
+        async function rejectApp(appId) {
+            openAsdsApprovalModal(appId);
+        }
+
+        async function processAction(appId, action, remarks = '') {
+            // This is now handled by submitAsdsRecommendation
+            openAsdsApprovalModal(appId);
+        }
+
+        function logout() {
+            document.getElementById('logoutModal').style.display = 'block';
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'none';
+        }
+
+        function confirmLogout() {
+            sessionStorage.removeItem('user');
+            window.location.href = '/asds-login';
+        }
+
+        // Close modal when clicking outside of it
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('logoutModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+            const detailsModal = document.getElementById('detailsModal');
+            if (event.target === detailsModal) {
+                closeModal();
+            }
+            const asdsApprovalModal = document.getElementById('asdsApprovalModal');
+            if (event.target === asdsApprovalModal) {
+                closeAsdsApprovalModal();
+            }
+            const alertModal = document.getElementById('alertModal');
+            if (event.target === alertModal) {
+                closeAlertModal();
+            }
+        });
+    </script>
+</body>
+</html>

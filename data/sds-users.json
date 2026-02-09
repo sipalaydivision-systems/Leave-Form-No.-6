@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1770019640694,
+    "email": "jenel.tiad@deped.gov.ph",
+    "password": "13d0da6c03bbdd41739de9144192aff80cfda4f2ae766b1dfd831f56a1480c50",
+    "firstName": "Jenel",
+    "lastName": "Tiad",
+    "middleName": "Timonan",
+    "fullName": "Tiad, Jenel Timonan",
+    "name": "Tiad, Jenel Timonan",
+    "position": "Assistant Schools Division Superintendent",
+    "salaryGrade": 25,
+    "step": 1,
+    "salary": 136705,
+    "office": "Schools Division of Sipalay City",
+    "role": "sds",
+    "createdAt": "2026-02-02T08:07:20.695Z"
+  }
+]

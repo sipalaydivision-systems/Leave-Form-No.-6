@@ -1,0 +1,66 @@
+{
+  "districts": [
+    {
+      "id": 1,
+      "name": "District 1",
+      "schools": [
+        {"id": "117348", "name": "AGRIPINO ALVAREZ ES"},
+        {"id": "117349", "name": "BANAG ES"},
+        {"id": "117350", "name": "BARANGAY V ES"},
+        {"id": "117365", "name": "BARASBARASAN ES"},
+        {"id": "117366", "name": "BAWOG ES"},
+        {"id": "180506", "name": "BINOTUSAN ES"},
+        {"id": "117367", "name": "BINULIG ES"},
+        {"id": "117368", "name": "BUNGABUNGA ES"},
+        {"id": "117351", "name": "CABADIANGAN ES"},
+        {"id": "117352", "name": "CALANGCANG ES"},
+        {"id": "117369", "name": "CALAT-AN ES"},
+        {"id": "117370", "name": "CAMBOGULOT ES"},
+        {"id": "306247", "name": "CAMBOGULOT NHS"},
+        {"id": "117371", "name": "CAMINDANGAN ES"},
+        {"id": "302636", "name": "CAMINDANGAN NHS"},
+        {"id": "117353", "name": "CANSAURO ES"},
+        {"id": "117354", "name": "CANTACA ES"},
+        {"id": "117372", "name": "CANTURAY ES"},
+        {"id": "117373", "name": "CARTAGENA ES"},
+        {"id": "117355", "name": "CAYHAGAN ES"},
+        {"id": "302665", "name": "CAYHAGAN NHS"},
+        {"id": "117374", "name": "CROSSING TANDUAY ES"},
+        {"id": "251032", "name": "DUNGGA IS"},
+        {"id": "502571", "name": "DUNG-LI IS"},
+        {"id": "117357", "name": "GENARO P. ALVAREZ ES"},
+        {"id": "117375", "name": "GENARO P. ALVAREZ ES II"},
+        {"id": "117358", "name": "GIL MONTILLA ES"},
+        {"id": "302832", "name": "GIL MONTILLA NHS - BINULIG EXT."},
+        {"id": "302834", "name": "GIL MONTILLA NHS - CABADIANGAN EXT."},
+        {"id": "302839", "name": "GIL MONTILLA NHS - CROSSING TANDUAY EXT."},
+        {"id": "302840", "name": "GIL MONTILLA NHS - MANLUCAHOC EXT."},
+        {"id": "117359", "name": "HDA. MARICALUM ES"},
+        {"id": "302837", "name": "JACINTO MONTILLA MNHS"},
+        {"id": "306494", "name": "LEDEGARIO PONCE GONZALES NHS"},
+        {"id": "503033", "name": "MACARANDAN IS"},
+        {"id": "117377", "name": "MANILUCAHOC ES"},
+        {"id": "302838", "name": "MARIANO GEMORA NHS"},
+        {"id": "117360", "name": "MARICALUM ES"},
+        {"id": "302666", "name": "MARICALUM FS"},
+        {"id": "502575", "name": "MAUBOY IS"},
+        {"id": "117362", "name": "NABULAO ES"},
+        {"id": "502664", "name": "NABULAO NHS"},
+        {"id": "117363", "name": "NAUHANG PS"},
+        {"id": "502573", "name": "OHAS IS"},
+        {"id": "117378", "name": "PATAG MAGBANUA ES"},
+        {"id": "302833", "name": "SIPALAY CITY NHS"},
+        {"id": "501802", "name": "TUGAS IS"},
+        {"id": "502575", "name": "VISTA ALEGRE IS"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "District 2",
+      "schools": [
+        {"id": "OSDS", "name": "OSDS"},
+        {"id": "SGOD", "name": "SGOD"}
+      ]
+    }
+  ]
+}

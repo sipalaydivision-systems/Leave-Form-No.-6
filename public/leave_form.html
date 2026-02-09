@@ -1,0 +1,2863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS Form No. 6 - Application for Leave</title>
+    <script src="/modal-alert.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #003366 0%, #004080 50%, #0059b3 100%);
+            padding: 20px;
+            line-height: 1.3;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        @media print {
+            * {
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+                width: 210mm;
+                height: 297mm;
+            }
+
+            .top-bar {
+                display: none !important;
+            }
+
+            .container {
+                max-width: 210mm;
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding: 10mm;
+                box-shadow: none;
+                border: 1px solid #000;
+                page-break-after: avoid;
+                box-sizing: border-box;
+                font-size: 10px;
+            }
+
+            .form-row, .two-column {
+                margin-bottom: 0;
+                padding-bottom: 0;
+            }
+
+            button {
+                display: none !important;
+            }
+            
+            .button-group {
+                display: none !important;
+            }
+
+            @page {
+                size: A4;
+                margin: 0;
+            }
+        }
+
+        @media screen {
+            .container {
+                max-width: 900px;
+            }
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 8px 8px 0 0;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .user-info {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background-color: #c62828;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .logout-btn:hover {
+            background-color: #941e1e;
+        }
+
+        /* Logout Modal Styles */
+        .logout-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-content {
+            background-color: #f9f9f9;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .logout-modal-body {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .logout-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .logout-modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .logout-confirm-btn {
+            background-color: #c62828;
+            color: white;
+        }
+
+        .logout-confirm-btn:hover {
+            background-color: #941e1e;
+        }
+
+        .logout-cancel-btn {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+
+        .logout-cancel-btn:hover {
+            background-color: #bdbdbd;
+        }
+
+        .dashboard-btn {
+            padding: 8px 16px;
+            background-color: #003366;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            margin-right: 8px;
+        }
+
+        .dashboard-btn:hover {
+            background-color: #001f40;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px 25px;
+            border: 1px solid #000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Header Section */
+        .header-wrapper {
+            margin-bottom: 10px;
+        }
+
+        .form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 5px;
+        }
+
+        .form-number {
+            font-size: 10px;
+            font-style: italic;
+        }
+
+        .stamp-box {
+            border: 1px solid #000;
+            padding: 8px 12px;
+            font-size: 9px;
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .letterhead {
+            text-align: center;
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .letterhead-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .letterhead-logo {
+            flex-shrink: 0;
+            margin-left: -70px;
+        }
+
+        .letterhead-text {
+            font-size: 11px;
+        }
+
+        .letterhead img {
+            width: 60px;
+            height: 60px;
+        }
+
+        .letterhead-text {
+            font-size: 11px;
+        }
+
+        .letterhead-text p {
+            margin: 1px 0;
+        }
+
+        .letterhead-text .agency {
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        .form-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+
+        /* Form Fields */
+        .info-row {
+            display: grid;
+            grid-template-columns: 1.5fr 2fr;
+            border: 1px solid #000;
+            border-bottom: none;
+        }
+
+        .info-row:first-of-type {
+            border-bottom: none !important;
+        }
+
+        .info-row:last-of-type {
+            border-bottom: 1px solid #000 !important;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .info-row.three-col {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .info-cell {
+            padding: 4px 8px;
+            border-right: 1px solid #000;
+            font-size: 10px;
+        }
+
+        .info-row:first-of-type .info-cell:first-child {
+            border-right: none;
+        }
+
+        .info-row.three-col .info-cell:first-child,
+        .info-row.three-col .info-cell:nth-child(2) {
+            border-right: none;
+        }
+
+        .info-cell:last-child {
+            border-right: none;
+        }
+
+        .info-cell label {
+            font-weight: bold;
+            display: inline;
+            margin-bottom: 0;
+            white-space: nowrap;
+            margin-right: 5px;
+        }
+
+        .info-cell input {
+            width: calc(100% - 80px);
+            border: none;
+            border-bottom: none;
+            padding: 2px 0;
+            font-size: 11px;
+            background: transparent;
+            display: inline-block;
+            vertical-align: baseline;
+        }
+
+        .info-cell input:focus {
+            outline: none;
+            border-bottom: 2px solid #003366;
+        }
+
+        input[type="date"] {
+            display: inline-block;
+            vertical-align: baseline;
+            width: auto;
+            border: none;
+            border-bottom: none;
+            padding: 2px 0;
+            font-size: 11px;
+            background: transparent;
+        }
+
+        input[type="date"]:focus {
+            outline: none;
+            border-bottom: 2px solid #003366;
+        }
+
+        .name-fields {
+            display: grid;
+            grid-template-columns: 2fr 2fr 2fr;
+            gap: 4px;
+        }
+
+        .name-input {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid #000;
+            padding: 2px 0;
+            font-size: 11px;
+            background: transparent;
+        }
+
+        .name-input:focus {
+            outline: none;
+            border-bottom: 2px solid #003366;
+        }
+
+        /* Section Headers */
+        .section-header {
+            background-color: #f0f0f0;
+            border: 1px solid #000;
+            padding: 5px 8px;
+            font-weight: bold;
+            font-size: 10px;
+            margin-top: 0;
+            text-align: center;
+        }
+
+        /* Two Column Layout for Section 6 */
+        .details-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border: 1px solid #000;
+            border-top: none;
+        }
+
+        .details-column {
+            padding: 8px;
+            font-size: 9px;
+        }
+
+        .details-column:first-child {
+            border-right: 1px solid #000;
+        }
+
+        .column-header {
+            font-weight: bold;
+            font-size: 9px;
+            margin-bottom: 6px;
+            text-decoration: underline;
+        }
+
+        .leave-option {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 3px;
+            font-size: 9px;
+        }
+
+        .leave-option input[type="checkbox"] {
+            margin-right: 5px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .leave-option span {
+            line-height: 1.3;
+        }
+
+        .leave-option small {
+            color: #666;
+            font-size: 8px;
+        }
+
+        .sub-section {
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin-bottom: 5px;
+            background: #fafafa;
+        }
+
+        .sub-section-title {
+            font-weight: bold;
+            font-size: 8px;
+            margin-bottom: 4px;
+            font-style: italic;
+        }
+
+        .sub-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2px;
+            font-size: 9px;
+        }
+
+        .sub-option input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        .sub-field {
+            margin-left: 20px;
+            margin-top: 2px;
+        }
+
+        .sub-field input {
+            width: 90%;
+            border: none;
+            border-bottom: 1px solid #000;
+            font-size: 9px;
+            padding: 2px;
+        }
+
+        .others-field {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+
+        .others-field span {
+            margin-right: 5px;
+            font-size: 9px;
+        }
+
+        .others-field input {
+            flex: 1;
+            border: none;
+            border-bottom: 1px solid #000;
+            font-size: 9px;
+            padding: 2px;
+        }
+
+        /* Section 6C and 6D */
+        .bottom-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border: 1px solid #000;
+            border-top: none;
+        }
+
+        .bottom-column {
+            padding: 8px;
+            font-size: 9px;
+        }
+
+        .bottom-column:first-child {
+            border-right: 1px solid #000;
+        }
+
+        .field-label {
+            font-weight: bold;
+            font-size: 9px;
+            margin-bottom: 4px;
+        }
+
+        .field-input {
+            width: 100%;
+            border: 1px solid #000;
+            padding: 4px;
+            font-size: 10px;
+            margin-bottom: 8px;
+        }
+
+        .commutation-options {
+            margin-top: 5px;
+        }
+
+        .commutation-options label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 3px;
+            font-size: 9px;
+        }
+
+        .commutation-options input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        .signature-area {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #000;
+            height: 25px;
+            margin-bottom: 3px;
+        }
+
+        .signature-label {
+            font-size: 8px;
+            font-style: italic;
+        }
+
+        .signature-label.required::before {
+            content: '* ';
+            color: red;
+            font-weight: bold;
+            margin-right: 3px;
+        }
+
+        .signature-error {
+            color: #c62828;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 5px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .signature-error.show {
+            display: block;
+        }
+
+        .signature-pad-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+
+        #signaturePad {
+            border: 1px solid #999;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto;
+            background-color: #fff;
+            touch-action: none;
+        }
+
+        #clearSignature {
+            padding: 5px 15px;
+            font-size: 9px;
+            background: #f0f0f0;
+            border: 1px solid #999;
+            cursor: pointer;
+            margin-top: 5px;
+            border-radius: 3px;
+        }
+
+        #clearSignature:hover {
+            background: #e0e0e0;
+        }
+
+        #uploadSignature {
+            padding: 5px 15px;
+            font-size: 9px;
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            cursor: pointer;
+            border-radius: 3px;
+            color: #1976D2;
+        }
+
+        #uploadSignature:hover {
+            background: #bbdefb;
+        }
+
+        .signature-buttons {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            margin-top: 5px;
+        }
+
+        #signatureUploadInput {
+            display: none;
+        }
+
+        @media print {
+            #uploadSignature,
+            #clearSignature,
+            #signatureUploadInput,
+            .signature-buttons {
+                display: none !important;
+            }
+        }
+
+        /* Section 7 */
+        .action-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border: 1px solid #000;
+            border-top: none;
+        }
+
+        .action-column {
+            padding: 8px;
+            font-size: 9px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-column:first-child {
+            border-right: 1px solid #000;
+        }
+
+        .credits-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            margin: 8px 0;
+        }
+
+        .credits-table th, .credits-table td {
+            border: 1px solid #000;
+            padding: 4px;
+            text-align: center;
+        }
+
+        .credits-table th {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .credits-table td:first-child {
+            text-align: left;
+            font-style: italic;
+        }
+
+        .credits-table input {
+            width: 100%;
+            border: none;
+            text-align: center;
+            font-size: 9px;
+            padding: 2px;
+        }
+
+        .officer-signature {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .officer-name {
+            font-weight: bold;
+            font-size: 10px;
+            margin-top: 20px;
+        }
+
+        .officer-title {
+            font-size: 8px;
+            color: #003366;
+        }
+
+        .recommendation-options label {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 5px;
+            font-size: 9px;
+        }
+
+        .recommendation-options input[type="checkbox"] {
+            margin-right: 5px;
+            margin-top: 2px;
+        }
+
+        .recommendation-input {
+            border: none;
+            border-bottom: 1px solid #000;
+            width: 40px;
+            text-align: center;
+            font-size: 9px;
+        }
+
+        /* Section 7C and 7D */
+        .approval-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border: 1px solid #000;
+            border-top: none;
+            border-bottom: none;
+        }
+
+        .approval-column {
+            padding: 8px;
+            font-size: 9px;
+        }
+
+        .approval-column:first-child {
+            border-right: none;
+        }
+
+        .approval-field {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+            font-size: 9px;
+        }
+
+        .approval-field input {
+            width: 50px;
+            border: none;
+            border-bottom: 1px solid #000;
+            margin-right: 5px;
+            text-align: center;
+            font-size: 9px;
+        }
+
+        .approval-field input:disabled {
+            background-color: #f5f5f5;
+            border-bottom-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        input[type="number"]:disabled,
+        input[type="text"]:disabled,
+        input[type="checkbox"]:disabled {
+            background-color: #f5f5f5;
+            border-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .disapproval-box {
+            width: 100%;
+            min-height: 40px;
+            border: 1px solid #000;
+            padding: 4px;
+            font-size: 9px;
+        }
+
+        .disapproval-input {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid #000;
+            padding: 4px;
+            font-size: 9px;
+            background: transparent;
+            margin-bottom: 2px;
+        }
+
+        .disapproval-input:focus {
+            outline: none;
+            border-bottom: 2px solid #003366;
+        }
+
+        .final-signature {
+            text-align: center;
+            padding: 15px;
+            border: 1px solid #000;
+            border-top: none;
+        }
+
+        .final-officer-name {
+            font-weight: bold;
+            font-size: 11px;
+            margin-top: 25px;
+            color: #003366;
+        }
+
+        .final-officer-title {
+            font-size: 9px;
+        }
+
+        /* Buttons */
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+        }
+
+        button {
+            padding: 10px 25px;
+            margin: 0 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        button.submit {
+            background-color: #28a745;
+            color: white;
+        }
+
+        button.submit:hover {
+            background-color: #218838;
+        }
+
+        button.reset {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        button.reset:hover {
+            background-color: #5a6268;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .info-row, .info-row.three-col {
+                grid-template-columns: 1fr;
+            }
+            
+            .info-cell {
+                border-right: none;
+                border-bottom: 1px solid #ccc;
+            }
+            
+            .details-section, .bottom-details, .action-section, .approval-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .details-column:first-child,
+            .bottom-column:first-child,
+            .action-column:first-child,
+            .approval-column:first-child {
+                border-right: none;
+                border-bottom: 1px solid #000;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .letterhead-content {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 500px) {
+            body {
+                padding: 10px;
+            }
+
+            .form-title {
+                font-size: 14px;
+            }
+
+            .leave-option, .sub-option {
+                font-size: 8px;
+            }
+
+            .credits-table {
+                font-size: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="user-info">
+        Welcome, <strong id="userName">User</strong>
+    </div>
+    <div>
+        <button class="dashboard-btn" onclick="window.location.href='/dashboard'">← Dashboard</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Header and Logo Container -->
+    <div class="header-wrapper">
+        <!-- Form Header -->
+        <div class="form-header">
+            <div class="form-number">
+                <strong>Civil Service Form No. 6</strong><br>
+                Revised 2020
+            </div>
+            <div class="stamp-box">Stamp of Date of Receipt</div>
+        </div>
+
+        <!-- Letterhead -->
+        <div class="letterhead">
+            <div class="letterhead-content">
+                <div class="letterhead-logo">
+                    <img src="/sipalay_logo.png" alt="Division Logo">
+                </div>
+                <div class="letterhead-text">
+                    <p style="font-style: italic;">Republic of the Philippines</p>
+                    <p class="agency">Department of Education</p>
+                    <p>NEGROS ISLAND REGION</p>
+                    <p style="font-weight: bold;">SCHOOLS DIVISION OF SIPALAY CITY</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-title">APPLICATION FOR LEAVE</div>
+
+    <!-- Form -->
+    <form id="leaveForm" novalidate>
+        <!-- Row 1: Office and Name -->
+        <div class="info-row">
+            <div class="info-cell">
+                <label>1. OFFICE/DEPARTMENT/SCHOOL</label>
+                <input type="text" name="office" id="office">
+            </div>
+            <div class="info-cell">
+                <label>2. NAME: <span style="font-weight:normal">(Last)</span> <span style="font-weight:normal">(First)</span> <span style="font-weight:normal">(Middle)</span></label>
+                <div class="name-fields">
+                    <input type="text" name="name_last" id="name_last" placeholder="Last" class="name-input">
+                    <input type="text" name="name_first" id="name_first" placeholder="First" class="name-input">
+                    <input type="text" name="name_middle" id="name_middle" placeholder="Middle" class="name-input">
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Date, Position, Salary -->
+        <div class="info-row three-col">
+            <div class="info-cell">
+                <label>3. DATE OF FILING</label>
+                <input type="date" name="date_filing" id="date_filing">
+            </div>
+            <div class="info-cell">
+                <label>4. POSITION</label>
+                <input type="text" name="position" id="position">
+            </div>
+            <div class="info-cell">
+                <label>5. SALARY</label>
+                <input type="text" name="salary" id="salary">
+            </div>
+        </div>
+
+        <!-- Section 6: Details of Application -->
+        <div class="section-header">6. DETAILS OF APPLICATION</div>
+
+        <div class="details-section">
+            <!-- Left Column: Type of Leave -->
+            <div class="details-column">
+                <div class="column-header">6.A TYPE OF LEAVE TO BE AVAILED OF</div>
+                
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_vl" id="leave_vl">
+                    <span>Vacation Leave <small>(Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_mfl" id="leave_mfl">
+                    <span>Mandatory/Forced Leave <small>(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_sl" id="leave_sl">
+                    <span>Sick Leave <small>(Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_ml" id="leave_ml">
+                    <span>Maternity Leave <small>(R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_pl" id="leave_pl">
+                    <span>Paternity Leave <small>(R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_spl" id="leave_spl">
+                    <span>Special Privilege Leave <small>(Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_soloparent" id="leave_solo">
+                    <span>Solo Parent Leave <small>(RA No. 8972 / CSC MC No. 8, s. 2004)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_study" id="leave_study">
+                    <span>Study Leave <small>(Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_vawc" id="leave_vawc">
+                    <span>10-Day VAWC Leave <small>(RA No. 9262 / CSC MC No. 15, s. 2005)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_rehab" id="leave_rehab">
+                    <span>Rehabilitation Privilege <small>(Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_womenslb" id="leave_women">
+                    <span>Special Leave Benefits for Women <small>(RA No. 9710 / CSC MC No. 25, s. 2010)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_calamity" id="leave_calamity">
+                    <span>Special Emergency (Calamity) Leave <small>(CSC MC No. 2, s. 2012, as amended)</small></span>
+                </div>
+                <div class="leave-option">
+                    <input type="checkbox" name="leave_type_adoption" id="leave_adoption">
+                    <span>Adoption Leave <small>(R.A. No. 8552)</small></span>
+                </div>
+                <div class="others-field" style="margin-top: 30px; flex-direction: column; align-items: flex-start;">
+                    <span>Others:</span>
+                    <input type="text" name="other_leave" style="width: 70%; margin-top: 5px;">
+                </div>
+            </div>
+
+            <!-- Right Column: Details of Leave -->
+            <div class="details-column">
+                <div class="column-header">6.B DETAILS OF LEAVE</div>
+
+                <div class="sub-section" id="details-vacation-spl">
+                    <div class="sub-section-title">In case of Vacation/Special Privilege Leave:</div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="loc_ph" id="loc_ph">
+                        <span>Within the Philippines</span>
+                    </div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="loc_abroad" id="loc_abroad">
+                        <span>Abroad (Specify)</span>
+                    </div>
+                    <div class="sub-field">
+                        <input type="text" name="abroad_specify" id="abroad_specify" placeholder="">
+                    </div>
+                </div>
+
+                <div class="sub-section" id="details-sick">
+                    <div class="sub-section-title">In case of Sick Leave:</div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="sick_hospital" id="sick_hospital">
+                        <span>In Hospital (Specify Illness)</span>
+                    </div>
+                    <div class="sub-field">
+                        <input type="text" name="hospital_illness" id="hospital_illness">
+                    </div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="sick_outpatient" id="sick_outpatient">
+                        <span>Out Patient (Specify Illness)</span>
+                    </div>
+                    <div class="sub-field">
+                        <input type="text" name="outpatient_illness" id="outpatient_illness">
+                    </div>
+                </div>
+
+                <div class="sub-section" id="details-women">
+                    <div class="sub-section-title">In case of Special Leave Benefits for Women:</div>
+                    <span style="font-size: 8px;">(Specify Illness)</span>
+                    <div class="sub-field">
+                        <input type="text" name="women_illness">
+                    </div>
+                </div>
+
+                <div class="sub-section" id="details-study">
+                    <div class="sub-section-title">In case of Study Leave:</div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="study_masters" id="study_masters">
+                        <span>Completion of Master's Degree</span>
+                    </div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="study_bar" id="study_bar">
+                        <span>BAR/Board Examination Review</span>
+                    </div>
+                </div>
+
+                <div class="sub-section">
+                    <div class="sub-section-title">Other purpose:</div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="monetization" id="monetization">
+                        <span>Monetization of Leave Credits</span>
+                    </div>
+                    <div class="sub-option">
+                        <input type="checkbox" name="terminal" id="terminal">
+                        <span>Terminal Leave</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6C and 6D -->
+        <div class="bottom-details">
+            <div class="bottom-column">
+                <div class="field-label">6.C NUMBER OF WORKING DAYS APPLIED FOR</div>
+                <input type="number" name="num_days" class="field-input" id="num_days" readonly style="background: transparent; border: none; border-bottom: 1px solid #000; cursor: not-allowed; font-size: 10px; padding-bottom: 5px;">
+                
+                <div class="field-label">INCLUSIVE DATES <span style="color: red; font-weight: bold;">*</span></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-bottom: 1px solid #000; padding-bottom: 5px;">
+                    <div style="display: flex; flex-direction: column;">
+                        <label style="font-size: 9px; display: block; margin-bottom: 3px;">From:</label>
+                        <input type="date" name="date_from" class="field-input" id="date_from" style="font-size: 10px; border: none; background: transparent;">
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <label style="font-size: 9px; display: block; margin-bottom: 3px;">To:</label>
+                        <input type="date" name="date_to" class="field-input" id="date_to" style="font-size: 10px; border: none; background: transparent;">
+                    </div>
+                </div>
+            </div>
+            <div class="bottom-column">
+                <div class="field-label">6.D COMMUTATION</div>
+                <div class="commutation-options">
+                    <label><input type="checkbox" name="commutation_not" id="comm_not"> Not Requested</label>
+                    <label><input type="checkbox" name="commutation_req" id="comm_req"> Requested</label>
+                </div>
+                <div class="signature-area">
+                    <div class="signature-pad-container">
+                        <canvas id="signaturePad" width="300" height="80" style="border: 1px solid #999; cursor: crosshair; display: block; margin: 0 auto;"></canvas>
+                        <input type="file" id="signatureUploadInput" accept="image/*">
+                        <div class="signature-buttons">
+                            <button type="button" id="clearSignature">Clear</button>
+                            <button type="button" id="uploadSignature">📤 Upload</button>
+                        </div>
+                    </div>
+                    <div class="signature-label required">(Signature of Applicant)</div>
+                    <div class="signature-error" id="signatureError">⚠️ Signature is required - Please draw or upload your signature</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 7: Details of Action on Application -->
+        <div class="section-header">7. DETAILS OF ACTION ON APPLICATION</div>
+
+        <div class="action-section">
+            <!-- 7A: Certification of Leave Credits -->
+            <div class="action-column">
+                <div class="field-label">7.A CERTIFICATION OF LEAVE CREDITS</div>
+                <div style="font-size: 9px; margin-bottom: 8px;">
+                    As of <input type="text" name="credits_date" style="border: none; border-bottom: 1px solid #000; width: 140px; font-size: 9px; padding: 0 5px;" disabled readonly>
+                </div>
+                
+                <table class="credits-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Vacation Leave</th>
+                            <th>Sick Leave</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Earned</td>
+                            <td><input type="number" name="vl_earned" step="0.001" disabled></td>
+                            <td><input type="number" name="sl_earned" step="0.001" disabled></td>
+                        </tr>
+                        <tr>
+                            <td>Less this application</td>
+                            <td><input type="number" name="vl_less" step="0.001" disabled></td>
+                            <td><input type="number" name="sl_less" step="0.001" disabled></td>
+                        </tr>
+                        <tr>
+                            <td>Balance</td>
+                            <td><input type="number" name="vl_balance" step="0.001" disabled></td>
+                            <td><input type="number" name="sl_balance" step="0.001" disabled></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="officer-signature">
+                    <div class="officer-name">MA. LUISA B. CATIGAN</div>
+                    <div class="officer-title">Administrative Officer IV-Personnel Section</div>
+                </div>
+            </div>
+
+            <!-- 7B: Recommendation -->
+            <div class="action-column">
+                <div class="field-label">7.B RECOMMENDATION</div>
+                <div class="recommendation-options">
+                    <label>
+                        <input type="checkbox" name="rec_approval" id="rec_approval" disabled>
+                        <span>For approval of <input type="text" name="rec_days" class="recommendation-input" disabled> days leave with pay</span>
+                    </label>
+                    <label style="display: flex; align-items: center; margin-bottom: 3px;">
+                        <input type="checkbox" name="rec_disapproval" id="rec_disapproval" disabled>
+                        <span style="margin-right: 5px;">For disapproval due to</span>
+                        <input type="text" name="rec_reason_1" class="disapproval-input" style="flex: 1; margin-bottom: 0;" disabled readonly>
+                    </label>
+                    <input type="text" name="rec_reason_2" class="disapproval-input" disabled readonly>
+                    <input type="text" name="rec_reason_3" class="disapproval-input" disabled readonly>
+                    <input type="text" name="rec_reason_4" class="disapproval-input" disabled readonly>
+                </div>
+
+                <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
+                    <div class="officer-name" style="color: #003366;">DONDY A. DEPOSITARIO, PhD</div>
+                    <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 7C and 7D -->
+        <div class="approval-section">
+            <div class="approval-column">
+                <div class="field-label">7.C APPROVED FOR:</div>
+                <div class="approval-field">
+                    <input type="text" name="days_pay" disabled readonly> days with pay
+                </div>
+                <div class="approval-field">
+                    <input type="text" name="days_no_pay" disabled readonly> days without pay
+                </div>
+                <div class="approval-field">
+                    <input type="text" name="others_pay" disabled readonly> others (Specify)
+                </div>
+            </div>
+            <div class="approval-column">
+                <div class="field-label">7.D DISAPPROVED DUE TO:</div>
+                <input type="text" name="disapproved_reason_1" class="disapproval-input" disabled readonly>
+                <input type="text" name="disapproved_reason_2" class="disapproval-input" disabled readonly>
+                <input type="text" name="disapproved_reason_3" class="disapproval-input" disabled readonly>
+            </div>
+        </div>
+
+        <!-- Final Signature -->
+        <div class="final-signature">
+            <div class="signature-line" style="width: 250px; margin: 0 auto;"></div>
+            <div class="final-officer-name">BERNIE L. LIBO-ON, PhD</div>
+            <div class="final-officer-title">Officer-In-Charge</div>
+            <div class="final-officer-title">Office of the Schools Division Superintendent</div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="button-group">
+            <button type="submit" class="submit">SUBMIT APPLICATION</button>
+            <button type="reset" class="reset">CLEAR FORM</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Check if user is logged in
+    window.addEventListener('DOMContentLoaded', function() {
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const employee = JSON.parse(sessionStorage.getItem('employee'));
+        
+        if (!user || !user.email) {
+            alert('Please login first');
+            window.location.href = '/';
+            return;
+        }
+
+        // Display user name on top bar
+        document.getElementById('userName').textContent = user.name || user.email.split('@')[0];
+
+        // Populate name fields with user data
+        if (user.name) {
+            let lastName = '', firstName = '', middleName = '';
+            
+            if (user.name.includes(',')) {
+                // Format: Last, First Middle
+                const parts = user.name.split(',');
+                lastName = parts[0].trim();
+                const remaining = (parts[1] || '').trim();
+                const nameParts = remaining.split(/\s+/);
+                
+                if (nameParts.length >= 2) {
+                    // Take all but last word as first name, last word as middle
+                    firstName = nameParts.slice(0, -1).join(' ');
+                    middleName = nameParts[nameParts.length - 1];
+                } else {
+                    firstName = remaining;
+                }
+            } else {
+                // Format: First Middle Last (no comma)
+                const nameParts = user.name.trim().split(/\s+/);
+                if (nameParts.length >= 3) {
+                    // Last word is last name, second-to-last is middle, rest is first
+                    lastName = nameParts[nameParts.length - 1];
+                    middleName = nameParts[nameParts.length - 2];
+                    firstName = nameParts.slice(0, -2).join(' ');
+                } else if (nameParts.length === 2) {
+                    firstName = nameParts[0];
+                    lastName = nameParts[1];
+                } else {
+                    lastName = nameParts[0];
+                }
+            }
+            
+            document.getElementById('name_last').value = lastName;
+            document.getElementById('name_first').value = firstName;
+            document.getElementById('name_middle').value = middleName;
+        }
+
+        // Set current date for filing
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date_filing').value = today;
+
+        // ===== Set "As of" Date for Leave Credits (Last day of previous month) =====
+        function getLastDayOfPreviousMonth() {
+            const now = new Date();
+            // Set to first day of current month, then subtract 1 day
+            return new Date(now.getFullYear(), now.getMonth(), 0);
+        }
+
+        const creditsDateField = document.querySelector('input[name="credits_date"]');
+        if (creditsDateField) {
+            const lastDay = getLastDayOfPreviousMonth();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            creditsDateField.value = lastDay.toLocaleDateString(undefined, options);
+        }
+
+        // Populate employee data from user object if available
+        if (user) {
+            // From user object (returned by server on login)
+            if (user.office || user.school) {
+                document.getElementById('office').value = user.office || user.school;
+            }
+            if (user.position) {
+                document.getElementById('position').value = user.position;
+            }
+            if (user.salary) {
+                const salaryNum = parseFloat(user.salary);
+                const formattedSalary = 'PHP ' + salaryNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('salary').value = formattedSalary;
+            }
+        }
+
+        // Also check employee object for backward compatibility
+        if (employee) {
+            if (employee.office) {
+                document.getElementById('office').value = employee.office;
+            }
+            if (employee.position) {
+                document.getElementById('position').value = employee.position;
+            }
+            if (employee.salary) {
+                // Format salary as Philippine Pesos
+                const salaryNum = parseFloat(employee.salary);
+                const formattedSalary = 'PHP ' + salaryNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('salary').value = formattedSalary;
+            }
+        }
+
+        // ===== Load Leave Credits from Dashboard =====
+        const leaveCreditsStr = sessionStorage.getItem('leaveCredits');
+        const vlEarnedInput = document.querySelector('input[name="vl_earned"]');
+        const slEarnedInput = document.querySelector('input[name="sl_earned"]');
+        
+        if (leaveCreditsStr && vlEarnedInput && slEarnedInput) {
+            try {
+                const leaveCredits = JSON.parse(leaveCreditsStr);
+                const vlValue = parseFloat(leaveCredits.vacationLeave) || 0;
+                const slValue = parseFloat(leaveCredits.sickLeave) || 0;
+                
+                vlEarnedInput.value = vlValue.toFixed(3);
+                slEarnedInput.value = slValue.toFixed(3);
+                
+                // Debug log to verify values are loaded
+                console.log('Leave credits loaded:', { vacationLeave: vlValue, sickLeave: slValue });
+            } catch (e) {
+                console.error('Error parsing leave credits:', e);
+                vlEarnedInput.value = '';
+                slEarnedInput.value = '';
+            }
+        } else {
+            console.warn('Leave credits not found in sessionStorage or input elements missing');
+        }
+
+        // ===== Auto-Calculate Balance =====
+        const vlLessInput = document.querySelector('input[name="vl_less"]');
+        const slLessInput = document.querySelector('input[name="sl_less"]');
+        const vlBalanceInput = document.querySelector('input[name="vl_balance"]');
+        const slBalanceInput = document.querySelector('input[name="sl_balance"]');
+
+        // ===== INITIALIZE: Disable Force/SPL checkboxes if exhausted =====
+        function initializeLeaveCheckboxes() {
+            const leaveCardStr = sessionStorage.getItem('leaveCardData');
+            let forceBalance = 5;
+            let splBalance = 3;
+            
+            if (leaveCardStr) {
+                try {
+                    const leaveCard = JSON.parse(leaveCardStr);
+                    const forceLeaveSpent = leaveCard.forceLeaveSpent || 0;
+                    const splSpent = leaveCard.splSpent || 0;
+                    forceBalance = Math.max(0, 5 - forceLeaveSpent);
+                    splBalance = Math.max(0, 3 - splSpent);
+                } catch (e) {
+                    console.error('Error parsing leave card data:', e);
+                }
+            }
+            
+            // Disable Force Leave checkbox if exhausted
+            const mflCheckbox = document.getElementById('leave_mfl');
+            if (mflCheckbox) {
+                if (forceBalance <= 0) {
+                    mflCheckbox.disabled = true;
+                    mflCheckbox.style.opacity = '0.5';
+                    mflCheckbox.style.cursor = 'not-allowed';
+                    
+                    // Add label indicator
+                    const label = document.querySelector('label[for="leave_mfl"]');
+                    if (label) {
+                        label.style.opacity = '0.5';
+                        label.style.cursor = 'not-allowed';
+                        label.title = '❌ Force Leave exhausted (5/5 days used)';
+                    }
+                    console.log('[INIT] Force Leave checkbox DISABLED - exhausted');
+                } else {
+                    mflCheckbox.disabled = false;
+                    mflCheckbox.style.opacity = '1';
+                    mflCheckbox.style.cursor = 'auto';
+                }
+            }
+            
+            // Disable SPL checkbox if exhausted
+            const splCheckbox = document.getElementById('leave_spl');
+            if (splCheckbox) {
+                if (splBalance <= 0) {
+                    splCheckbox.disabled = true;
+                    splCheckbox.style.opacity = '0.5';
+                    splCheckbox.style.cursor = 'not-allowed';
+                    
+                    // Add label indicator
+                    const label = document.querySelector('label[for="leave_spl"]');
+                    if (label) {
+                        label.style.opacity = '0.5';
+                        label.style.cursor = 'not-allowed';
+                        label.title = '❌ Special Privilege Leave exhausted (3/3 days used)';
+                    }
+                    console.log('[INIT] SPL checkbox DISABLED - exhausted');
+                } else {
+                    splCheckbox.disabled = false;
+                    splCheckbox.style.opacity = '1';
+                    splCheckbox.style.cursor = 'auto';
+                }
+            }
+        }
+        
+        // Call on page load
+        initializeLeaveCheckboxes();
+
+        function calculateBalances() {
+            // Always calculate both VL and SL balances: Balance = Total Earned - Less this application
+            
+            // Calculate Vacation Leave Balance
+            if (vlEarnedInput && vlLessInput && vlBalanceInput) {
+                const earned = parseFloat(vlEarnedInput.value) || 0;
+                const less = parseFloat(vlLessInput.value) || 0;
+                const balance = earned - less;
+                vlBalanceInput.value = balance >= 0 ? balance.toFixed(3) : '0.000';
+            }
+            
+            // Calculate Sick Leave Balance
+            if (slEarnedInput && slLessInput && slBalanceInput) {
+                const earned = parseFloat(slEarnedInput.value) || 0;
+                const less = parseFloat(slLessInput.value) || 0;
+                const balance = earned - less;
+                slBalanceInput.value = balance >= 0 ? balance.toFixed(3) : '0.000';
+            }
+        }
+
+        // Add event listeners to "Less this application" fields to trigger balance calculation
+        if (vlLessInput) {
+            vlLessInput.addEventListener('change', calculateBalances);
+            vlLessInput.addEventListener('input', calculateBalances);
+        }
+        if (slLessInput) {
+            slLessInput.addEventListener('change', calculateBalances);
+            slLessInput.addEventListener('input', calculateBalances);
+        }
+
+        // Calculate balances on page load
+        calculateBalances();
+
+        // ===== Working Days Calculation =====
+        function calculateWorkingDays(fromDate, toDate) {
+            const startDate = new Date(fromDate);
+            const endDate = new Date(toDate);
+            let workingDays = 0;
+
+            // Validate dates
+            if (isNaN(startDate) || isNaN(endDate) || startDate > endDate) {
+                return 0;
+            }
+
+            // Iterate through each day
+            for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+                const dayOfWeek = date.getDay();
+                // 0 = Sunday, 1-5 = Monday-Friday, 6 = Saturday
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                    workingDays++;
+                }
+            }
+
+            return workingDays;
+        }
+
+        // Add event listeners for date range inputs
+        const dateFromInput = document.getElementById('date_from');
+        const dateToInput = document.getElementById('date_to');
+        const numDaysInput = document.getElementById('num_days');
+
+        if (dateFromInput && dateToInput && numDaysInput) {
+            const updateWorkingDays = function() {
+                if (dateFromInput.value && dateToInput.value) {
+                    const workingDays = calculateWorkingDays(dateFromInput.value, dateToInput.value);
+                    numDaysInput.value = workingDays;
+                    
+                    // Auto-populate "Less this application" based on selected leave type
+                    updateLessThisApplication(workingDays);
+                } else {
+                    numDaysInput.value = '';
+                    clearLessThisApplication();
+                }
+            };
+
+            dateFromInput.addEventListener('change', updateWorkingDays);
+            dateToInput.addEventListener('change', updateWorkingDays);
+        }
+
+        // Recalculate balances when earned values change
+        if (vlEarnedInput) {
+            vlEarnedInput.addEventListener('change', calculateBalances);
+            vlEarnedInput.addEventListener('input', calculateBalances);
+        }
+        if (slEarnedInput) {
+            slEarnedInput.addEventListener('change', calculateBalances);
+            slEarnedInput.addEventListener('input', calculateBalances);
+        }
+
+        // Function to update "Less this application" fields
+        function updateLessThisApplication(workingDays) {
+            const vlLessInput = document.querySelector('input[name="vl_less"]');
+            const slLessInput = document.querySelector('input[name="sl_less"]');
+            
+            // Get currently selected leave type
+            const selectedLeaveType = getSelectedLeaveType();
+            
+            if (vlLessInput && slLessInput) {
+                // Populate based on selected leave type
+                // Put working days in selected type, put 0 in the other
+                if (selectedLeaveType === 'leave_vl' || selectedLeaveType === 'leave_spl') {
+                    // Vacation or Special Privilege Leave
+                    vlLessInput.value = workingDays;
+                    slLessInput.value = 0;  // Put 0 in sick leave
+                } else if (selectedLeaveType === 'leave_sl') {
+                    // Sick Leave
+                    vlLessInput.value = 0;  // Put 0 in vacation leave
+                    slLessInput.value = workingDays;
+                } else {
+                    // No leave type selected - clear both
+                    vlLessInput.value = '';
+                    slLessInput.value = '';
+                }
+                
+                // Recalculate balances after updating less fields
+                calculateBalances();
+            }
+        }
+
+        // Function to clear "Less this application" fields
+        function clearLessThisApplication() {
+            const vlLessInput = document.querySelector('input[name="vl_less"]');
+            const slLessInput = document.querySelector('input[name="sl_less"]');
+            
+            if (vlLessInput && slLessInput) {
+                vlLessInput.value = '';
+                slLessInput.value = '';
+                
+                // Recalculate balances after clearing
+                calculateBalances();
+            }
+        }
+
+        // Function to get the currently selected leave type
+        function getSelectedLeaveType() {
+            const leaveTypeCheckboxes = [
+                'leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl',
+                'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc',
+                'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption'
+            ];
+            
+            for (let checkboxId of leaveTypeCheckboxes) {
+                if (document.getElementById(checkboxId).checked) {
+                    return checkboxId;
+                }
+            }
+            return null;
+        }
+
+        // ===== Leave Type Selection Logic =====
+        const leaveTypeCheckboxes = [
+            'leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl',
+            'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc',
+            'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption'
+        ];
+
+        // Define which detail fields should be enabled for each leave type
+        const leaveTypeDetailsMap = {
+            'leave_vl': ['loc_ph', 'loc_abroad', 'abroad_specify'], // Vacation
+            'leave_mfl': [], // Mandatory/Forced - no details
+            'leave_sl': ['sick_hospital', 'hospital_illness', 'sick_outpatient', 'outpatient_illness'], // Sick Leave
+            'leave_ml': [], // Maternity - no details
+            'leave_pl': [], // Paternity - no details
+            'leave_spl': ['loc_ph', 'loc_abroad', 'abroad_specify'], // Special Privilege (same as vacation)
+            'leave_solo': [], // Solo Parent - no details
+            'leave_study': ['study_masters', 'study_bar'], // Study Leave
+            'leave_vawc': [], // VAWC - no details
+            'leave_rehab': [], // Rehabilitation - no details
+            'leave_women': ['women_illness'], // Women benefits
+            'leave_calamity': [], // Calamity - no details
+            'leave_adoption': [] // Adoption - no details
+        };
+
+        // All possible detail field IDs
+        const allDetailFields = [
+            'loc_ph', 'loc_abroad', 'abroad_specify',
+            'sick_hospital', 'hospital_illness', 'sick_outpatient', 'outpatient_illness',
+            'women_illness',
+            'study_masters', 'study_bar',
+            'monetization', 'terminal'
+        ];
+
+        // Fields that are always available (Other purpose)
+        const alwaysAvailableFields = ['monetization', 'terminal'];
+
+        // Function to update Total Earned display based on leave type selection
+        function updateTotalEarnedDisplay() {
+            const vlCheckbox = document.getElementById('leave_vl');
+            const slCheckbox = document.getElementById('leave_sl');
+            const vlEarnedInput = document.querySelector('input[name="vl_earned"]');
+            const slEarnedInput = document.querySelector('input[name="sl_earned"]');
+            
+            // Check if either VL or SL is selected
+            const isVLSelected = vlCheckbox && vlCheckbox.checked;
+            const isSLSelected = slCheckbox && slCheckbox.checked;
+            
+            // Get stored leave credits from sessionStorage for later use
+            const leaveCreditsStr = sessionStorage.getItem('leaveCredits');
+            let vlValue = 0, slValue = 0;
+            
+            if (leaveCreditsStr) {
+                try {
+                    const leaveCredits = JSON.parse(leaveCreditsStr);
+                    vlValue = parseFloat(leaveCredits.vacationLeave) || 0;
+                    slValue = parseFloat(leaveCredits.sickLeave) || 0;
+                } catch (e) {
+                    console.error('Error parsing leave credits:', e);
+                }
+            }
+            
+            // If either VL or SL is selected, show both Total Earned values
+            if (isVLSelected || isSLSelected) {
+                if (vlEarnedInput) vlEarnedInput.value = vlValue.toFixed(3);
+                if (slEarnedInput) slEarnedInput.value = slValue.toFixed(3);
+            } else {
+                // Neither VL nor SL is selected (other leave type), clear both Total Earned fields
+                if (vlEarnedInput) vlEarnedInput.value = '';
+                if (slEarnedInput) slEarnedInput.value = '';
+            }
+            
+            // Recalculate balances after updating Total Earned display
+            calculateBalances();
+        }
+
+        // ===== VALIDATE FORCE & SPL LEAVE BALANCE =====
+        // Function to check if Force Leave or SPL can be applied (when balance is 0)
+        function validateFixedLeaveAvailability(leaveTypeId) {
+            const leaveCreditsStr = sessionStorage.getItem('leaveCredits');
+            let forceBalance = 5; // Default yearly allocation
+            let splBalance = 3;   // Default yearly allocation
+            
+            // Get leave card data from session if available
+            const leaveCardStr = sessionStorage.getItem('leaveCardData');
+            if (leaveCardStr) {
+                try {
+                    const leaveCard = JSON.parse(leaveCardStr);
+                    const forceLeaveSpent = leaveCard.forceLeaveSpent || 0;
+                    const splSpent = leaveCard.splSpent || 0;
+                    forceBalance = Math.max(0, 5 - forceLeaveSpent);
+                    splBalance = Math.max(0, 3 - splSpent);
+                } catch (e) {
+                    console.error('Error parsing leave card data:', e);
+                }
+            }
+            
+            // Check if trying to apply for Force Leave (leave_mfl) when balance is 0
+            if (leaveTypeId === 'leave_mfl' && forceBalance <= 0) {
+                alert('❌ Cannot Apply for Force Leave\n\nYou have exhausted your yearly Force Leave allocation (5 days).\nPlease try again next year.');
+                document.getElementById('leave_mfl').checked = false;
+                return false;
+            }
+            
+            // Check if trying to apply for Special Privilege Leave when balance is 0
+            if (leaveTypeId === 'leave_spl' && splBalance <= 0) {
+                alert('❌ Cannot Apply for Special Privilege Leave\n\nYou have exhausted your yearly Special Privilege Leave allocation (3 days).\nPlease try again next year.');
+                document.getElementById('leave_spl').checked = false;
+                return false;
+            }
+            
+            return true;
+        }
+
+        // ===== VALIDATE FORCE LEAVE CONSECUTIVE DAYS =====
+        // Function to prevent 5 consecutive days of Force Leave
+        function validateForceLeaveDays(workingDays) {
+            const mflCheckbox = document.getElementById('leave_mfl');
+            
+            // Only validate if Force Leave is selected
+            if (!mflCheckbox || !mflCheckbox.checked) {
+                return true;
+            }
+            
+            // Force Leave cannot be taken for 5 consecutive working days
+            if (workingDays >= 5) {
+                alert('❌ Force Leave Restriction\n\nForce Leave cannot be taken for 5 or more consecutive working days.\nMaximum: 4 days per application.\n\nYou can apply for Force Leave multiple times throughout the year,\nbut each application must be 4 days or less.');
+                numDaysInput.value = '';
+                clearLessThisApplication();
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Add event listener to validate Force Leave days when working days change
+        if (numDaysInput) {
+            numDaysInput.addEventListener('change', function() {
+                const workingDays = parseFloat(this.value) || 0;
+                validateForceLeaveDays(workingDays);
+            });
+            
+            numDaysInput.addEventListener('input', function() {
+                const workingDays = parseFloat(this.value) || 0;
+                // Warn but don't block on input, only on change
+            });
+        }
+
+        // Add event listeners to all leave type checkboxes
+        leaveTypeCheckboxes.forEach(checkboxId => {
+            const checkbox = document.getElementById(checkboxId);
+            if (checkbox) {
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        // ===== VALIDATION: Check Force/SPL balance before allowing selection =====
+                        if (!validateFixedLeaveAvailability(checkboxId)) {
+                            return; // Prevent selection if validation fails
+                        }
+                        
+                        // Uncheck all other leave type checkboxes
+                        leaveTypeCheckboxes.forEach(otherId => {
+                            if (otherId !== checkboxId) {
+                                document.getElementById(otherId).checked = false;
+                            }
+                        });
+                        
+                        // ===== VALIDATION: If Force Leave selected, check if current days are valid =====
+                        if (checkboxId === 'leave_mfl') {
+                            const currentDays = parseFloat(numDaysInput.value) || 0;
+                            if (currentDays >= 5) {
+                                alert('❌ Force Leave Restriction\n\nForce Leave cannot be taken for 5 or more consecutive working days.\nPlease select 4 days or less.');
+                                this.checked = false;
+                                return;
+                            }
+                        }
+                        
+                        // Enable/Disable appropriate detail fields
+                        updateDetailFieldsState(checkboxId);
+                        
+                        // Update Total Earned display based on selected leave type
+                        updateTotalEarnedDisplay();
+                        
+                        // Update "Less this application" based on selected leave type and current working days
+                        const workingDaysValue = document.getElementById('num_days').value;
+                        if (workingDaysValue) {
+                            updateLessThisApplication(parseFloat(workingDaysValue));
+                        } else {
+                            clearLessThisApplication();
+                        }
+                    } else {
+                        // If unchecking, enable only "Other purpose" fields
+                        enableOnlyOtherPurpose();
+                        // Update Total Earned display when unchecking leave type
+                        updateTotalEarnedDisplay();
+                        // Clear "Less this application" fields when unchecking leave type
+                        clearLessThisApplication();
+                    }
+                });
+            }
+        });
+
+        function updateDetailFieldsState(selectedLeaveType) {
+            const allowedFields = leaveTypeDetailsMap[selectedLeaveType] || [];
+            // Do NOT include Other purpose fields when a leave type is selected
+
+            allDetailFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    if (allowedFields.includes(fieldId)) {
+                        // Enable the field
+                        field.disabled = false;
+                        field.style.opacity = '1';
+                        field.style.cursor = 'auto';
+                    } else {
+                        // Disable the field
+                        field.disabled = true;
+                        field.style.opacity = '0.5';
+                        field.style.cursor = 'not-allowed';
+                        // Clear the value
+                        if (field.type === 'checkbox') {
+                            field.checked = false;
+                        } else if (field.type === 'text') {
+                            field.value = '';
+                        }
+                    }
+                }
+            });
+        }
+
+        function enableOnlyOtherPurpose() {
+            allDetailFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    if (alwaysAvailableFields.includes(fieldId)) {
+                        // Enable Other purpose fields
+                        field.disabled = false;
+                        field.style.opacity = '1';
+                        field.style.cursor = 'auto';
+                    } else {
+                        // Disable all other fields
+                        field.disabled = true;
+                        field.style.opacity = '0.5';
+                        field.style.cursor = 'not-allowed';
+                        // Clear the value
+                        if (field.type === 'checkbox') {
+                            field.checked = false;
+                        } else if (field.type === 'text') {
+                            field.value = '';
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize: Enable only Other purpose fields at start
+        enableOnlyOtherPurpose();
+
+        // ===== Commutation Checkbox Logic (Mutually Exclusive) =====
+        const commutationNotCheckbox = document.getElementById('comm_not');
+        const commutationReqCheckbox = document.getElementById('comm_req');
+
+        if (commutationNotCheckbox) {
+            commutationNotCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    commutationReqCheckbox.checked = false;
+                }
+            });
+        }
+
+        if (commutationReqCheckbox) {
+            commutationReqCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    commutationNotCheckbox.checked = false;
+                }
+            });
+        }
+
+        // ===== Other Purpose Checkbox Logic (Mutually Exclusive) =====
+        const monetizationCheckbox = document.getElementById('monetization');
+        const terminalCheckbox = document.getElementById('terminal');
+
+        if (monetizationCheckbox) {
+            monetizationCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    terminalCheckbox.checked = false;
+                }
+            });
+        }
+
+        if (terminalCheckbox) {
+            terminalCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    monetizationCheckbox.checked = false;
+                }
+            });
+        }
+
+        // ===== Vacation/Special Privilege Leave Location (Mutually Exclusive) =====
+        const locPhCheckbox = document.getElementById('loc_ph');
+        const locAbroadCheckbox = document.getElementById('loc_abroad');
+
+        if (locPhCheckbox) {
+            locPhCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    locAbroadCheckbox.checked = false;
+                }
+            });
+        }
+
+        if (locAbroadCheckbox) {
+            locAbroadCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    locPhCheckbox.checked = false;
+                }
+            });
+        }
+
+        // ===== Sick Leave Type (Mutually Exclusive) =====
+        const sickHospitalCheckbox = document.getElementById('sick_hospital');
+        const sickOutpatientCheckbox = document.getElementById('sick_outpatient');
+
+        if (sickHospitalCheckbox) {
+            sickHospitalCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    sickOutpatientCheckbox.checked = false;
+                }
+            });
+        }
+
+        if (sickOutpatientCheckbox) {
+            sickOutpatientCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    sickHospitalCheckbox.checked = false;
+                }
+            });
+        }
+
+        // ===== Study Leave Type (Mutually Exclusive) =====
+        const studyMastersCheckbox = document.getElementById('study_masters');
+        const studyBarCheckbox = document.getElementById('study_bar');
+
+        if (studyMastersCheckbox) {
+            studyMastersCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    studyBarCheckbox.checked = false;
+                }
+            });
+        }
+
+        if (studyBarCheckbox) {
+            studyBarCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    studyMastersCheckbox.checked = false;
+                }
+            });
+        }
+
+        // Initialize Signature Pad
+        const canvas = document.getElementById('signaturePad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Set up canvas for high DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+
+        // Helper function to get coordinates
+        function getCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            let x, y;
+            if (e.touches) {
+                x = (e.touches[0].clientX - rect.left) * scaleX / window.devicePixelRatio;
+                y = (e.touches[0].clientY - rect.top) * scaleY / window.devicePixelRatio;
+            } else {
+                x = (e.clientX - rect.left) * scaleX / window.devicePixelRatio;
+                y = (e.clientY - rect.top) * scaleY / window.devicePixelRatio;
+            }
+            return { x, y };
+        }
+
+        // Mouse and Touch events for drawing
+        function startDrawing(e) {
+            isDrawing = true;
+            const coords = getCoordinates(e);
+            lastX = coords.x;
+            lastY = coords.y;
+            e.preventDefault();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const coords = getCoordinates(e);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(coords.x, coords.y);
+            ctx.stroke();
+            
+            lastX = coords.x;
+            lastY = coords.y;
+            // Hide error message when user starts drawing
+            document.getElementById('signatureError').classList.remove('show');
+            e.preventDefault();
+        }
+
+        function stopDrawing(e) {
+            isDrawing = false;
+            e.preventDefault();
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', startDrawing, false);
+        canvas.addEventListener('mousemove', draw, false);
+        canvas.addEventListener('mouseup', stopDrawing, false);
+        canvas.addEventListener('mouseout', stopDrawing, false);
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', startDrawing, false);
+        canvas.addEventListener('touchmove', draw, false);
+        canvas.addEventListener('touchend', stopDrawing, false);
+
+        // Clear button
+        document.getElementById('clearSignature').addEventListener('click', function() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            // Show error when signature is cleared
+            document.getElementById('signatureError').classList.add('show');
+        });
+
+        // Upload signature button
+        document.getElementById('uploadSignature').addEventListener('click', function() {
+            document.getElementById('signatureUploadInput').click();
+        });
+
+        // Handle signature image upload
+        document.getElementById('signatureUploadInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file (PNG, JPG, etc.)');
+                return;
+            }
+
+            // Validate file size (max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Image size must be less than 2MB');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    // Clear the canvas first
+                    const dpr = window.devicePixelRatio || 1;
+                    const rectCanvas = canvas.getBoundingClientRect();
+                    ctx.clearRect(0, 0, rectCanvas.width, rectCanvas.height);
+
+                    // Calculate dimensions to fit the signature while maintaining aspect ratio
+                    const canvasDisplayWidth = rectCanvas.width;
+                    const canvasDisplayHeight = rectCanvas.height;
+                    
+                    const imgRatio = img.width / img.height;
+                    const canvasRatio = canvasDisplayWidth / canvasDisplayHeight;
+                    
+                    let drawWidth, drawHeight, offsetX, offsetY;
+                    
+                    if (imgRatio > canvasRatio) {
+                        // Image is wider - fit to width
+                        drawWidth = canvasDisplayWidth * 0.9;
+                        drawHeight = drawWidth / imgRatio;
+                    } else {
+                        // Image is taller - fit to height
+                        drawHeight = canvasDisplayHeight * 0.9;
+                        drawWidth = drawHeight * imgRatio;
+                    }
+                    
+                    // Center the image
+                    offsetX = (canvasDisplayWidth - drawWidth) / 2;
+                    offsetY = (canvasDisplayHeight - drawHeight) / 2;
+                    
+                    // Draw the signature image on canvas
+                    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                    // Hide error message when signature is uploaded
+                    document.getElementById('signatureError').classList.remove('show');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            
+            // Reset the input so the same file can be selected again if needed
+            e.target.value = '';
+        });
+    });
+
+    function logout() {
+        document.getElementById('logoutModal').style.display = 'block';
+    }
+
+    function closeLogoutModal() {
+        document.getElementById('logoutModal').style.display = 'none';
+    }
+
+    function confirmLogout() {
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('employee');
+        window.location.href = '/';
+    }
+
+    // Get leave type display name
+    function getLeaveTypeName(type) {
+        const types = {
+            'leave_vl': 'Vacation Leave',
+            'leave_mfl': 'Mandatory/Force Leave',
+            'leave_sl': 'Sick Leave',
+            'leave_ml': 'Maternity Leave',
+            'leave_pl': 'Paternity Leave',
+            'leave_spl': 'Special Privilege Leave',
+            'leave_solo': 'Solo Parent Leave',
+            'leave_study': 'Study Leave',
+            'leave_vawc': '10-Day VAWC Leave',
+            'leave_rehab': 'Rehabilitation Privilege',
+            'leave_women': 'Special Leave Benefits for Women',
+            'leave_calamity': 'Special Emergency (Calamity) Leave',
+            'leave_adoption': 'Adoption Leave'
+        };
+        return types[type] || 'Leave';
+    }
+
+    // Close modal when clicking outside of it
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('logoutModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    document.getElementById('leaveForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Get user data
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        
+        // ===== VALIDATION: Inclusive dates are REQUIRED =====
+        const dateFrom = document.getElementById('date_from').value;
+        const dateTo = document.getElementById('date_to').value;
+        
+        if (!dateFrom || !dateTo) {
+            alert('❌ Inclusive Dates Required\n\nYou must specify both "From" and "To" dates for your leave application.\n\nPlease fill in both dates before submitting.');
+            // Scroll to dates field
+            document.querySelector('input[id="date_from"]').parentElement.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        
+        // Get selected leave type
+        const leaveTypes = ['leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl', 'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc', 'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption'];
+        let selectedLeaveType = '';
+        for (let lt of leaveTypes) {
+            if (document.getElementById(lt).checked) {
+                selectedLeaveType = lt;
+                break;
+            }
+        }
+        
+        // ===== VALIDATION: Leave Type is REQUIRED =====
+        if (!selectedLeaveType) {
+            alert('❌ Leave Type Required\n\nYou must select a type of leave before submitting your application.\n\nPlease check one of the leave type options (Vacation Leave, Sick Leave, etc.).');
+            // Scroll to leave type section
+            document.querySelector('.section-header').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        
+        // ===== VALIDATION: Details of Leave is REQUIRED based on selected leave type =====
+        // Vacation Leave or SPL requires location details
+        if (selectedLeaveType === 'leave_vl' || selectedLeaveType === 'leave_spl') {
+            const locPH = document.getElementById('loc_ph').checked;
+            const locAbroad = document.getElementById('loc_abroad').checked;
+            if (!locPH && !locAbroad) {
+                const leaveTypeName = selectedLeaveType === 'leave_vl' ? 'Vacation Leave' : 'Special Privilege Leave';
+                alert('❌ Details of Leave Required\n\nFor ' + leaveTypeName + ', you must specify:\n• Within the Philippines, OR\n• Abroad\n\nPlease check one of the location options.');
+                document.getElementById('details-vacation-spl').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            // If abroad is selected, specify field is required
+            if (locAbroad) {
+                const abroadSpecify = document.getElementById('abroad_specify').value.trim();
+                if (!abroadSpecify) {
+                    alert('❌ Abroad Location Required\n\nYou selected "Abroad" but did not specify the location.\n\nPlease enter the country/location.');
+                    document.getElementById('abroad_specify').focus();
+                    return;
+                }
+            }
+        }
+        
+        // Sick Leave requires hospital or outpatient details
+        if (selectedLeaveType === 'leave_sl') {
+            const sickHospital = document.getElementById('sick_hospital').checked;
+            const sickOutpatient = document.getElementById('sick_outpatient').checked;
+            if (!sickHospital && !sickOutpatient) {
+                alert('❌ Details of Leave Required\n\nFor Sick Leave, you must specify:\n• In Hospital, OR\n• Out Patient\n\nPlease check one of the options.');
+                document.getElementById('details-sick').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            // If hospital is selected, illness is required
+            if (sickHospital) {
+                const hospitalIllness = document.getElementById('hospital_illness').value.trim();
+                if (!hospitalIllness) {
+                    alert('❌ Illness Details Required\n\nYou selected "In Hospital" but did not specify the illness.\n\nPlease enter the illness/condition.');
+                    document.getElementById('hospital_illness').focus();
+                    return;
+                }
+            }
+            // If outpatient is selected, illness is required
+            if (sickOutpatient) {
+                const outpatientIllness = document.getElementById('outpatient_illness').value.trim();
+                if (!outpatientIllness) {
+                    alert('❌ Illness Details Required\n\nYou selected "Out Patient" but did not specify the illness.\n\nPlease enter the illness/condition.');
+                    document.getElementById('outpatient_illness').focus();
+                    return;
+                }
+            }
+        }
+        
+        // Study Leave requires completion type
+        if (selectedLeaveType === 'leave_study') {
+            const studyMasters = document.getElementById('study_masters').checked;
+            const studyBar = document.getElementById('study_bar').checked;
+            if (!studyMasters && !studyBar) {
+                alert('❌ Details of Leave Required\n\nFor Study Leave, you must specify:\n• Completion of Master\'s Degree, OR\n• BAR/Board Examination Review\n\nPlease check one of the options.');
+                document.getElementById('details-study').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+        }
+        
+        // Special Leave Benefits for Women requires illness specification
+        if (selectedLeaveType === 'leave_women') {
+            const womenIllness = document.querySelector('input[name="women_illness"]').value.trim();
+            if (!womenIllness) {
+                alert('❌ Details of Leave Required\n\nFor Special Leave Benefits for Women, you must specify the illness/condition.\n\nPlease enter the details.');
+                document.querySelector('input[name="women_illness"]').focus();
+                return;
+            }
+        }
+        
+        // ===== VALIDATION: Commutation is REQUIRED =====
+        const commNotChecked = document.getElementById('comm_not').checked;
+        const commReqChecked = document.getElementById('comm_req').checked;
+        if (!commNotChecked && !commReqChecked) {
+            alert('❌ Commutation Required\n\nYou must select a commutation option:\n• Not Requested, OR\n• Requested\n\nPlease check one of the options.');
+            document.querySelector('.commutation-options').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        
+        // ===== VALIDATION: Prevent Force/SPL submission if exhausted =====
+        if (selectedLeaveType === 'leave_mfl' || selectedLeaveType === 'leave_spl') {
+            const leaveCardStr = sessionStorage.getItem('leaveCardData');
+            if (leaveCardStr) {
+                try {
+                    const leaveCard = JSON.parse(leaveCardStr);
+                    const forceLeaveSpent = leaveCard.forceLeaveSpent || 0;
+                    const splSpent = leaveCard.splSpent || 0;
+                    
+                    // Check Force Leave exhausted
+                    if (selectedLeaveType === 'leave_mfl' && forceLeaveSpent >= 5) {
+                        alert('❌ Cannot Submit Force Leave Application\n\nYou have already used all 5 days of your yearly Force Leave allocation.\nPlease apply for a different type of leave.');
+                        return;
+                    }
+                    
+                    // Check SPL exhausted
+                    if (selectedLeaveType === 'leave_spl' && splSpent >= 3) {
+                        alert('❌ Cannot Submit Special Privilege Leave Application\n\nYou have already used all 3 days of your yearly Special Privilege Leave allocation.\nPlease apply for a different type of leave.');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error validating leave balance:', e);
+                }
+            }
+        }
+        
+        // ===== VALIDATION: Prevent Force Leave 5+ consecutive days submission =====
+        if (selectedLeaveType === 'leave_mfl') {
+            const numDaysValue = parseFloat(document.getElementById('num_days').value) || 0;
+            if (numDaysValue >= 5) {
+                alert('❌ Force Leave Restriction\n\nForce Leave cannot be taken for 5 or more consecutive working days.\nMaximum: 4 days per application.\n\nYou submitted: ' + numDaysValue + ' days\n\nPlease modify your application to 4 days or less.');
+                return;
+            }
+        }
+        
+        // Capture signature as base64
+        const canvas = document.getElementById('signaturePad');
+        
+        // Check if signature pad has any drawing
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const hasSignature = imageData.data.some((value, index) => {
+            // Check alpha channel (every 4th value starting at index 3)
+            return index % 4 === 3 && value > 0;
+        });
+        
+        // ===== VALIDATION: Signature is REQUIRED =====
+        if (!hasSignature) {
+            const signatureErrorEl = document.getElementById('signatureError');
+            signatureErrorEl.classList.add('show');
+            alert('❌ Signature Required\n\nYou must provide your signature to submit the leave application.\n\nPlease either:\n• Draw your signature on the canvas, or\n• Upload a signature image');
+            // Scroll to signature area to focus attention
+            document.querySelector('.signature-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        } else {
+            // Hide error message if signature is provided
+            const signatureErrorEl = document.getElementById('signatureError');
+            signatureErrorEl.classList.remove('show');
+        }
+        
+        let signatureData = '';
+        if (hasSignature) {
+            signatureData = canvas.toDataURL('image/png');
+        }
+        
+        // Build application data
+        const applicationData = {
+            employeeEmail: user.email,
+            employeeName: user.name,
+            office: document.getElementById('office').value,
+            position: document.getElementById('position').value,
+            salary: document.getElementById('salary').value,
+            dateOfFiling: document.getElementById('date_filing').value,
+            leaveType: selectedLeaveType,
+            dateFrom: document.getElementById('date_from').value,
+            dateTo: document.getElementById('date_to').value,
+            numDays: document.getElementById('num_days').value,
+            vlEarned: document.querySelector('input[name="vl_earned"]').value,
+            slEarned: document.querySelector('input[name="sl_earned"]').value,
+            vlLess: document.querySelector('input[name="vl_less"]').value,
+            slLess: document.querySelector('input[name="sl_less"]').value,
+            vlBalance: document.querySelector('input[name="vl_balance"]').value,
+            slBalance: document.querySelector('input[name="sl_balance"]').value,
+            commutation: document.getElementById('comm_req').checked ? 'requested' : 'not-requested',
+            employeeSignature: signatureData,
+            // Capture vacation/SPL location details
+            locationPH: (document.getElementById('loc_ph') && document.getElementById('loc_ph').checked) || false,
+            locationAbroad: (document.getElementById('loc_abroad') && document.getElementById('loc_abroad').checked) || false,
+            abroadSpecify: (document.getElementById('abroad_specify') && document.getElementById('abroad_specify').value) || '',
+            // Capture sick leave details
+            sickHospital: (document.getElementById('sick_hospital') && document.getElementById('sick_hospital').checked) || false,
+            sickOutpatient: (document.getElementById('sick_outpatient') && document.getElementById('sick_outpatient').checked) || false,
+            hospitalIllness: (document.getElementById('hospital_illness') && document.getElementById('hospital_illness').value) || '',
+            outpatientIllness: (document.getElementById('outpatient_illness') && document.getElementById('outpatient_illness').value) || '',
+            // Capture study leave details
+            studyMasters: (document.getElementById('study_masters') && document.getElementById('study_masters').checked) || false,
+            studyBar: (document.getElementById('study_bar') && document.getElementById('study_bar').checked) || false
+        };
+        
+        try {
+            const response = await fetch('/api/submit-leave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(applicationData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Store application ID for tracking
+                sessionStorage.setItem('lastApplicationId', result.applicationId);
+                
+                // Show status tracker modal
+                showStatusTracker(result.applicationId, result.currentApprover, result.isSchoolBased);
+            } else {
+                alert('❌ Error submitting application: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('❌ Error submitting application. Please try again.');
+        }
+    });
+
+    // Status Tracker Functions
+    function showStatusTracker(applicationId, currentApprover, isSchoolBased) {
+        const modal = document.getElementById('statusTrackerModal');
+        modal.style.display = 'flex';
+        
+        // Update application ID display
+        document.getElementById('trackerAppId').textContent = applicationId;
+        
+        // Animate the workflow steps
+        animateWorkflow(currentApprover, isSchoolBased);
+        
+        // Start polling for updates
+        if (typeof startStatusPolling === 'function') {
+            startStatusPolling(applicationId);
+        }
+    }
+
+    function animateWorkflow(currentApprover, isSchoolBased) {
+        const steps = ['submitted', 'ao', 'hr', 'asds', 'sds', 'completed'];
+        const stepElements = {
+            submitted: document.getElementById('step-submitted'),
+            ao: document.getElementById('step-ao'),
+            hr: document.getElementById('step-hr'),
+            asds: document.getElementById('step-asds'),
+            sds: document.getElementById('step-sds'),
+            completed: document.getElementById('step-completed')
+        };
+        
+        // Reset all steps
+        steps.forEach(step => {
+            stepElements[step].classList.remove('active', 'completed', 'skipped');
+        });
+        
+        // Animate submission - ALL employees go through AO first (unified workflow)
+        setTimeout(() => {
+            stepElements.submitted.classList.add('completed');
+            
+            // All employees go to AO first
+            setTimeout(() => {
+                stepElements.ao.classList.add('active');
+                document.getElementById('currentStatusText').textContent = 'Pending AO Approval';
+            }, 500);
+        }, 500);
+    }
+
+    function closeStatusTracker() {
+        document.getElementById('statusTrackerModal').style.display = 'none';
+        // Optionally redirect to dashboard
+        // window.location.href = '/dashboard';
+    }
+
+    // Poll for status updates
+    async function checkApplicationStatus(applicationId) {
+        try {
+            const response = await fetch(`/api/application-status/${applicationId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                updateTrackerDisplay(result.application);
+            }
+        } catch (error) {
+            console.error('Error checking status:', error);
+        }
+    }
+
+    function updateTrackerDisplay(application) {
+        const stepElements = {
+            submitted: document.getElementById('step-submitted'),
+            ao: document.getElementById('step-ao'),
+            hr: document.getElementById('step-hr'),
+            asds: document.getElementById('step-asds'),
+            sds: document.getElementById('step-sds'),
+            completed: document.getElementById('step-completed')
+        };
+        
+        // Mark submitted as completed
+        stepElements.submitted.classList.add('completed');
+        
+        // Handle AO step - ALL employees go through AO (unified workflow)
+        if (application.aoApprovedAt) {
+            stepElements.ao.classList.add('completed');
+        } else if (application.currentApprover === 'AO') {
+            stepElements.ao.classList.add('active');
+        }
+        
+        // Handle HR step
+        if (application.hrApprovedAt) {
+            stepElements.hr.classList.add('completed');
+        } else if (application.currentApprover === 'HR') {
+            stepElements.hr.classList.add('active');
+        }
+        
+        // Handle ASDS step
+        if (application.asdsApprovedAt) {
+            stepElements.asds.classList.add('completed');
+        } else if (application.currentApprover === 'ASDS') {
+            stepElements.asds.classList.add('active');
+        }
+        
+        // Handle SDS step
+        if (application.sdsApprovedAt) {
+            stepElements.sds.classList.add('completed');
+        } else if (application.currentApprover === 'SDS') {
+            stepElements.sds.classList.add('active');
+        }
+        
+        // Handle final status
+        if (application.status === 'approved') {
+            stepElements.completed.classList.add('completed');
+            document.getElementById('currentStatusText').textContent = 'Application Approved!';
+        } else if (application.status === 'disapproved') {
+            document.getElementById('currentStatusText').textContent = 'Application Disapproved';
+            document.getElementById('currentStatusText').style.color = '#c62828';
+        } else {
+            const approverNames = { AO: 'AO', HR: 'HR', ASDS: 'ASDS', SDS: 'SDS' };
+            document.getElementById('currentStatusText').textContent = `Pending ${approverNames[application.currentApprover]} Approval`;
+        }
+    }
+</script>
+
+<!-- Status Tracker Modal -->
+<div id="statusTrackerModal" class="tracker-modal">
+    <div class="tracker-modal-content">
+        <div class="tracker-header">
+            <h2>📋 Application Status & Approval Tracker</h2>
+            <span class="tracker-app-id">Application ID: <strong id="trackerAppId"></strong></span>
+        </div>
+        
+        <div class="tracker-workflow">
+            <div class="workflow-step" id="step-submitted">
+                <div class="step-icon">📝</div>
+                <div class="step-label">Submitted</div>
+                <div class="step-line"></div>
+            </div>
+            
+            <div class="workflow-step" id="step-ao">
+                <div class="step-icon">👤</div>
+                <div class="step-label">AO</div>
+                <div class="step-line"></div>
+            </div>
+            
+            <div class="workflow-step" id="step-hr">
+                <div class="step-icon">👥</div>
+                <div class="step-label">HR</div>
+                <div class="step-line"></div>
+            </div>
+            
+            <div class="workflow-step" id="step-asds">
+                <div class="step-icon">📊</div>
+                <div class="step-label">ASDS</div>
+                <div class="step-line"></div>
+            </div>
+            
+            <div class="workflow-step" id="step-sds">
+                <div class="step-icon">🏛️</div>
+                <div class="step-label">SDS</div>
+                <div class="step-line"></div>
+            </div>
+            
+            <div class="workflow-step" id="step-completed">
+                <div class="step-icon">✅</div>
+                <div class="step-label">Approved</div>
+            </div>
+        </div>
+        
+        <div class="tracker-status">
+            <p id="currentStatusText">Processing...</p>
+        </div>
+        
+        <div class="tracker-footer">
+            <button class="tracker-btn" onclick="refreshTrackerStatus()">🔄 Refresh Status</button>
+            <button class="tracker-btn primary" onclick="window.location.href='/dashboard'">Go to Dashboard</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Additional tracker functions
+let statusPollInterval = null;
+
+function refreshTrackerStatus() {
+    const appId = document.getElementById('trackerAppId').textContent;
+    if (appId) {
+        checkApplicationStatus(appId);
+    }
+}
+
+// Start polling when tracker opens
+function startStatusPolling(applicationId) {
+    // Poll every 5 seconds
+    statusPollInterval = setInterval(() => {
+        checkApplicationStatus(applicationId);
+    }, 5000);
+}
+
+// Stop polling when tracker closes
+function stopStatusPolling() {
+    if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+        statusPollInterval = null;
+    }
+}
+
+// Override close function to stop polling
+const originalCloseStatusTracker = closeStatusTracker;
+closeStatusTracker = function() {
+    stopStatusPolling();
+    document.getElementById('statusTrackerModal').style.display = 'none';
+}
+</script>
+
+<style>
+/* Status Tracker Modal Styles */
+.tracker-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+}
+
+.tracker-modal-content {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 700px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    animation: slideIn 0.4s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.tracker-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.tracker-header h2 {
+    color: #003366;
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+.tracker-app-id {
+    color: #666;
+    font-size: 14px;
+}
+
+.tracker-workflow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 40px 0;
+    position: relative;
+}
+
+.workflow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+    z-index: 1;
+}
+
+.step-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 10px;
+    transition: all 0.5s ease;
+    border: 3px solid #ccc;
+}
+
+.step-label {
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+    text-align: center;
+}
+
+.step-line {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    width: 100%;
+    height: 4px;
+    background: #e0e0e0;
+    z-index: -1;
+}
+
+.workflow-step:last-child .step-line {
+    display: none;
+}
+
+/* Step States */
+.workflow-step.completed .step-icon {
+    background: linear-gradient(135deg, #4CAF50, #2E7D32);
+    border-color: #2E7D32;
+    animation: pulse 0.5s ease;
+}
+
+.workflow-step.completed .step-line {
+    background: #4CAF50;
+}
+
+.workflow-step.active .step-icon {
+    background: linear-gradient(135deg, #2196F3, #1565C0);
+    border-color: #1565C0;
+    animation: glow 1.5s ease-in-out infinite;
+}
+
+.workflow-step.skipped .step-icon {
+    background: #f5f5f5;
+    border-color: #ddd;
+    opacity: 0.5;
+}
+
+.workflow-step.skipped .step-label {
+    text-decoration: line-through;
+    color: #bbb;
+}
+
+.workflow-step.skipped .step-line {
+    background: #ddd;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(33, 150, 243, 0.8); }
+}
+
+.tracker-status {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.tracker-status p {
+    font-size: 18px;
+    font-weight: bold;
+    color: #003366;
+    margin: 0;
+}
+
+.tracker-footer {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.tracker-btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.tracker-btn:not(.primary) {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.tracker-btn:not(.primary):hover {
+    background: #bdbdbd;
+}
+
+.tracker-btn.primary {
+    background: linear-gradient(135deg, #003366, #004080);
+    color: white;
+}
+
+.tracker-btn.primary:hover {
+    background: linear-gradient(135deg, #002244, #003366);
+}
+
+@media print {
+    .tracker-modal {
+        display: none !important;
+    }
+}
+</style>
+
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="logout-modal">
+    <div class="logout-modal-content">
+        <div class="logout-modal-header">Confirm Logout</div>
+        <div class="logout-modal-body">Are you sure you want to logout?</div>
+        <div class="logout-modal-footer">
+            <button class="logout-modal-btn logout-cancel-btn" onclick="closeLogoutModal()">Cancel</button>
+            <button class="logout-modal-btn logout-confirm-btn" onclick="confirmLogout()">Logout</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1700000000001,
+    "employeeId": 1769339136215,
+    "soNumber": "SO # 159, S. 2023",
+    "soName": "125TH PHIL. IND. DAY",
+    "daysGranted": 1,
+    "daysUsed": 0,
+    "periodCovered": "2024-10-17",
+    "createdAt": "2024-10-17T00:00:00.000Z"
+  },
+  {
+    "id": 1700000000002,
+    "employeeId": 1769339136215,
+    "soNumber": "SO # 173, S. 2023",
+    "soName": "BRIGADA ESKWELA 2023",
+    "daysGranted": 9,
+    "daysUsed": 3,
+    "periodCovered": "2023-09-01",
+    "createdAt": "2023-09-01T00:00:00.000Z"
+  }
+]

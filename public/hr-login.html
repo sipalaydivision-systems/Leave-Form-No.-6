@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Login - CS Form No. 6</title>
+    <script src="/modal-alert.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #003366 0%, #004080 50%, #0059b3 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            text-align: center;
+        }
+        
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 0 1 auto;
+        }
+        
+        .header-logo {
+            width: 70px;
+            height: 70px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-logo-left {
+            width: 70px;
+            height: 70px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header img.coat-of-arms {
+            width: 80px;
+            height: 80px;
+            display: none;
+        }
+        
+        .header img.division-logo {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+        }
+        
+        .header img.deped-logo {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+        }
+        
+        .header h1 {
+            font-size: 16px;
+            margin-bottom: 3px;
+        }
+        
+        .header p {
+            font-size: 10px;
+            opacity: 0.9;
+        }
+        
+        .header h2 {
+            font-size: 13px;
+            margin-top: 6px;
+            color: #ffd700;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            background: none;
+            border: none;
+            font-size: 14px;
+        }
+        
+        .tab:hover {
+            background: #e8e8e8;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #003366;
+            border-bottom-color: #003366;
+        }
+        
+        .form-container {
+            padding: 30px;
+        }
+        
+        .form-section {
+            display: none;
+        }
+        
+        .form-section.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 18px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .password-wrapper input {
+            width: 100%;
+            padding: 12px 40px 12px 12px;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            font-size: 18px;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toggle-password:hover {
+            color: #d32f2f;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            background-color: white;
+            cursor: pointer;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #d32f2f;
+            box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.1);
+        }
+        
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #dc3545;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .password-strength {
+            height: 5px;
+            background: #ddd;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .password-strength .bar {
+            height: 100%;
+            width: 0;
+            transition: all 0.3s;
+        }
+        
+        .salary-display {
+            background: #fff3e0;
+            border: 2px solid #d32f2f;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .salary-display label {
+            font-size: 12px;
+            color: #666;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .salary-display .amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #d32f2f;
+        }
+        
+        .salary-display .grade-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .required {
+            color: #d32f2f;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+        
+        .error-message {
+            color: #d32f2f;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+        
+        .message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+        }
+        
+        .btn-primary {
+            background: #d32f2f;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #b71c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        
+        .btn.loading .spinner {
+            display: block;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .toggle-mode {
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .toggle-mode a {
+            color: #d32f2f;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .toggle-mode a:hover {
+            text-decoration: underline;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .back-link a {
+            color: #d32f2f;
+            text-decoration: none;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+        
+        .footer-links {
+            margin-bottom: 10px;
+        }
+        
+        .footer-links a {
+            color: #006400;
+            text-decoration: none;
+            margin: 0 12px;
+            font-weight: 500;
+        }
+        
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Forgot Password Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 15px;
+        }
+        
+        .modal-header h2 {
+            font-size: 20px;
+            color: #003366;
+            margin: 0;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-modal:hover {
+            color: #333;
+        }
+        
+        .modal-form {
+            width: 100%;
+        }
+        
+        .otp-input-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .otp-input {
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .otp-input:focus {
+            outline: none;
+            border-color: #003366;
+            box-shadow: 0 0 5px rgba(0,51,102,0.3);
+        }
+        
+        .modal-message {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: none;
+            text-align: center;
+        }
+        
+        .modal-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #28a745;
+            display: block;
+        }
+        
+        .modal-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #dc3545;
+            display: block;
+        }
+        
+        .modal-message.info {
+            background: #cfe2ff;
+            color: #084298;
+            border: 1px solid #0c63e4;
+            display: block;
+        }
+        
+        .modal-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 13px;
+        }
+        
+        .modal-footer a {
+            color: #003366;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .modal-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .otp-timer {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .resend-btn {
+            background: none;
+            border: none;
+            color: #003366;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 13px;
+            padding: 0;
+        }
+        
+        .resend-btn:disabled {
+            color: #ccc;
+            cursor: not-allowed;
+            text-decoration: none;
+        }
+    </style>
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                document.querySelector('.tab[data-tab="login"]').classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+            } else if (tab === 'register') {
+                document.querySelector('.tab[data-tab="register"]').classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+            }
+            
+            document.getElementById('loginMessage').className = 'message';
+            document.getElementById('registerMessage').className = 'message';
+        }
+    </script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="header">
+            <div class="header-logo-left">
+                <img src="/deped logo.png" alt="DepEd Logo" class="deped-logo" onerror="this.style.display='none'">
+            </div>
+            <div class="header-content">
+                <p>Republic of the Philippines</p>
+                <h1>Department of Education</h1>
+                <p>NEGROS ISLAND REGION</p>
+                <h2>SCHOOLS DIVISION OF SIPALAY CITY</h2>
+            </div>
+            <div class="header-logo">
+                <img src="/sipalay_logo.png" alt="Sipalay Division Logo" class="division-logo" onerror="this.style.display='none'">
+            </div>
+        </div>
+        
+        <div class="back-link">
+            <a href="/" style="padding: 8px 15px;">← Back to Main Menu</a>
+        </div>
+        
+        <div class="tabs">
+            <button type="button" class="tab active" data-tab="login" onclick="switchTab('login')">HR LOGIN</button>
+            <button type="button" class="tab" data-tab="register" onclick="switchTab('register')">CREATE HR ACCOUNT</button>
+        </div>
+        
+        <div class="form-container">
+            <!-- HR Login Form -->
+            <div id="loginForm" class="form-section active">
+                <div id="loginMessage" class="message"></div>
+                
+                <div class="info-box">
+                    <strong>HR Portal:</strong> Only authorized Human Resource personnel should login here to approve and process leave applications.
+                </div>
+                
+                <form onsubmit="handleHRLogin(event)">
+                    <div class="form-group">
+                        <label>DepEd Email <span class="required">*</span></label>
+                        <input type="email" id="loginEmail" placeholder="example@deped.gov.ph" required>
+                        <p class="hint">Use your official DepEd email address</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password <span class="required">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="loginPassword" placeholder="Enter password (6-24 chars with letters, numbers, special char)" maxlength="24" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('loginPassword')">👁️</button>
+                        </div>
+                        <p class="hint">6-24 characters, alphanumeric + special character (!@#$%^&* etc.)</p>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="loginBtn">
+                        <span>HR LOGIN</span>
+                        <div class="spinner"></div>
+                    </button>
+                </form>
+                
+                <div class="toggle-mode">
+                    <div><a href="#" onclick="openForgotPasswordModal(event)" style="color: #003366; text-decoration: none; font-size: 13px;">Forgot Password?</a></div>
+                    <div style="margin-top: 10px;">Don't have an HR account? <a onclick="switchTab('register')">Create one here</a></div>
+                </div>
+            </div>
+            
+            <!-- HR Registration Form -->
+            <div id="registerForm" class="form-section">
+                <div id="registerMessage" class="message"></div>
+                
+                <div class="info-box">
+                    <strong>Create HR Account:</strong> Register a new Human Resource account to access the leave approval portal.
+                </div>
+                
+                <form onsubmit="handleHRRegister(event)">
+                    <div class="form-group">
+                        <label>Full Name <span class="required">*</span></label>
+                        <input type="text" id="regFullName" placeholder="Last Name, First Name Middle Name" required>
+                        <p class="hint">Format: DELA CRUZ, JUAN SANTOS</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>HR Email <span class="required">*</span></label>
+                        <input type="email" id="regEmail" placeholder="example@deped.gov.ph" required>
+                        <p class="hint">Must be a valid DepEd email ending with @deped.gov.ph</p>
+                        <div id="emailError" class="error-message">Please use a valid DepEd email (@deped.gov.ph)</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Employee Number <span class="required">*</span></label>
+                        <input type="text" id="regEmployeeNumber" placeholder="e.g., 001234" required>
+                        <p class="hint">Your personnel or employee identification number</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password <span class="required">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="regPassword" placeholder="Min 6 chars, max 24 (letters, numbers, special char)" maxlength="24" oninput="validatePassword(this)" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('regPassword')">👁️</button>
+                        </div>
+                        <div class="password-strength"><div class="bar" id="strengthBar"></div></div>
+                        <p class="hint">6-24 characters, alphanumeric + special character (!@#$%^&* etc.)</p>
+                        <div id="passwordError" class="error-message">Password must be 6-24 chars with letters, numbers, and special character</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirm Password <span class="required">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="regConfirmPassword" placeholder="Re-enter password" maxlength="24" required>
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('regConfirmPassword')">👁️</button>
+                        </div>
+                        <div id="confirmError" class="error-message">Passwords do not match</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Office/Division <span class="required">*</span></label>
+                        <select id="regOffice" required>
+                            <option value="">-- Select School/Office --</option>
+                            <optgroup label="Elementary Schools">
+                                <option value="Agripino Alvarez Elementary School">Agripino Alvarez Elementary School</option>
+                                <option value="Banag Elementary School">Banag Elementary School</option>
+                                <option value="Barangay V Elementary School">Barangay V Elementary School</option>
+                                <option value="Barasbarasan Elementary School">Barasbarasan Elementary School</option>
+                                <option value="Barasbarasan Elementary School - Indangawan Annex">Barasbarasan Elementary School - Indangawan Annex</option>
+                                <option value="Bawog Elementary School">Bawog Elementary School</option>
+                                <option value="Binotusan Elementary School">Binotusan Elementary School</option>
+                                <option value="Binulig Elementary School">Binulig Elementary School</option>
+                                <option value="Bungabunga Elementary School">Bungabunga Elementary School</option>
+                                <option value="Cabadiangan Elementary School">Cabadiangan Elementary School</option>
+                                <option value="Calangcang Elementary School">Calangcang Elementary School</option>
+                                <option value="Calat-an Elementary School">Calat-an Elementary School</option>
+                                <option value="Cambogui-ot Elementary School">Cambogui-ot Elementary School</option>
+                                <option value="Camindangan Elementary School">Camindangan Elementary School</option>
+                                <option value="Cansauro Elementary School">Cansauro Elementary School</option>
+                                <option value="Cantaca Elementary School">Cantaca Elementary School</option>
+                                <option value="Canturay Elementary School">Canturay Elementary School</option>
+                                <option value="Cartagena Elementary School">Cartagena Elementary School</option>
+                                <option value="Cayhagan Elementary School">Cayhagan Elementary School</option>
+                                <option value="Crossing Tanduay Elementary School">Crossing Tanduay Elementary School</option>
+                                <option value="Genaro P. Alvarez Elementary School">Genaro P. Alvarez Elementary School</option>
+                                <option value="Genaro P. Alvarez Elementary School II">Genaro P. Alvarez Elementary School II</option>
+                                <option value="Gil M. Montilla Elementary School">Gil M. Montilla Elementary School</option>
+                                <option value="Hda. Maricalum Elementary School">Hda. Maricalum Elementary School</option>
+                                <option value="Manlucahoc Elementary School">Manlucahoc Elementary School</option>
+                                <option value="Maricalum Elementary School">Maricalum Elementary School</option>
+                                <option value="Nabulao Elementary School">Nabulao Elementary School</option>
+                                <option value="Nabulao Elementary School - Buyog Annex">Nabulao Elementary School - Buyog Annex</option>
+                                <option value="Nauhang Primary School">Nauhang Primary School</option>
+                                <option value="Patag Magbanua Elementary School">Patag Magbanua Elementary School</option>
+                            </optgroup>
+                            <optgroup label="Secondary Schools">
+                                <option value="Cambogui-ot National High School">Cambogui-ot National High School</option>
+                                <option value="Camindangan National High School">Camindangan National High School</option>
+                                <option value="Cayhagan National High School">Cayhagan National High School</option>
+                                <option value="Gil Montilla National High School">Gil Montilla National High School</option>
+                                <option value="Gil Montilla NHS - Binulig Extension">Gil Montilla NHS - Binulig Extension</option>
+                                <option value="Gil Montilla NHS - Cabadiangan Extension">Gil Montilla NHS - Cabadiangan Extension</option>
+                                <option value="Gil Montilla NHS - Crossing Tanduay Extension">Gil Montilla NHS - Crossing Tanduay Extension</option>
+                                <option value="Gil Montilla NHS - Manlucahoc Extension">Gil Montilla NHS - Manlucahoc Extension</option>
+                                <option value="Jacinto Montilla Memorial National High School">Jacinto Montilla Memorial National High School</option>
+                                <option value="Leodegario Ponce Gonzales National High School">Leodegario Ponce Gonzales National High School</option>
+                                <option value="Mariano Gemora National High School">Mariano Gemora National High School</option>
+                                <option value="Maricalum Farm School">Maricalum Farm School</option>
+                                <option value="Nabulao National High School">Nabulao National High School</option>
+                                <option value="Sipalay City National High School">Sipalay City National High School</option>
+                            </optgroup>
+                            <optgroup label="Integrated Schools">
+                                <option value="Dungga Integrated School">Dungga Integrated School</option>
+                                <option value="Dung-i Integrated School">Dung-i Integrated School</option>
+                                <option value="Macarandan Integrated School">Macarandan Integrated School</option>
+                                <option value="Mauboy Integrated School">Mauboy Integrated School</option>
+                                <option value="Omas Integrated School">Omas Integrated School</option>
+                                <option value="Tugas Integrated School">Tugas Integrated School</option>
+                                <option value="Vista Alegre Integrated School">Vista Alegre Integrated School</option>
+                            </optgroup>
+                            <optgroup label="Division Office">
+                                <option value="CID">CID - Curriculum Implementation Division</option>
+                                <option value="Division Office Proper">Division Office Proper</option>
+                                <option value="OSDS">OSDS - Office of the Schools Division Superintendent</option>
+                                <option value="SGOD">SGOD - School Governance and Operations Division</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Position <span class="required">*</span></label>
+                        <select id="regPosition" onchange="updateSalaryFromPosition()" required>
+                            <option value="">-- Select Position --</option>
+                            <optgroup label="Administrative">
+                                <option value="Administrative Officer V" data-sg="18">Administrative Officer V (SG-18)</option>
+                                <option value="Administrative Officer IV" data-sg="15">Administrative Officer IV (SG-15)</option>
+                                <option value="Administrative Officer II" data-sg="11">Administrative Officer II (SG-11)</option>
+                                <option value="Administrative Assistant III" data-sg="9">Administrative Assistant III (SG-9)</option>
+                                <option value="Administrative Assistant II" data-sg="8">Administrative Assistant II (SG-8)</option>
+                                <option value="Administrative Aide VI" data-sg="6">Administrative Aide VI (SG-6)</option>
+                                <option value="Administrative Aide IV" data-sg="4">Administrative Aide IV (SG-4)</option>
+                            </optgroup>
+                            <optgroup label="Finance & Planning">
+                                <option value="Accountant III" data-sg="19">Accountant III (SG-19)</option>
+                                <option value="Planning Officer III" data-sg="18">Planning Officer III (SG-18)</option>
+                                <option value="Project Development Officer II" data-sg="15">Project Development Officer II (SG-15)</option>
+                                <option value="Project Development Officer I" data-sg="11">Project Development Officer I (SG-11)</option>
+                            </optgroup>
+                            <optgroup label="Technical & IT">
+                                <option value="Information Technology Officer I" data-sg="19">Information Technology Officer I (SG-19)</option>
+                                <option value="Engineer III" data-sg="19">Engineer III (SG-19)</option>
+                            </optgroup>
+                            <optgroup label="Legal">
+                                <option value="Attorney III" data-sg="21">Attorney III (SG-21)</option>
+                                <option value="Legal Assistant I" data-sg="10">Legal Assistant I (SG-10)</option>
+                            </optgroup>
+                            <optgroup label="Medical/Health">
+                                <option value="Medical Officer III" data-sg="21">Medical Officer III (SG-21)</option>
+                                <option value="Dentist II" data-sg="17">Dentist II (SG-17)</option>
+                                <option value="Nurse II" data-sg="16">Nurse II (SG-16)</option>
+                            </optgroup>
+                            <optgroup label="Records & Library">
+                                <option value="Registrar I" data-sg="11">Registrar I (SG-11)</option>
+                                <option value="Librarian II" data-sg="15">Librarian II (SG-15)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Salary Grade <span class="required">*</span></label>
+                            <input type="text" id="regSalaryGrade" readonly placeholder="Auto-filled">
+                        </div>
+                        <div class="form-group">
+                            <label>Step Increment <span class="required">*</span></label>
+                            <select id="regStep" onchange="updateSalaryAmount()" required>
+                                <option value="">-- Select --</option>
+                                <option value="1">Step 1</option>
+                                <option value="2">Step 2</option>
+                                <option value="3">Step 3</option>
+                                <option value="4">Step 4</option>
+                                <option value="5">Step 5</option>
+                                <option value="6">Step 6</option>
+                                <option value="7">Step 7</option>
+                                <option value="8">Step 8</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="salary-display">
+                        <label>Monthly Basic Salary</label>
+                        <div class="amount" id="salaryAmount">PHP 0.00</div>
+                        <div class="grade-info" id="gradeInfo">Select position and step increment</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="registerBtn">
+                        <span>REGISTER</span>
+                        <div class="spinner"></div>
+                    </button>
+                </form>
+                
+                <div class="toggle-mode">
+                    Already have an HR account? <a onclick="switchTab('login')">Login here</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-links">
+                <a href="about.html">About</a>
+                <a href="help.html">Help</a>
+                <a href="privacy.html">Privacy</a>
+                <a href="terms.html">Terms</a>
+            </div>
+            <p>2026 Schools Division of Sipalay City</p>
+            <p style="font-size: 11px; opacity: 0.8; margin-top: 8px;">© 2026 - All rights reserved</p>
+        </div>
+    </div>
+    
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Forgot Password</h2>
+                <button class="close-modal" onclick="closeForgotPasswordModal()">&times;</button>
+            </div>
+            
+            <div id="forgotPasswordMessage" class="modal-message"></div>
+            
+            <!-- Step 1: Email Entry -->
+            <div id="step1-email" class="modal-form">
+                <form onsubmit="handleForgotPasswordSubmit(event)">
+                    <div class="form-group">
+                        <label>Enter Your Email <span class="required">*</span></label>
+                        <input type="email" id="fpEmail" placeholder="example@deped.gov.ph" required>
+                        <p class="hint">Enter the email associated with your account</p>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send OTP</button>
+                </form>
+            </div>
+            
+            <!-- Step 2: OTP Verification -->
+            <div id="step2-otp" class="modal-form" style="display: none;">
+                <p style="text-align: center; margin-bottom: 20px; font-size: 14px; color: #666;">
+                    We've sent a one-time password to your email. Enter it below:
+                </p>
+                <form onsubmit="handleOTPSubmit(event)">
+                    <div class="otp-input-group" id="otpInputGroup">
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                        <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" required>
+                    </div>
+                    <input type="hidden" id="otpCode" name="otpCode">
+                    <div class="otp-timer">
+                        <span>Expires in <span id="otpTimer">5:00</span></span><br>
+                        <button type="button" class="resend-btn" id="resendBtn" onclick="handleResendOTP(event)">Resend OTP</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top: 15px;">Verify OTP</button>
+                </form>
+            </div>
+            
+            <!-- Step 3: Password Reset -->
+            <div id="step3-reset" class="modal-form" style="display: none;">
+                <form onsubmit="handlePasswordReset(event)">
+                    <div class="form-group">
+                        <label>New Password <span class="required">*</span></label>
+                        <input type="password" id="newPassword" placeholder="Create 6-digit password" maxlength="6" pattern="[0-9]{6}" required>
+                        <div class="password-strength"><div class="bar" id="fpStrengthBar"></div></div>
+                        <p class="hint">Must be exactly 6 numeric digits</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirm Password <span class="required">*</span></label>
+                        <input type="password" id="confirmNewPassword" placeholder="Re-enter 6-digit password" maxlength="6" pattern="[0-9]{6}" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Reset Password</button>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <a href="#" onclick="closeForgotPasswordModal(event)">Back to Login</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Third Tranche Salary Schedule (DepEd SDO Sipalay Master File - January 2026)
+        const salaryTable = {
+            1: [14634, 14730, 14849, 14968, 15089, 15211, 15333, 15456],
+            2: [15522, 15636, 15752, 15869, 15986, 16103, 16223, 16342],
+            3: [16451, 16570, 16690, 16812, 16935, 17059, 17185, 17312],
+            4: [17562, 17664, 17767, 17871, 17976, 18082, 18189, 18297],
+            5: [18784, 18896, 19009, 19123, 19238, 19354, 19471, 19589],
+            6: [19716, 19851, 19987, 20124, 20262, 20401, 20541, 20682],
+            7: [21318, 21496, 21676, 21859, 22044, 22231, 22421, 22613],
+            8: [22423, 22627, 22832, 23038, 23246, 23456, 23667, 23880],
+            9: [24329, 24523, 24718, 24915, 25114, 25315, 25521, 25729],
+            10: [26917, 27105, 27295, 27487, 27681, 27877, 28075, 28275],
+            11: [31705, 31820, 32109, 32401, 32697, 32998, 33302, 33611],
+            12: [33947, 34069, 34357, 34648, 34942, 35239, 35539, 35842],
+            13: [36125, 36283, 36599, 36919, 37243, 37572, 37905, 38241],
+            14: [38764, 39141, 39523, 39909, 40299, 40693, 41091, 41493],
+            15: [42178, 42594, 43015, 43440, 43869, 44303, 44741, 45183],
+            16: [45694, 46152, 46615, 47083, 47556, 48033, 48515, 49002],
+            17: [49560, 50066, 50576, 51091, 51611, 52136, 52666, 53201],
+            18: [53818, 54371, 54933, 55499, 56074, 56654, 57243, 57837],
+            19: [59153, 59966, 60793, 61632, 62486, 63353, 64234, 65132],
+            20: [66052, 66970, 67904, 68853, 69818, 70799, 71798, 72814],
+            21: [73303, 74404, 75523, 76661, 77818, 78995, 80193, 81411],
+            22: [81796, 82963, 84151, 85356, 86581, 87828, 89095, 90385],
+            23: [102537, 104393, 106281, 108202, 110157, 112147, 114174, 116239],
+            24: [103901, 105341, 105841, 107365, 108909, 110476, 112067, 113682],
+            25: [116643, 118310, 120005, 121729, 123483, 125269, 127085, 128934],
+            26: [158273, 161230, 164252, 167339, 170495, 173721, 177020, 180395],
+            27: [183850, 187387, 191001, 194695, 198471, 202332, 206283, 210326],
+            28: [214467, 218701, 223041, 227492, 232058, 236743, 241551, 246489],
+            29: [251563, 256781, 262150, 267679, 273376, 279249, 285309, 291567],
+            30: [298033, 304721, 311644, 318817, 326260, 333988, 342024, 350387],
+            31: [359105, 368210, 377743, 387756, 398304, 409456, 421288, 433885],
+            32: [447338, 461611, 476801, 492975, 510218, 528621, 548284, 569316],
+            33: [449157, 462329]
+        };
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                document.querySelector('.tab[data-tab="login"]').classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+            } else if (tab === 'register') {
+                document.querySelector('.tab[data-tab="register"]').classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+            }
+            
+            document.getElementById('loginMessage').className = 'message';
+            document.getElementById('registerMessage').className = 'message';
+        }
+        
+        // Set up tab click handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+        });
+        
+        function updateSalaryFromPosition() {
+            const positionSelect = document.getElementById('regPosition');
+            const selectedOption = positionSelect.selectedOptions[0];
+            const salaryGrade = selectedOption.dataset.sg || '';
+            
+            document.getElementById('regSalaryGrade').value = salaryGrade ? 'SG-' + salaryGrade : '';
+            document.getElementById('regStep').value = '';
+            document.getElementById('salaryAmount').textContent = 'PHP 0.00';
+            document.getElementById('gradeInfo').textContent = 'Select step increment';
+        }
+
+        function updateSalaryAmount() {
+            const positionSelect = document.getElementById('regPosition');
+            const selectedOption = positionSelect.selectedOptions[0];
+            const salaryGrade = parseInt(selectedOption.dataset.sg) || 0;
+            const step = parseInt(document.getElementById('regStep').value) || 0;
+            
+            if (salaryGrade && step) {
+                const salary = salaryTable[salaryGrade][step - 1];
+                document.getElementById('salaryAmount').textContent = 'PHP ' + salary.toLocaleString('en-PH', {minimumFractionDigits: 2});
+                document.getElementById('gradeInfo').textContent = 'Salary Grade ' + salaryGrade + ' - Step ' + step;
+            } else {
+                document.getElementById('salaryAmount').textContent = 'PHP 0.00';
+                document.getElementById('gradeInfo').textContent = 'Select position and step increment';
+            }
+        }
+
+        function validatePassword(input) {
+            const value = input.value;
+            const bar = document.getElementById('strengthBar');
+            const errorMsg = document.getElementById('passwordError');
+            
+            const length = value.length;
+            const percentage = (length / 6) * 100;
+            bar.style.width = percentage + '%';
+            
+            if (length < 3) {
+                bar.style.backgroundColor = '#dc3545';
+            } else if (length < 5) {
+                bar.style.backgroundColor = '#ffc107';
+            } else if (length >= 6) {
+                bar.style.backgroundColor = '#28a745';
+            }
+            
+            if (length > 0 && length < 6) {
+                input.classList.add('error');
+                errorMsg.style.display = 'block';
+            } else {
+                input.classList.remove('error');
+                errorMsg.style.display = 'none';
+            }
+        }
+        
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            if (field.type === 'password') {
+                field.type = 'text';
+            } else {
+                field.type = 'password';
+            }
+        }
+
+        function validateDepEdEmail(email) {
+            return email && email.toLowerCase().endsWith('@deped.gov.ph');
+        }
+        
+        function validateEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+        
+        async function handleHRLogin(e) {
+            e.preventDefault();
+            const email = (document.getElementById('loginEmail')?.value || '').trim();
+            const password = document.getElementById('loginPassword')?.value || '';
+            const message = document.getElementById('loginMessage');
+            const btn = document.getElementById('loginBtn');
+            
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/hr-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    localStorage.setItem('hrUser', JSON.stringify(result.user));
+                    localStorage.setItem('userRole', 'hr');
+                    message.textContent = '✓ HR Login Successful! Redirecting to approval portal...';
+                    message.className = 'message success';
+                    message.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = '/hr-approval.html';
+                    }, 1500);
+                } else {
+                    message.textContent = result.error || 'HR login failed';
+                    message.className = 'message error';
+                    message.style.display = 'block';
+                }
+            } catch (error) {
+                message.textContent = 'Error: ' + error.message;
+                message.className = 'message error';
+                message.style.display = 'block';
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+        
+        async function handleHRRegister(e) {
+            e.preventDefault();
+            const office = (document.getElementById('regOffice')?.value || '').trim();
+            const fullName = (document.getElementById('regFullName')?.value || '').trim();
+            const email = (document.getElementById('regEmail')?.value || '').trim();
+            const password = document.getElementById('regPassword')?.value || '';
+            const confirmPassword = document.getElementById('regConfirmPassword')?.value || '';
+            const positionSelect = document.getElementById('regPosition');
+            const position = (positionSelect?.value || '').trim();
+            const salaryGrade = positionSelect?.selectedOptions[0]?.dataset?.sg || '';
+            const step = document.getElementById('regStep')?.value || '';
+            const employeeNo = (document.getElementById('regEmployeeNumber')?.value || '').trim();
+            const btn = document.getElementById('registerBtn');
+            const message = document.getElementById('registerMessage');
+            
+            // Check all required fields have values
+            if (!fullName || !email || !password || !confirmPassword || !office || !position || !step || !employeeNo) {
+                let missingFields = [];
+                if (!fullName) missingFields.push('Full Name');
+                if (!email) missingFields.push('HR Email');
+                if (!password) missingFields.push('Password');
+                if (!confirmPassword) missingFields.push('Confirm Password');
+                if (!office) missingFields.push('Office/Division');
+                if (!position) missingFields.push('Position');
+                if (!step) missingFields.push('Step Increment');
+                if (!employeeNo) missingFields.push('Employee Number');
+                message.textContent = '❌ Please fill in: ' + missingFields.join(', ');
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+            }
+            
+            if (!validateDepEdEmail(email)) {
+                document.getElementById('emailError').style.display = 'block';
+                message.textContent = '❌ Please use a valid DepEd email (@deped.gov.ph)';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+            }
+            
+            // Validate password: 6-24 chars with letters, numbers, and special character
+            if (password.length < 6 || password.length > 24) {
+                document.getElementById('passwordError').style.display = 'block';
+                message.textContent = '❌ Password must be 6-24 characters!';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+            }
+            if (!/[a-zA-Z]/.test(password)) {
+                document.getElementById('passwordError').style.display = 'block';
+                message.textContent = '❌ Password must contain at least one letter!';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+            }
+            if (!/[0-9]/.test(password)) {
+                document.getElementById('passwordError').style.display = 'block';
+                message.textContent = '❌ Password must contain at least one number!';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+            }
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+                document.getElementById('passwordError').style.display = 'block';
+                message.textContent = '❌ Password must contain at least one special character (!@#$%^&* etc.)!';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+            }
+            
+            const salary = salaryTable[parseInt(salaryGrade)]?.[parseInt(step) - 1] || 0;
+            
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            const payload = {
+                office,
+                fullName,
+                email,
+                password,
+                position,
+                salaryGrade: parseInt(salaryGrade),
+                step: parseInt(step),
+                salary,
+                employeeNo
+            };
+            
+            try {
+                const response = await fetch('/api/hr-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    message.textContent = '✓ HR Account Created Successfully! You can now login.';
+                    message.className = 'message success';
+                    message.style.display = 'block';
+                    setTimeout(() => {
+                        switchTab('login');
+                        document.getElementById('loginEmail').value = email;
+                        document.getElementById('loginEmail').focus();
+                    }, 2000);
+                } else {
+                    message.textContent = result.error || 'Registration failed';
+                    message.className = 'message error';
+                    message.style.display = 'block';
+                }
+            } catch (error) {
+                message.textContent = 'Error: ' + error.message;
+                message.className = 'message error';
+                message.style.display = 'block';
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+        
+        // Clear error messages when user types
+        document.addEventListener('DOMContentLoaded', function() {
+            const regEmail = document.getElementById('regEmail');
+            const regPassword = document.getElementById('regPassword');
+            const regConfirmPassword = document.getElementById('regConfirmPassword');
+            const loginPassword = document.getElementById('loginPassword');
+            
+            if (regEmail) regEmail.addEventListener('input', function() {
+                document.getElementById('emailError').style.display = 'none';
+            });
+            
+            if (regPassword) regPassword.addEventListener('input', function() {
+                document.getElementById('passwordError').style.display = 'none';
+            });
+            
+            if (regConfirmPassword) regConfirmPassword.addEventListener('input', function() {
+                document.getElementById('confirmError').style.display = 'none';
+            });
+            
+
+        });
+
+        // Forgot Password Functions
+        let otpTimerInterval = null;
+        let otpExpireTime = null;
+        let currentForgotPasswordEmail = null;
+        let currentUserType = 'hr';
+
+        function openForgotPasswordModal(e) {
+            e.preventDefault();
+            document.getElementById('forgotPasswordModal').classList.add('show');
+            resetForgotPasswordForm();
+        }
+
+        function closeForgotPasswordModal(e) {
+            if (e) e.preventDefault();
+            document.getElementById('forgotPasswordModal').classList.remove('show');
+            clearOTPTimer();
+            resetForgotPasswordForm();
+        }
+
+        function resetForgotPasswordForm() {
+            document.getElementById('step1-email').style.display = 'block';
+            document.getElementById('step2-otp').style.display = 'none';
+            document.getElementById('step3-reset').style.display = 'none';
+            document.getElementById('forgotPasswordMessage').textContent = '';
+            document.getElementById('forgotPasswordMessage').className = 'modal-message';
+            document.getElementById('fpEmail').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmNewPassword').value = '';
+        }
+
+        function handleForgotPasswordSubmit(e) {
+            e.preventDefault();
+            const email = document.getElementById('fpEmail').value;
+            currentForgotPasswordEmail = email;
+            
+            const messageEl = document.getElementById('forgotPasswordMessage');
+            messageEl.textContent = 'Sending OTP...';
+            messageEl.className = 'modal-message info';
+            
+            fetch('/api/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, userType: 'hr' })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    messageEl.textContent = 'OTP sent to your email!';
+                    messageEl.className = 'modal-message success';
+                    showOTPStep();
+                    startOTPTimer(data.expiresIn || 300);
+                } else {
+                    messageEl.textContent = data.error || 'Failed to send OTP';
+                    messageEl.className = 'modal-message error';
+                }
+            })
+            .catch(err => {
+                messageEl.textContent = 'Error: ' + err.message;
+                messageEl.className = 'modal-message error';
+            });
+        }
+
+        function showOTPStep() {
+            document.getElementById('step1-email').style.display = 'none';
+            document.getElementById('step2-otp').style.display = 'block';
+            document.getElementById('step3-reset').style.display = 'none';
+            document.getElementById('forgotPasswordMessage').textContent = '';
+            setTimeout(() => document.querySelector('.otp-input').focus(), 100);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const otpInputs = document.querySelectorAll('.otp-input');
+            otpInputs.forEach((input, index) => {
+                input.addEventListener('input', function(e) {
+                    if (!/^[0-9]$/.test(e.target.value)) {
+                        e.target.value = '';
+                        return;
+                    }
+                    if (e.target.value && index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                });
+                
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        otpInputs[index - 1].focus();
+                    }
+                });
+            });
+            
+            const newPwdEl = document.getElementById('newPassword');
+            if (newPwdEl) newPwdEl.addEventListener('input', validateFPPassword);
+        });
+
+        function validateFPPassword(e) {
+            const strength = e.target.value.length / 6;
+            document.getElementById('fpStrengthBar').style.width = (strength * 100) + '%';
+        }
+
+        function handleOTPSubmit(e) {
+            e.preventDefault();
+            const otpInputs = document.querySelectorAll('.otp-input');
+            const otpCode = Array.from(otpInputs).map(input => input.value).join('');
+            
+            if (otpCode.length !== 6) {
+                showFPMessage('Please enter all 6 digits', 'error');
+                return;
+            }
+            
+            const messageEl = document.getElementById('forgotPasswordMessage');
+            messageEl.textContent = 'Verifying OTP...';
+            messageEl.className = 'modal-message info';
+            
+            fetch('/api/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentForgotPasswordEmail, otp: otpCode })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    messageEl.textContent = '';
+                    messageEl.className = 'modal-message';
+                    clearOTPTimer();
+                    showPasswordResetStep();
+                } else {
+                    showFPMessage(data.error || 'Invalid OTP', 'error');
+                }
+            })
+            .catch(err => showFPMessage('Error: ' + err.message, 'error'));
+        }
+
+        function handleResendOTP(e) {
+            e.preventDefault();
+            const btn = document.getElementById('resendBtn');
+            btn.disabled = true;
+            
+            fetch('/api/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentForgotPasswordEmail, userType: 'hr' })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showFPMessage('OTP resent to your email!', 'success');
+                    clearOTPInputs();
+                    startOTPTimer(data.expiresIn || 300);
+                    btn.disabled = false;
+                } else {
+                    showFPMessage(data.error || 'Failed to resend OTP', 'error');
+                }
+            })
+            .catch(err => showFPMessage('Error: ' + err.message, 'error'));
+        }
+
+        function clearOTPInputs() {
+            document.querySelectorAll('.otp-input').forEach(input => input.value = '');
+            document.querySelector('.otp-input').focus();
+        }
+
+        function startOTPTimer(seconds) {
+            clearOTPTimer();
+            otpExpireTime = new Date().getTime() + (seconds * 1000);
+            
+            otpTimerInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const remaining = Math.max(0, otpExpireTime - now);
+                const mins = Math.floor(remaining / 60000);
+                const secs = Math.floor((remaining % 60000) / 1000);
+                document.getElementById('otpTimer').textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+                
+                if (remaining <= 0) {
+                    clearOTPTimer();
+                    showFPMessage('OTP expired. Please request a new one.', 'error');
+                    resetForgotPasswordForm();
+                }
+            }, 1000);
+        }
+
+        function clearOTPTimer() {
+            if (otpTimerInterval) {
+                clearInterval(otpTimerInterval);
+                otpTimerInterval = null;
+            }
+        }
+
+        function showPasswordResetStep() {
+            document.getElementById('step1-email').style.display = 'none';
+            document.getElementById('step2-otp').style.display = 'none';
+            document.getElementById('step3-reset').style.display = 'block';
+            document.getElementById('newPassword').focus();
+        }
+
+        function handlePasswordReset(e) {
+            e.preventDefault();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmNewPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                showFPMessage('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (!/^\d{6}$/.test(newPassword)) {
+                showFPMessage('Password must be exactly 6 digits', 'error');
+                return;
+            }
+            
+            const messageEl = document.getElementById('forgotPasswordMessage');
+            messageEl.textContent = 'Resetting password...';
+            messageEl.className = 'modal-message info';
+            
+            fetch('/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: currentForgotPasswordEmail,
+                    newPassword: newPassword
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    messageEl.textContent = 'Password reset successfully! Redirecting to login...';
+                    messageEl.className = 'modal-message success';
+                    setTimeout(() => {
+                        closeForgotPasswordModal();
+                        switchTab('login');
+                        document.getElementById('loginEmail').focus();
+                    }, 2000);
+                } else {
+                    showFPMessage(data.error || 'Failed to reset password', 'error');
+                }
+            })
+            .catch(err => showFPMessage('Error: ' + err.message, 'error'));
+        }
+
+        function showFPMessage(message, type) {
+            const messageEl = document.getElementById('forgotPasswordMessage');
+            messageEl.textContent = message;
+            messageEl.className = 'modal-message ' + type;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Department Portal - Schools Division of Sipalay City</title>
+    <script src="/modal-alert.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #01579b 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            opacity: 0.9;
+            transition: opacity 0.3s;
+        }
+
+        .back-link:hover {
+            opacity: 1;
+        }
+
+        .container {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 520px;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #283593 0%, #1565c0 100%);
+            padding: 20px 30px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header-logo-left {
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .header-logo-right {
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .header-logo-left img,
+        .header-logo-right img {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+        }
+
+        .header > div:not(.header-logo-left):not(.header-logo-right) {
+            flex: 0 1 auto;
+            text-align: center;
+        }
+
+        .header > div {
+            flex: 0 1 auto;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .header img {
+            width: 90px;
+            height: 90px;
+            flex-shrink: 0;
+            display: none;
+        }
+
+        .header h1 {
+            font-size: 12px;
+            font-weight: 300;
+            margin-bottom: 2px;
+            opacity: 0.95;
+        }
+        
+        .header h2 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+            white-space: nowrap;
+        }
+        
+        .header h3 {
+            font-size: 10px;
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .it-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.25);
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: 500;
+            flex-shrink: 0;
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-container {
+            padding: 30px;
+        }
+
+        .form-title {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #1a237e;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #1565c0;
+            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.loading .spinner {
+            display: inline-block;
+        }
+
+        .btn.loading span {
+            visibility: hidden;
+        }
+
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+            display: block;
+        }
+
+        .message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+            display: block;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .footer-links {
+            margin-bottom: 10px;
+        }
+        
+        .footer-links a {
+            color: #1565c0;
+            text-decoration: none;
+            margin: 0 12px;
+            font-weight: 500;
+        }
+        
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #1565c0;
+            font-size: 18px;
+            padding: 5px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s;
+        }
+
+        .toggle-password:hover {
+            color: #0d47a1;
+        }
+
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 45px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← Back to Main Menu</a>
+    
+    <div class="container">
+        <div class="header">
+            <div class="header-logo-left">
+                <img src="/deped logo.png" alt="DepEd Logo" onerror="this.style.display='none'">
+            </div>
+            <div>
+                <h1>Republic of the Philippines</h1>
+                <h2>Department of Education</h2>
+                <h3>SCHOOLS DIVISION OF SIPALAY CITY</h3>
+            </div>
+            <div class="header-logo-right">
+                <img src="/sipalay_logo.png" alt="Sipalay City Logo" onerror="this.style.display='none'">
+            </div>
+        </div>
+        
+        <div class="form-container">
+            <h3 class="form-title">IT Staff Login</h3>
+            
+            <div id="loginMessage" class="message"></div>
+            
+            <div class="info-box">
+                <strong>IT Department Access:</strong> This portal is for IT staff to validate and approve user registrations.
+            </div>
+            
+            <form onsubmit="handleITLogin(event)">
+                <div class="form-group">
+                    <label>IT Email</label>
+                    <input type="email" id="loginEmail" placeholder="example@deped.gov.ph" required>
+                    <p class="hint">Must be a valid DepEd email</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="123456" required>
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Show/Hide PIN">
+                            👁️
+                        </button>
+                    </div>
+                    <p class="hint">Exactly 6 digits</p>
+                </div>
+                
+                <button type="submit" class="btn" id="loginBtn">
+                    <span>LOGIN</span>
+                    <div class="spinner"></div>
+                </button>
+            </form>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-links">
+                <a href="about.html">About</a>
+                <a href="help.html">Help</a>
+                <a href="privacy.html">Privacy</a>
+                <a href="terms.html">Terms</a>
+            </div>
+            2026 Schools Division of Sipalay City<br>
+            © 2026 - All rights reserved
+        </div>
+    </div>
+
+    <script>
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('loginPassword');
+            const currentType = passwordInput.type;
+            passwordInput.type = currentType === 'password' ? 'text' : 'password';
+        }
+
+        async function handleITLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const pin = document.getElementById('loginPassword').value;
+            const messageDiv = document.getElementById('loginMessage');
+            const btn = document.getElementById('loginBtn');
+            
+            messageDiv.style.display = 'none';
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/it-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, pin })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = 'Login successful! Redirecting...';
+                    messageDiv.style.display = 'block';
+                    
+                    localStorage.setItem('itUser', JSON.stringify(data.user));
+                    
+                    setTimeout(() => {
+                        window.location.href = '/it-dashboard.html';
+                    }, 1000);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = data.error || 'Login failed';
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Connection error. Please try again.';
+                messageDiv.style.display = 'block';
+            }
+            
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>

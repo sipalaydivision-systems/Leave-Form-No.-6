@@ -1,0 +1,2601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard - CS Form No. 6</title>
+    <script src="/modal-alert.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #d4f8e8;
+            min-height: 100vh;
+        }
+
+        /* Top Navigation Bar - Instagram Style */
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #dbdbdb;
+            padding: 14px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-content {
+            max-width: 935px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-icons {
+            display: none;
+            gap: 22px;
+            align-items: center;
+        }
+
+        .nav-icon {
+            cursor: pointer;
+            font-size: 24px;
+            transition: transform 0.2s;
+        }
+
+        .nav-icon:hover {
+            transform: scale(1.1);
+        }
+
+        .profile-pic {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .profile-pic:hover {
+            border-color: #dbdbdb;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 935px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            display: grid;
+            grid-template-columns: 614px 1fr;
+            gap: 28px;
+        }
+
+        @media (max-width: 1000px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                max-width: 614px;
+            }
+            .sidebar {
+                display: none;
+            }
+        }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 600px) {
+            .navbar {
+                padding: 10px 12px;
+            }
+            
+            .logo {
+                font-size: 18px;
+            }
+            
+            .nav-icons {
+                gap: 12px;
+            }
+            
+            .nav-icon {
+                font-size: 20px;
+            }
+            
+            .profile-pic {
+                width: 24px;
+                height: 24px;
+                font-size: 10px;
+            }
+            
+            .main-container {
+                padding: 15px 10px;
+            }
+            
+            .stories-section {
+                padding: 12px;
+                margin-bottom: 16px;
+            }
+            
+            .stories-header h3 {
+                font-size: 13px;
+            }
+            
+            .stories-header span {
+                font-size: 10px;
+            }
+            
+            .credits-stories {
+                gap: 12px;
+                justify-content: center;
+            }
+            
+            .credit-story {
+                min-width: 70px;
+            }
+            
+            .credit-ring {
+                width: 56px;
+                height: 56px;
+            }
+            
+            .credit-amount {
+                font-size: 16px;
+            }
+            
+            .credit-unit {
+                font-size: 7px;
+            }
+            
+            .credit-label {
+                font-size: 11px;
+            }
+            
+            .post-card {
+                margin-bottom: 16px;
+            }
+            
+            .post-header {
+                padding: 10px 12px;
+            }
+            
+            .post-avatar {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+            }
+            
+            .post-username {
+                font-size: 13px;
+            }
+            
+            .post-location {
+                font-size: 11px;
+            }
+            
+            .post-image h2 {
+                font-size: 24px;
+            }
+            
+            .post-image p {
+                font-size: 14px;
+            }
+            
+            .post-image .icon {
+                font-size: 60px;
+            }
+            
+            .post-actions {
+                padding: 10px 12px;
+                gap: 12px;
+            }
+            
+            .action-btn {
+                font-size: 20px;
+            }
+            
+            .post-likes,
+            .post-caption {
+                padding: 0 12px 12px;
+                font-size: 13px;
+            }
+            
+            .file-leave-btn {
+                width: calc(100% - 24px);
+                margin: 0 12px 12px;
+                padding: 12px;
+                font-size: 13px;
+            }
+            
+            .tracker-section {
+                margin-bottom: 16px;
+            }
+            
+            .tracker-header {
+                padding: 10px 12px;
+            }
+            
+            .tracker-header h3 {
+                font-size: 13px;
+            }
+            
+            .tracker-content {
+                padding: 12px;
+            }
+            
+            .app-card {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .app-card-header {
+                flex-direction: column;
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+            
+            .app-card-info h4 {
+                font-size: 13px;
+            }
+            
+            .app-card-info p {
+                font-size: 11px;
+            }
+            
+            .status-pill {
+                padding: 4px 10px;
+                font-size: 10px;
+                align-self: flex-start;
+            }
+            
+            .progress-steps {
+                padding: 0 5px;
+            }
+            
+            .progress-steps::before {
+                left: 30px;
+                right: 30px;
+            }
+            
+            .progress-line-fill {
+                left: 30px;
+            }
+            
+            .step-circle {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            
+            .step-label {
+                font-size: 9px;
+            }
+            
+            .step-status {
+                font-size: 8px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+                max-height: 90vh;
+            }
+            
+            .modal-header h2 {
+                font-size: 14px;
+            }
+            
+            .database-table th,
+            .database-table td {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+            
+            .empty-state {
+                padding: 30px 15px;
+            }
+            
+            .empty-state .icon {
+                font-size: 36px;
+            }
+            
+            .empty-state p {
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            .logo {
+                font-size: 16px;
+            }
+            
+            .nav-icon {
+                font-size: 18px;
+            }
+            
+            .credits-stories {
+                gap: 8px;
+            }
+            
+            .credit-ring {
+                width: 48px;
+                height: 48px;
+            }
+            
+            .credit-amount {
+                font-size: 14px;
+            }
+            
+            .step-circle {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+            
+            .step-label {
+                font-size: 8px;
+            }
+            
+            .step-status {
+                font-size: 7px;
+            }
+            
+            .progress-steps::before {
+                left: 25px;
+                right: 25px;
+            }
+            
+            .progress-line-fill {
+                left: 25px;
+            }
+        }
+
+        /* Stories-like Leave Credits Section */
+        .stories-section {
+            background: white;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .stories-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .stories-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .stories-header span {
+            font-size: 12px;
+            color: #8e8e8e;
+        }
+
+        .credits-stories {
+            display: flex;
+            gap: 20px;
+            padding: 8px 0;
+        }
+
+        .credit-story {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-width: 80px;
+        }
+
+        .credit-ring {
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            padding: 3px;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+        }
+
+        .credit-ring.sick {
+            background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c);
+        }
+
+        .credit-ring.force {
+            background: linear-gradient(45deg, #ff6b00, #ff8800, #ffaa00, #ffcc00, #ff9900);
+        }
+
+        .credit-ring.spl {
+            background: linear-gradient(45deg, #00b894, #00cec9, #0984e3, #2d3436, #00b894);
+        }
+
+        .credit-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+
+        .credit-amount {
+            font-size: 18px;
+            font-weight: 700;
+            color: #262626;
+        }
+
+        .credit-unit {
+            font-size: 8px;
+            color: #8e8e8e;
+            text-transform: uppercase;
+        }
+
+        .credit-label {
+            font-size: 12px;
+            color: #262626;
+            text-align: center;
+            max-width: 74px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Post Card - File Leave Action */
+        .post-card {
+            background: white;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .post-header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .post-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .post-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .post-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .post-username {
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .post-location {
+            font-size: 12px;
+            color: #8e8e8e;
+        }
+
+        .post-image {
+            width: 100%;
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .post-image::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translate(-50%, -50%); }
+            100% { transform: translate(50%, 50%); }
+        }
+
+        .post-image h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            z-index: 1;
+        }
+
+        .post-image p {
+            font-size: 16px;
+            opacity: 0.9;
+            z-index: 1;
+        }
+
+        .post-image .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            z-index: 1;
+        }
+
+        .post-actions {
+            padding: 12px 16px;
+            display: none;
+            gap: 16px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .action-btn:hover {
+            opacity: 0.6;
+        }
+
+        .action-btn:active {
+            transform: scale(0.9);
+        }
+
+        .post-likes {
+            padding: 0 16px 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .post-caption {
+            padding: 0 16px 16px;
+        }
+
+        .post-caption strong {
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .post-caption span {
+            color: #262626;
+            font-size: 14px;
+        }
+
+        .file-leave-btn {
+            width: calc(100% - 32px);
+            margin: 0 16px 16px;
+            padding: 14px;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .file-leave-btn:hover {
+            opacity: 0.9;
+        }
+
+        .file-leave-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Tracker Section - Feed Style */
+        .tracker-section {
+            background: white;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+
+        .tracker-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #efefef;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tracker-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+            flex: 1;
+        }
+
+        .refresh-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background: #f0f0f0;
+            transform: rotate(180deg);
+        }
+
+        .tracker-content {
+            padding: 16px;
+        }
+
+        /* Application Card */
+        .app-card {
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .app-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .app-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .app-card-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+            margin-bottom: 4px;
+        }
+
+        .app-card-info p {
+            font-size: 12px;
+            color: #8e8e8e;
+        }
+
+        .status-pill {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-approved {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .status-rejected,
+        .status-disapproved {
+            background: linear-gradient(45deg, #dc3545, #e83e8c);
+            color: white;
+        }
+
+        .status-returned {
+            background: linear-gradient(45deg, #f0ad4e, #fd7e14);
+            color: white;
+        }
+
+        .returned-highlight {
+            border: 2px solid #f0ad4e !important;
+            background: linear-gradient(135deg, #fffbf0 0%, #fff3e0 100%) !important;
+        }
+
+        .was-returned {
+            border: 2px solid #17a2b8 !important;
+            background: linear-gradient(135deg, #f0faff 0%, #e8f4fd 100%) !important;
+        }
+
+        .step.returned .step-circle {
+            background: linear-gradient(45deg, #f0ad4e, #fd7e14);
+            color: white;
+        }
+
+        .step.returned .step-status {
+            color: #f0ad4e;
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #e1306c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Progress Steps - Instagram Style */
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            padding: 0 10px;
+        }
+
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 40px;
+            right: 40px;
+            height: 2px;
+            background: #dbdbdb;
+        }
+
+        .progress-line-fill {
+            position: absolute;
+            top: 20px;
+            left: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.5s ease;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+            border: 2px solid #dbdbdb;
+            background: white;
+        }
+
+        .step.done .step-circle {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border-color: transparent;
+            color: white;
+        }
+
+        .step.current .step-circle {
+            background: white;
+            border: 3px solid;
+            border-image: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888) 1;
+            border-radius: 50%;
+            border-style: solid;
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888) border-box;
+            animation: pulse-ring 2s infinite;
+        }
+
+        .step.rejected .step-circle {
+            background: linear-gradient(45deg, #dc3545, #e83e8c);
+            border-color: transparent;
+            color: white;
+        }
+
+        .step.waiting .step-circle {
+            background: #f0f0f0;
+            border-color: #dbdbdb;
+            color: #8e8e8e;
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(225, 48, 108, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(225, 48, 108, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(225, 48, 108, 0); }
+        }
+
+        .step-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: #262626;
+            text-align: center;
+        }
+
+        .step-status {
+            font-size: 10px;
+            color: #8e8e8e;
+            text-align: center;
+        }
+
+        .step.done .step-status {
+            color: #28a745;
+        }
+
+        .step.rejected .step-status {
+            color: #dc3545;
+        }
+
+        .step.current .step-status {
+            color: #e1306c;
+            font-weight: 600;
+        }
+
+        /* Skipped step style */
+        .step.skipped .step-circle {
+            background: #e0e0e0;
+            border-color: #ccc;
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .step.skipped .step-label,
+        .step.skipped .step-status {
+            color: #999;
+        }
+
+        /* Animations for approved and rejected cards */
+        .app-card.approved-glow {
+            animation: glow-pulse 2s ease-in-out infinite;
+            border: 2px solid #28a745;
+        }
+
+        .app-card.clickable-card {
+            transition: all 0.3s ease;
+        }
+
+        .app-card.clickable-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+        }
+        
+        .app-card.rejected-shake {
+            animation: shake 0.5s ease-in-out;
+            border: 2px solid #dc3545;
+        }
+        
+        @keyframes glow-pulse {
+            0%, 100% { 
+                box-shadow: 0 0 5px rgba(40, 167, 69, 0.3);
+            }
+            50% { 
+                box-shadow: 0 0 20px rgba(40, 167, 69, 0.6), 0 0 30px rgba(40, 167, 69, 0.4);
+            }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Progress steps with AO (5 steps instead of 4) */
+        .progress-steps.with-ao {
+            gap: 5px;
+        }
+        
+        .progress-steps.with-ao .step {
+            flex: 1;
+            min-width: 50px;
+        }
+        
+        .progress-steps.with-ao::before {
+            left: 30px;
+            right: 30px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            color: #8e8e8e;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        /* Sidebar - Instagram Style */
+        .sidebar {
+            position: sticky;
+            top: 88px;
+        }
+
+        .sidebar-profile {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .sidebar-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .sidebar-info {
+            flex: 1;
+        }
+
+        .sidebar-username {
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .sidebar-name {
+            font-size: 14px;
+            color: #8e8e8e;
+        }
+
+        .switch-btn {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0095f6;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .switch-btn:hover {
+            color: #00376b;
+        }
+
+        .sidebar-section {
+            margin-bottom: 16px;
+        }
+
+        .sidebar-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .sidebar-section-header h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #8e8e8e;
+        }
+
+        .sidebar-section-header a {
+            font-size: 12px;
+            font-weight: 600;
+            color: #262626;
+            text-decoration: none;
+        }
+
+        .quick-action {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .quick-action:hover {
+            opacity: 0.7;
+        }
+
+        .quick-action-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .quick-action-icon.green {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .quick-action-icon.blue {
+            background: linear-gradient(45deg, #405de6, #5851db);
+            color: white;
+        }
+
+        .quick-action-icon.orange {
+            background: linear-gradient(45deg, #f09433, #e6683c);
+            color: white;
+        }
+
+        .quick-action-text {
+            flex: 1;
+        }
+
+        .quick-action-text h5 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+        }
+
+        .quick-action-text p {
+            font-size: 12px;
+            color: #8e8e8e;
+        }
+
+        .footer-links {
+            margin-top: 24px;
+            font-size: 11px;
+            color: #c7c7c7;
+        }
+
+        .footer-links a {
+            color: #aaa;
+            text-decoration: none;
+            margin-right: 15px;
+        }
+        
+        .footer-links a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.65);
+            overflow: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #dbdbdb;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #262626;
+            flex: 1;
+            text-align: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #262626;
+        }
+
+        .modal-body {
+            padding: 16px;
+        }
+
+        .database-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .database-table th {
+            background: #fafafa;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8e8e8e;
+            border-bottom: 1px solid #dbdbdb;
+        }
+
+        .database-table td {
+            padding: 12px 8px;
+            font-size: 14px;
+            color: #262626;
+            border-bottom: 1px solid #efefef;
+        }
+
+        .database-table tr:hover {
+            background: #fafafa;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #dbdbdb;
+            border-top-color: #e1306c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Logout Modal Styles */
+        .logout-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-content {
+            background-color: #f9f9f9;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .logout-modal-body {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .logout-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .logout-modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .logout-confirm-btn {
+            background-color: #c62828;
+            color: white;
+        }
+
+        .logout-confirm-btn:hover {
+            background-color: #941e1e;
+        }
+
+        .logout-cancel-btn {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+
+        .logout-cancel-btn:hover {
+            background-color: #bdbdbd;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="logo">Employee Dashboard</div>
+            <div class="nav-icons">
+                <span class="nav-icon" title="Home" onclick="window.location.href='/dashboard'">🏠</span>
+                <span class="nav-icon" title="File Leave" onclick="window.location.href='/leave-form'">➕</span>
+                <span class="nav-icon" title="Database" onclick="openModal('databaseModal')">📊</span>
+                <div class="profile-pic" id="navProfilePic" onclick="logout()" title="Logout">U</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Main Content -->
+        <div class="feed">
+            <!-- Leave Credits - Stories Style -->
+            <div class="stories-section">
+                <div class="stories-header">
+                    <h3>💼 Leave Credits Balance</h3>
+                    <span id="creditsAsOf">Loading...</span>
+                </div>
+                <div class="credits-stories">
+                    <div class="credit-story">
+                        <div class="credit-ring">
+                            <div class="credit-inner">
+                                <span class="credit-amount" id="vacationCredits">--</span>
+                                <span class="credit-unit">days</span>
+                            </div>
+                        </div>
+                        <span class="credit-label">Vacation</span>
+                    </div>
+                    <div class="credit-story">
+                        <div class="credit-ring sick">
+                            <div class="credit-inner">
+                                <span class="credit-amount" id="sickCredits">--</span>
+                                <span class="credit-unit">days</span>
+                            </div>
+                        </div>
+                        <span class="credit-label">Sick Leave</span>
+                    </div>
+                    <div class="credit-story">
+                        <div class="credit-ring force">
+                            <div class="credit-inner">
+                                <span class="credit-amount" id="forceCredits">--</span>
+                                <span class="credit-unit">days</span>
+                            </div>
+                        </div>
+                        <span class="credit-label">Force Leave</span>
+                    </div>
+                    <div class="credit-story">
+                        <div class="credit-ring spl">
+                            <div class="credit-inner">
+                                <span class="credit-amount" id="splCredits">--</span>
+                                <span class="credit-unit">days</span>
+                            </div>
+                        </div>
+                        <span class="credit-label">Special Privilege</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approval Tracker Section -->
+            <div class="tracker-section">
+                <div class="tracker-header">
+                    <span style="font-size: 20px;">📍</span>
+                    <h3>Application Status & Approval Tracker</h3>
+                    <button class="refresh-btn" onclick="loadApprovalTracker()" title="Refresh status">🔄</button>
+                </div>
+                <div class="tracker-content" id="approvalTrackerContent">
+                    <div class="empty-state">
+                        <div class="loading-spinner"></div>
+                        <p>Loading your applications...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-profile">
+                <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+                <div class="sidebar-info">
+                    <div class="sidebar-username" id="sidebarUsername">username</div>
+                    <div class="sidebar-name" id="sidebarEmail">email@deped.gov.ph</div>
+                </div>
+                <button class="switch-btn" onclick="logout()">Logout</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-header">
+                    <h4>Quick Actions</h4>
+                </div>
+                
+                <div class="quick-action" onclick="window.location.href='/leave-form'">
+                    <div class="quick-action-icon orange">📋</div>
+                    <div class="quick-action-text">
+                        <h5>File Leave</h5>
+                        <p>Submit new application</p>
+                    </div>
+                </div>
+
+                <div class="quick-action" onclick="openModal('databaseModal')">
+                    <div class="quick-action-icon blue">📊</div>
+                    <div class="quick-action-text">
+                        <h5>View Database</h5>
+                        <p>Employee records</p>
+                    </div>
+                </div>
+
+                <div class="quick-action" onclick="window.location.href='/'">
+                    <div class="quick-action-icon green">🏠</div>
+                    <div class="quick-action-text">
+                        <h5>Main Portal</h5>
+                        <p>Return to home</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-links">
+                <a href="about.html">About</a>
+                <a href="help.html">Help</a>
+                <a href="privacy.html">Privacy</a>
+                <a href="terms.html">Terms</a>
+                <br><br>
+                © 2026 LEAVE PORTAL - Schools Division of Sipalay City
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Modal -->
+    <div id="databaseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div></div>
+                <h2>Employee Database</h2>
+                <button class="close-btn" onclick="closeModal('databaseModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <button style="padding: 15px; border: 2px solid #667eea; background: #f9f9f9; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;" 
+                            onclick="window.location.href='/employee-leavecard.html'">
+                        📋 Leave Card & SO Card
+                    </button>
+                    <button style="padding: 15px; border: 2px solid #667eea; background: #f9f9f9; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;" 
+                            onclick="loadEmployeeDatabase()">
+                        👥 Employee Records
+                    </button>
+                </div>
+                <div id="databaseContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Final Leave Form Modal -->
+    <div id="finalLeaveFormModal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 0;">
+            <button class="close-btn" onclick="closeModal('finalLeaveFormModal')" style="position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(0,0,0,0.5); color: white; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 18px; cursor: pointer;">&times;</button>
+            <div class="modal-body" id="finalLeaveFormContent" style="padding: 0;">
+                <div style="text-align: center; padding: 40px;">
+                    <div class="loading-spinner"></div>
+                    <p>Loading final leave form...</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding: 15px 20px; border-top: 1px solid #ddd; background: #f5f5f5;">
+                <button onclick="closeModal('finalLeaveFormModal')" style="background: #999; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 600;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Initialize Dashboard
+        function initializeDashboard() {
+            const userString = sessionStorage.getItem('user');
+            if (!userString) {
+                window.location.href = '/login';
+                return;
+            }
+
+            currentUser = JSON.parse(userString);
+            const userName = currentUser.name || currentUser.email.split('@')[0];
+            const initial = userName.charAt(0).toUpperCase();
+
+            document.getElementById('navProfilePic').textContent = initial;
+            document.getElementById('sidebarAvatar').textContent = initial;
+            document.getElementById('sidebarUsername').textContent = userName;
+            document.getElementById('sidebarEmail').textContent = currentUser.email;
+
+            // Load data
+            loadLeaveCredits();
+            loadApprovalTracker();
+        }
+
+        // Load Leave Credits
+        async function loadLeaveCredits() {
+            try {
+                // Get leave credits from the leave card data (latest balance from AO section)
+                const response = await fetch(`/api/leave-credits?employeeId=${currentUser.email}`);
+                const result = await response.json();
+
+                // Calculate last day of previous month
+                const now = new Date();
+                const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                
+                // Format as "December 31, 2025"
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                    'July', 'August', 'September', 'October', 'November', 'December'];
+                const asOfDate = `${monthNames[lastDayPrevMonth.getMonth()]} ${lastDayPrevMonth.getDate()}, ${lastDayPrevMonth.getFullYear()}`;
+
+                if (response.ok && result.credits) {
+                    const credits = result.credits;
+                    
+                    // Get values from the latest leave card data
+                    const vlEarned = credits.vacationLeaveEarned || 0;
+                    const slEarned = credits.sickLeaveEarned || 0;
+                    const vlSpent = credits.vacationLeaveSpent || 0;
+                    const slSpent = credits.sickLeaveSpent || 0;
+                    const forceSpent = credits.forceLeaveSpent || 0;
+                    const splSpent = credits.splSpent || 0;
+                    
+                    // Calculate current balances from the latest leave card data
+                    // Vacation and Sick leave: earned - spent
+                    const vlBalance = Math.max(0, vlEarned - vlSpent);
+                    const slBalance = Math.max(0, slEarned - slSpent);
+                    
+                    // Force Leave: constant 5 days per year - spent
+                    const FORCE_LEAVE_YEARLY = 5;
+                    const forceBalance = Math.max(0, FORCE_LEAVE_YEARLY - forceSpent);
+                    
+                    // Special Privilege Leave: constant 3 days per year - spent
+                    const SPL_YEARLY = 3;
+                    const splBalance = Math.max(0, SPL_YEARLY - splSpent);
+                    
+                    document.getElementById('vacationCredits').textContent = vlBalance.toFixed(0);
+                    document.getElementById('sickCredits').textContent = slBalance.toFixed(0);
+                    document.getElementById('forceCredits').textContent = forceBalance.toFixed(0);
+                    document.getElementById('splCredits').textContent = splBalance.toFixed(0);
+                    document.getElementById('creditsAsOf').textContent = `As of ${asOfDate}`;
+                    
+                    // Store leave credits in sessionStorage for leave form
+                    const leaveCredits = {
+                        vacationLeave: vlBalance,
+                        sickLeave: slBalance,
+                        forceLeave: forceBalance,
+                        specialPrivilege: splBalance,
+                        asOf: lastDayPrevMonth
+                    };
+                    sessionStorage.setItem('leaveCredits', JSON.stringify(leaveCredits));
+                    
+                    console.log('Leave credits loaded from leave card:', { vlBalance, slBalance, forceBalance, splBalance });
+                } else {
+                    // Use default values if no leave card data found
+                    document.getElementById('vacationCredits').textContent = '0';
+                    document.getElementById('sickCredits').textContent = '0';
+                    document.getElementById('forceCredits').textContent = '5';
+                    document.getElementById('splCredits').textContent = '3';
+                    document.getElementById('creditsAsOf').textContent = `As of ${asOfDate}`;
+                    
+                    // Store default leave credits in sessionStorage
+                    const leaveCredits = {
+                        vacationLeave: 0,
+                        sickLeave: 0,
+                        forceLeave: 5,
+                        specialPrivilege: 3,
+                        asOf: lastDayPrevMonth
+                    };
+                    sessionStorage.setItem('leaveCredits', JSON.stringify(leaveCredits));
+                    console.log('Using default leave credits');
+                }
+            } catch (error) {
+                console.error('Error loading leave credits:', error);
+                document.getElementById('vacationCredits').textContent = '--';
+                document.getElementById('sickCredits').textContent = '--';
+                document.getElementById('creditsAsOf').textContent = 'Error loading';
+                
+                // Store error state in sessionStorage
+                const leaveCredits = {
+                    vacationLeave: 0,
+                    sickLeave: 0,
+                    asOf: new Date()
+                };
+                sessionStorage.setItem('leaveCredits', JSON.stringify(leaveCredits));
+            }
+        }
+
+        // Load Approval Tracker
+        async function loadApprovalTracker() {
+            const container = document.getElementById('approvalTrackerContent');
+
+            try {
+                const response = await fetch(`/api/my-applications/${encodeURIComponent(currentUser.email)}`);
+                const result = await response.json();
+
+                if (response.ok && result.applications && result.applications.length > 0) {
+                    let html = '';
+
+                    result.applications.forEach(app => {
+                        const overallStatus = getOverallStatus(app);
+                        const statusClass = `status-${overallStatus}`;
+                        const leaveTypeName = getLeaveTypeName(app.leaveType);
+                        const progressWidth = calculateProgressWidth(app);
+                        const isSchoolBased = app.isSchoolBased;
+                        const isReturned = app.status === 'returned';
+                        const canResubmit = isReturned && app.currentApprover === 'EMPLOYEE';
+                        const wasReturned = app.returnedAt || app.returnRemarks; // Check if ever returned
+                        
+                        // Safely encode the app.id for use in onclick handlers
+                        const safeId = typeof app.id === 'string' ? "'" + app.id.replace(/'/g, "\\'") + "'" : app.id;
+                        
+                        // Only allow clicking when SDS has approved (fully approved)
+                        const isSdsApproved = app.status === 'approved' && app.sdsApprovedAt;
+                        const onClickHandler = isSdsApproved ? ` onclick="viewFinalLeaveForm(${safeId})"` : '';
+                        const cursorStyle = isSdsApproved ? ' style="cursor: pointer;"' : '';
+
+                        html += `
+                            <div class="app-card ${isSdsApproved ? 'approved-glow clickable-card' : ''} ${overallStatus === 'rejected' ? 'rejected-shake' : ''} ${isReturned ? 'returned-highlight' : ''} ${wasReturned && !isReturned ? 'was-returned' : ''}"${onClickHandler}${cursorStyle}>
+                                <div class="app-card-header">
+                                    <div class="app-card-info">
+                                        <h4>${leaveTypeName}</h4>
+                                        <p>📅 ${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'} • ${app.numDays || app.numberOfDays || '?'} days</p>
+                                        <p>📝 Filed ${new Date(app.submittedAt).toLocaleDateString()}</p>
+                                        ${isSchoolBased ? '<p style="color: #0095f6; font-size: 11px;">🏫 School-based employee</p>' : ''}
+                                    </div>
+                                    <div class="status-pill ${statusClass}">
+                                        ${overallStatus === 'rejected' ? 'rejected' : overallStatus}
+                                    </div>
+                                </div>
+
+                                ${isReturned && app.currentApprover === 'EMPLOYEE' ? `
+                                <div class="return-notice" style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin: 10px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="font-size: 18px;">⚠️</span>
+                                        <strong style="color: #856404;">Action Required: Application Returned</strong>
+                                    </div>
+                                    <p style="color: #856404; font-size: 13px; margin: 0 0 8px 0;">
+                                        <strong>Returned by:</strong> ${app.returnedBy || 'Approver'}
+                                    </p>
+                                    <p style="color: #856404; font-size: 13px; margin: 0 0 10px 0;">
+                                        <strong>Reason:</strong> ${app.returnRemarks || 'Please submit lacking documents'}
+                                    </p>
+                                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                        <button onclick="viewReturnedApplication(${safeId})" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                                            📋 View Application
+                                        </button>
+                                        <button onclick="resubmitApplication(${safeId})" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                                            🔄 Resubmit Application
+                                        </button>
+                                    </div>
+                                </div>
+                                ` : wasReturned && overallStatus === 'pending' ? `
+                                <div class="return-notice" style="background: #e8f4fd; border: 1px solid #17a2b8; border-radius: 8px; padding: 12px; margin: 10px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="font-size: 18px;">ℹ️</span>
+                                        <strong style="color: #0c5460;">Application Previously Returned - Now at ${app.currentApprover}</strong>
+                                    </div>
+                                    <p style="color: #0c5460; font-size: 13px; margin: 0 0 5px 0;">
+                                        <strong>Last Return Reason:</strong> ${app.returnRemarks || 'Compliance required'}
+                                    </p>
+                                    <p style="color: #0c5460; font-size: 13px; margin: 0;">
+                                        Your application was returned for compliance and is now being re-reviewed by <strong>${app.currentApprover}</strong>.
+                                    </p>
+                                </div>
+                                ` : ''}
+
+                                <div class="progress-steps with-ao">
+                                    <div class="progress-line-fill" style="width: ${progressWidth}%;"></div>
+                                    
+                                    <div class="step done">
+                                        <div class="step-circle">✓</div>
+                                        <div class="step-label">Submitted</div>
+                                        <div class="step-status">Done</div>
+                                    </div>
+
+                                    <div class="step ${getStepClass(app, 'ao')}">
+                                        <div class="step-circle">${getStepIcon(app, 'ao')}</div>
+                                        <div class="step-label">AO</div>
+                                        <div class="step-status">${getStepStatus(app, 'ao')}</div>
+                                    </div>
+
+                                    <div class="step ${getStepClass(app, 'hr')}">
+                                        <div class="step-circle">${getStepIcon(app, 'hr')}</div>
+                                        <div class="step-label">HR</div>
+                                        <div class="step-status">${getStepStatus(app, 'hr')}</div>
+                                    </div>
+
+                                    <div class="step ${getStepClass(app, 'asds')}">
+                                        <div class="step-circle">${getStepIcon(app, 'asds')}</div>
+                                        <div class="step-label">ASDS</div>
+                                        <div class="step-status">${getStepStatus(app, 'asds')}</div>
+                                    </div>
+
+                                    <div class="step ${getStepClass(app, 'sds')}">
+                                        <div class="step-circle">${getStepIcon(app, 'sds')}</div>
+                                        <div class="step-label">SDS</div>
+                                        <div class="step-status">${getStepStatus(app, 'sds')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    container.innerHTML = html;
+                    
+                    // Trigger animations for approved/rejected apps
+                    setTimeout(() => {
+                        document.querySelectorAll('.approved-glow').forEach(el => el.classList.add('animate'));
+                    }, 100);
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📋</div>
+                            <p>No leave applications yet</p>
+                            <p style="font-size: 12px;">File a new application to track your approvals here</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">⚠️</div>
+                        <p>Error loading applications</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Get leave type display name
+        function getLeaveTypeName(type) {
+            const types = {
+                'vacation': 'Vacation Leave',
+                'mandatory': 'Mandatory/Force Leave',
+                'sick': 'Sick Leave',
+                'maternity': 'Maternity Leave',
+                'paternity': 'Paternity Leave',
+                'special_privilege': 'Special Privilege Leave',
+                'solo_parent': 'Solo Parent Leave',
+                'study': 'Study Leave',
+                'vawc': '10-Day VAWC Leave',
+                'rehabilitation': 'Rehabilitation Privilege',
+                'leave_vl': 'Vacation Leave',
+                'leave_mfl': 'Mandatory/Force Leave',
+                'leave_mandatory': 'Mandatory/Force Leave',
+                'leave_sl': 'Sick Leave',
+                'leave_maternity': 'Maternity Leave',
+                'leave_paternity': 'Paternity Leave',
+                'leave_spl': 'Special Privilege Leave',
+                'leave_solo': 'Solo Parent Leave',
+                'leave_study': 'Study Leave',
+                'leave_vawc': '10-Day VAWC Leave',
+                'leave_ml': 'Maternity Leave',
+                'leave_pl': 'Paternity Leave',
+                'leave_rehabilitation': 'Rehabilitation Privilege',
+                'leave_rehab': 'Rehabilitation Privilege',
+                'special_leave_women': 'Special Leave Benefits for Women',
+                'leave_women': 'Special Leave Benefits for Women',
+                'special_emergency': 'Special Emergency (Calamity) Leave',
+                'leave_calamity': 'Special Emergency (Calamity) Leave',
+                'adoption': 'Adoption Leave',
+                'leave_adoption': 'Adoption Leave',
+                'others': 'Other Leave'
+            };
+            return types[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) + ' Leave' : 'Leave');
+        }
+
+        // Helper functions for tracker
+        function getOverallStatus(app) {
+            if (app.status === 'rejected') return 'rejected';
+            if (app.status === 'disapproved') return 'rejected';
+            if (app.status === 'returned') return 'returned';
+            if (app.status === 'approved') return 'approved';
+            return 'pending';
+        }
+
+        function calculateProgressWidth(app) {
+            // All employees now go through AO first (unified workflow)
+            
+            if (app.status === 'approved') return 100;
+            if (app.status === 'returned') return 0; // Reset progress for returned
+            if (app.sdsApprovedAt) return 100;
+            if (app.asdsApprovedAt) return 80;
+            if (app.hrApprovedAt) return 60;
+            if (app.aoApprovedAt) return 40;
+            if (app.currentApprover === 'AO') return 20;
+            if (app.currentApprover === 'HR') return 40;
+            return 0;
+        }
+
+        function getStepClass(app, step) {
+            // All employees now go through unified AO->HR->ASDS->SDS workflow
+            const isRejected = app.status === 'rejected' || app.status === 'disapproved';
+            const isReturned = app.status === 'returned';
+            const wasReturned = app.returnedAt || app.returnRemarks; // Check if ever returned
+            const rejectedBy = app.rejectedBy || app.disapprovedBy;
+            const returnedBy = app.returnedBy;
+            const currentApprover = app.currentApprover;
+            
+            // Define approval order - unified for all employees
+            const approvalOrder = ['AO', 'HR', 'ASDS', 'SDS'];
+            const currentIndex = approvalOrder.indexOf(currentApprover);
+            
+            if (step === 'ao') {
+                if (rejectedBy === 'AO') return 'rejected';
+                if (returnedBy === 'AO' && isReturned) return 'returned';
+                // If returned mid-flow and we're back at AO, show as "re-reviewing"
+                if (wasReturned && currentApprover === 'AO') return 'current';
+                if (app.aoApprovedAt) return 'done';
+                if (currentApprover === 'AO') return 'current';
+                return 'waiting';
+            }
+            if (step === 'hr') {
+                if (rejectedBy === 'HR') return 'rejected';
+                if (returnedBy === 'HR' && isReturned) return 'returned';
+                // If returned mid-flow and currentApprover is before HR, this step needs re-approval
+                const hrIndex = approvalOrder.indexOf('HR');
+                if (wasReturned && currentIndex >= 0 && currentIndex < hrIndex) return 'waiting';
+                if (app.hrApprovedAt) return 'done';
+                if (currentApprover === 'HR') return 'current';
+                if (!app.aoApprovedAt) return 'waiting';
+                return 'waiting';
+            }
+            if (step === 'asds') {
+                if (rejectedBy === 'ASDS') return 'rejected';
+                if (returnedBy === 'ASDS' && isReturned) return 'returned';
+                // If returned mid-flow and currentApprover is before ASDS, this step needs re-approval
+                const asdsIndex = approvalOrder.indexOf('ASDS');
+                if (wasReturned && currentIndex >= 0 && currentIndex < asdsIndex) return 'waiting';
+                if (app.asdsApprovedAt) return 'done';
+                if (currentApprover === 'ASDS') return 'current';
+                if (!app.hrApprovedAt) return 'waiting';
+                return 'waiting';
+            }
+            if (step === 'sds') {
+                if (rejectedBy === 'SDS') return 'rejected';
+                if (returnedBy === 'SDS' && isReturned) return 'returned';
+                // If returned mid-flow and currentApprover is before SDS, this step needs re-approval
+                const sdsIndex = approvalOrder.indexOf('SDS');
+                if (wasReturned && currentIndex >= 0 && currentIndex < sdsIndex) return 'waiting';
+                if (app.sdsApprovedAt || app.status === 'approved') return 'done';
+                if (currentApprover === 'SDS') return 'current';
+                if (!app.asdsApprovedAt) return 'waiting';
+                return 'waiting';
+            }
+            return 'waiting';
+        }
+
+        function getStepIcon(app, step) {
+            // All employees now go through unified workflow
+            const rejectedBy = app.rejectedBy || app.disapprovedBy;
+            const returnedBy = app.returnedBy;
+            const isReturned = app.status === 'returned';
+            const wasReturned = app.returnedAt || app.returnRemarks;
+            const currentApprover = app.currentApprover;
+            
+            const approvalOrder = ['AO', 'HR', 'ASDS', 'SDS'];
+            const currentIndex = approvalOrder.indexOf(currentApprover);
+            
+            if (step === 'ao') {
+                if (rejectedBy === 'AO') return '✗';
+                if (returnedBy === 'AO' && isReturned) return '↩';
+                if (wasReturned && currentApprover === 'AO') return '🔄';
+                if (app.aoApprovedAt) return '✓';
+                if (currentApprover === 'AO') return '🏫';
+                return '•';
+            }
+            if (step === 'hr') {
+                if (rejectedBy === 'HR') return '✗';
+                if (returnedBy === 'HR' && isReturned) return '↩';
+                const hrIndex = approvalOrder.indexOf('HR');
+                if (wasReturned && currentIndex >= 0 && currentIndex < hrIndex) return '•';
+                if (app.hrApprovedAt) return '✓';
+                if (currentApprover === 'HR') return '👤';
+                return '•';
+            }
+            if (step === 'asds') {
+                if (rejectedBy === 'ASDS') return '✗';
+                if (returnedBy === 'ASDS' && isReturned) return '↩';
+                const asdsIndex = approvalOrder.indexOf('ASDS');
+                if (wasReturned && currentIndex >= 0 && currentIndex < asdsIndex) return '•';
+                if (app.asdsApprovedAt) return '✓';
+                if (currentApprover === 'ASDS') return '👥';
+                return '•';
+            }
+            if (step === 'sds') {
+                if (rejectedBy === 'SDS') return '✗';
+                if (returnedBy === 'SDS' && isReturned) return '↩';
+                const sdsIndex = approvalOrder.indexOf('SDS');
+                if (wasReturned && currentIndex >= 0 && currentIndex < sdsIndex) return '•';
+                if (app.sdsApprovedAt || app.status === 'approved') return '✓';
+                if (currentApprover === 'SDS') return '🏛';
+                return '•';
+            }
+            return '•';
+        }
+
+        function getStepStatus(app, step) {
+            // All employees now go through unified workflow
+            const rejectedBy = app.rejectedBy || app.disapprovedBy;
+            const returnedBy = app.returnedBy;
+            const isReturned = app.status === 'returned';
+            const wasReturned = app.returnedAt || app.returnRemarks;
+            const currentApprover = app.currentApprover;
+            
+            const approvalOrder = ['AO', 'HR', 'ASDS', 'SDS'];
+            const currentIndex = approvalOrder.indexOf(currentApprover);
+            
+            if (step === 'ao') {
+                if (rejectedBy === 'AO') return 'Rejected';
+                if (returnedBy === 'AO' && isReturned) return 'Returned';
+                if (wasReturned && currentApprover === 'AO') return 'Re-reviewing';
+                if (app.aoApprovedAt) return 'Approved';
+                if (currentApprover === 'AO') return 'Reviewing';
+                return 'Waiting';
+            }
+            if (step === 'hr') {
+                if (rejectedBy === 'HR') return 'Rejected';
+                if (returnedBy === 'HR' && isReturned) return 'Returned';
+                const hrIndex = approvalOrder.indexOf('HR');
+                if (wasReturned && currentIndex >= 0 && currentIndex < hrIndex) return 'Waiting';
+                if (app.hrApprovedAt) return 'Approved';
+                if (currentApprover === 'HR') return 'Reviewing';
+                return 'Waiting';
+            }
+            if (step === 'asds') {
+                if (rejectedBy === 'ASDS') return 'Rejected';
+                if (returnedBy === 'ASDS' && isReturned) return 'Returned';
+                const asdsIndex = approvalOrder.indexOf('ASDS');
+                if (wasReturned && currentIndex >= 0 && currentIndex < asdsIndex) return 'Waiting';
+                if (app.asdsApprovedAt) return 'Approved';
+                if (currentApprover === 'ASDS') return 'Reviewing';
+                return 'Waiting';
+            }
+            if (step === 'sds') {
+                if (rejectedBy === 'SDS') return 'Rejected';
+                if (returnedBy === 'SDS' && isReturned) return 'Returned';
+                const sdsIndex = approvalOrder.indexOf('SDS');
+                if (wasReturned && currentIndex >= 0 && currentIndex < sdsIndex) return 'Waiting';
+                if (app.sdsApprovedAt || app.status === 'approved') return 'Approved';
+                if (currentApprover === 'SDS') return 'Reviewing';
+                return 'Waiting';
+            }
+            return 'Waiting';
+        }
+
+        // View returned application details
+        function viewReturnedApplication(appId) {
+            alert('📋 Application #' + appId + '\n\nThis application was returned for compliance. Please submit a new application with the required corrections.');
+        }
+
+        // Resubmit returned application
+        async function resubmitApplication(appId) {
+            if (!confirm('Are you sure you want to resubmit this application?\n\nMake sure you have addressed the compliance requirements before resubmitting.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/resubmit-leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        applicationId: appId,
+                        employeeEmail: currentUser.email
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✓ Application resubmitted successfully!\n\nYour application has been sent back to AO for review.');
+                    loadApprovalTracker();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error resubmitting application: ' + error.message);
+            }
+        }
+
+        // Modal Functions
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('active');
+
+            if (modalId === 'databaseModal') loadDatabase();
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+
+        // Load Employee Database
+        function loadEmployeeDatabase() {
+            const content = document.getElementById('databaseContent');
+            
+            // Display current user's employee record
+            if (!currentUser) {
+                content.innerHTML = '<div class="empty-state"><p>No user data available</p></div>';
+                return;
+            }
+            
+            const fullName = currentUser.name || currentUser.fullName || 'N/A';
+            const salary = currentUser.salary ? `₱${parseFloat(currentUser.salary).toLocaleString('en-PH', {minimumFractionDigits: 2})}` : 'N/A';
+            const position = currentUser.position || 'N/A';
+            const office = currentUser.office || currentUser.school || currentUser.district || 'N/A';
+            const employeeNo = currentUser.employeeNo || currentUser.employeeNumber || 'N/A';
+            const salaryGrade = currentUser.salaryGrade || 'N/A';
+            const step = currentUser.step || 'N/A';
+            
+            let html = `
+                <div style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-top: 10px;">
+                    <h3 style="color: #667eea; margin-bottom: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">
+                        📋 My Employee Record
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 12px 10px; font-weight: 600; color: #555; width: 40%;">Full Name</td>
+                            <td style="padding: 12px 10px; color: #333;">${fullName}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd; background: #fff;">
+                            <td style="padding: 12px 10px; font-weight: 600; color: #555;">Employee Number</td>
+                            <td style="padding: 12px 10px; color: #333;">${employeeNo}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 12px 10px; font-weight: 600; color: #555;">Position</td>
+                            <td style="padding: 12px 10px; color: #333;">${position}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd; background: #fff;">
+                            <td style="padding: 12px 10px; font-weight: 600; color: #555;">Office/School/District</td>
+                            <td style="padding: 12px 10px; color: #333;">${office}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 12px 10px; font-weight: 600; color: #555;">Salary Grade & Step</td>
+                            <td style="padding: 12px 10px; color: #333;">SG ${salaryGrade} - Step ${step}</td>
+                        </tr>
+                        <tr style="background: #fff;">
+                            <td style="padding: 12px 10px; font-weight: 600; color: #555;">Monthly Salary</td>
+                            <td style="padding: 12px 10px; color: #28a745; font-weight: 600; font-size: 16px;">${salary}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        }
+
+        async function loadDatabase() {
+            const content = document.getElementById('databaseContent');
+            content.innerHTML = '<div class="empty-state"><div class="loading-spinner"></div><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch('/api/employees');
+                const result = await response.json();
+
+                if (response.ok && result.data && result.data.length > 0) {
+                    let html = `
+                        <table class="database-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Office</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    result.data.forEach(emp => {
+                        const name = emp.fullName || `${emp.firstName} ${emp.lastName}`;
+                        html += `
+                            <tr>
+                                <td><strong>${name}</strong></td>
+                                <td>${emp.position || '-'}</td>
+                                <td style="font-size: 12px; color: #8e8e8e;">${emp.office || '-'}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += '</tbody></table>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div class="empty-state"><p>No employees found</p></div>';
+                }
+            } catch (error) {
+                content.innerHTML = '<div class="empty-state"><p>Error loading database</p></div>';
+            }
+        }
+
+        // Logout Function
+        function logout() {
+            document.getElementById('logoutModal').style.display = 'block';
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'none';
+        }
+
+        function confirmLogout() {
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('employee');
+            window.location.href = '/';
+        }
+
+        // Close logout modal when clicking outside of it
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('logoutModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // View Final Leave Form with All Approvals
+        async function viewFinalLeaveForm(applicationId) {
+            console.log('viewFinalLeaveForm called with ID:', applicationId);
+            const contentDiv = document.getElementById('finalLeaveFormContent');
+            contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading-spinner"></div><p>Loading final leave form...</p></div>';
+            
+            try {
+                console.log('Fetching /api/application-details/' + applicationId);
+                const response = await fetch(`/api/application-details/${applicationId}`);
+                console.log('Response status:', response.status);
+                const result = await response.json();
+                console.log('API result:', result);
+                
+                if (result.success) {
+                    const app = result.application;
+                    console.log('Generating form HTML for app:', app.id);
+                    const formHTML = generateFinalLeaveFormHTML(app);
+                    console.log('Form HTML generated, length:', formHTML.length);
+                    contentDiv.innerHTML = formHTML;
+                    console.log('Opening modal');
+                    openModal('finalLeaveFormModal');
+                } else {
+                    contentDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #d32f2f;"><p>❌ Error loading application details: ' + result.error + '</p></div>';
+                }
+            } catch (error) {
+                console.error('Error loading final leave form:', error);
+                contentDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #d32f2f;"><p>❌ Error: ' + error.message + '</p></div>';
+            }
+        }
+
+        // Generate Final Leave Form HTML - Using exact structure from leave_form.html
+        function generateFinalLeaveFormHTML(app) {
+            const getApprovalInfo = (approver) => {
+                if (!app.approvalHistory) return null;
+                const portal = approver.toUpperCase();
+                const approval = app.approvalHistory.find(a => a.portal === portal);
+                return approval && approval.action === 'approved' ? approval : null;
+            };
+
+            // Get approver info
+            const hrApproval = getApprovalInfo('hr');
+            const asdsApproval = getApprovalInfo('asds');
+            const sdsApproval = getApprovalInfo('sds');
+
+            // Calculate as of date (last day of previous month)
+            const now = new Date();
+            const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+            const asOfDate = lastDayPrevMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            return `
+                <style>
+                    .final-form-container {
+                        max-width: 900px;
+                        margin: 0 auto;
+                        background-color: white;
+                        padding: 20px 25px;
+                        border: 1px solid #000;
+                        font-family: Arial, sans-serif;
+                        font-size: 10px;
+                        line-height: 1.4;
+                    }
+                    .final-form-header { text-align: center; margin-bottom: 10px; }
+                    .final-form-title { font-size: 16px; font-weight: bold; text-align: center; margin: 10px 0; letter-spacing: 2px; }
+                    .info-row { display: grid; grid-template-columns: 1.5fr 2fr; border: 1px solid #000; border-bottom: none; }
+                    .info-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
+                    .info-cell { padding: 4px 8px; border-right: 1px solid #000; font-size: 10px; }
+                    .info-cell:last-child { border-right: none; }
+                    .info-cell label { font-weight: bold; display: inline; margin-right: 5px; }
+                    .info-cell .value { display: inline; }
+                    .section-header { background-color: #f0f0f0; border: 1px solid #000; padding: 5px 8px; font-weight: bold; font-size: 10px; text-align: center; }
+                    .details-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                    .details-column { padding: 8px; font-size: 9px; }
+                    .details-column:first-child { border-right: 1px solid #000; }
+                    .column-header { font-weight: bold; font-size: 9px; margin-bottom: 6px; text-decoration: underline; }
+                    .leave-option { display: flex; align-items: flex-start; margin-bottom: 3px; font-size: 9px; }
+                    .leave-option input[type="checkbox"] { margin-right: 5px; margin-top: 2px; flex-shrink: 0; }
+                    .leave-option span { line-height: 1.3; }
+                    .leave-option small { color: #666; font-size: 8px; }
+                    .sub-section { border: 1px solid #ccc; padding: 5px; margin-bottom: 5px; background: #fafafa; }
+                    .sub-section-title { font-weight: bold; font-size: 8px; margin-bottom: 4px; font-style: italic; }
+                    .sub-option { display: flex; align-items: center; margin-bottom: 2px; font-size: 9px; }
+                    .sub-option input[type="checkbox"] { margin-right: 5px; }
+                    .sub-field { margin-left: 20px; margin-top: 2px; }
+                    .sub-field input { width: 90%; border: none; border-bottom: 1px solid #000; font-size: 9px; padding: 2px; background: transparent; }
+                    .bottom-details { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                    .bottom-column { padding: 8px; font-size: 9px; }
+                    .bottom-column:first-child { border-right: 1px solid #000; }
+                    .field-label { font-weight: bold; font-size: 9px; margin-bottom: 4px; }
+                    .field-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 4px; font-size: 10px; background: transparent; }
+                    .commutation-options label { display: flex; align-items: center; margin-bottom: 3px; font-size: 9px; }
+                    .commutation-options input[type="checkbox"] { margin-right: 5px; }
+                    .signature-area { margin-top: 15px; text-align: center; }
+                    .signature-line { border-bottom: 1px solid #000; height: 25px; margin-bottom: 3px; }
+                    .signature-label { font-size: 8px; font-style: italic; }
+                    .action-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                    .action-column { padding: 8px; font-size: 9px; display: flex; flex-direction: column; }
+                    .action-column:first-child { border-right: 1px solid #000; }
+                    .credits-table { width: 100%; border-collapse: collapse; font-size: 9px; margin: 8px 0; }
+                    .credits-table th, .credits-table td { border: 1px solid #000; padding: 4px; text-align: center; }
+                    .credits-table th { background: #f0f0f0; font-weight: bold; }
+                    .credits-table td:first-child { text-align: left; font-style: italic; }
+                    .officer-signature { text-align: center; margin-top: 10px; }
+                    .officer-name { font-weight: bold; font-size: 10px; margin-top: 20px; }
+                    .officer-title { font-size: 8px; color: #003366; }
+                    .recommendation-options label { display: flex; align-items: flex-start; margin-bottom: 5px; font-size: 9px; }
+                    .recommendation-options input[type="checkbox"] { margin-right: 5px; margin-top: 2px; }
+                    .recommendation-input { border: none; border-bottom: 1px solid #000; width: 40px; text-align: center; font-size: 9px; }
+                    .disapproval-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 4px; font-size: 9px; background: transparent; margin-bottom: 2px; }
+                    .disapproval-input:disabled { background-color: #f5f5f5; border-bottom-color: #ccc; cursor: not-allowed; }
+                    .approval-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; border-bottom: none; }
+                    .approval-column { padding: 8px; font-size: 9px; }
+                    .approval-column:first-child { border-right: none; }
+                    .approval-field { display: flex; align-items: center; margin-bottom: 4px; font-size: 9px; }
+                    .approval-field input { width: 50px; border: none; border-bottom: 1px solid #000; margin-right: 5px; text-align: center; font-size: 9px; background: transparent; }
+                    .approval-field input:disabled { background-color: #f5f5f5; border-bottom-color: #ccc; cursor: not-allowed; }
+                    .final-signature { text-align: center; padding: 15px; border: 1px solid #000; border-top: none; }
+                    .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 25px; color: #003366; }
+                    .final-officer-title { font-size: 9px; }
+                    @media print { .final-form-container { box-shadow: none; border: none; padding: 0; } }
+                </style>
+
+                <div class="final-form-container" id="printableFinalForm">
+                    <!-- Header Wrapper -->
+                    <div class="header-wrapper" style="margin-bottom: 10px;">
+                        <!-- Form Header -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+                            <div style="font-size: 10px; font-style: italic;">
+                                <strong>Civil Service Form No. 6</strong><br>
+                                Revised 2020
+                            </div>
+                            <div style="border: 1px solid #000; padding: 8px 12px; font-size: 9px; text-align: center; min-width: 100px;">
+                                Stamp of Date of Receipt
+                            </div>
+                        </div>
+
+                        <!-- Letterhead -->
+                        <div style="text-align: center; margin-bottom: 0;">
+                            <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
+                                <div style="flex-shrink: 0; margin-left: -70px;">
+                                    <img src="/sipalay_logo.png" alt="Division Logo" style="width: 60px; height: 60px;">
+                                </div>
+                                <div style="font-size: 11px;">
+                                    <p style="margin: 1px 0; font-style: italic;">Republic of the Philippines</p>
+                                    <p style="margin: 1px 0; font-weight: bold; font-style: italic;">Department of Education</p>
+                                    <p style="margin: 1px 0;">NEGROS ISLAND REGION</p>
+                                    <p style="margin: 1px 0; font-weight: bold;">SCHOOLS DIVISION OF SIPALAY CITY</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="final-form-title">APPLICATION FOR LEAVE</div>
+
+                    <!-- Row 1: Office and Name -->
+                    <div class="info-row">
+                        <div class="info-cell">
+                            <label>1. OFFICE/DEPARTMENT/SCHOOL</label>
+                            <span class="value">${app.office || ''}</span>
+                        </div>
+                        <div class="info-cell">
+                            <label>2. NAME: (Last) (First) (Middle)</label>
+                            <span class="value">${app.employeeName || ''}</span>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Date, Position, Salary -->
+                    <div class="info-row three-col" style="border-bottom: 1px solid #000;">
+                        <div class="info-cell">
+                            <label>3. DATE OF FILING</label>
+                            <span class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString() : ''}</span>
+                        </div>
+                        <div class="info-cell">
+                            <label>4. POSITION</label>
+                            <span class="value">${app.position || ''}</span>
+                        </div>
+                        <div class="info-cell">
+                            <label>5. SALARY</label>
+                            <span class="value">${app.salary || ''}</span>
+                        </div>
+                    </div>
+
+                    <!-- Section 6: Details of Application -->
+                    <div class="section-header">6. DETAILS OF APPLICATION</div>
+
+                    <div class="details-section">
+                        <!-- Left Column: Type of Leave -->
+                        <div class="details-column">
+                            <div class="column-header">6.A TYPE OF LEAVE TO BE AVAILED OF</div>
+                            
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_vl' ? 'checked' : ''} disabled>
+                                <span>Vacation Leave <small>(Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_mfl' ? 'checked' : ''} disabled>
+                                <span>Mandatory/Forced Leave <small>(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_sl' ? 'checked' : ''} disabled>
+                                <span>Sick Leave <small>(Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_ml' ? 'checked' : ''} disabled>
+                                <span>Maternity Leave <small>(R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_pl' ? 'checked' : ''} disabled>
+                                <span>Paternity Leave <small>(R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_spl' ? 'checked' : ''} disabled>
+                                <span>Special Privilege Leave <small>(Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_solo' ? 'checked' : ''} disabled>
+                                <span>Solo Parent Leave <small>(RA No. 8972 / CSC MC No. 8, s. 2004)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_study' ? 'checked' : ''} disabled>
+                                <span>Study Leave <small>(Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_vawc' ? 'checked' : ''} disabled>
+                                <span>10-Day VAWC Leave <small>(RA No. 9262 / CSC MC No. 15, s. 2005)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_rehab' ? 'checked' : ''} disabled>
+                                <span>Rehabilitation Privilege <small>(Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_women' ? 'checked' : ''} disabled>
+                                <span>Special Leave Benefits for Women <small>(RA No. 9710 / CSC MC No. 25, s. 2010)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_calamity' ? 'checked' : ''} disabled>
+                                <span>Special Emergency (Calamity) Leave <small>(CSC MC No. 2, s. 2012, as amended)</small></span>
+                            </div>
+                            <div class="leave-option">
+                                <input type="checkbox" ${app.leaveType === 'leave_adoption' ? 'checked' : ''} disabled>
+                                <span>Adoption Leave <small>(R.A. No. 8552)</small></span>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <span style="font-size: 9px;">Others:</span>
+                                <input type="text" style="width: 70%; border: none; border-bottom: 1px solid #000; font-size: 9px; background: transparent;" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Details of Leave -->
+                        <div class="details-column">
+                            <div class="column-header">6.B DETAILS OF LEAVE</div>
+
+                            <div class="sub-section">
+                                <div class="sub-section-title">In case of Vacation/Special Privilege Leave:</div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.locationPH ? 'checked' : ''} disabled>
+                                    <span>Within the Philippines</span>
+                                </div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.locationAbroad ? 'checked' : ''} disabled>
+                                    <span>Abroad (Specify)</span>
+                                </div>
+                                <div class="sub-field">
+                                    <input type="text" value="${app.abroadSpecify || ''}" readonly>
+                                </div>
+                            </div>
+
+                            <div class="sub-section">
+                                <div class="sub-section-title">In case of Sick Leave:</div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.sickHospital ? 'checked' : ''} disabled>
+                                    <span>In Hospital (Specify Illness)</span>
+                                </div>
+                                <div class="sub-field">
+                                    <input type="text" value="${app.hospitalIllness || ''}" readonly>
+                                </div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.sickOutpatient ? 'checked' : ''} disabled>
+                                    <span>Out Patient (Specify Illness)</span>
+                                </div>
+                                <div class="sub-field">
+                                    <input type="text" value="${app.outpatientIllness || ''}" readonly>
+                                </div>
+                            </div>
+
+                            <div class="sub-section">
+                                <div class="sub-section-title">In case of Special Leave Benefits for Women:</div>
+                                <span style="font-size: 8px;">(Specify Illness)</span>
+                                <div class="sub-field">
+                                    <input type="text" value="${app.womenIllness || ''}" readonly>
+                                </div>
+                            </div>
+
+                            <div class="sub-section">
+                                <div class="sub-section-title">In case of Study Leave:</div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.studyMasters ? 'checked' : ''} disabled>
+                                    <span>Completion of Master's Degree</span>
+                                </div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.studyBar ? 'checked' : ''} disabled>
+                                    <span>BAR/Board Examination Review</span>
+                                </div>
+                            </div>
+
+                            <div class="sub-section">
+                                <div class="sub-section-title">Other purpose:</div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.monetization ? 'checked' : ''} disabled>
+                                    <span>Monetization of Leave Credits</span>
+                                </div>
+                                <div class="sub-option">
+                                    <input type="checkbox" ${app.terminal ? 'checked' : ''} disabled>
+                                    <span>Terminal Leave</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 6C and 6D -->
+                    <div class="bottom-details">
+                        <div class="bottom-column">
+                            <div class="field-label">6.C NUMBER OF WORKING DAYS APPLIED FOR</div>
+                            <input type="text" class="field-input" value="${app.numDays || ''}" readonly>
+                            
+                            <div class="field-label" style="margin-top: 8px;">INCLUSIVE DATES</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div>
+                                    <span style="font-size: 9px;">From:</span>
+                                    <input type="text" class="field-input" value="${app.dateFrom || ''}" readonly>
+                                </div>
+                                <div>
+                                    <span style="font-size: 9px;">To:</span>
+                                    <input type="text" class="field-input" value="${app.dateTo || ''}" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bottom-column">
+                            <div class="field-label">6.D COMMUTATION</div>
+                            <div class="commutation-options">
+                                <label><input type="checkbox" ${app.commutation === 'not_requested' ? 'checked' : ''} disabled> Not Requested</label>
+                                <label><input type="checkbox" ${app.commutation === 'requested' ? 'checked' : ''} disabled> Requested</label>
+                            </div>
+                            <div class="signature-area">
+                                ${app.employeeSignature ? `<img src="${app.employeeSignature}" alt="Employee Signature" style="max-width: 250px; max-height: 80px; display: block; margin-bottom: 10px; border: 1px solid #ccc; padding: 2px;">` : '<div class="signature-line"></div>'}
+                                <div class="signature-label">(Signature of Applicant)</div>
+                                <div style="font-weight: bold; font-size: 9px; margin-top: 5px;">${app.employeeName || ''}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 7: Details of Action on Application -->
+                    <div class="section-header">7. DETAILS OF ACTION ON APPLICATION</div>
+
+                    <div class="action-section">
+                        <!-- 7A: Certification of Leave Credits -->
+                        <div class="action-column">
+                            <div class="field-label">7.A CERTIFICATION OF LEAVE CREDITS</div>
+                            <div style="font-size: 9px; margin-bottom: 8px;">
+                                As of <span style="border-bottom: 1px solid #000; padding: 0 5px;">${asOfDate}</span>
+                            </div>
+                            
+                            <table class="credits-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Vacation Leave</th>
+                                        <th>Sick Leave</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Total Earned</td>
+                                        <td>${app.vlEarned || '0.000'}</td>
+                                        <td>${app.slEarned || '0.000'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Less this application</td>
+                                        <td>${app.vlLess || '0'}</td>
+                                        <td>${app.slLess || '0'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Balance</td>
+                                        <td>${app.vlBalance || '0.000'}</td>
+                                        <td>${app.slBalance || '0.000'}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="officer-signature">
+                                <div class="officer-name">${hrApproval ? hrApproval.approverName : ''}</div>
+                                <div class="officer-title">Administrative Officer IV-Personnel Section</div>
+                                ${hrApproval ? `<div style="font-size: 8px; margin-top: 5px;">Certified: ${new Date(hrApproval.timestamp).toLocaleDateString()}</div>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- 7B: Recommendation -->
+                        <div class="action-column">
+                            <div class="field-label">7.B RECOMMENDATION</div>
+                            <div class="recommendation-options">
+                                <label>
+                                    <input type="checkbox" ${asdsApproval ? 'checked' : ''} disabled>
+                                    <span>For approval of <span style="border-bottom: 1px solid #000; padding: 0 5px;">${app.numDays || ''}</span> days leave with pay</span>
+                                </label>
+                                <label style="display: flex; align-items: center; margin-bottom: 3px;">
+                                    <input type="checkbox" disabled>
+                                    <span style="margin-right: 5px;">For disapproval due to</span>
+                                </label>
+                                <input type="text" class="disapproval-input" disabled readonly>
+                            </div>
+
+                            <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
+                                <div class="officer-name" style="color: #003366;">${asdsApproval ? asdsApproval.approverName : ''}</div>
+                                <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
+                                ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString()}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 7C and 7D -->
+                    <div class="approval-section">
+                        <div class="approval-column">
+                            <div class="field-label">7.C APPROVED FOR:</div>
+                            <div class="approval-field">
+                                <input type="text" value="${sdsApproval ? app.numDays : ''}" disabled readonly> days with pay
+                            </div>
+                            <div class="approval-field">
+                                <input type="text" value="" disabled readonly> days without pay
+                            </div>
+                            <div class="approval-field">
+                                <input type="text" value="" disabled readonly> others (Specify)
+                            </div>
+                        </div>
+                        <div class="approval-column">
+                            <div class="field-label">7.D DISAPPROVED DUE TO:</div>
+                            <input type="text" class="disapproval-input" disabled readonly>
+                            <input type="text" class="disapproval-input" disabled readonly>
+                            <input type="text" class="disapproval-input" disabled readonly>
+                        </div>
+                    </div>
+
+                    <!-- Final Signature -->
+                    <div class="final-signature">
+                        <div class="final-officer-name">${sdsApproval ? sdsApproval.approverName : ''}</div>
+                        <div class="final-officer-title">Officer-In-Charge</div>
+                        <div class="final-officer-title">Office of the Schools Division Superintendent</div>
+                        ${sdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Approved: ${new Date(sdsApproval.timestamp).toLocaleDateString()}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Print Final Leave Form
+        function printFinalLeaveForm() {
+            const printContent = document.getElementById('printableFinalForm').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Final Leave Application Form</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        @media print {
+                            body { padding: 0; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>${printContent}</body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeDashboard);
+    </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="logout-modal">
+        <div class="logout-modal-content">
+            <div class="logout-modal-header">Confirm Logout</div>
+            <div class="logout-modal-body">Are you sure you want to logout?</div>
+            <div class="logout-modal-footer">
+                <button class="logout-modal-btn logout-cancel-btn" onclick="closeLogoutModal()">Cancel</button>
+                <button class="logout-modal-btn logout-confirm-btn" onclick="confirmLogout()">Logout</button>
+            </div>
+        </div>
+    </div>

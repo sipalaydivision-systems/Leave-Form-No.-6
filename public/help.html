@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help - SDO Sipalay City Leave Management System</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            flex: 1;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+        }
+        .header img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            border-radius: 50%;
+            margin-bottom: 15px;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        .header h2 {
+            color: #667eea;
+            font-size: 20px;
+            font-weight: normal;
+        }
+        .content {
+            line-height: 1.8;
+            color: #444;
+        }
+        .content h3 {
+            color: #667eea;
+            margin: 25px 0 15px 0;
+            font-size: 20px;
+        }
+        .content p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        .faq-item {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        .faq-item h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .faq-item p {
+            margin-bottom: 0;
+            color: #555;
+        }
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            margin-left: 0;
+        }
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding-left: 50px;
+            position: relative;
+        }
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 35px;
+            height: 35px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        .back-btn:hover {
+            background: #5a6fd6;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+        }
+        .footer a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .contact-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+        }
+        .contact-box h4 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .contact-box p {
+            color: rgba(255,255,255,0.9);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="deped logo.png" alt="DepEd Logo">
+            <h1>Help Center</h1>
+            <h2>SDO Sipalay City Leave Management System</h2>
+        </div>
+        
+        <div class="content">
+            <h3>Getting Started</h3>
+            <p>
+                Welcome to the SDO Sipalay City Leave Management System Help Center. Here you'll find 
+                guides and answers to common questions about using the system.
+            </p>
+
+            <h3>How to Apply for Leave</h3>
+            <ul class="step-list">
+                <li><strong>Login to Your Account</strong> - Use your registered email and password to access the system.</li>
+                <li><strong>Go to Dashboard</strong> - After logging in, you'll be directed to your employee dashboard.</li>
+                <li><strong>Click "Apply for Leave"</strong> - Find and click the leave application button.</li>
+                <li><strong>Fill Out the Form</strong> - Complete all required fields in Civil Service Form No. 6.</li>
+                <li><strong>Select Leave Type</strong> - Choose the appropriate type of leave (VL, SL, etc.).</li>
+                <li><strong>Specify Dates</strong> - Enter the inclusive dates of your leave.</li>
+                <li><strong>Submit Application</strong> - Review your application and click Submit.</li>
+                <li><strong>Track Your Application</strong> - Monitor the status of your application on your dashboard.</li>
+            </ul>
+
+            <h3>Frequently Asked Questions (FAQ)</h3>
+            
+            <div class="faq-item">
+                <h4>How do I check my leave balance?</h4>
+                <p>After logging in, go to your dashboard and look for the "Leave Credits" section. 
+                It displays your current Vacation Leave (VL) and Sick Leave (SL) balances.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>How long does it take for my leave to be approved?</h4>
+                <p>Leave applications typically go through HR review, ASDS recommendation, and SDS approval. 
+                The process usually takes 1-3 working days, depending on the availability of approvers.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>Can I cancel a submitted leave application?</h4>
+                <p>You can cancel a pending leave application before it has been approved. 
+                Contact HR or your immediate supervisor for assistance with cancellations.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>What documents do I need for sick leave?</h4>
+                <p>For sick leave exceeding 5 days, a medical certificate from a licensed physician is required. 
+                You can upload supporting documents when submitting your application.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>How do I reset my password?</h4>
+                <p>Click the "Forgot Password" link on the login page. Enter your registered email address, 
+                and you'll receive instructions to reset your password.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>What types of leave can I apply for?</h4>
+                <p>The system supports various leave types including: Vacation Leave, Sick Leave, 
+                Maternity Leave, Paternity Leave, Special Privilege Leave, Solo Parent Leave, 
+                Study Leave, and other special leaves as provided by law.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>How do I print my approved leave form?</h4>
+                <p>Go to your dashboard, find the approved leave application, and click the "Print" button. 
+                The system will generate a properly formatted Civil Service Form No. 6.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>Who do I contact if I have technical issues?</h4>
+                <p>For technical support, please contact the IT Administrator at the SDO Sipalay City office 
+                or send an email to the IT support team.</p>
+            </div>
+
+            <h3>User Roles Guide</h3>
+            
+            <div class="faq-item">
+                <h4>Employee Portal</h4>
+                <p>Submit leave applications, view leave credits, track application status, and access leave history.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>HR Portal</h4>
+                <p>Review leave applications, verify leave credits, certify leave balances, and manage employee records.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>ASDS Portal</h4>
+                <p>Review HR-certified applications and provide recommendations for SDS approval.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>SDS Portal</h4>
+                <p>Final approval of leave applications and view division-wide leave statistics.</p>
+            </div>
+
+            <div class="contact-box">
+                <h4>Need More Help?</h4>
+                <p>If you cannot find the answer to your question, please contact:</p>
+                <p><strong>IT Support:</strong> SDO Sipalay City IT Office</p>
+                <p><strong>HR Concerns:</strong> Human Resource Management Office</p>
+                <p><strong>Office Hours:</strong> Monday to Friday, 8:00 AM - 5:00 PM</p>
+            </div>
+
+            <a href="index.html" class="back-btn">← Back to Home</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="about.html">About</a>
+        <a href="help.html">Help</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <p style="margin-top: 10px;">© 2026 SDO Sipalay City - Department of Education</p>
+    </div>
+</body>
+</html>

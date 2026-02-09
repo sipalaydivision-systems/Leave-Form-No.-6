@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS Form No. 6 - Application for Leave</title>
+    <script src="/modal-alert.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #003366 0%, #004080 50%, #0059b3 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .portal-selector {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 1200px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #003366;
+            color: white;
+            padding: 20px 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 120px;
+            gap: 15px;
+        }
+        
+        .header-logo-left {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-logo-left img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .header-logo {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0;
+        }
+        
+        .header-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .header-content {
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 16px;
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+        
+        .header p {
+            font-size: 10px;
+            opacity: 0.9;
+        }
+        
+        .header h2 {
+            font-size: 13px;
+            margin-top: 6px;
+            color: #ffd700;
+        }
+        
+        .header .subtitle {
+            font-size: 10px;
+            opacity: 0.9;
+            margin-top: 5px;
+            padding-top: 5px;
+        }
+        
+        .portal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            gap: 0;
+            min-height: 350px;
+            perspective: 2000px;
+            position: relative;
+        }
+        
+        @media (max-width: 1200px) {
+            .portal-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+        
+        @media (max-width: 900px) {
+            .portal-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .portal-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 15px;
+                flex-direction: column;
+                text-align: center;
+                min-height: auto;
+            }
+            
+            .header-logo {
+                position: static;
+                width: 60px;
+                height: 60px;
+                margin-bottom: 10px;
+            }
+            
+            .header h1 {
+                font-size: 14px;
+            }
+            
+            .header h2 {
+                font-size: 12px;
+            }
+            
+            .header p {
+                font-size: 9px;
+            }
+            
+            .portal-card {
+                padding: 20px 15px;
+                min-height: auto;
+            }
+            
+            .portal-icon {
+                font-size: 35px;
+            }
+            
+            .portal-title {
+                font-size: 16px;
+            }
+            
+            .portal-description {
+                font-size: 11px;
+            }
+            
+            .portal-button {
+                padding: 10px 25px;
+                font-size: 11px;
+            }
+            
+            .features {
+                font-size: 11px;
+            }
+            
+            .footer {
+                padding: 15px;
+                font-size: 11px;
+            }
+        }
+        
+        .hr .portal-title {
+            color: #d32f2f;
+        }
+        
+        .asds .portal-title {
+            color: #ff6f00;
+        }
+        
+        .sds .portal-title {
+            color: #6a1b9a;
+        }
+        
+        .ao .portal-title {
+            color: #1e3c72;
+        }
+        
+        .portal-card {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            text-align: center;
+            border-right: 1px solid #eee;
+            cursor: pointer;
+            position: relative;
+            min-height: 450px;
+            z-index: 1;
+        }
+
+        
+        .employee .portal-button {
+            background: #003366;
+            transition: all 0.3s ease;
+        }
+        
+        .employee .portal-button:hover {
+            background: #002244;
+            box-shadow: 0 6px 16px rgba(0, 51, 102, 0.3);
+        }
+        
+        .hr .portal-button {
+            background: #d32f2f;
+            transition: all 0.3s ease;
+        }
+        
+        .hr .portal-button:hover {
+            background: #b71c1c;
+            box-shadow: 0 6px 16px rgba(211, 47, 47, 0.3);
+        }
+        
+        .asds .portal-button {
+            background: #ff6f00;
+            transition: all 0.3s ease;
+        }
+        
+        .asds .portal-button:hover {
+            background: #e65100;
+            box-shadow: 0 6px 16px rgba(255, 111, 0, 0.3);
+        }
+        
+        .sds .portal-button {
+            background: #6a1b9a;
+            transition: all 0.3s ease;
+        }
+        
+        .sds .portal-button:hover {
+            background: #4a0e78;
+            box-shadow: 0 6px 16px rgba(106, 27, 154, 0.3);
+        }
+        
+        .ao .portal-button {
+            background: #1e3c72;
+            transition: all 0.3s ease;
+        }
+        
+        .ao .portal-button:hover {
+            background: #152850;
+            box-shadow: 0 6px 16px rgba(30, 60, 114, 0.3);
+        }
+        
+        .features {
+            font-size: 12px;
+            color: #999;
+            margin-top: 0;
+            padding-top: 15px;
+            border-top: 1px solid #f0f0f0;
+            width: 100%;
+        }
+        
+        .portal-icon {
+            font-size: 45px;
+            margin-bottom: 12px;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        
+        .portal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            flex-shrink: 0;
+        }
+        
+        .employee .portal-title {
+            color: #003366;
+        }
+        
+        .hr .portal-title {
+            color: #d32f2f;
+        }
+        
+        .asds .portal-title {
+            color: #ff6f00;
+        }
+        
+        .sds .portal-title {
+            color: #6a1b9a;
+        }
+        
+        .portal-description {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.4;
+            flex-shrink: 0;
+        }
+        
+        .portal-button {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 12px;
+            border: none;
+            cursor: pointer;
+            color: white;
+            margin-top: auto;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+        
+        .feature-item::before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        
+        .footer {
+            background: #f5f5f5;
+            border-top: 1px solid #eee;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .footer p {
+            margin-bottom: 5px;
+        }
+        
+        .footer-links {
+            margin-bottom: 15px;
+        }
+        
+        .footer-links a {
+            color: #003366;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .footer-links a:hover {
+            color: #0066cc;
+            text-decoration: underline;
+        }
+        
+        .page-footer {
+            text-align: center;
+            padding: 25px 20px;
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            margin-top: auto;
+            width: 100%;
+        }
+        
+        .page-footer-links {
+            margin-bottom: 10px;
+        }
+        
+        .page-footer-links a {
+            color: #ffd700;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .page-footer-links a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+        
+        .page-footer p {
+            margin: 3px 0;
+            opacity: 0.85;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-selector">
+        <div class="header">
+            <div class="header-logo-left">
+                <img src="deped logo.png" alt="DepEd Logo" onerror="this.style.display='none'">
+            </div>
+            <div class="header-content">
+                <p style="font-size: 13px; margin-bottom: 5px;">Republic of the Philippines</p>
+                <h1>Department of Education</h1>
+                <p style="font-size: 12px; letter-spacing: 1px; margin: 8px 0;">NEGROS ISLAND REGION</p>
+                <h2>SCHOOLS DIVISION OF SIPALAY CITY</h2>
+                <div class="subtitle">
+                </div>
+            </div>
+            <div class="header-logo">
+                <img src="sipalay_logo.png" alt="Sipalay Division Logo">
+            </div>
+        </div>
+        
+        <div class="portal-grid">
+            <!-- Employee Portal -->
+            <div class="portal-card employee">
+                <div class="portal-icon">👤</div>
+                <div class="portal-title">Employee Portal</div>
+                <div class="portal-description">
+                    Login or register as an employee to file leave applications and check your leave status.
+                </div>
+                <a href="/login" class="portal-button">Employee Login</a>
+                <div class="features">
+                    <div class="feature-item">File Leave Applications</div>
+                    <div class="feature-item">View Leave Credits</div>
+                    <div class="feature-item">Check Application Status</div>
+                    <div class="feature-item">Track Approvals</div>
+                </div>
+            </div>
+            
+            <!-- HR Portal -->
+            <div class="portal-card hr">
+                <div class="portal-icon">👨‍💼</div>
+                <div class="portal-title">HR Portal</div>
+                <div class="portal-description">
+                    Login as HR staff to approve leave applications, manage leave credits, and process applications. Use Employee Portal to file leave.
+                </div>
+                <a href="/hr-login" class="portal-button">HR Login</a>
+                <div class="features">
+                    <div class="feature-item">Approve Leave Applications</div>
+                    <div class="feature-item">Manage Leave Credits</div>
+                    <div class="feature-item">Process Section 7</div>
+                    <div class="feature-item">Generate Reports</div>
+                </div>
+            </div>
+            
+            <!-- ASDS Portal -->
+            <div class="portal-card asds">
+                <div class="portal-icon">🎓</div>
+                <div class="portal-title">ASDS Portal</div>
+                <div class="portal-description">
+                    Login as ASDS office staff to process and manage leave applications. Use Employee Portal to file leave.
+                </div>
+                <a href="/asds-login" class="portal-button" style="background: #ff6f00;">ASDS Login</a>
+                <div class="features">
+                    <div class="feature-item">Process Leave Applications</div>
+                    <div class="feature-item">Personnel Management</div>
+                    <div class="feature-item">Records Management</div>
+                    <div class="feature-item">Generate Reports</div>
+                </div>
+            </div>
+            
+            <!-- SDS Portal -->
+            <div class="portal-card sds">
+                <div class="portal-icon">👔</div>
+                <div class="portal-title">SDS Portal</div>
+                <div class="portal-description">
+                    Login as Schools Division Superintendent to review and approve leave applications. Use Employee Portal to file leave.
+                </div>
+                <a href="/sds-login" class="portal-button" style="background: #6a1b9a;">SDS Login</a>
+                <div class="features">
+                    <div class="feature-item">Review Leave Applications</div>
+                    <div class="feature-item">Final Approvals</div>
+                    <div class="feature-item">Personnel Oversight</div>
+                    <div class="feature-item">Generate Reports</div>
+                </div>
+            </div>
+            
+            <!-- Administrative Officer Portal -->
+            <div class="portal-card ao">
+                <div class="portal-icon">⚙️</div>
+                <div class="portal-title">Admin Officer Portal</div>
+                <div class="portal-description">
+                    Login as Administrative Officer to review and approve teacher leave applications. First level approval in the workflow.
+                </div>
+                <a href="/ao-login" class="portal-button">AO Login</a>
+                <div class="features">
+                    <div class="feature-item">Review Pending Applications</div>
+                    <div class="feature-item">Approve/Reject Leave</div>
+                    <div class="feature-item">Add Remarks</div>
+                    <div class="feature-item">Track Approvals</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Important:</strong> All staff members (Employees, HR, ASDS, and SDS) can file leave applications through the Employee Portal</p>
+            <p>Leave Approval Workflow: Employee → Admin Officer → HR → ASDS → SDS</p>
+            <p><strong>Note:</strong> All new registrations require IT Department approval before you can login</p>
+            <p>For technical support, contact the IT Department</p>
+        </div>
+    </div>
+    
+    <div class="page-footer">
+        <div class="page-footer-links">
+            <a href="about.html">About</a>
+            <a href="help.html">Help</a>
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Terms</a>
+        </div>
+        <p>© 2026 SDO Sipalay City - Department of Education</p>
+    </div>
+</body>
+</html>
