@@ -526,6 +526,100 @@
             color: #e65100;
             margin-top: 8px;
         }
+
+        /* Selective Delete Styles */
+        .delete-category-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 8px;
+        }
+
+        .select-specific-btn {
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            background: #1565c0;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .select-specific-btn:hover {
+            background: #0d47a1;
+            transform: scale(1.03);
+        }
+
+        .specific-item-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+
+        .specific-item-row:hover {
+            background: #e3f2fd;
+        }
+
+        .specific-item-row:last-child {
+            border-bottom: none;
+        }
+
+        .specific-item-row.selected {
+            background: #ffebee;
+        }
+
+        .specific-item-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .specific-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .specific-item-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .specific-item-detail {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .specific-empty {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .specific-empty .icon {
+            font-size: 30px;
+            margin-bottom: 10px;
+        }
+
+        #selectSpecificModal .modal {
+            z-index: 1100;
+        }
+
+        #selectSpecificModal {
+            z-index: 1050;
+        }
+
         .logout-modal {
             max-width: 400px;
             text-align: center;
@@ -892,7 +986,7 @@
 
     <!-- Delete All System Data Modal -->
     <div class="modal-overlay" id="deleteAllDataModal">
-        <div class="modal" style="max-width: 600px;">
+        <div class="modal" style="max-width: 650px;">
             <div class="modal-header" style="background: #b71c1c;">
                 <h3 style="color: white;">⚠️ Delete System Data</h3>
                 <button class="modal-close" onclick="closeModal('deleteAllDataModal')">&times;</button>
@@ -901,53 +995,93 @@
                 <div style="text-align: center; margin-bottom: 20px;">
                     <div style="font-size: 50px; margin-bottom: 10px;">🗑️</div>
                     <h3 style="color: #b71c1c; margin-bottom: 5px;">WARNING: Permanent Data Deletion</h3>
-                    <p style="color: #666; font-size: 13px;">Select which data types to delete:</p>
+                    <p style="color: #666; font-size: 13px;">Select which data types to delete. Use <strong>"Select Specific"</strong> to pick individual records.</p>
                 </div>
 
-                <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; max-height: 300px; overflow-y: auto;">
+                <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; max-height: 400px; overflow-y: auto;">
                     <div style="margin-bottom: 15px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteEmployeeUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">👤 Employee User Accounts</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteAOUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">👨‍💼 AO User Accounts</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteHRUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">📊 HR User Accounts</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteASDSUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">🏛️ ASDS User Accounts</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteSDSUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">🏫 SDS User Accounts</span>
-                        </label>
+                        <!-- Employee Users -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteEmployeeUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">👤 Employee User Accounts</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('employeeUsers', '👤 Employee User Accounts')">Select Specific</button>
+                        </div>
+                        <!-- AO Users -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteAOUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">👨‍💼 AO User Accounts</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('aoUsers', '👨‍💼 AO User Accounts')">Select Specific</button>
+                        </div>
+                        <!-- HR Users -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteHRUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">📊 HR User Accounts</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('hrUsers', '📊 HR User Accounts')">Select Specific</button>
+                        </div>
+                        <!-- ASDS Users -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteASDSUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">🏛️ ASDS User Accounts</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('asdsUsers', '🏛️ ASDS User Accounts')">Select Specific</button>
+                        </div>
+                        <!-- SDS Users -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteSDSUsers" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">🏫 SDS User Accounts</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('sdsUsers', '🏫 SDS User Accounts')">Select Specific</button>
+                        </div>
                         <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteApplications" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">📋 Leave Applications</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteLeavecards" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">🎫 Leave Cards</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deleteSORecords" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">📄 SO Records</span>
-                        </label>
+                        <!-- Leave Applications -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteApplications" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">📋 Leave Applications</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('applications', '📋 Leave Applications')">Select Specific</button>
+                        </div>
+                        <!-- Leave Cards -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteLeavecards" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">🎫 Leave Cards</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('leavecards', '🎫 Leave Cards')">Select Specific</button>
+                        </div>
+                        <!-- SO Records -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteSORecords" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">📄 SO Records</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('soRecords', '📄 SO Records')">Select Specific</button>
+                        </div>
                         <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                            <input type="checkbox" id="deletePendingRegistrations" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">⏳ Pending Registrations</span>
-                        </label>
-                        <label style="display: flex; align-items: center; cursor: pointer;">
-                            <input type="checkbox" id="deleteSchools" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
-                            <span style="color: #333; font-weight: 500;">🏢 School/Office Data</span>
-                        </label>
+                        <!-- Pending Registrations -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deletePendingRegistrations" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">⏳ Pending Registrations</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('pendingRegistrations', '⏳ Pending Registrations')">Select Specific</button>
+                        </div>
+                        <!-- Schools -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteSchools" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">🏢 School/Office Data</span>
+                            </label>
+                            <button class="select-specific-btn" onclick="openSelectSpecificModal('schools', '🏢 School/Office Data')">Select Specific</button>
+                        </div>
                     </div>
                 </div>
 
@@ -962,6 +1096,42 @@
             <div class="modal-footer" style="justify-content: center;">
                 <button class="modal-btn cancel" onclick="closeModal('deleteAllDataModal')">Cancel</button>
                 <button class="modal-btn reject" onclick="confirmDeleteSelectedData()" style="background: #b71c1c;">Delete Selected Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Select Specific Items Modal -->
+    <div class="modal-overlay" id="selectSpecificModal">
+        <div class="modal" style="max-width: 700px; max-height: 85vh;">
+            <div class="modal-header" style="background: #1565c0;">
+                <h3 style="color: white;" id="selectSpecificTitle">Select Items to Delete</h3>
+                <button class="modal-close" onclick="closeSelectSpecificModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <!-- Search bar -->
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="specificSearchInput" placeholder="🔍 Search records..." oninput="filterSpecificItems()" style="width: 100%; padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: Poppins, sans-serif;">
+                </div>
+                <!-- Select All / Count -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: #f5f5f5; border-radius: 8px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px; font-weight: 600; color: #333;">
+                        <input type="checkbox" id="selectAllSpecific" onchange="toggleSelectAllSpecific()" style="width: 16px; height: 16px; cursor: pointer; margin-right: 8px;">
+                        Select All
+                    </label>
+                    <span id="specificItemCount" style="font-size: 12px; color: #666;">0 items</span>
+                    <span id="specificSelectedCount" style="font-size: 12px; color: #1565c0; font-weight: 600;">0 selected</span>
+                </div>
+                <!-- Items list -->
+                <div id="specificItemsList" style="max-height: 350px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <div style="text-align: center; padding: 40px; color: #999;">
+                        <div style="font-size: 30px; margin-bottom: 10px;">⏳</div>
+                        Loading items...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button class="modal-btn cancel" onclick="closeSelectSpecificModal()">Cancel</button>
+                <button class="modal-btn reject" id="deleteSpecificBtn" onclick="deleteSpecificItems()" style="background: #b71c1c;">🗑️ Delete Selected (<span id="deleteSpecificCount">0</span>)</button>
             </div>
         </div>
     </div>
@@ -1590,6 +1760,197 @@
                 console.error('Error deleting data:', error);
                 alert('Error: ' + error.message);
             });
+        }
+
+        // ========== SELECTIVE DELETE FUNCTIONALITY ==========
+        let currentSpecificCategory = '';
+        let currentSpecificItems = [];
+        let specificSearchTerm = '';
+
+        async function openSelectSpecificModal(category, label) {
+            currentSpecificCategory = category;
+            currentSpecificItems = [];
+            specificSearchTerm = '';
+
+            document.getElementById('selectSpecificTitle').textContent = `Select Items — ${label}`;
+            document.getElementById('specificSearchInput').value = '';
+            document.getElementById('selectAllSpecific').checked = false;
+            document.getElementById('specificItemsList').innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <div style="font-size: 30px; margin-bottom: 10px;">⏳</div>
+                    Loading items...
+                </div>`;
+            document.getElementById('selectSpecificModal').classList.add('active');
+
+            try {
+                const response = await fetch(`/api/data-items/${category}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    currentSpecificItems = (data.items || []).map(item => ({
+                        ...item,
+                        _selected: false
+                    }));
+                    renderSpecificItems();
+                } else {
+                    document.getElementById('specificItemsList').innerHTML = `
+                        <div class="specific-empty">
+                            <div class="icon">❌</div>
+                            <p>Error loading items: ${data.error || 'Unknown error'}</p>
+                        </div>`;
+                }
+            } catch (error) {
+                console.error('Error fetching data items:', error);
+                document.getElementById('specificItemsList').innerHTML = `
+                    <div class="specific-empty">
+                        <div class="icon">❌</div>
+                        <p>Connection error. Please try again.</p>
+                    </div>`;
+            }
+        }
+
+        function renderSpecificItems() {
+            const container = document.getElementById('specificItemsList');
+            const term = specificSearchTerm.toLowerCase();
+
+            const filtered = currentSpecificItems.filter(item => {
+                if (!term) return true;
+                return (item.displayName || '').toLowerCase().includes(term) ||
+                       (item.email || '').toLowerCase().includes(term) ||
+                       (item.district || '').toLowerCase().includes(term) ||
+                       String(item.id || '').toLowerCase().includes(term);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="specific-empty">
+                        <div class="icon">${currentSpecificItems.length === 0 ? '📭' : '🔍'}</div>
+                        <p>${currentSpecificItems.length === 0 ? 'No records found in this category.' : 'No records match your search.'}</p>
+                    </div>`;
+                document.getElementById('specificItemCount').textContent = `${currentSpecificItems.length} items`;
+                updateSpecificSelectedCount();
+                return;
+            }
+
+            let html = '';
+            filtered.forEach((item, idx) => {
+                const globalIdx = currentSpecificItems.indexOf(item);
+                const checkedAttr = item._selected ? 'checked' : '';
+                const selectedClass = item._selected ? ' selected' : '';
+                const districtInfo = item.district ? `<div class="specific-item-detail">${item.district}</div>` : '';
+                html += `
+                    <div class="specific-item-row${selectedClass}" onclick="toggleSpecificItem(${globalIdx}, event)">
+                        <input type="checkbox" ${checkedAttr} onclick="event.stopPropagation(); toggleSpecificItem(${globalIdx}, event)">
+                        <div class="specific-item-info">
+                            <div class="specific-item-name">${escapeHtml(item.displayName || 'Unknown')}</div>
+                            ${districtInfo}
+                        </div>
+                    </div>`;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('specificItemCount').textContent = `${filtered.length} of ${currentSpecificItems.length} items`;
+            updateSpecificSelectedCount();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function toggleSpecificItem(index, event) {
+            if (event) event.stopPropagation();
+            currentSpecificItems[index]._selected = !currentSpecificItems[index]._selected;
+            renderSpecificItems();
+            updateSelectAllCheckbox();
+        }
+
+        function toggleSelectAllSpecific() {
+            const selectAll = document.getElementById('selectAllSpecific').checked;
+            const term = specificSearchTerm.toLowerCase();
+            currentSpecificItems.forEach(item => {
+                const matchesSearch = !term ||
+                    (item.displayName || '').toLowerCase().includes(term) ||
+                    (item.email || '').toLowerCase().includes(term) ||
+                    (item.district || '').toLowerCase().includes(term) ||
+                    String(item.id || '').toLowerCase().includes(term);
+                if (matchesSearch) {
+                    item._selected = selectAll;
+                }
+            });
+            renderSpecificItems();
+        }
+
+        function updateSelectAllCheckbox() {
+            const term = specificSearchTerm.toLowerCase();
+            const visibleItems = currentSpecificItems.filter(item => {
+                if (!term) return true;
+                return (item.displayName || '').toLowerCase().includes(term) ||
+                       (item.email || '').toLowerCase().includes(term) ||
+                       (item.district || '').toLowerCase().includes(term) ||
+                       String(item.id || '').toLowerCase().includes(term);
+            });
+            const allSelected = visibleItems.length > 0 && visibleItems.every(i => i._selected);
+            document.getElementById('selectAllSpecific').checked = allSelected;
+        }
+
+        function updateSpecificSelectedCount() {
+            const count = currentSpecificItems.filter(i => i._selected).length;
+            document.getElementById('specificSelectedCount').textContent = `${count} selected`;
+            document.getElementById('deleteSpecificCount').textContent = count;
+            const btn = document.getElementById('deleteSpecificBtn');
+            btn.disabled = count === 0;
+            btn.style.opacity = count === 0 ? '0.5' : '1';
+        }
+
+        function filterSpecificItems() {
+            specificSearchTerm = document.getElementById('specificSearchInput').value.trim();
+            renderSpecificItems();
+            updateSelectAllCheckbox();
+        }
+
+        function closeSelectSpecificModal() {
+            document.getElementById('selectSpecificModal').classList.remove('active');
+            currentSpecificCategory = '';
+            currentSpecificItems = [];
+        }
+
+        async function deleteSpecificItems() {
+            const selected = currentSpecificItems.filter(i => i._selected);
+            if (selected.length === 0) {
+                alert('Please select at least one item to delete.');
+                return;
+            }
+
+            const categoryLabel = document.getElementById('selectSpecificTitle').textContent;
+            const warningMsg = `⚠️ DELETE ${selected.length} ITEM(S)\n\nYou are about to permanently delete ${selected.length} record(s) from:\n${categoryLabel}\n\nThis action CANNOT be undone.\n\nProceed?`;
+
+            if (!confirm(warningMsg)) return;
+
+            // Collect IDs (prefer id, fallback to email)
+            const itemIds = selected.map(item => String(item.id || item.email));
+
+            try {
+                const response = await fetch('/api/delete-specific-items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: currentSpecificCategory, itemIds })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✓ Successfully deleted ${data.deletedCount} record(s)!`);
+                    closeSelectSpecificModal();
+                    loadRegistrations();
+                    loadStats();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to delete items'));
+                }
+            } catch (error) {
+                console.error('Error deleting specific items:', error);
+                alert('Error: ' + error.message);
+            }
         }
 
     </script>

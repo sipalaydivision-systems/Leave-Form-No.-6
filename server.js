@@ -152,6 +152,7 @@ const itUsersFile = path.join(dataDir, 'it-users.json');
 const pendingRegistrationsFile = path.join(dataDir, 'pending-registrations.json');
 const soRecordsFile = path.join(dataDir, 'so-records.json');
 const ctoRecordsFile = path.join(dataDir, 'cto-records.json');
+const schoolsFile = path.join(dataDir, 'schools.json');
 const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
 
 // Ensure data directory exists
@@ -1453,6 +1454,138 @@ app.post('/api/reject-registration', (req, res) => {
 
         res.json({ success: true, message: 'Registration rejected' });
     } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Fetch items for a specific data category (for selective deletion)
+app.get('/api/data-items/:category', (req, res) => {
+    try {
+        const category = req.params.category;
+        const categoryToFile = {
+            'employeeUsers': usersFile,
+            'aoUsers': aoUsersFile,
+            'hrUsers': hrUsersFile,
+            'asdsUsers': asdsUsersFile,
+            'sdsUsers': sdsUsersFile,
+            'applications': applicationsFile,
+            'leavecards': leavecardsFile,
+            'soRecords': soRecordsFile,
+            'pendingRegistrations': pendingRegistrationsFile,
+            'schools': schoolsFile
+        };
+
+        const filePath = categoryToFile[category];
+        if (!filePath) {
+            return res.status(400).json({ success: false, error: 'Invalid category' });
+        }
+
+        if (!fs.existsSync(filePath)) {
+            return res.json({ success: true, items: [], category });
+        }
+
+        const data = readJSON(filePath);
+
+        // For schools, it's an object with districts array, flatten for display
+        if (category === 'schools' && data && data.districts) {
+            const items = [];
+            data.districts.forEach(d => {
+                d.schools.forEach(s => {
+                    items.push({ id: s.id, displayName: s.name, district: d.name });
+                });
+            });
+            return res.json({ success: true, items, category, isSchoolFormat: true });
+        }
+
+        // For arrays, map each item to include a display name
+        const items = Array.isArray(data) ? data.map(item => {
+            let displayName = '';
+            if (category === 'employeeUsers' || category === 'aoUsers' || category === 'hrUsers' || category === 'asdsUsers' || category === 'sdsUsers') {
+                displayName = `${item.fullName || item.name || 'N/A'} (${item.email || 'N/A'})`;
+            } else if (category === 'applications') {
+                displayName = `${item.applicationId || item.id || 'N/A'} - ${item.employeeName || item.name || 'N/A'} (${item.leaveType || 'N/A'})`;
+            } else if (category === 'leavecards') {
+                displayName = `${item.email || item.employeeId || 'N/A'} - VL: ${item.vl ?? 'N/A'}, SL: ${item.sl ?? 'N/A'}`;
+            } else if (category === 'soRecords') {
+                displayName = `${item.soNumber || 'N/A'} - ${item.soName || 'N/A'}`;
+            } else if (category === 'pendingRegistrations') {
+                displayName = `${item.fullName || item.name || 'N/A'} (${item.email || 'N/A'}) [${item.status || 'N/A'}]`;
+            } else {
+                displayName = item.name || item.email || item.id || JSON.stringify(item).substring(0, 50);
+            }
+            return { id: item.id, email: item.email, displayName };
+        }) : [];
+
+        res.json({ success: true, items, category });
+    } catch (error) {
+        console.error('[SYSTEM] Error fetching data items:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Delete specific items by IDs from a data category
+app.post('/api/delete-specific-items', (req, res) => {
+    try {
+        const { category, itemIds } = req.body;
+        
+        if (!category || !itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+            return res.status(400).json({ success: false, error: 'Category and itemIds are required' });
+        }
+
+        const categoryToFile = {
+            'employeeUsers': usersFile,
+            'aoUsers': aoUsersFile,
+            'hrUsers': hrUsersFile,
+            'asdsUsers': asdsUsersFile,
+            'sdsUsers': sdsUsersFile,
+            'applications': applicationsFile,
+            'leavecards': leavecardsFile,
+            'soRecords': soRecordsFile,
+            'pendingRegistrations': pendingRegistrationsFile,
+            'schools': schoolsFile
+        };
+
+        const filePath = categoryToFile[category];
+        if (!filePath) {
+            return res.status(400).json({ success: false, error: 'Invalid category' });
+        }
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ success: false, error: 'Data file not found' });
+        }
+
+        const data = readJSON(filePath);
+        let deletedCount = 0;
+
+        // Special handling for schools (object with districts)
+        if (category === 'schools' && data && data.districts) {
+            const idsToDelete = new Set(itemIds.map(String));
+            data.districts.forEach(d => {
+                const before = d.schools.length;
+                d.schools = d.schools.filter(s => !idsToDelete.has(String(s.id)));
+                deletedCount += before - d.schools.length;
+            });
+            // Remove empty districts
+            data.districts = data.districts.filter(d => d.schools.length > 0);
+            writeJSON(filePath, data);
+        } else if (Array.isArray(data)) {
+            const idsToDelete = new Set(itemIds.map(String));
+            const filtered = data.filter(item => {
+                const itemId = String(item.id || '');
+                const itemEmail = String(item.email || '');
+                if (idsToDelete.has(itemId) || idsToDelete.has(itemEmail)) {
+                    deletedCount++;
+                    return false;
+                }
+                return true;
+            });
+            writeJSON(filePath, filtered);
+        }
+
+        console.log(`[SYSTEM] Deleted ${deletedCount} item(s) from ${category}`);
+        res.json({ success: true, deletedCount, category });
+    } catch (error) {
+        console.error('[SYSTEM] Error deleting specific items:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
