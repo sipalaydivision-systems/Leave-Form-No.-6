@@ -154,10 +154,82 @@ const soRecordsFile = path.join(dataDir, 'so-records.json');
 const ctoRecordsFile = path.join(dataDir, 'cto-records.json');
 const schoolsFile = path.join(dataDir, 'schools.json');
 const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
+const activityLogsFile = path.join(dataDir, 'activity-logs.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// ========== ACTIVITY LOGGING SYSTEM ==========
+
+/**
+ * Log user activity with detailed information
+ * @param {string} action - Action type (login, logout, create, update, delete, etc.)
+ * @param {string} portalType - Portal type (employee, hr, asds, sds, ao, it)
+ * @param {object} details - Additional details about the activity
+ */
+function logActivity(action, portalType, details = {}) {
+    try {
+        const ip = details.ip || 'unknown';
+        const userEmail = details.userEmail || 'anonymous';
+        const userId = details.userId || null;
+        const timestamp = new Date().toISOString();
+        
+        // Get user agent info
+        const userAgent = details.userAgent || 'unknown';
+        
+        const logEntry = {
+            id: crypto.randomUUID(),
+            timestamp,
+            action,
+            portalType,
+            userEmail,
+            userId,
+            ip,
+            userAgent,
+            details: {
+                ...details,
+                ip: undefined,
+                userEmail: undefined,
+                userId: undefined,
+                userAgent: undefined
+            }
+        };
+        
+        let logs = [];
+        if (fs.existsSync(activityLogsFile)) {
+            try {
+                const content = fs.readFileSync(activityLogsFile, 'utf-8');
+                logs = JSON.parse(content);
+                if (!Array.isArray(logs)) logs = [];
+            } catch (e) {
+                logs = [];
+            }
+        }
+        
+        // Keep only last 10,000 logs to prevent file from getting too large
+        logs.push(logEntry);
+        if (logs.length > 10000) {
+            logs = logs.slice(-10000);
+        }
+        
+        fs.writeFileSync(activityLogsFile, JSON.stringify(logs, null, 2));
+        console.log(`Activity logged: ${action} by ${userEmail} (${portalType})`);
+    } catch (error) {
+        console.error('Error logging activity:', error);
+    }
+}
+
+/**
+ * Extract IP address from request
+ */
+function getClientIp(req) {
+    return (req.headers['x-forwarded-for'] || '').split(',')[0] ||
+           req.connection.remoteAddress ||
+           req.socket.remoteAddress ||
+           req.connection.socket?.remoteAddress ||
+           'unknown';
 }
 
 // Ensure all data files exist
@@ -185,7 +257,11 @@ function readJSON(filepath) {
         if (!fs.existsSync(filepath)) {
             return [];
         }
-        const content = fs.readFileSync(filepath, 'utf8');
+        let content = fs.readFileSync(filepath, 'utf8');
+        // Strip UTF-8 BOM if present
+        if (content.charCodeAt(0) === 0xFEFF) {
+            content = content.slice(1);
+        }
         return JSON.parse(content);
     } catch (error) {
         console.error(`Error reading JSON file ${filepath}:`, error.message);
@@ -612,6 +688,15 @@ app.post('/api/register', (req, res) => {
         pendingRegs.push(pendingRegistration);
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
+        // Log registration submission
+        logActivity('REGISTRATION_SUBMITTED', 'employee', {
+            userEmail: email,
+            fullName: fullName,
+            portal: 'employee',
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
     } catch (error) {
         console.error('Register error:', error.message);
@@ -623,11 +708,19 @@ app.post('/api/register', (req, res) => {
 app.post('/api/login', loginRateLimiter, (req, res) => {
     try {
         const { email, password } = req.body;
+        const ip = getClientIp(req);
 
         let users = readJSON(usersFile);
         const user = users.find(u => u.email === email && u.password === hashPassword(password));
 
         if (!user) {
+            // Log failed login attempt
+            logActivity('LOGIN_FAILED', 'employee', {
+                userEmail: email,
+                ip,
+                userAgent: req.get('user-agent')
+            });
+            
             let pendingRegs = readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'employee' && r.status === 'pending');
             if (pending) {
@@ -638,6 +731,15 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
             }
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
+
+        // Log successful login
+        logActivity('LOGIN_SUCCESS', 'employee', {
+            userEmail: user.email,
+            userId: user.id,
+            ip,
+            userAgent: req.get('user-agent'),
+            userName: user.name
+        });
 
         res.json({ 
             success: true, 
@@ -750,6 +852,15 @@ app.post('/api/hr-register', (req, res) => {
         pendingRegs.push(pendingRegistration);
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
+        // Log registration submission
+        logActivity('REGISTRATION_SUBMITTED', 'hr', {
+            userEmail: email,
+            fullName: userName,
+            portal: 'hr',
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -759,11 +870,19 @@ app.post('/api/hr-register', (req, res) => {
 app.post('/api/hr-login', loginRateLimiter, (req, res) => {
     try {
         const { email, password } = req.body;
+        const ip = getClientIp(req);
 
         let hrUsers = readJSON(hrUsersFile);
         const hrUser = hrUsers.find(u => u.email === email && u.password === hashPassword(password));
 
         if (!hrUser) {
+            // Log failed login attempt
+            logActivity('LOGIN_FAILED', 'hr', {
+                userEmail: email,
+                ip,
+                userAgent: req.get('user-agent')
+            });
+            
             let pendingRegs = readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'hr' && r.status === 'pending');
             if (pending) {
@@ -774,6 +893,15 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
             }
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
+
+        // Log successful login
+        logActivity('LOGIN_SUCCESS', 'hr', {
+            userEmail: hrUser.email,
+            userId: hrUser.id,
+            ip,
+            userAgent: req.get('user-agent'),
+            userName: hrUser.name
+        });
 
         res.json({
             success: true,
@@ -838,6 +966,15 @@ app.post('/api/asds-register', (req, res) => {
         pendingRegs.push(pendingRegistration);
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
+        // Log registration submission
+        logActivity('REGISTRATION_SUBMITTED', 'asds', {
+            userEmail: email,
+            fullName: fullName,
+            portal: 'asds',
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -847,11 +984,19 @@ app.post('/api/asds-register', (req, res) => {
 app.post('/api/asds-login', loginRateLimiter, (req, res) => {
     try {
         const { email, password } = req.body;
+        const ip = getClientIp(req);
 
         let asdsUsers = readJSON(asdsUsersFile);
         const asdsUser = asdsUsers.find(u => u.email === email && u.password === hashPassword(password));
 
         if (!asdsUser) {
+            // Log failed login attempt
+            logActivity('LOGIN_FAILED', 'asds', {
+                userEmail: email,
+                ip,
+                userAgent: req.get('user-agent')
+            });
+            
             let pendingRegs = readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'asds' && r.status === 'pending');
             if (pending) {
@@ -944,6 +1089,15 @@ app.post('/api/sds-register', (req, res) => {
         pendingRegs.push(pendingRegistration);
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
+        // Log registration submission
+        logActivity('REGISTRATION_SUBMITTED', 'sds', {
+            userEmail: email,
+            fullName: fullName,
+            portal: 'sds',
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -953,11 +1107,19 @@ app.post('/api/sds-register', (req, res) => {
 app.post('/api/sds-login', loginRateLimiter, (req, res) => {
     try {
         const { email, password } = req.body;
+        const ip = getClientIp(req);
 
         let sdsUsers = readJSON(sdsUsersFile);
         const sdsUser = sdsUsers.find(u => u.email === email && u.password === hashPassword(password));
 
         if (!sdsUser) {
+            // Log failed login attempt
+            logActivity('LOGIN_FAILED', 'sds', {
+                userEmail: email,
+                ip,
+                userAgent: req.get('user-agent')
+            });
+            
             let pendingRegs = readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'sds' && r.status === 'pending');
             if (pending) {
@@ -1027,6 +1189,15 @@ app.post('/api/ao-register', (req, res) => {
         pendingRegs.push(pendingRegistration);
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
+        // Log registration submission
+        logActivity('REGISTRATION_SUBMITTED', 'ao', {
+            userEmail: email,
+            fullName: fullName,
+            portal: 'ao',
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -1036,11 +1207,19 @@ app.post('/api/ao-register', (req, res) => {
 app.post('/api/ao-login', loginRateLimiter, (req, res) => {
     try {
         const { email, password } = req.body;
+        const ip = getClientIp(req);
 
         let aoUsers = readJSON(aoUsersFile);
         const aoUser = aoUsers.find(u => u.email === email && u.password === hashPassword(password));
 
         if (!aoUser) {
+            // Log failed login attempt
+            logActivity('LOGIN_FAILED', 'ao', {
+                userEmail: email,
+                ip,
+                userAgent: req.get('user-agent')
+            });
+            
             let pendingRegs = readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'ao' && r.status === 'pending');
             if (pending) {
@@ -1187,6 +1366,44 @@ app.get('/api/all-registered-users', (req, res) => {
         const pendingRegs = readJSON(pendingRegistrationsFile);
         // Filter out deleted records - they are permanently removed but just in case
         const activeRegs = pendingRegs.filter(r => r.status !== 'deleted');
+
+        // Also include users from actual user files that may not have a pending-registration record
+        const existingEmails = new Set(activeRegs.map(r => r.email));
+
+        const portalFiles = [
+            { file: usersFile, portal: 'employee' },
+            { file: aoUsersFile, portal: 'ao' },
+            { file: hrUsersFile, portal: 'hr' },
+            { file: asdsUsersFile, portal: 'asds' },
+            { file: sdsUsersFile, portal: 'sds' }
+        ];
+
+        portalFiles.forEach(({ file, portal }) => {
+            const users = readJSON(file);
+            users.forEach(user => {
+                if (!existingEmails.has(user.email)) {
+                    activeRegs.push({
+                        id: user.id,
+                        email: user.email,
+                        fullName: user.fullName || user.name || 'N/A',
+                        name: user.name || user.fullName || 'N/A',
+                        portal: portal,
+                        office: user.office || '',
+                        position: user.position || '',
+                        employeeNo: user.employeeNo || '',
+                        salaryGrade: user.salaryGrade || '',
+                        step: user.step || '',
+                        salary: user.salary || '',
+                        status: 'approved',
+                        createdAt: user.createdAt || new Date().toISOString(),
+                        processedAt: user.createdAt || new Date().toISOString(),
+                        processedBy: 'System'
+                    });
+                    existingEmails.add(user.email);
+                }
+            });
+        });
+
         res.json({ success: true, registrations: activeRegs });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -1400,6 +1617,16 @@ app.post('/api/approve-registration', (req, res) => {
         pendingRegs[regIndex] = registration;
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
+        // Log registration approval
+        logActivity('REGISTRATION_APPROVED', 'it', {
+            userEmail: registration.email,
+            fullName: registration.fullName || registration.name,
+            portal: registration.portal,
+            processedBy: processedBy,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         // Send approval email with login form
         const userEmail = registration.email;
         const userName = registration.fullName || registration.name || 'User';
@@ -1451,6 +1678,17 @@ app.post('/api/reject-registration', (req, res) => {
         pendingRegs[regIndex].processedAt = new Date().toISOString();
         pendingRegs[regIndex].processedBy = processedBy;
         writeJSON(pendingRegistrationsFile, pendingRegs);
+
+        // Log registration rejection
+        logActivity('REGISTRATION_REJECTED', 'it', {
+            userEmail: pendingRegs[regIndex].email,
+            fullName: pendingRegs[regIndex].fullName || pendingRegs[regIndex].name,
+            portal: pendingRegs[regIndex].portal,
+            reason: reason || 'No reason provided',
+            processedBy: processedBy,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
 
         res.json({ success: true, message: 'Registration rejected' });
     } catch (error) {
@@ -1527,6 +1765,7 @@ app.get('/api/data-items/:category', (req, res) => {
 app.post('/api/delete-specific-items', (req, res) => {
     try {
         const { category, itemIds } = req.body;
+        const ip = getClientIp(req);
         
         if (!category || !itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
             return res.status(400).json({ success: false, error: 'Category and itemIds are required' });
@@ -1582,6 +1821,16 @@ app.post('/api/delete-specific-items', (req, res) => {
             writeJSON(filePath, filtered);
         }
 
+        // Log deletion activity
+        logActivity('DATA_DELETION', 'it', {
+            userEmail: 'system-admin',
+            ip,
+            userAgent: req.get('user-agent'),
+            category,
+            deletedCount,
+            itemsDeleted: itemIds
+        });
+
         console.log(`[SYSTEM] Deleted ${deletedCount} item(s) from ${category}`);
         res.json({ success: true, deletedCount, category });
     } catch (error) {
@@ -1625,6 +1874,17 @@ app.post('/api/delete-selected-data', (req, res) => {
         });
 
         console.log(`[SYSTEM] Deleted ${filesDeleted} data file(s)`);
+
+        // Log bulk deletion activity
+        const deletedCategories = Object.keys(deleteOptions).filter(k => deleteOptions[k] === true && fileMapping[k]);
+        logActivity('DATA_DELETION', 'it', {
+            userEmail: 'system-admin',
+            action: 'delete-selected-data',
+            deletedCategories: deletedCategories,
+            filesDeleted: filesDeleted,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
 
         res.json({ 
             success: true, 
@@ -1675,6 +1935,15 @@ app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
 
         console.log('[SYSTEM] All system data has been deleted');
 
+        // Log delete-all activity
+        logActivity('DATA_DELETION', 'it', {
+            userEmail: 'system-admin',
+            action: 'delete-all-data',
+            filesCleared: dataFilesToClear.length,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ 
             success: true, 
             message: 'All system data has been successfully deleted',
@@ -1721,15 +1990,32 @@ app.post('/api/delete-user', (req, res) => {
         }
 
         // Permanently delete from pending registrations
+        let regDeleted = false;
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => r.email === email && r.portal === portal);
+        // Try to find by email+portal first, then fallback to id
+        let regIndex = pendingRegs.findIndex(r => r.email === email && r.portal === portal);
+        if (regIndex === -1 && id) {
+            regIndex = pendingRegs.findIndex(r => r.id == id);
+        }
         if (regIndex !== -1) {
             pendingRegs.splice(regIndex, 1);
             writeJSON(pendingRegistrationsFile, pendingRegs);
+            regDeleted = true;
             console.log(`Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
         }
 
-        if (userDeleted) {
+        if (userDeleted || regDeleted) {
+            // Log user deletion
+            logActivity('DATA_DELETION', 'it', {
+                userEmail: email,
+                action: 'delete-user',
+                portal: portal,
+                deletedBy: deletedBy,
+                userAccountDeleted: userDeleted,
+                registrationDeleted: regDeleted,
+                ip: getClientIp(req),
+                userAgent: req.get('user-agent')
+            });
             res.json({ success: true, message: 'User deleted successfully' });
         } else {
             res.status(404).json({ success: false, error: 'User not found in database' });
@@ -1783,6 +2069,7 @@ app.post('/api/submit-leave', (req, res) => {
     try {
         const applicationData = req.body;
         const applications = readJSON(applicationsFile);
+        const ip = getClientIp(req);
         
         // ===== VALIDATION: Check Force/SPL leave balance =====
         const leaveType = applicationData.leaveType;
@@ -1850,6 +2137,17 @@ app.post('/api/submit-leave', (req, res) => {
         
         applications.push(newApplication);
         writeJSON(applicationsFile, applications);
+        
+        // Log activity
+        logActivity('LEAVE_APPLICATION_SUBMITTED', 'employee', {
+            userEmail: applicationData.employeeEmail,
+            ip,
+            userAgent: req.get('user-agent'),
+            applicationId: newApplication.id,
+            leaveType,
+            numDays,
+            officeType: schoolBased ? 'School-based' : 'Division Office'
+        });
         
         const officeType = schoolBased ? 'School-based' : 'Division Office';
         console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (AO first)`);
@@ -2117,6 +2415,8 @@ app.get('/api/leave-credits', (req, res) => {
             ...latestRecord,
             vacationLeaveEarned: latestRecord.vacationLeaveEarned || latestRecord.vl || 100,
             sickLeaveEarned: latestRecord.sickLeaveEarned || latestRecord.sl || 100,
+            forceLeaveEarned: latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5,
+            splEarned: latestRecord.splEarned || latestRecord.spl || 3,
             vacationLeaveSpent: vacationLeaveSpent,
             sickLeaveSpent: sickLeaveSpent,
             forceLeaveSpent: forceLeaveSpent,
@@ -2448,13 +2748,31 @@ app.post('/api/update-leave-credits', (req, res) => {
             if (sickLeaveSpent !== undefined) employeeLeave.sickLeaveSpent = sickLeaveSpent;
             if (forceLeaveSpent !== undefined) employeeLeave.forceLeaveSpent = forceLeaveSpent;
             if (splSpent !== undefined) employeeLeave.splSpent = splSpent;
-            if (vl !== undefined) employeeLeave.vl = vl;
-            if (sl !== undefined) employeeLeave.sl = sl;
-            if (spl !== undefined) employeeLeave.spl = spl;
+            if (vl !== undefined) {
+                employeeLeave.vl = vl;
+                // If this is a direct balance edit (from AO), also update vacationLeaveEarned
+                // so the employee dashboard's earned-spent calculation stays in sync
+                if (!transactions && !vacationLeaveEarned) {
+                    const currentSpent = employeeLeave.vacationLeaveSpent || 0;
+                    employeeLeave.vacationLeaveEarned = vl + currentSpent;
+                }
+            }
+            if (sl !== undefined) {
+                employeeLeave.sl = sl;
+                if (!transactions && !sickLeaveEarned) {
+                    const currentSpent = employeeLeave.sickLeaveSpent || 0;
+                    employeeLeave.sickLeaveEarned = sl + currentSpent;
+                }
+            }
+            if (spl !== undefined) {
+                employeeLeave.spl = spl;
+                employeeLeave.splEarned = spl;
+            }
             if (others !== undefined) employeeLeave.others = others;
             if (mandatoryForced !== undefined) {
                 employeeLeave.mandatoryForced = mandatoryForced;
-                employeeLeave.others = mandatoryForced; // Keep others in sync for backward compatibility
+                employeeLeave.others = mandatoryForced;
+                employeeLeave.forceLeaveEarned = mandatoryForced;
             }
             
             employeeLeave.updatedAt = new Date().toISOString();
@@ -2464,6 +2782,17 @@ app.post('/api/update-leave-credits', (req, res) => {
         writeJSON(leavecardsFile, leavecards);
         console.log('[UPDATE LEAVE] Successfully saved leave card data');
         
+        // Log leave credits update
+        logActivity('LEAVE_CREDITS_UPDATED', 'employee', {
+            userEmail: employeeEmail,
+            applicationId: applicationId,
+            vl: employeeLeave.vl,
+            sl: employeeLeave.sl,
+            spl: employeeLeave.spl,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
         res.json({ 
             success: true, 
             message: 'Leave card updated successfully',
@@ -2523,6 +2852,7 @@ app.post('/api/update-so-records', (req, res) => {
 app.post('/api/approve-leave', (req, res) => {
     try {
         const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature } = req.body;
+        const ip = getClientIp(req);
         console.log('[APPROVE-LEAVE] Request received:', { applicationId, action, approverPortal, approverName });
         
         const applications = readJSON(applicationsFile);
@@ -2672,6 +3002,17 @@ app.post('/api/approve-leave', (req, res) => {
             success: true, 
             message: `Application ${action} successfully`,
             application: app
+        });
+        
+        // Log activity after successful action
+        logActivity(`LEAVE_APPLICATION_${action.toUpperCase()}`, approverPortal.toLowerCase(), {
+            userEmail: approverName,
+            ip,
+            userAgent: req.get('user-agent'),
+            applicationId: app.id,
+            employeeEmail: app.employeeEmail,
+            remarks,
+            action
         });
     } catch (error) {
         console.error('Error processing approval:', error);
@@ -3055,6 +3396,176 @@ app.put('/api/cto-records/:recordId', (req, res) => {
     }
 });
 
+// ========== ACTIVITY LOG ENDPOINTS ==========
+
+// Get all activity logs with pagination and filtering
+app.get('/api/activity-logs', (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const action = req.query.action;
+        const portal = req.query.portal;
+        const userEmail = req.query.userEmail;
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        
+        let logs = [];
+        if (fs.existsSync(activityLogsFile)) {
+            try {
+                const content = fs.readFileSync(activityLogsFile, 'utf-8');
+                logs = JSON.parse(content);
+                if (!Array.isArray(logs)) logs = [];
+            } catch (e) {
+                logs = [];
+            }
+        }
+        
+        // Apply filters
+        let filtered = logs;
+        if (action) {
+            filtered = filtered.filter(log => log.action.includes(action.toUpperCase()));
+        }
+        if (portal) {
+            filtered = filtered.filter(log => log.portalType === portal.toLowerCase());
+        }
+        if (userEmail) {
+            filtered = filtered.filter(log => log.userEmail.toLowerCase().includes(userEmail.toLowerCase()));
+        }
+        if (startDate) {
+            const start = new Date(startDate);
+            filtered = filtered.filter(log => new Date(log.timestamp) >= start);
+        }
+        if (endDate) {
+            const end = new Date(endDate);
+            filtered = filtered.filter(log => new Date(log.timestamp) <= end);
+        }
+        
+        // Sort by timestamp descending (newest first)
+        filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Pagination
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const start = (page - 1) * limit;
+        const paginated = filtered.slice(start, start + limit);
+        
+        res.json({
+            success: true,
+            logs: paginated,
+            pagination: {
+                page,
+                limit,
+                totalItems,
+                totalPages
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching activity logs:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get activity log summary (stats)
+app.get('/api/activity-logs-summary', (req, res) => {
+    try {
+        let logs = [];
+        if (fs.existsSync(activityLogsFile)) {
+            try {
+                const content = fs.readFileSync(activityLogsFile, 'utf-8');
+                logs = JSON.parse(content);
+                if (!Array.isArray(logs)) logs = [];
+            } catch (e) {
+                logs = [];
+            }
+        }
+        
+        // Calculate statistics
+        const stats = {
+            totalActivities: logs.length,
+            activitiesByAction: {},
+            activitiesByPortal: {},
+            activitiesByIp: {},
+            recentActivities: logs.slice(-10),
+            last24Hours: logs.filter(log => {
+                const logTime = new Date(log.timestamp);
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                return logTime >= oneDayAgo;
+            }).length,
+            uniqueUsers: new Set(logs.map(log => log.userEmail)).size,
+            uniqueIps: new Set(logs.map(log => log.ip)).size
+        };
+        
+        // Group by action
+        logs.forEach(log => {
+            if (!stats.activitiesByAction[log.action]) {
+                stats.activitiesByAction[log.action] = 0;
+            }
+            stats.activitiesByAction[log.action]++;
+        });
+        
+        // Group by portal
+        logs.forEach(log => {
+            if (!stats.activitiesByPortal[log.portalType]) {
+                stats.activitiesByPortal[log.portalType] = 0;
+            }
+            stats.activitiesByPortal[log.portalType]++;
+        });
+        
+        // Group by IP
+        logs.forEach(log => {
+            if (!stats.activitiesByIp[log.ip]) {
+                stats.activitiesByIp[log.ip] = 0;
+            }
+            stats.activitiesByIp[log.ip]++;
+        });
+        
+        res.json({ success: true, stats });
+    } catch (error) {
+        console.error('Error fetching activity logs summary:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Export activity logs as CSV
+app.get('/api/export-activity-logs', (req, res) => {
+    try {
+        let logs = [];
+        if (fs.existsSync(activityLogsFile)) {
+            try {
+                const content = fs.readFileSync(activityLogsFile, 'utf-8');
+                logs = JSON.parse(content);
+                if (!Array.isArray(logs)) logs = [];
+            } catch (e) {
+                logs = [];
+            }
+        }
+        
+        // Convert to CSV
+        const headers = ['ID', 'Timestamp', 'Action', 'Portal', 'User Email', 'User ID', 'IP Address', 'User Agent', 'Details'];
+        const csvContent = [
+            headers.join(','),
+            ...logs.map(log => [
+                log.id,
+                log.timestamp,
+                log.action,
+                log.portalType,
+                log.userEmail,
+                log.userId || '',
+                log.ip,
+                (log.userAgent || '').replace(/,/g, ';'),
+                JSON.stringify(log.details).replace(/,/g, ';')
+            ].map(field => `"${String(field || '').replace(/"/g, '""')}"` ).join(','))
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="activity-logs.csv"');
+        res.send(csvContent);
+    } catch (error) {
+        console.error('Error exporting activity logs:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ========== ERROR HANDLERS (Must be last before server start) ==========
 // Only catch API routes - let static files pass through
 app.use('/api/*', (req, res) => {
@@ -3108,5 +3619,3 @@ server.setTimeout(0);
 setInterval(() => {
     console.log('✓ Server still running - ' + new Date().toISOString());
 }, 60000);
-
-

@@ -1516,13 +1516,13 @@
                     const vlBalance = Math.max(0, vlEarned - vlSpent);
                     const slBalance = Math.max(0, slEarned - slSpent);
                     
-                    // Force Leave: constant 5 days per year - spent
-                    const FORCE_LEAVE_YEARLY = 5;
-                    const forceBalance = Math.max(0, FORCE_LEAVE_YEARLY - forceSpent);
+                    // Force Leave: use AO-set balance (forceLeaveEarned/mandatoryForced), default 5 per year
+                    const forceLeaveAllocation = credits.forceLeaveEarned || credits.mandatoryForced || credits.others || 5;
+                    const forceBalance = Math.max(0, forceLeaveAllocation - forceSpent);
                     
-                    // Special Privilege Leave: constant 3 days per year - spent
-                    const SPL_YEARLY = 3;
-                    const splBalance = Math.max(0, SPL_YEARLY - splSpent);
+                    // Special Privilege Leave: use AO-set balance (splEarned/spl), default 3 per year
+                    const splAllocation = credits.splEarned || credits.spl || 3;
+                    const splBalance = Math.max(0, splAllocation - splSpent);
                     
                     document.getElementById('vacationCredits').textContent = vlBalance.toFixed(0);
                     document.getElementById('sickCredits').textContent = slBalance.toFixed(0);

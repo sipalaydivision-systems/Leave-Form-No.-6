@@ -1,0 +1,210 @@
+[
+  {
+    "id": "9b1df997-6720-4e59-985a-9c5a9640d623",
+    "timestamp": "2026-02-10T03:23:36.406Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "employee",
+    "userEmail": "rosana.montilla@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
+  },
+  {
+    "id": "79b11823-66cf-479b-9c08-523a96c62a70",
+    "timestamp": "2026-02-10T03:32:46.208Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
+  },
+  {
+    "id": "d13e3ab3-3ec7-459d-a13d-fb46dd81fc10",
+    "timestamp": "2026-02-10T03:33:00.001Z",
+    "action": "DATA_DELETION",
+    "portalType": "it",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "action": "delete-user",
+      "portal": "ao",
+      "deletedBy": "jenel.tiad@deped.gov.ph"
+    }
+  },
+  {
+    "id": "a7765321-a8f5-45dd-afee-5f9238e403eb",
+    "timestamp": "2026-02-10T03:33:06.646Z",
+    "action": "DATA_DELETION",
+    "portalType": "it",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "action": "delete-user",
+      "portal": "hr",
+      "deletedBy": "jenel.tiad@deped.gov.ph"
+    }
+  },
+  {
+    "id": "0081be11-c3a2-4cc9-a2dd-1cd3de9e8c2e",
+    "timestamp": "2026-02-10T03:36:07.533Z",
+    "action": "DATA_DELETION",
+    "portalType": "it",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "action": "delete-user",
+      "portal": "asds",
+      "deletedBy": "jenel.tiad@deped.gov.ph",
+      "userAccountDeleted": true,
+      "registrationDeleted": false
+    }
+  },
+  {
+    "id": "4a74bcd6-0d4a-4916-b2bc-681680a66688",
+    "timestamp": "2026-02-10T03:36:20.867Z",
+    "action": "DATA_DELETION",
+    "portalType": "it",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "action": "delete-user",
+      "portal": "sds",
+      "deletedBy": "jenel.tiad@deped.gov.ph",
+      "userAccountDeleted": true,
+      "registrationDeleted": false
+    }
+  },
+  {
+    "id": "5359ae1d-be69-4398-aa3b-8c1cf6208b10",
+    "timestamp": "2026-02-10T03:37:26.829Z",
+    "action": "REGISTRATION_SUBMITTED",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "fullName": "Tiad, Jenel T.",
+      "portal": "employee"
+    }
+  },
+  {
+    "id": "ca4a1f85-d752-4a25-8db2-62f19a81c269",
+    "timestamp": "2026-02-10T03:37:45.089Z",
+    "action": "REGISTRATION_APPROVED",
+    "portalType": "it",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "fullName": "Tiad, Jenel T.",
+      "portal": "employee",
+      "processedBy": "jenel.tiad@deped.gov.ph"
+    }
+  },
+  {
+    "id": "211fe8b5-403d-4596-823a-e6cc137dc779",
+    "timestamp": "2026-02-10T03:37:53.979Z",
+    "action": "LOGIN_SUCCESS",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": 1770694646799,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "userName": "Tiad, Jenel T."
+    }
+  },
+  {
+    "id": "c90b5f82-5980-4a4d-96f9-6f91dbd53226",
+    "timestamp": "2026-02-10T03:38:36.824Z",
+    "action": "DATA_DELETION",
+    "portalType": "it",
+    "userEmail": "system-admin",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "category": "leavecards",
+      "deletedCount": 3,
+      "itemsDeleted": [
+        "undefined",
+        "jenel.tiad@deped.gov.ph",
+        "lilibeth.cipres@deped.gov.ph",
+        "wesleyhans3.platil@deped.gov.ph"
+      ]
+    }
+  },
+  {
+    "id": "760a6b1e-c856-48e8-bf61-af7ff10fef5a",
+    "timestamp": "2026-02-10T03:38:59.676Z",
+    "action": "LEAVE_CREDITS_UPDATED",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "vl": 200,
+      "sl": 200,
+      "spl": 3
+    }
+  },
+  {
+    "id": "6a729938-3874-436c-bbeb-172cb493686a",
+    "timestamp": "2026-02-10T03:40:44.238Z",
+    "action": "LEAVE_CREDITS_UPDATED",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "vl": 200,
+      "sl": 200,
+      "spl": 3
+    }
+  },
+  {
+    "id": "7c3ef1b0-d3cb-4457-9825-c6ca2450ce2f",
+    "timestamp": "2026-02-10T03:45:26.944Z",
+    "action": "LEAVE_CREDITS_UPDATED",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "vl": 200,
+      "sl": 200,
+      "spl": 3
+    }
+  },
+  {
+    "id": "c4568e2c-e6d7-4868-9546-0288270c4049",
+    "timestamp": "2026-02-10T03:45:51.725Z",
+    "action": "LEAVE_CREDITS_UPDATED",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {
+      "vl": 100,
+      "sl": 200,
+      "spl": 3
+    }
+  }
+]

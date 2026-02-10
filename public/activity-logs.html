@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Logs - IT Department</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            padding: 30px;
+        }
+
+        .header h1 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #1565c0;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a237e;
+            margin-top: 8px;
+        }
+
+        .filters-section {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .filters-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #555;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 10px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #1565c0;
+            box-shadow: 0 0 0 3px rgba(21,101,192,0.1);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-search {
+            background: #1565c0;
+            color: white;
+            box-shadow: 0 2px 4px rgba(21,101,192,0.2);
+        }
+
+        .btn-search:hover {
+            background: #0d47a1;
+            box-shadow: 0 4px 8px rgba(21,101,192,0.3);
+        }
+
+        .btn-reset {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-reset:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-export {
+            background: #2e7d32;
+            color: white;
+            box-shadow: 0 2px 4px rgba(46,125,50,0.2);
+        }
+
+        .btn-export:hover {
+            background: #1b5e20;
+            box-shadow: 0 4px 8px rgba(46,125,50,0.3);
+        }
+
+        .table-section {
+            padding: 20px;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .table-header h3 {
+            font-size: 16px;
+            color: #333;
+        }
+
+        .result-count {
+            font-size: 13px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .logs-table thead {
+            background: #f5f5f5;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .logs-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 700;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .logs-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .logs-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .action-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .action-login {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .action-create {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .action-delete {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .action-approve {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .portal-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .portal-employee { background: #e3f2fd; color: #003366; }
+        .portal-hr { background: #ffebee; color: #d32f2f; }
+        .portal-asds { background: #fff3e0; color: #ff6f00; }
+        .portal-sds { background: #f3e5f5; color: #6a1b9a; }
+        .portal-ao { background: #eceff1; color: #1e3c72; }
+        .portal-it { background: #e0f2f1; color: #00695c; }
+
+        .timestamp {
+            font-size: 11px;
+            color: #999;
+            white-space: nowrap;
+        }
+
+        .ip-address {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .user-email {
+            word-break: break-word;
+            max-width: 200px;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #1565c0;
+            color: white;
+            border-color: #1565c0;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #1565c0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px;
+            border-left: 4px solid #c62828;
+        }
+
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            margin: 20px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #1565c0;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .back-link:hover {
+            background: #e0e0e0;
+        }
+
+        @media print {
+            .filters-section, .filter-buttons, .pagination {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="it-dashboard.html" class="back-link">← Back to IT Dashboard</a>
+
+        <div class="header">
+            <h1>📊 Activity Logs</h1>
+            <p>Monitor all system activities, user logins, and data modifications</p>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="loading">
+                <div class="spinner"></div>
+                <span>Loading statistics...</span>
+            </div>
+        </div>
+
+        <div class="filters-section">
+            <div class="filters-title">🔍 Filter Activities</div>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>Action Type</label>
+                    <select id="actionFilter">
+                        <option value="">All Actions</option>
+                        <optgroup label="Authentication">
+                            <option value="LOGIN_SUCCESS">Login Success</option>
+                            <option value="LOGIN_FAILED">Login Failed</option>
+                        </optgroup>
+                        <optgroup label="Leave Applications">
+                            <option value="LEAVE_APPLICATION_SUBMITTED">Leave Submitted</option>
+                            <option value="LEAVE_APPLICATION_APPROVED">Leave Approved</option>
+                            <option value="LEAVE_APPLICATION_REJECTED">Leave Rejected</option>
+                            <option value="LEAVE_APPLICATION_RETURNED">Leave Returned</option>
+                            <option value="LEAVE_APPLICATION_DISAPPROVED">Leave Disapproved</option>
+                        </optgroup>
+                        <optgroup label="Registration">
+                            <option value="REGISTRATION_SUBMITTED">Registration Submitted</option>
+                            <option value="REGISTRATION_APPROVED">Registration Approved</option>
+                            <option value="REGISTRATION_REJECTED">Registration Rejected</option>
+                        </optgroup>
+                        <optgroup label="Data Management">
+                            <option value="DATA_DELETION">Data Deletion</option>
+                            <option value="DATA_EXPORT">Data Export</option>
+                            <option value="LEAVE_CREDITS_UPDATED">Leave Credits Updated</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Portal</label>
+                    <select id="portalFilter">
+                        <option value="">All Portals</option>
+                        <option value="employee">Employee</option>
+                        <option value="ao">Admin Officer</option>
+                        <option value="hr">HR</option>
+                        <option value="asds">ASDS</option>
+                        <option value="sds">SDS</option>
+                        <option value="it">IT</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>User</label>
+                    <select id="userEmailFilter">
+                        <option value="">All Users</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Start Date</label>
+                    <input type="date" id="startDateFilter">
+                </div>
+                <div class="filter-group">
+                    <label>End Date</label>
+                    <input type="date" id="endDateFilter">
+                </div>
+            </div>
+            <div class="filter-buttons">
+                <button class="btn-search" onclick="applyFilters()">🔍 Search</button>
+                <button class="btn-reset" onclick="resetFilters()">↻ Reset Filters</button>
+                <button class="btn-export" onclick="exportLogs()">📥 Export as CSV</button>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <div class="table-header">
+                <h3>Activity Records</h3>
+                <span class="result-count" id="resultCount">Loading...</span>
+            </div>
+
+            <div id="logsContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Loading activity logs...</span>
+                </div>
+            </div>
+
+            <div class="pagination" id="paginationContainer" style="display: none;">
+                <button onclick="previousPage()" id="prevBtn">← Previous</button>
+                <span class="pagination-info">
+                    Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                    (<span id="totalItems">0</span> total records)
+                </span>
+                <button onclick="nextPage()" id="nextBtn">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let currentFilters = {};
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/activity-logs-summary');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayStats(data.stats);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function displayStats(stats) {
+            const statsHtml = `
+                <div class="stat-card">
+                    <div class="label">Total Activities</div>
+                    <div class="value">${stats.totalActivities.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Last 24 Hours</div>
+                    <div class="value">${stats.last24Hours}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Unique Users</div>
+                    <div class="value">${stats.uniqueUsers}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Unique IPs</div>
+                    <div class="value">${stats.uniqueIps}</div>
+                </div>
+            `;
+            document.getElementById('statsGrid').innerHTML = statsHtml;
+        }
+
+        // Load activity logs
+        async function loadLogs(page = 1) {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading activity logs...</span></div>';
+
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: 20,
+                    ...currentFilters
+                });
+
+                const response = await fetch(`/api/activity-logs?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    currentPage = data.pagination.page;
+                    displayLogs(data.logs);
+                    updatePagination(data.pagination);
+                } else {
+                    container.innerHTML = `<div class="error-message">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                container.innerHTML = '<div class="error-message">Failed to load activity logs</div>';
+            }
+        }
+
+        function displayLogs(logs) {
+            if (logs.length === 0) {
+                document.getElementById('logsContainer').innerHTML = '<div class="error-message">No activity logs found matching your filters</div>';
+                document.getElementById('resultCount').textContent = '0 records';
+                return;
+            }
+
+            const tableHtml = `
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                            <th>Portal</th>
+                            <th>User Email</th>
+                            <th>IP Address</th>
+                            <th>User Agent</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${logs.map(log => `
+                            <tr>
+                                <td class="timestamp">${new Date(log.timestamp).toLocaleString()}</td>
+                                <td><span class="action-badge action-${log.action.toLowerCase().split('_')[0]}">${log.action}</span></td>
+                                <td><span class="portal-badge portal-${log.portalType}">${log.portalType.toUpperCase()}</span></td>
+                                <td class="user-email">${escapeHtml(log.userEmail)}</td>
+                                <td><span class="ip-address">${escapeHtml(log.ip)}</span></td>
+                                <td><span style="font-size: 10px; color: #999;">${truncateText(log.userAgent || 'unknown', 30)}</span></td>
+                                <td><details style="cursor: pointer;"><summary>Show</summary><pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 11px; overflow-x: auto;">${JSON.stringify(log.details, null, 2)}</pre></details></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('logsContainer').innerHTML = tableHtml;
+        }
+
+        function updatePagination(pagination) {
+            document.getElementById('resultCount').textContent = `${pagination.totalItems} records`;
+            document.getElementById('currentPage').textContent = pagination.page;
+            document.getElementById('totalPages').textContent = pagination.totalPages;
+            document.getElementById('totalItems').textContent = pagination.totalItems;
+
+            const paginationContainer = document.getElementById('paginationContainer');
+            paginationContainer.style.display = pagination.totalPages > 1 ? 'flex' : 'none';
+
+            document.getElementById('prevBtn').disabled = pagination.page === 1;
+            document.getElementById('nextBtn').disabled = pagination.page === pagination.totalPages;
+        }
+
+        function applyFilters() {
+            currentFilters = {};
+            const action = document.getElementById('actionFilter').value;
+            const portal = document.getElementById('portalFilter').value;
+            const userEmail = document.getElementById('userEmailFilter').value;
+            const startDate = document.getElementById('startDateFilter').value;
+            const endDate = document.getElementById('endDateFilter').value;
+
+            if (action) currentFilters.action = action;
+            if (portal) currentFilters.portal = portal;
+            if (userEmail) currentFilters.userEmail = userEmail;
+            if (startDate) currentFilters.startDate = new Date(startDate).toISOString();
+            if (endDate) currentFilters.endDate = new Date(endDate).toISOString();
+
+            currentPage = 1;
+            loadLogs(1);
+        }
+
+        function resetFilters() {
+            document.getElementById('actionFilter').value = '';
+            document.getElementById('portalFilter').value = '';
+            document.getElementById('userEmailFilter').value = '';
+            document.getElementById('startDateFilter').value = '';
+            document.getElementById('endDateFilter').value = '';
+            
+            currentFilters = {};
+            currentPage = 1;
+            loadLogs(1);
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                loadLogs(currentPage - 1);
+            }
+        }
+
+        function nextPage() {
+            const totalPages = parseInt(document.getElementById('totalPages').textContent);
+            if (currentPage < totalPages) {
+                loadLogs(currentPage + 1);
+            }
+        }
+
+        async function exportLogs() {
+            try {
+                const response = await fetch('/api/export-activity-logs');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error exporting logs:', error);
+                alert('Failed to export logs');
+            }
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function truncateText(text, maxLength) {
+            if (text.length > maxLength) {
+                return text.substring(0, maxLength) + '...';
+            }
+            return text;
+        }
+
+        // Populate User dropdown from summary stats
+        async function populateUserFilter() {
+            try {
+                const response = await fetch('/api/activity-logs?limit=10000');
+                const data = await response.json();
+                if (data.success && data.logs.length > 0) {
+                    const users = [...new Set(data.logs.map(log => log.userEmail))].filter(e => e && e !== 'anonymous').sort();
+                    const select = document.getElementById('userEmailFilter');
+                    users.forEach(email => {
+                        const opt = document.createElement('option');
+                        opt.value = email;
+                        opt.textContent = email;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (error) {
+                console.error('Error populating user filter:', error);
+            }
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadLogs(1);
+            populateUserFilter();
+        });
+    </script>
+</body>
+</html>

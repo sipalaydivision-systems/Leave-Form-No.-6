@@ -1,1 +1,16 @@
-﻿[]
+[
+  {
+    "id": 1770694646799,
+    "email": "jenel.tiad@deped.gov.ph",
+    "password": "13d0da6c03bbdd41739de9144192aff80cfda4f2ae766b1dfd831f56a1480c50",
+    "name": "Tiad, Jenel T.",
+    "office": "OSDS",
+    "position": "Information Technology Officer I",
+    "employeeNo": "01-01",
+    "salaryGrade": 19,
+    "step": 3,
+    "salary": 60793,
+    "role": "user",
+    "createdAt": "2026-02-10T03:37:26.800Z"
+  }
+]
