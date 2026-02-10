@@ -1,0 +1,645 @@
+/* ============================================================
+   Mobile & PWA Styles — SDO Sipalay Leave Management System
+   ============================================================ */
+
+/* --- PWA Install Banner --- */
+#pwa-install-banner {
+  position: fixed;
+  bottom: -100px;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 12px 12px;
+}
+#pwa-install-banner.pwa-banner-visible {
+  bottom: 0;
+}
+.pwa-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: 0 -4px 30px rgba(0,0,0,0.18);
+  max-width: 500px;
+  margin: 0 auto;
+  border: 1px solid #e0e0e0;
+}
+.pwa-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.pwa-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+.pwa-banner-text strong {
+  display: block;
+  font-size: 14px;
+  color: #1a237e;
+}
+.pwa-banner-text span {
+  font-size: 12px;
+  color: #666;
+}
+.pwa-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pwa-btn-install {
+  background: #003366;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.pwa-btn-install:active {
+  background: #001a33;
+}
+.pwa-btn-dismiss {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+.pwa-btn-dismiss:active {
+  background: #f0f0f0;
+}
+
+/* --- Touch & Tap Optimizations --- */
+@media (pointer: coarse) {
+  button, a, input[type="submit"], select, .btn, .action-btn,
+  .portal-card, .filter-tab, .nav-item, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+}
+
+/* --- Tablet Breakpoint (≤ 1024px) --- */
+@media (max-width: 1024px) {
+  .container, .main-content {
+    padding: 20px !important;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  table {
+    font-size: 13px;
+  }
+  th, td {
+    padding: 10px 8px !important;
+  }
+
+  /* Employee dashboard: show sidebar below main feed */
+  .main-container {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+  }
+  .sidebar {
+    display: block !important;
+    margin-top: 10px;
+  }
+}
+
+/* --- Mobile Breakpoint (≤ 768px) --- */
+@media (max-width: 768px) {
+  /* General layout */
+  body {
+    padding: 0 !important;
+    padding-top: 0 !important;
+  }
+  .container {
+    padding: 12px !important;
+    max-width: 100% !important;
+  }
+  .main-content {
+    border-radius: 12px !important;
+    padding: 15px !important;
+  }
+
+  /* Navigation bars */
+  .navbar {
+    flex-wrap: wrap;
+    padding: 10px 12px !important;
+    gap: 8px;
+  }
+  .navbar-brand h1 {
+    font-size: 13px !important;
+  }
+  .navbar-brand img {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .navbar-brand span {
+    font-size: 10px !important;
+  }
+  .user-info {
+    flex-wrap: wrap;
+    gap: 6px !important;
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .user-badge {
+    font-size: 11px !important;
+    padding: 5px 10px !important;
+  }
+  .logout-btn, .profile-btn, .add-staff-btn {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* Header sections — including flex headers (AO, HR, etc.) */
+  .header {
+    padding: 15px 12px !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    text-align: center !important;
+  }
+  .header h1, .section-header h2 {
+    font-size: 18px !important;
+  }
+  .header p {
+    font-size: 12px !important;
+  }
+  .header-content {
+    flex-direction: column !important;
+    gap: 10px !important;
+    text-align: center !important;
+  }
+  .hr-user-info {
+    text-align: center !important;
+  }
+
+  /* Fixed navbar body offset (ASDS, SDS portals) */
+  body[style*="padding-top"] {
+    padding-top: 100px !important;
+  }
+
+  /* Stats grids */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .stat-card {
+    padding: 14px !important;
+    border-radius: 10px !important;
+  }
+  .stat-card .icon {
+    font-size: 26px !important;
+  }
+  .stat-card .number {
+    font-size: 22px !important;
+  }
+  .stat-card .label {
+    font-size: 11px !important;
+  }
+
+  /* Stats containers (inline-styled stat grids in HR/ASDS/SDS) */
+  .stats-container {
+    flex-direction: column !important;
+  }
+
+  /* Portal cards */
+  .portal-selector {
+    border-radius: 12px !important;
+    margin: 10px !important;
+    max-width: 100% !important;
+  }
+  .portal-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 15px !important;
+  }
+  .portal-card {
+    padding: 18px 12px !important;
+    border-radius: 10px !important;
+  }
+  .portal-card .card-icon {
+    font-size: 32px !important;
+  }
+  .portal-card h3 {
+    font-size: 13px !important;
+  }
+  .portal-card p {
+    font-size: 11px !important;
+  }
+
+  /* Tables — horizontal scroll */
+  .table-container,
+  .table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -8px;
+    padding: 0 8px;
+  }
+  table {
+    min-width: 650px;
+    font-size: 12px;
+  }
+  th, td {
+    padding: 8px 6px !important;
+    white-space: nowrap;
+  }
+  .action-btns {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .action-btns button, .action-btns a {
+    width: 100%;
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+  }
+  .action-buttons {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .btn-small {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* Toolbars / Filter sections */
+  .section-header {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px !important;
+    gap: 10px !important;
+  }
+  .toolbar-top {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+  .toolbar-top a, .toolbar-top button {
+    width: 100% !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+  .toolbar-filters {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .filters-left, .filters-right {
+    width: 100% !important;
+    flex-direction: column !important;
+  }
+  .filter-group {
+    width: 100% !important;
+  }
+  .filter-select, .filter-input {
+    width: 100% !important;
+    min-width: unset !important;
+  }
+  .filter-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .print-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Forms */
+  .login-card, .register-card, .form-container {
+    padding: 20px 16px !important;
+    border-radius: 12px !important;
+    margin: 10px !important;
+    max-width: 100% !important;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 12px !important;
+  }
+
+  /* Leave credit rings (employee dashboard) */
+  .credit-cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .credit-card {
+    padding: 14px !important;
+  }
+  .credit-ring {
+    width: 70px !important;
+    height: 70px !important;
+  }
+
+  /* Employee dashboard sidebar on mobile */
+  .main-container {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    padding: 10px !important;
+    gap: 12px !important;
+  }
+  .sidebar {
+    display: block !important;
+    order: -1;
+  }
+  .sidebar-profile {
+    padding: 12px !important;
+  }
+  .sidebar-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 14px !important;
+  }
+  .quick-action {
+    padding: 10px 8px !important;
+  }
+  .quick-action-icon {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 18px !important;
+  }
+  .quick-action-text h5 {
+    font-size: 14px !important;
+  }
+  .quick-action-text p {
+    font-size: 11px !important;
+  }
+
+  /* Employee dashboard — stories/credits scrollable */
+  .credits-stories {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+  .credit-story {
+    min-width: 70px !important;
+    flex-shrink: 0;
+  }
+
+  /* Modals */
+  .modal, .modal-overlay {
+    padding: 10px !important;
+  }
+  .modal-content {
+    width: 95% !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 14px !important;
+    padding: 18px !important;
+    overflow-y: auto;
+  }
+  .modal-content h2, .modal-content h3 {
+    font-size: 18px !important;
+  }
+
+  /* Pagination */
+  .pagination {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    justify-content: center !important;
+  }
+  .pagination button {
+    min-width: 36px !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Leave form specific */
+  .leave-form-container, .form-wrapper {
+    padding: 10px !important;
+    border-radius: 8px !important;
+  }
+  .checkbox-group {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tab navigation — all types */
+  .tabs, .tab-nav {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+  .tab, .tab-btn, .app-tab-btn {
+    flex: 1 1 auto !important;
+    font-size: 11px !important;
+    padding: 8px 8px !important;
+    text-align: center;
+  }
+
+  /* Dashboard headers with logo images */
+  .dashboard-header {
+    padding: 15px !important;
+    text-align: center !important;
+  }
+  .dashboard-header h2 {
+    font-size: 18px !important;
+  }
+  .dashboard-content {
+    padding: 12px !important;
+  }
+
+  /* Charts grid (HR, ASDS, SDS inline charts) */
+  .charts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 15px !important;
+  }
+  .chart-container {
+    height: 220px !important;
+  }
+
+  /* Demographics section */
+  .demographics-section {
+    padding: 15px !important;
+  }
+  .demographics-section h3 {
+    font-size: 16px !important;
+  }
+
+  /* Two-column form layouts */
+  .two-column {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Page footer */
+  .page-footer {
+    padding: 15px 12px !important;
+    font-size: 11px !important;
+  }
+
+  /* Footer links in sidebar */
+  .footer-links {
+    text-align: center !important;
+    padding: 10px 0 !important;
+  }
+}
+
+/* --- Small Mobile Breakpoint (≤ 480px) --- */
+@media (max-width: 480px) {
+  .portal-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+  .stat-card .number {
+    font-size: 18px !important;
+  }
+  .stat-card .icon {
+    font-size: 22px !important;
+  }
+  .credit-cards {
+    grid-template-columns: 1fr !important;
+  }
+  .section-header h2 {
+    font-size: 15px !important;
+  }
+  .navbar-brand h1 {
+    font-size: 11px !important;
+  }
+  .navbar h1 {
+    font-size: 15px !important;
+  }
+  table {
+    min-width: 550px;
+    font-size: 11px;
+  }
+  .header h1 {
+    font-size: 16px !important;
+  }
+  .quick-action-text h5 {
+    font-size: 13px !important;
+  }
+}
+
+/* --- iOS Safe Areas --- */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  #pwa-install-banner {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .page-footer {
+    padding-bottom: calc(15px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* --- Landscape orientation tweaks --- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .header {
+    padding: 10px 12px !important;
+  }
+  .header h1 {
+    font-size: 16px !important;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .portal-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .modal-content {
+    max-height: 85vh !important;
+  }
+  .navbar {
+    padding: 6px 12px !important;
+    gap: 4px !important;
+  }
+  .navbar h1 {
+    font-size: 14px !important;
+  }
+  /* Ensure sidebar/quick-actions show in landscape */
+  .main-container {
+    grid-template-columns: 1fr 280px !important;
+    gap: 12px !important;
+  }
+  .sidebar {
+    display: block !important;
+  }
+  /* Credits row flows horizontally in landscape */
+  .credits-stories {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+  .credit-story {
+    min-width: 60px !important;
+  }
+  .credit-ring {
+    width: 50px !important;
+    height: 50px !important;
+  }
+  /* Compact tracker cards */
+  .tracker-section {
+    margin-bottom: 8px !important;
+  }
+  .app-card {
+    padding: 8px !important;
+  }
+  /* Charts side by side */
+  .charts-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  }
+}
+
+/* Landscape on phones (wider but short) */
+@media (min-width: 568px) and (max-width: 932px) and (orientation: landscape) {
+  /* Show sidebar in landscape since we have horizontal space */
+  .main-container {
+    grid-template-columns: 1fr 260px !important;
+    max-width: 100% !important;
+    padding: 8px 12px !important;
+  }
+  .sidebar {
+    display: block !important;
+  }
+  .sidebar-profile {
+    padding: 8px !important;
+  }
+  .quick-action {
+    padding: 6px 4px !important;
+  }
+  .quick-action-icon {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
+  }
+  .quick-action-text h5 {
+    font-size: 12px !important;
+  }
+  .quick-action-text p {
+    font-size: 10px !important;
+  }
+}
+
+/* --- Dark mode support for login pages --- */
+@media (prefers-color-scheme: dark) {
+  .pwa-banner-content {
+    background: #1e1e2e;
+    border-color: #333;
+  }
+  .pwa-banner-text strong {
+    color: #90caf9;
+  }
+  .pwa-banner-text span {
+    color: #aaa;
+  }
+  .pwa-btn-install {
+    background: #1565c0;
+  }
+}
+
+/* --- Print: hide mobile/PWA elements --- */
+@media print {
+  #pwa-install-banner,
+  .pwa-btn-install,
+  .pwa-btn-dismiss {
+    display: none !important;
+  }
+}

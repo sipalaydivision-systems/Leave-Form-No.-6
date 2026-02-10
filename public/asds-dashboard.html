@@ -725,28 +725,70 @@
         @media (max-width: 768px) {
             .navbar {
                 flex-direction: column;
-                gap: 15px;
-                padding: 12px 15px;
+                gap: 10px;
+                padding: 10px 12px;
+                position: relative;
+            }
+
+            body {
+                padding-top: 10px;
             }
 
             .navbar h1 {
-                font-size: 18px;
+                font-size: 16px;
             }
 
             .container {
-                margin-top: 150px;
+                margin-top: 10px;
+                padding: 10px;
+            }
+
+            .stats-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .stat-number {
+                font-size: 26px;
             }
 
             .dashboard-header {
-                padding: 20px;
+                padding: 15px;
             }
 
             .dashboard-header h2 {
-                font-size: 22px;
+                font-size: 18px;
             }
 
             .dashboard-content {
-                padding: 20px;
+                padding: 12px;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 220px;
+            }
+
+            .demographics-section {
+                padding: 15px;
+            }
+        }
+        @media (max-width: 480px) {
+            .navbar h1 {
+                font-size: 14px;
+            }
+            .stat-number {
+                font-size: 22px;
+            }
+            .stat-card {
+                padding: 12px;
             }
         }
 
@@ -1185,6 +1227,13 @@
             color: #8b4513;
         }
     </style>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#003366">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Leave Portal">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="stylesheet" href="/css/mobile.css">
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -2566,5 +2615,6 @@
             }
         });
     </script>
+    <script src="/pwa.js"></script>
 </body>
 </html>

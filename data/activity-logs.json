@@ -206,5 +206,44 @@
       "sl": 200,
       "spl": 3
     }
+  },
+  {
+    "id": "c58c471d-9cd1-453c-a0f9-e7cb9e702de6",
+    "timestamp": "2026-02-10T06:03:06.403Z",
+    "action": "LOGIN_SUCCESS",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": 1770694646799,
+    "ip": "192.168.1.40",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
+    "details": {
+      "userName": "Tiad, Jenel T."
+    }
+  },
+  {
+    "id": "e4b61b17-f9ff-484b-80af-53b4da042f12",
+    "timestamp": "2026-02-10T06:08:27.660Z",
+    "action": "LOGIN_SUCCESS",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": 1770694646799,
+    "ip": "192.168.1.40",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
+    "details": {
+      "userName": "Tiad, Jenel T."
+    }
+  },
+  {
+    "id": "3da318fc-dcb3-4d37-a74d-0aaba82ebdae",
+    "timestamp": "2026-02-10T06:08:29.191Z",
+    "action": "LOGIN_SUCCESS",
+    "portalType": "employee",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": 1770694646799,
+    "ip": "192.168.1.40",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
+    "details": {
+      "userName": "Tiad, Jenel T."
+    }
   }
 ]

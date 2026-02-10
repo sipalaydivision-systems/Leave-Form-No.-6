@@ -946,7 +946,82 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* IT Dashboard Mobile Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 10px 12px;
+                gap: 8px;
+            }
+            .navbar-brand h1 { font-size: 13px; }
+            .navbar-brand img { width: 32px; height: 32px; }
+            .user-info {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 6px;
+                width: 100%;
+            }
+            .user-badge { font-size: 11px; padding: 5px 10px; }
+            .logout-btn, .profile-btn, .add-staff-btn {
+                padding: 7px 12px;
+                font-size: 12px;
+            }
+            .container { padding: 12px; }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            .stat-card { padding: 14px; border-radius: 10px; }
+            .stat-card .icon { font-size: 26px; }
+            .stat-card .number { font-size: 22px; }
+            .stat-card .label { font-size: 11px; }
+            .main-content { padding: 14px; border-radius: 12px; }
+            .section-header {
+                display: flex;
+                flex-direction: column;
+                padding: 12px;
+                gap: 10px;
+            }
+            .section-header h2 { font-size: 17px; }
+            .toolbar-top {
+                flex-direction: column;
+                width: 100%;
+                gap: 6px;
+            }
+            .toolbar-top a, .toolbar-top button {
+                width: 100%;
+                text-align: center;
+                justify-content: center;
+            }
+            .toolbar-filters { flex-direction: column; gap: 8px; }
+            .filters-left { flex-direction: column; width: 100%; gap: 8px; }
+            .filter-group { width: 100%; }
+            .filter-select { width: 100%; min-width: unset; }
+            .filters-right { width: 100%; justify-content: space-between; }
+            .print-btn { width: 100%; justify-content: center; }
+            .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            table { min-width: 650px; }
+            th, td { padding: 8px 6px; font-size: 12px; }
+            .action-btns { flex-direction: column; gap: 3px; }
+            .action-btns button { width: 100%; font-size: 11px; padding: 5px 8px; }
+            .filter-result-count { font-size: 11px; padding: 7px 10px; }
+        }
+        @media (max-width: 480px) {
+            .stat-card .number { font-size: 18px; }
+            .stat-card { padding: 10px; }
+            .navbar-brand h1 { font-size: 11px; }
+            .section-header h2 { font-size: 15px; }
+            table { min-width: 550px; }
+        }
     </style>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#003366">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Leave Portal">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="stylesheet" href="/css/mobile.css">
 </head>
 <body>
     <nav class="navbar">
@@ -2349,5 +2424,6 @@
         }
 
     </script>
+    <script src="/pwa.js"></script>
 </body>
 </html>
