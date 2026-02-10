@@ -245,5 +245,60 @@
     "details": {
       "userName": "Tiad, Jenel T."
     }
+  },
+  {
+    "id": "bacdaae3-c36e-4621-b9c1-a75a9b059343",
+    "timestamp": "2026-02-10T08:29:26.603Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "ao",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
+  },
+  {
+    "id": "53b43ce3-28f9-4aa1-b51c-2b0457388d66",
+    "timestamp": "2026-02-10T08:29:33.027Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "ao",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
+  },
+  {
+    "id": "941a7115-893b-45d9-be7e-08a9ca61b8f4",
+    "timestamp": "2026-02-10T08:29:33.784Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "ao",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
+  },
+  {
+    "id": "4f04fcda-69de-4365-a0cc-f2a6264f1e19",
+    "timestamp": "2026-02-10T08:29:33.977Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "ao",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
+  },
+  {
+    "id": "7f147e67-678d-4453-97b7-a9b7d00df88e",
+    "timestamp": "2026-02-10T08:29:34.147Z",
+    "action": "LOGIN_FAILED",
+    "portalType": "ao",
+    "userEmail": "jenel.tiad@deped.gov.ph",
+    "userId": null,
+    "ip": "127.0.0.1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "details": {}
   }
 ]

@@ -110,16 +110,90 @@ app.use((req, res, next) => {
 // Security headers middleware
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'");
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (NODE_ENV === 'production') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'");
     next();
 });
 
-// MailerSend Configuration - Use environment variable if available
-const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY || 'mlsn.9d45bd086cb579ec89c47e043787f4be7442ccb24f2f1e5e2aa5fcff8af41f82';
-const MAILERSEND_SENDER_EMAIL = process.env.MAILERSEND_SENDER_EMAIL || 'noreply@test-ywj2lpn777jg7oqz.mlsender.net';
+// MailerSend Configuration - MUST be set via environment variables
+const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY || '';
+const MAILERSEND_SENDER_EMAIL = process.env.MAILERSEND_SENDER_EMAIL || '';
+if (!MAILERSEND_API_KEY) {
+    console.warn('[SECURITY] MAILERSEND_API_KEY not set. Email sending will be disabled.');
+}
+
+// ========== SESSION TOKEN MANAGEMENT ==========
+const activeSessions = new Map(); // token -> { userId, email, role, portal, createdAt, expiresAt }
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+function generateSessionToken() {
+    return crypto.randomBytes(48).toString('hex');
+}
+
+function createSession(user, portal) {
+    const token = generateSessionToken();
+    const now = Date.now();
+    activeSessions.set(token, {
+        userId: user.id,
+        email: user.email,
+        role: user.role || portal,
+        portal: portal,
+        createdAt: now,
+        expiresAt: now + SESSION_DURATION_MS
+    });
+    return token;
+}
+
+function validateSession(token) {
+    if (!token) return null;
+    const session = activeSessions.get(token);
+    if (!session) return null;
+    if (Date.now() > session.expiresAt) {
+        activeSessions.delete(token);
+        return null;
+    }
+    return session;
+}
+
+function destroySession(token) {
+    activeSessions.delete(token);
+}
+
+// Clean up expired sessions every 15 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [token, session] of activeSessions) {
+        if (now > session.expiresAt) {
+            activeSessions.delete(token);
+        }
+    }
+}, 15 * 60 * 1000);
+
+// Auth middleware - validates session token from Authorization header
+function requireAuth(...allowedRoles) {
+    return (req, res, next) => {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
+        }
+        const token = authHeader.substring(7);
+        const session = validateSession(token);
+        if (!session) {
+            return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
+        }
+        if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
+            return res.status(403).json({ success: false, error: 'Access denied. Insufficient permissions.' });
+        }
+        req.session = session;
+        next();
+    };
+}
 
 // CORS Configuration - Restrict in production
 const corsOptions = {
@@ -133,8 +207,8 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
@@ -273,8 +347,33 @@ function writeJSON(filepath, data) {
     fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
 }
 
+// Hash password with salt for new registrations
+function hashPasswordWithSalt(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.createHash('sha256').update(salt + password).digest('hex');
+    return `${salt}:${hash}`;
+}
+
+// Legacy hash for backward compatibility with existing accounts
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+// Verify password - supports both salted and legacy formats
+function verifyPassword(password, storedHash) {
+    if (storedHash.includes(':')) {
+        // New salted format: salt:hash
+        const [salt, hash] = storedHash.split(':');
+        const computed = crypto.createHash('sha256').update(salt + password).digest('hex');
+        return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+    }
+    // Legacy unsalted format
+    const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+    try {
+        return crypto.timingSafeEqual(Buffer.from(legacyHash, 'hex'), Buffer.from(storedHash, 'hex'));
+    } catch {
+        return false;
+    }
 }
 
 function validateDepEdEmail(email) {
@@ -621,8 +720,38 @@ app.get('/api/health', (req, res) => {
     res.json({ success: true, uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
+// ========== SESSION VALIDATION & LOGOUT ==========
+app.get('/api/validate-session', (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, error: 'No session' });
+    }
+    const session = validateSession(authHeader.substring(7));
+    if (!session) {
+        return res.status(401).json({ success: false, error: 'Session expired' });
+    }
+    res.json({ success: true, session: { email: session.email, role: session.role, portal: session.portal } });
+});
+
+app.post('/api/logout', (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const session = validateSession(token);
+        if (session) {
+            logActivity('LOGOUT', session.portal, {
+                userEmail: session.email,
+                ip: getClientIp(req),
+                userAgent: req.get('user-agent')
+            });
+        }
+        destroySession(token);
+    }
+    res.json({ success: true, message: 'Logged out successfully' });
+});
+
 // ========== EMPLOYEE REGISTRATION & LOGIN ==========
-app.post('/api/register', (req, res) => {
+app.post('/api/register', apiRateLimiter, (req, res) => {
     try {
         const { fullName, email, password, office, position, salaryGrade, step, salary, employeeNo } = req.body || {};
 
@@ -674,7 +803,7 @@ app.post('/api/register', (req, res) => {
             fullName: fullName || '',
             name: fullName || '',
             email,
-            password: hashPassword(password),
+            password: hashPasswordWithSalt(password),
             office,
             position,
             employeeNo: employeeNo || '',
@@ -711,7 +840,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
         const ip = getClientIp(req);
 
         let users = readJSON(usersFile);
-        const user = users.find(u => u.email === email && u.password === hashPassword(password));
+        const user = users.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!user) {
             // Log failed login attempt
@@ -732,6 +861,18 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
 
+        // Upgrade legacy password hash to salted hash on successful login
+        if (!user.password.includes(':')) {
+            const idx = users.findIndex(u => u.email === email);
+            if (idx !== -1) {
+                users[idx].password = hashPasswordWithSalt(password);
+                writeJSON(usersFile, users);
+            }
+        }
+
+        // Create session token
+        const token = createSession(user, 'user');
+
         // Log successful login
         logActivity('LOGIN_SUCCESS', 'employee', {
             userEmail: user.email,
@@ -742,7 +883,8 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
         });
 
         res.json({ 
-            success: true, 
+            success: true,
+            token,
             user: { 
                 id: user.id, 
                 email: user.email, 
@@ -750,14 +892,13 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
                 office: user.office,
                 position: user.position,
                 employeeNo: user.employeeNo,
-                salary: user.salary,
                 salaryGrade: user.salaryGrade,
                 step: user.step,
                 role: 'user' 
             } 
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
 
@@ -796,7 +937,7 @@ app.get('/api/user-details', (req, res) => {
 });
 
 // ========== HR REGISTRATION & LOGIN ==========
-app.post('/api/hr-register', (req, res) => {
+app.post('/api/hr-register', apiRateLimiter, (req, res) => {
     try {
         const { email, password, fullName, name, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
@@ -836,7 +977,7 @@ app.post('/api/hr-register', (req, res) => {
             fullName: userName,
             name: userName,
             email,
-            password: hashPassword(password),
+            password: hashPasswordWithSalt(password),
             office: office || 'Schools Division',
             district: 'Schools Division of Sipalay City',
             position: position || 'HR Staff',
@@ -873,10 +1014,9 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
         const ip = getClientIp(req);
 
         let hrUsers = readJSON(hrUsersFile);
-        const hrUser = hrUsers.find(u => u.email === email && u.password === hashPassword(password));
+        const hrUser = hrUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!hrUser) {
-            // Log failed login attempt
             logActivity('LOGIN_FAILED', 'hr', {
                 userEmail: email,
                 ip,
@@ -894,7 +1034,17 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
 
-        // Log successful login
+        // Upgrade legacy hash
+        if (!hrUser.password.includes(':')) {
+            const idx = hrUsers.findIndex(u => u.email === email);
+            if (idx !== -1) {
+                hrUsers[idx].password = hashPasswordWithSalt(password);
+                writeJSON(hrUsersFile, hrUsers);
+            }
+        }
+
+        const token = createSession(hrUser, 'hr');
+
         logActivity('LOGIN_SUCCESS', 'hr', {
             userEmail: hrUser.email,
             userId: hrUser.id,
@@ -905,15 +1055,16 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
 
         res.json({
             success: true,
-            user: { id: hrUser.id, email: hrUser.email, name: hrUser.name, office: hrUser.office, position: hrUser.position, salary: hrUser.salary, role: 'hr' }
+            token,
+            user: { id: hrUser.id, email: hrUser.email, name: hrUser.name, office: hrUser.office, position: hrUser.position, role: 'hr' }
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
 
 // ========== ASDS REGISTRATION & LOGIN ==========
-app.post('/api/asds-register', (req, res) => {
+app.post('/api/asds-register', apiRateLimiter, (req, res) => {
     try {
         const { email, password, fullName, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
@@ -951,7 +1102,7 @@ app.post('/api/asds-register', (req, res) => {
             fullName,
             name: fullName,
             email,
-            password: hashPassword(password),
+            password: hashPasswordWithSalt(password),
             office,
             position,
             salaryGrade: parseInt(salaryGrade) || salaryGrade,
@@ -987,10 +1138,9 @@ app.post('/api/asds-login', loginRateLimiter, (req, res) => {
         const ip = getClientIp(req);
 
         let asdsUsers = readJSON(asdsUsersFile);
-        const asdsUser = asdsUsers.find(u => u.email === email && u.password === hashPassword(password));
+        const asdsUser = asdsUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!asdsUser) {
-            // Log failed login attempt
             logActivity('LOGIN_FAILED', 'asds', {
                 userEmail: email,
                 ip,
@@ -1008,17 +1158,28 @@ app.post('/api/asds-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
+        if (!asdsUser.password.includes(':')) {
+            const idx = asdsUsers.findIndex(u => u.email === email);
+            if (idx !== -1) {
+                asdsUsers[idx].password = hashPasswordWithSalt(password);
+                writeJSON(asdsUsersFile, asdsUsers);
+            }
+        }
+
+        const token = createSession(asdsUser, 'asds');
+
         res.json({
             success: true,
-            user: { id: asdsUser.id, email: asdsUser.email, name: asdsUser.name, office: asdsUser.office, position: asdsUser.position, salary: asdsUser.salary, role: 'asds' }
+            token,
+            user: { id: asdsUser.id, email: asdsUser.email, name: asdsUser.name, office: asdsUser.office, position: asdsUser.position, role: 'asds' }
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
 
 // ========== SDS REGISTRATION & LOGIN ==========
-app.post('/api/sds-register', (req, res) => {
+app.post('/api/sds-register', apiRateLimiter, (req, res) => {
     try {
         const { email, fullName, office, position, salaryGrade, step, salary, password, employeeNo } = req.body;
 
@@ -1069,7 +1230,7 @@ app.post('/api/sds-register', (req, res) => {
             id: Date.now(),
             portal: 'sds',
             email,
-            password: hashPassword(password),
+            password: hashPasswordWithSalt(password),
             firstName,
             lastName,
             middleName,
@@ -1110,10 +1271,9 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
         const ip = getClientIp(req);
 
         let sdsUsers = readJSON(sdsUsersFile);
-        const sdsUser = sdsUsers.find(u => u.email === email && u.password === hashPassword(password));
+        const sdsUser = sdsUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!sdsUser) {
-            // Log failed login attempt
             logActivity('LOGIN_FAILED', 'sds', {
                 userEmail: email,
                 ip,
@@ -1131,17 +1291,28 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
+        if (!sdsUser.password.includes(':')) {
+            const idx = sdsUsers.findIndex(u => u.email === email);
+            if (idx !== -1) {
+                sdsUsers[idx].password = hashPasswordWithSalt(password);
+                writeJSON(sdsUsersFile, sdsUsers);
+            }
+        }
+
+        const token = createSession(sdsUser, 'sds');
+
         res.json({
             success: true,
-            user: { id: sdsUser.id, email: sdsUser.email, name: sdsUser.name, office: sdsUser.office, position: sdsUser.position, salary: sdsUser.salary, role: 'sds' }
+            token,
+            user: { id: sdsUser.id, email: sdsUser.email, name: sdsUser.name, office: sdsUser.office, position: sdsUser.position, role: 'sds' }
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
 
 // ========== AO REGISTRATION & LOGIN ==========
-app.post('/api/ao-register', (req, res) => {
+app.post('/api/ao-register', apiRateLimiter, (req, res) => {
     try {
         const { fullName, email, password, office, position, salaryGrade, step, employeeNo } = req.body;
 
@@ -1175,7 +1346,7 @@ app.post('/api/ao-register', (req, res) => {
             fullName,
             name: fullName,
             email,
-            password: hashPassword(password),
+            password: hashPasswordWithSalt(password),
             office,
             position,
             salaryGrade,
@@ -1210,10 +1381,9 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
         const ip = getClientIp(req);
 
         let aoUsers = readJSON(aoUsersFile);
-        const aoUser = aoUsers.find(u => u.email === email && u.password === hashPassword(password));
+        const aoUser = aoUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!aoUser) {
-            // Log failed login attempt
             logActivity('LOGIN_FAILED', 'ao', {
                 userEmail: email,
                 ip,
@@ -1231,12 +1401,23 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid AO email or password' });
         }
 
+        if (!aoUser.password.includes(':')) {
+            const idx = aoUsers.findIndex(u => u.email === email);
+            if (idx !== -1) {
+                aoUsers[idx].password = hashPasswordWithSalt(password);
+                writeJSON(aoUsersFile, aoUsers);
+            }
+        }
+
+        const token = createSession(aoUser, 'ao');
+
         res.json({
             success: true,
+            token,
             user: { id: aoUser.id, email: aoUser.email, name: aoUser.name, school: aoUser.school, position: aoUser.position, role: 'ao' }
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
 
@@ -1254,22 +1435,33 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
         }
 
         let itUsers = readJSON(itUsersFile);
-        const itUser = itUsers.find(u => u.email === email && u.password === hashPassword(pin));
+        const itUser = itUsers.find(u => u.email === email && verifyPassword(pin, u.password));
 
         if (!itUser) {
             return res.status(401).json({ success: false, error: 'Invalid IT email or PIN' });
         }
 
+        if (!itUser.password.includes(':')) {
+            const idx = itUsers.findIndex(u => u.email === email);
+            if (idx !== -1) {
+                itUsers[idx].password = hashPasswordWithSalt(pin);
+                writeJSON(itUsersFile, itUsers);
+            }
+        }
+
+        const token = createSession(itUser, 'it');
+
         res.json({
             success: true,
+            token,
             user: { id: itUser.id, email: itUser.email, name: itUser.name, role: 'it' }
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
 
-app.post('/api/add-it-staff', (req, res) => {
+app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
     try {
         const { email, pin, fullName } = req.body;
 
@@ -1293,7 +1485,7 @@ app.post('/api/add-it-staff', (req, res) => {
         const newITStaff = {
             id: Date.now(),
             email,
-            password: hashPassword(pin),
+            password: hashPasswordWithSalt(pin),
             name: fullName,
             fullName: fullName,
             role: 'it',
@@ -1309,7 +1501,7 @@ app.post('/api/add-it-staff', (req, res) => {
 });
 
 // Update IT Profile endpoint
-app.post('/api/update-it-profile', (req, res) => {
+app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
     try {
         const { email, fullName, newPin } = req.body;
 
@@ -1328,7 +1520,7 @@ app.post('/api/update-it-profile', (req, res) => {
         itUsers[userIndex].name = fullName;
         
         if (newPin) {
-            itUsers[userIndex].password = hashPassword(newPin);
+            itUsers[userIndex].password = hashPasswordWithSalt(newPin);
         }
 
         itUsers[userIndex].updatedAt = new Date().toISOString();
@@ -1351,7 +1543,7 @@ app.post('/api/update-it-profile', (req, res) => {
 });
 
 // ========== PENDING REGISTRATIONS ==========
-app.get('/api/pending-registrations', (req, res) => {
+app.get('/api/pending-registrations', requireAuth('it'), (req, res) => {
     try {
         const pendingRegs = readJSON(pendingRegistrationsFile);
         const pending = pendingRegs.filter(r => r.status === 'pending');
@@ -1361,7 +1553,7 @@ app.get('/api/pending-registrations', (req, res) => {
     }
 });
 
-app.get('/api/all-registered-users', (req, res) => {
+app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
     try {
         const pendingRegs = readJSON(pendingRegistrationsFile);
         // Filter out deleted records - they are permanently removed but just in case
@@ -1410,7 +1602,7 @@ app.get('/api/all-registered-users', (req, res) => {
     }
 });
 
-app.get('/api/registration-stats', (req, res) => {
+app.get('/api/registration-stats', requireAuth('it'), (req, res) => {
     try {
         const pendingRegs = readJSON(pendingRegistrationsFile);
         const pending = pendingRegs.filter(r => r.status === 'pending').length;
@@ -1442,7 +1634,7 @@ app.get('/api/registration-stats', (req, res) => {
 });
 
 // ========== APPROVAL / REJECTION / DELETION ==========
-app.post('/api/approve-registration', (req, res) => {
+app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
     try {
         const { id, processedBy } = req.body;
 
@@ -1658,7 +1850,7 @@ app.post('/api/approve-registration', (req, res) => {
     }
 });
 
-app.post('/api/reject-registration', (req, res) => {
+app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
     try {
         const { id, reason, processedBy } = req.body;
 
@@ -1697,7 +1889,7 @@ app.post('/api/reject-registration', (req, res) => {
 });
 
 // Fetch items for a specific data category (for selective deletion)
-app.get('/api/data-items/:category', (req, res) => {
+app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
     try {
         const category = req.params.category;
         const categoryToFile = {
@@ -1762,7 +1954,7 @@ app.get('/api/data-items/:category', (req, res) => {
 });
 
 // Delete specific items by IDs from a data category
-app.post('/api/delete-specific-items', (req, res) => {
+app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
     try {
         const { category, itemIds } = req.body;
         const ip = getClientIp(req);
@@ -1839,7 +2031,7 @@ app.post('/api/delete-specific-items', (req, res) => {
     }
 });
 
-app.post('/api/delete-selected-data', (req, res) => {
+app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
     try {
         console.log('[SYSTEM] Delete selected data request received');
 
@@ -1955,7 +2147,7 @@ app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/delete-user', (req, res) => {
+app.post('/api/delete-user', requireAuth('it'), (req, res) => {
     try {
         const { id, email, portal, deletedBy } = req.body;
 
@@ -3575,7 +3767,7 @@ app.use('/api/*', (req, res) => {
 // General error handler
 app.use((err, req, res, next) => {
     console.error('Express error handler caught:', err.message || err);
-    res.status(500).json({ success: false, error: 'Internal Server Error' });
+    res.status(500).json({ success: false, error: 'Internal Server Error. Please try again later.' });
 });
 
 // ========== START SERVER ==========
