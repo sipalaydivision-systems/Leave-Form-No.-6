@@ -1072,9 +1072,12 @@
                     <input type="checkbox" name="leave_type_adoption" id="leave_adoption">
                     <span>Adoption Leave <small>(R.A. No. 8552)</small></span>
                 </div>
-                <div class="others-field" style="margin-top: 30px; flex-direction: column; align-items: flex-start;">
+                <div class="leave-option" style="margin-top: 15px;">
+                    <input type="checkbox" name="leave_type_others" id="leave_others">
                     <span>Others:</span>
-                    <input type="text" name="other_leave" style="width: 70%; margin-top: 5px;">
+                </div>
+                <div class="others-field" style="margin-left: 20px; flex-direction: column; align-items: flex-start;">
+                    <input type="text" name="other_leave" id="other_leave_specify" placeholder="Please specify..." style="width: 80%; margin-top: 5px;">
                 </div>
             </div>
 
@@ -1636,7 +1639,7 @@
             const leaveTypeCheckboxes = [
                 'leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl',
                 'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc',
-                'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption'
+                'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption', 'leave_others'
             ];
             
             for (let checkboxId of leaveTypeCheckboxes) {
@@ -1651,7 +1654,7 @@
         const leaveTypeCheckboxes = [
             'leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl',
             'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc',
-            'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption'
+            'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption', 'leave_others'
         ];
 
         // Define which detail fields should be enabled for each leave type
@@ -1668,7 +1671,8 @@
             'leave_rehab': [], // Rehabilitation - no details
             'leave_women': ['women_illness'], // Women benefits
             'leave_calamity': [], // Calamity - no details
-            'leave_adoption': [] // Adoption - no details
+            'leave_adoption': [], // Adoption - no details
+            'leave_others': [] // Others - no specific details, just specify the leave type
         };
 
         // All possible detail field IDs
@@ -1812,6 +1816,24 @@
                             }
                         });
                         
+                        // Clear "Others" text field if a different leave type is selected
+                        if (checkboxId !== 'leave_others') {
+                            const otherLeaveInput = document.getElementById('other_leave_specify');
+                            if (otherLeaveInput) {
+                                otherLeaveInput.value = '';
+                                otherLeaveInput.disabled = true;
+                                otherLeaveInput.style.opacity = '0.5';
+                            }
+                        } else {
+                            // Enable "Others" text field if "Others" is selected
+                            const otherLeaveInput = document.getElementById('other_leave_specify');
+                            if (otherLeaveInput) {
+                                otherLeaveInput.disabled = false;
+                                otherLeaveInput.style.opacity = '1';
+                                otherLeaveInput.focus();
+                            }
+                        }
+                        
                         // ===== VALIDATION: If Force Leave selected, check if current days are valid =====
                         if (checkboxId === 'leave_mfl') {
                             const currentDays = parseFloat(numDaysInput.value) || 0;
@@ -1842,6 +1864,15 @@
                         updateTotalEarnedDisplay();
                         // Clear "Less this application" fields when unchecking leave type
                         clearLessThisApplication();
+                        // Also disable the "Others" text field when unchecking
+                        const otherLeaveInput = document.getElementById('other_leave_specify');
+                        if (otherLeaveInput) {
+                            otherLeaveInput.disabled = true;
+                            otherLeaveInput.style.opacity = '0.5';
+                            if (checkboxId === 'leave_others') {
+                                otherLeaveInput.value = '';
+                            }
+                        }
                     }
                 });
             }
@@ -1902,6 +1933,13 @@
 
         // Initialize: Enable only Other purpose fields at start
         enableOnlyOtherPurpose();
+        
+        // Initialize: Disable "Others" leave type text field at start
+        const otherLeaveInputInit = document.getElementById('other_leave_specify');
+        if (otherLeaveInputInit) {
+            otherLeaveInputInit.disabled = true;
+            otherLeaveInputInit.style.opacity = '0.5';
+        }
 
         // ===== Commutation Checkbox Logic (Mutually Exclusive) =====
         const commutationNotCheckbox = document.getElementById('comm_not');
@@ -2219,7 +2257,7 @@
         }
         
         // Get selected leave type
-        const leaveTypes = ['leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl', 'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc', 'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption'];
+        const leaveTypes = ['leave_vl', 'leave_mfl', 'leave_sl', 'leave_ml', 'leave_pl', 'leave_spl', 'leave_solo', 'leave_study', 'leave_vawc', 'leave_rehab', 'leave_women', 'leave_calamity', 'leave_adoption', 'leave_others'];
         let selectedLeaveType = '';
         for (let lt of leaveTypes) {
             if (document.getElementById(lt).checked) {
@@ -2304,6 +2342,16 @@
             if (!womenIllness) {
                 alert('❌ Details of Leave Required\n\nFor Special Leave Benefits for Women, you must specify the illness/condition.\n\nPlease enter the details.');
                 document.querySelector('input[name="women_illness"]').focus();
+                return;
+            }
+        }
+        
+        // Others leave type requires specification
+        if (selectedLeaveType === 'leave_others') {
+            const otherLeaveSpecify = document.getElementById('other_leave_specify').value.trim();
+            if (!otherLeaveSpecify) {
+                alert('❌ Leave Type Specification Required\n\nYou selected "Others" as your leave type but did not specify what type of leave.\n\nPlease enter the type of leave in the text field.');
+                document.getElementById('other_leave_specify').focus();
                 return;
             }
         }
@@ -2413,7 +2461,9 @@
             outpatientIllness: (document.getElementById('outpatient_illness') && document.getElementById('outpatient_illness').value) || '',
             // Capture study leave details
             studyMasters: (document.getElementById('study_masters') && document.getElementById('study_masters').checked) || false,
-            studyBar: (document.getElementById('study_bar') && document.getElementById('study_bar').checked) || false
+            studyBar: (document.getElementById('study_bar') && document.getElementById('study_bar').checked) || false,
+            // Capture "Others" leave type specification
+            otherLeaveSpecify: (document.getElementById('other_leave_specify') && document.getElementById('other_leave_specify').value) || ''
         };
         
         try {
