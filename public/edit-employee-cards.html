@@ -732,7 +732,7 @@
         employeeEmail = urlParams.get('email') || '';
 
         // Set current date
-        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-PH');
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
@@ -811,7 +811,7 @@
                 const data = await response.json();
 
                 const tbody = document.getElementById('leaveHistoryBody');
-                const today = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+                const today = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
 
                 if (data.success && data.credits) {
                     const credits = data.credits;
@@ -839,8 +839,8 @@
                     // Add usage history if available - each row shows leave spent and updated balance
                     if (credits.leaveUsageHistory && credits.leaveUsageHistory.length > 0) {
                         credits.leaveUsageHistory.forEach(usage => {
-                            const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
-                            const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+                            const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
+                            const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
                             const periodDisplay = periodTo && periodTo !== periodFrom ? `${periodFrom} - ${periodTo}` : periodFrom;
                             
                             const daysUsed = parseFloat(usage.daysUsed) || 0;
@@ -947,8 +947,8 @@
                     let runningTotal = 0;
                     
                     data.records.forEach(so => {
-                        const periodFrom = so.periodFrom ? new Date(so.periodFrom).toLocaleDateString('en-PH') : '-';
-                        const periodTo = so.periodTo ? new Date(so.periodTo).toLocaleDateString('en-PH') : '';
+                        const periodFrom = so.periodFrom ? new Date(so.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
+                        const periodTo = so.periodTo ? new Date(so.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
                         const periodDisplay = periodTo ? `${periodFrom} - ${periodTo}` : periodFrom;
                         const granted = parseFloat(so.daysGranted) || 0;
                         const used = parseFloat(so.daysUsed) || 0;
@@ -1003,8 +1003,8 @@
                     let runningTotal = 0;
                     
                     data.records.forEach(cto => {
-                        const periodFrom = cto.periodFrom ? new Date(cto.periodFrom).toLocaleDateString('en-PH') : '-';
-                        const periodTo = cto.periodTo ? new Date(cto.periodTo).toLocaleDateString('en-PH') : '';
+                        const periodFrom = cto.periodFrom ? new Date(cto.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
+                        const periodTo = cto.periodTo ? new Date(cto.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
                         const periodDisplay = periodTo ? `${periodFrom} - ${periodTo}` : periodFrom;
                         const granted = parseFloat(cto.daysGranted) || 0;
                         const used = parseFloat(cto.daysUsed) || 0;

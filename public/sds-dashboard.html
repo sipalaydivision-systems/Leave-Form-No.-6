@@ -1582,9 +1582,9 @@
                 }
                 
                 // Format dates nicely - compact format
-                const dateFrom = app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
-                const dateTo = app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
-                const filedDate = app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
+                const dateFrom = app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
+                const dateTo = app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
+                const filedDate = app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
                 
                 return `
                     <tr>
@@ -1988,7 +1988,7 @@
             const formatDate = (dateStr) => {
                 if (!dateStr) return 'N/A';
                 return new Date(dateStr).toLocaleDateString('en-US', { 
-                    year: 'numeric', month: 'short', day: 'numeric', 
+                    month: '2-digit', day: '2-digit', year: 'numeric', 
                     hour: '2-digit', minute: '2-digit' 
                 });
             };
@@ -2057,15 +2057,15 @@
                                 </div>
                                 <div class="preview-field">
                                     <div class="preview-field-label">Date From</div>
-                                    <div class="preview-field-value">${app.dateFrom || 'N/A'}</div>
+                                    <div class="preview-field-value">${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                                 </div>
                                 <div class="preview-field">
                                     <div class="preview-field-label">Date To</div>
-                                    <div class="preview-field-value">${app.dateTo || 'N/A'}</div>
+                                    <div class="preview-field-value">${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                                 </div>
                                 <div class="preview-field">
                                     <div class="preview-field-label">Filed Date</div>
-                                    <div class="preview-field-value">${app.filedDate || 'N/A'}</div>
+                                    <div class="preview-field-value">${app.filedDate ? new Date(app.filedDate).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                                 </div>
                                 <div class="preview-field">
                                     <div class="preview-field-label">Reason/Details</div>
@@ -2331,7 +2331,7 @@
                     <div class="info-row three-col" style="border-bottom: 1px solid #000;">
                         <div class="info-cell">
                             <label>3. DATE OF FILING</label>
-                            <span>${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString() : ''}</span>
+                            <span>${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}</span>
                         </div>
                         <div class="info-cell">
                             <label>4. POSITION</label>
@@ -2407,7 +2407,7 @@
                                 <span style="font-weight: bold;">Others:</span>
                             </div>
                             <div class="others-line">
-                                <input type="text" value="${app.otherLeaveType || ''}" readonly style="width: 80%; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent;">
+                                <input type="text" value="${app.otherLeaveSpecify || ''}" readonly style="width: 80%; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent;">
                             </div>
                         </div>
 
@@ -2487,11 +2487,11 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                 <div>
                                     <span style="font-size: 9px;">From:</span>
-                                    <input type="text" class="field-input" value="${app.dateFrom || ''}" readonly>
+                                    <input type="text" class="field-input" value="${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}" readonly>
                                 </div>
                                 <div>
                                     <span style="font-size: 9px;">To:</span>
-                                    <input type="text" class="field-input" value="${app.dateTo || ''}" readonly>
+                                    <input type="text" class="field-input" value="${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}" readonly>
                                 </div>
                             </div>
                         </div>
@@ -2843,7 +2843,7 @@
             // Populate applicant info
             document.getElementById('sdsApplicantName').textContent = app.employeeName || 'N/A';
             document.getElementById('sdsLeaveType').textContent = getLeaveTypeLabel(app.leaveType);
-            document.getElementById('sdsLeaveDates').textContent = `${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'}`;
+            document.getElementById('sdsLeaveDates').textContent = `${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}`;
             document.getElementById('sdsLeaveDays').textContent = app.numDays || '0';
 
             // Reset form

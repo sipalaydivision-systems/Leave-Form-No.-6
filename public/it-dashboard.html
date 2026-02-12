@@ -1739,16 +1739,16 @@
             // Set print header info
             document.getElementById('printTitle').textContent = 'Registered Users Report';
             document.getElementById('printFilterInfo').textContent = filterDesc;
-            document.getElementById('printDate').textContent = 'Generated on: ' + new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('printDate').textContent = 'Generated on: ' + new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
 
             window.print();
         }
 
         function formatDate(dateStr) {
             const date = new Date(dateStr);
-            return date.toLocaleDateString('en-PH', { 
-                month: 'short', 
-                day: 'numeric', 
+            return date.toLocaleDateString('en-US', { 
+                month: '2-digit', 
+                day: '2-digit', 
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'

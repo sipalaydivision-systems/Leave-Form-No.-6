@@ -1532,7 +1532,8 @@
                 'leave_rehab': 'Rehabilitation Leave',
                 'leave_women': 'Women Benefits',
                 'leave_calamity': 'Calamity Leave',
-                'leave_adoption': 'Adoption Leave'
+                'leave_adoption': 'Adoption Leave',
+                'leave_others': 'Others'
             };
             return labels[leaveType] || leaveType || 'N/A';
         }
@@ -1665,9 +1666,9 @@
                 }
                 
                 // Format dates nicely - compact format
-                const dateFrom = app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
-                const dateTo = app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
-                const filedDate = app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A';
+                const dateFrom = app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
+                const dateTo = app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
+                const filedDate = app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
                 
                 return `
                     <tr>
@@ -2012,7 +2013,7 @@
                                         <div style="font-size: 12px; color: #666; margin-top: 4px;">
                                             <strong>Leave Type:</strong> ${getLeaveTypeLabel(app.leaveType)}<br>
                                             <strong>Days:</strong> ${app.numDays || 0}<br>
-                                            <strong>Dates:</strong> ${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'}
+                                            <strong>Dates:</strong> ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}
                                         </div>
                                     </div>
                                 </div>
@@ -2183,7 +2184,7 @@
                     <div class="form-view-row three-col">
                         <div class="form-view-cell">
                             <label>3. DATE OF FILING</label>
-                            <div class="value">${app.dateOfFiling || 'N/A'}</div>
+                            <div class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                         </div>
                         <div class="form-view-cell">
                             <label>4. POSITION</label>
@@ -2199,18 +2200,83 @@
                     
                     <div class="form-view-details">
                         <div class="form-view-column">
-                            <h4>6.A TYPE OF LEAVE</h4>
-                            <div class="leave-type-item">
-                                <div class="checkbox checked">✓</div>
-                                <span><strong>${getLeaveTypeLabel(app.leaveType)}</strong></span>
-                            </div>
+                            <h4>6.A TYPE OF LEAVE TO BE AVAILED OF</h4>
+                            ${(() => {
+                                const leaveTypes = [
+                                    { id: 'leave_vl', label: 'Vacation Leave' },
+                                    { id: 'leave_mfl', label: 'Mandatory/Forced Leave' },
+                                    { id: 'leave_sl', label: 'Sick Leave' },
+                                    { id: 'leave_ml', label: 'Maternity Leave' },
+                                    { id: 'leave_pl', label: 'Paternity Leave' },
+                                    { id: 'leave_spl', label: 'Special Privilege Leave' },
+                                    { id: 'leave_solo', label: 'Solo Parent Leave' },
+                                    { id: 'leave_study', label: 'Study Leave' },
+                                    { id: 'leave_vawc', label: '10-Day VAWC Leave' },
+                                    { id: 'leave_rehab', label: 'Rehabilitation Privilege' },
+                                    { id: 'leave_women', label: 'Special Leave Benefits for Women' },
+                                    { id: 'leave_calamity', label: 'Special Emergency Leave' },
+                                    { id: 'leave_adoption', label: 'Adoption Leave' },
+                                    { id: 'leave_others', label: 'Others' }
+                                ];
+                                return leaveTypes.map(lt => '<div class="leave-type-item"><div class="checkbox ' + (app.leaveType === lt.id ? 'checked' : '') + '">' + (app.leaveType === lt.id ? '✓' : '') + '</div><span>' + lt.label + '</span></div>').join('');
+                            })()}
+                            ${app.leaveType === 'leave_others' && app.otherLeaveSpecify ? '<div style="margin-top: 3px; font-size: 9px; padding-left: 20px;">' + app.otherLeaveSpecify + '</div>' : ''}
                         </div>
                         <div class="form-view-column">
-                            <h4>6.C & D DETAILS</h4>
-                            <div class="value"><strong>Days:</strong> ${app.numDays || 0}</div>
-                            <div class="value"><strong>From:</strong> ${app.dateFrom || 'N/A'}</div>
-                            <div class="value"><strong>To:</strong> ${app.dateTo || 'N/A'}</div>
-                            <div class="value"><strong>Commutation:</strong> ${app.commutation === 'requested' ? 'Requested' : 'Not Requested'}</div>
+                            <h4>6.B DETAILS OF LEAVE</h4>
+                            ${(() => {
+                                let details = '';
+                                if (app.leaveType === 'leave_vl' || app.leaveType === 'leave_spl') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Vacation/Special Privilege Leave:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.locationPH ? 'checked' : '') + '">' + (app.locationPH ? '✓' : '') + '</div><span>Within the Philippines ' + (app.locationPHSpecify || '') + '</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.locationAbroad ? 'checked' : '') + '">' + (app.locationAbroad ? '✓' : '') + '</div><span>Abroad ' + (app.abroadSpecify ? '(' + app.abroadSpecify + ')' : '') + '</span></div>';
+                                }
+                                if (app.leaveType === 'leave_sl') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Sick Leave:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.sickHospital ? 'checked' : '') + '">' + (app.sickHospital ? '✓' : '') + '</div><span>In Hospital ' + (app.hospitalIllness ? '(' + app.hospitalIllness + ')' : '') + '</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.sickOutpatient ? 'checked' : '') + '">' + (app.sickOutpatient ? '✓' : '') + '</div><span>Out Patient ' + (app.outpatientIllness ? '(' + app.outpatientIllness + ')' : '') + '</span></div>';
+                                }
+                                if (app.leaveType === 'leave_study') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Study Leave:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.studyMasters ? 'checked' : '') + '">' + (app.studyMasters ? '✓' : '') + '</div><span>Completion of Master\'s Degree</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.studyBar ? 'checked' : '') + '">' + (app.studyBar ? '✓' : '') + '</div><span>BAR/Board Examination Review</span></div>';
+                                }
+                                if (app.leaveType === 'leave_women') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Special Leave Benefits for Women:</strong></div>';
+                                    details += '<div class="leave-type-item"><span>(Specify Illness) ' + (app.womenIllness || '') + '</span></div>';
+                                }
+                                if (app.leaveType === 'leave_others' && app.otherLeaveSpecify) {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">Others:</strong></div>';
+                                    details += '<div class="leave-type-item"><span>' + app.otherLeaveSpecify + '</span></div>';
+                                }
+                                if (app.monetization || app.terminal) {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">Other purpose:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.monetization ? 'checked' : '') + '">' + (app.monetization ? '✓' : '') + '</div><span>Monetization of Leave Credits</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.terminal ? 'checked' : '') + '">' + (app.terminal ? '✓' : '') + '</div><span>Terminal Leave</span></div>';
+                                }
+                                return details || '<p style="color: #666; font-style: italic;">No additional details specified</p>';
+                            })()}
+                        </div>
+                    </div>
+                    
+                    <div class="form-view-details">
+                        <div class="form-view-column">
+                            <h4>6.C NUMBER OF WORKING DAYS APPLIED FOR</h4>
+                            <div class="value" style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">${app.numDays || 0} days</div>
+                            <h4>INCLUSIVE DATES</h4>
+                            <div class="value">From: ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                            <div class="value">To: ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                        </div>
+                        <div class="form-view-column">
+                            <h4>6.D COMMUTATION</h4>
+                            <div class="leave-type-item">
+                                <div class="checkbox ${app.commutation === 'not-requested' ? 'checked' : ''}">${app.commutation === 'not-requested' ? '✓' : ''}</div>
+                                <span>Not Requested</span>
+                            </div>
+                            <div class="leave-type-item">
+                                <div class="checkbox ${app.commutation === 'requested' ? 'checked' : ''}">${app.commutation === 'requested' ? '✓' : ''}</div>
+                                <span>Requested</span>
+                            </div>
                         </div>
                     </div>
                     
@@ -2289,7 +2355,7 @@
             // Populate applicant info
             document.getElementById('asdsApplicantName').textContent = app.employeeName || 'N/A';
             document.getElementById('asdsLeaveType').textContent = getLeaveTypeLabel(app.leaveType);
-            document.getElementById('asdsLeaveDates').textContent = `${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'}`;
+            document.getElementById('asdsLeaveDates').textContent = `${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}`;
             document.getElementById('asdsLeaveDays').textContent = app.numDays || '0';
 
             // Reset form

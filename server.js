@@ -918,6 +918,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
                 employeeNo: user.employeeNo,
                 salaryGrade: user.salaryGrade,
                 step: user.step,
+                salary: user.salary,
                 role: 'user' 
             } 
         });

@@ -1618,8 +1618,8 @@
                                 <div class="app-card-header">
                                     <div class="app-card-info">
                                         <h4>${leaveTypeName}</h4>
-                                        <p>📅 ${app.dateFrom || 'N/A'} to ${app.dateTo || 'N/A'} • ${app.numDays || app.numberOfDays || '?'} days</p>
-                                        <p>📝 Filed ${new Date(app.submittedAt).toLocaleDateString()}</p>
+                                        <p>📅 ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} • ${app.numDays || app.numberOfDays || '?'} days</p>
+                                        <p>📝 Filed ${new Date(app.submittedAt).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</p>
                                         ${isSchoolBased ? '<p style="color: #0095f6; font-size: 11px;">🏫 School-based employee</p>' : ''}
                                     </div>
                                     <div class="status-pill ${statusClass}">
@@ -2287,7 +2287,7 @@
                     <div class="info-row three-col" style="border-bottom: 1px solid #000;">
                         <div class="info-cell">
                             <label>3. DATE OF FILING</label>
-                            <span class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString() : ''}</span>
+                            <span class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}</span>
                         </div>
                         <div class="info-cell">
                             <label>4. POSITION</label>
@@ -2360,8 +2360,11 @@
                                 <span>Adoption Leave <small>(R.A. No. 8552)</small></span>
                             </div>
                             <div style="margin-top: 10px;">
-                                <span style="font-size: 9px;">Others:</span>
-                                <input type="text" style="width: 70%; border: none; border-bottom: 1px solid #000; font-size: 9px; background: transparent;" readonly>
+                                <div class="leave-option">
+                                    <input type="checkbox" ${app.leaveType === 'leave_others' ? 'checked' : ''} disabled>
+                                    <span>Others:</span>
+                                </div>
+                                <input type="text" value="${app.otherLeaveSpecify || ''}" style="width: 70%; border: none; border-bottom: 1px solid #000; font-size: 9px; background: transparent;" readonly>
                             </div>
                         </div>
 
@@ -2446,11 +2449,11 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                 <div>
                                     <span style="font-size: 9px;">From:</span>
-                                    <input type="text" class="field-input" value="${app.dateFrom || ''}" readonly>
+                                    <input type="text" class="field-input" value="${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}" readonly>
                                 </div>
                                 <div>
                                     <span style="font-size: 9px;">To:</span>
-                                    <input type="text" class="field-input" value="${app.dateTo || ''}" readonly>
+                                    <input type="text" class="field-input" value="${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}" readonly>
                                 </div>
                             </div>
                         </div>
@@ -2509,7 +2512,7 @@
                             <div class="officer-signature">
                                 <div class="officer-name">${hrApproval ? hrApproval.approverName : ''}</div>
                                 <div class="officer-title">Administrative Officer IV-Personnel Section</div>
-                                ${hrApproval ? `<div style="font-size: 8px; margin-top: 5px;">Certified: ${new Date(hrApproval.timestamp).toLocaleDateString()}</div>` : ''}
+                                ${hrApproval ? `<div style="font-size: 8px; margin-top: 5px;">Certified: ${new Date(hrApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
                         </div>
 
@@ -2531,7 +2534,7 @@
                             <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
                                 <div class="officer-name" style="color: #003366;">${asdsApproval ? asdsApproval.approverName : ''}</div>
                                 <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
-                                ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString()}</div>` : ''}
+                                ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -2563,7 +2566,7 @@
                         <div class="final-officer-name">${sdsApproval ? sdsApproval.approverName : ''}</div>
                         <div class="final-officer-title">Officer-In-Charge</div>
                         <div class="final-officer-title">Office of the Schools Division Superintendent</div>
-                        ${sdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Approved: ${new Date(sdsApproval.timestamp).toLocaleDateString()}</div>` : ''}
+                        ${sdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Approved: ${new Date(sdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                     </div>
                 </div>
             `;

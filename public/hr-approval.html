@@ -1463,13 +1463,13 @@
                 <tr style="border-bottom: 1px solid #ddd;">
                     <td style="padding: 12px; font-size: 14px;">${app.employeeName || '-'}</td>
                     <td style="padding: 12px; font-size: 14px;">${getLeaveTypeLabel(app.leaveType) || '-'}</td>
-                    <td style="padding: 12px; font-size: 14px;">${app.dateFrom || '-'}</td>
-                    <td style="padding: 12px; font-size: 14px;">${app.dateTo || '-'}</td>
+                    <td style="padding: 12px; font-size: 14px;">${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</td>
+                    <td style="padding: 12px; font-size: 14px;">${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</td>
                     <td style="padding: 12px; font-size: 14px; text-align: center;">${app.numDays || '-'}</td>
                     <td style="padding: 12px; font-size: 14px;">
                         ${statusBadge}
                     </td>
-                    <td style="padding: 12px; font-size: 14px;">${app.filedDate ? new Date(app.filedDate).toLocaleDateString() : '-'}</td>
+                    <td style="padding: 12px; font-size: 14px;">${app.filedDate ? new Date(app.filedDate).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</td>
                     <td style="padding: 12px; text-align: center;">
                         <button style="background: #003366; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;" onclick="selectApplication('${app.id}')">
                             View
@@ -1527,13 +1527,13 @@
                 <tr style="border-bottom: 1px solid #ddd;">
                     <td style="padding: 12px; font-size: 14px;">${app.employeeName || '-'}</td>
                     <td style="padding: 12px; font-size: 14px;">${getLeaveTypeLabel(app.leaveType) || '-'}</td>
-                    <td style="padding: 12px; font-size: 14px;">${app.dateFrom || '-'}</td>
-                    <td style="padding: 12px; font-size: 14px;">${app.dateTo || '-'}</td>
+                    <td style="padding: 12px; font-size: 14px;">${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</td>
+                    <td style="padding: 12px; font-size: 14px;">${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</td>
                     <td style="padding: 12px; font-size: 14px; text-align: center;">${app.numDays || '-'}</td>
                     <td style="padding: 12px; font-size: 14px;">
                         ${statusBadge}
                     </td>
-                    <td style="padding: 12px; font-size: 14px;">${app.filedDate ? new Date(app.filedDate).toLocaleDateString() : '-'}</td>
+                    <td style="padding: 12px; font-size: 14px;">${app.filedDate ? new Date(app.filedDate).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</td>
                     <td style="padding: 12px; text-align: center;">
                         <button style="background: #003366; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;" onclick="selectApplication('${app.id}')">
                             View
@@ -1602,7 +1602,7 @@
             // Find the return details from approval history
             const returnEntry = app.approvalHistory?.slice().reverse().find(a => a.action === 'returned');
             const returnDate = returnEntry?.timestamp ? new Date(returnEntry.timestamp).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
             }) : 'N/A';
             
             // Safely encode the app.id for use in onclick handlers
@@ -1665,7 +1665,7 @@
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Period:</div>
-                                <div class="detail-value">${app.dateFrom || '-'} to ${app.dateTo || '-'}</div>
+                                <div class="detail-value">${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</div>
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Working Days:</div>
@@ -1771,7 +1771,7 @@
             // Find HR approval details
             const hrApproval = app.approvalHistory?.find(a => a.portal === 'HR' || a.portal === 'hr');
             const approvedDate = hrApproval?.timestamp ? new Date(hrApproval.timestamp).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
             }) : 'N/A';
             
             const modalContent = document.querySelector('#approvalModal .form-view-modal-body');
@@ -1825,7 +1825,7 @@
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Period:</div>
-                                <div class="detail-value">${app.dateFrom || '-'} to ${app.dateTo || '-'}</div>
+                                <div class="detail-value">${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</div>
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Working Days:</div>
@@ -1880,7 +1880,7 @@
             document.getElementById('applicantName').textContent = app.employeeName || '-';
             document.getElementById('applicantEmail').textContent = app.employeeEmail || '-';
             document.getElementById('leaveType').textContent = getLeaveTypeLabel(app.leaveType) || '-';
-            document.getElementById('leaveDates').textContent = (app.dateFrom || '') + ' to ' + (app.dateTo || '');
+            document.getElementById('leaveDates').textContent = (app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '') + ' to ' + (app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '');
             
             // Determine if this is a special leave type (Force Leave or Special Privilege Leave)
             const isForceLeave = app.leaveType === 'leave_mfl' || String(app.leaveType).toLowerCase().includes('force');
@@ -2279,7 +2279,7 @@
                     <div class="form-view-row three-col">
                         <div class="form-view-cell">
                             <label>3. DATE OF FILING</label>
-                            <div class="value">${app.dateOfFiling || 'N/A'}</div>
+                            <div class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                         </div>
                         <div class="form-view-cell">
                             <label>4. POSITION</label>
@@ -2300,7 +2300,38 @@
                         </div>
                         <div class="form-view-column">
                             <h4>6.B DETAILS OF LEAVE</h4>
-                            <p style="color: #666; font-style: italic;">As specified in application</p>
+                            ${(() => {
+                                let details = '';
+                                if (app.leaveType === 'leave_vl' || app.leaveType === 'leave_spl') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Vacation/Special Privilege Leave:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.locationPH ? 'checked' : '') + '">' + (app.locationPH ? '✓' : '') + '</div><span>Within the Philippines ' + (app.locationPHSpecify || '') + '</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.locationAbroad ? 'checked' : '') + '">' + (app.locationAbroad ? '✓' : '') + '</div><span>Abroad ' + (app.abroadSpecify ? '(' + app.abroadSpecify + ')' : '') + '</span></div>';
+                                }
+                                if (app.leaveType === 'leave_sl') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Sick Leave:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.sickHospital ? 'checked' : '') + '">' + (app.sickHospital ? '✓' : '') + '</div><span>In Hospital ' + (app.hospitalIllness ? '(' + app.hospitalIllness + ')' : '') + '</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.sickOutpatient ? 'checked' : '') + '">' + (app.sickOutpatient ? '✓' : '') + '</div><span>Out Patient ' + (app.outpatientIllness ? '(' + app.outpatientIllness + ')' : '') + '</span></div>';
+                                }
+                                if (app.leaveType === 'leave_study') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Study Leave:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.studyMasters ? 'checked' : '') + '">' + (app.studyMasters ? '✓' : '') + '</div><span>Completion of Master\'s Degree</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.studyBar ? 'checked' : '') + '">' + (app.studyBar ? '✓' : '') + '</div><span>BAR/Board Examination Review</span></div>';
+                                }
+                                if (app.leaveType === 'leave_women') {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Special Leave Benefits for Women:</strong></div>';
+                                    details += '<div class="leave-type-item"><span>(Specify Illness) ' + (app.womenIllness || '') + '</span></div>';
+                                }
+                                if (app.leaveType === 'leave_others' && app.otherLeaveSpecify) {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">Others:</strong></div>';
+                                    details += '<div class="leave-type-item"><span>' + app.otherLeaveSpecify + '</span></div>';
+                                }
+                                if (app.monetization || app.terminal) {
+                                    details += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">Other purpose:</strong></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.monetization ? 'checked' : '') + '">' + (app.monetization ? '✓' : '') + '</div><span>Monetization of Leave Credits</span></div>';
+                                    details += '<div class="leave-type-item"><div class="checkbox ' + (app.terminal ? 'checked' : '') + '">' + (app.terminal ? '✓' : '') + '</div><span>Terminal Leave</span></div>';
+                                }
+                                return details || '<p style="color: #666; font-style: italic;">No additional details specified</p>';
+                            })()}
                         </div>
                     </div>
                     
@@ -2309,8 +2340,8 @@
                             <h4>6.C NUMBER OF WORKING DAYS APPLIED FOR</h4>
                             <div class="value" style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">${app.numDays || 0} days</div>
                             <h4>INCLUSIVE DATES</h4>
-                            <div class="value">From: ${app.dateFrom || 'N/A'}</div>
-                            <div class="value">To: ${app.dateTo || 'N/A'}</div>
+                            <div class="value">From: ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                            <div class="value">To: ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                         </div>
                         <div class="form-view-column">
                             <h4>6.D COMMUTATION</h4>
@@ -2387,7 +2418,8 @@
                 { id: 'leave_rehab', label: 'Rehabilitation Privilege' },
                 { id: 'leave_women', label: 'Special Leave Benefits for Women' },
                 { id: 'leave_calamity', label: 'Special Emergency Leave' },
-                { id: 'leave_adoption', label: 'Adoption Leave' }
+                { id: 'leave_adoption', label: 'Adoption Leave' },
+                { id: 'leave_others', label: 'Others' }
             ];
             
             return leaveTypes.map(lt => `

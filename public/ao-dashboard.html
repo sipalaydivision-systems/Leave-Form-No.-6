@@ -727,7 +727,6 @@
                 <!-- Tab buttons for Leave Card, SO Card, and CTO Card -->
                 <div style="margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; display: flex; gap: 10px;">
                     <button class="btn-small" style="background: none; border: none; padding: 10px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;" id="tabLeaveCard" onclick="switchCardTab('leave')">📋 Leave Card</button>
-                    <button class="btn-small" style="background: none; border: none; padding: 10px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;" id="tabSOCard" onclick="switchCardTab('so')">📊 SO Card</button>
                     <button class="btn-small" style="background: none; border: none; padding: 10px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;" id="tabCTOCard" onclick="switchCardTab('cto')">📑 CTO Card</button>
                 </div>
 
@@ -737,15 +736,6 @@
                     <div id="leaveCardContent" style="background: #f0fff4; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                         Loading leave card data...
                     </div>
-                </div>
-
-                <!-- SO Card Section -->
-                <div id="soCardSection" style="display: none;">
-                    <h3 style="margin-bottom: 15px; color: #333;">Special Order Card</h3>
-                    <div id="soCardContent" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; max-height: 300px; overflow-y: auto;">
-                        Loading SO card data...
-                    </div>
-                    <button class="btn-small" style="background: #667eea;" onclick="editSOCard()">✏️ Edit SO Records</button>
                 </div>
 
                 <!-- CTO Card Section -->
@@ -786,23 +776,6 @@
             <div class="modal-footer">
                 <button class="btn-small" style="background: #667eea;" onclick="printLeaveCard()">🖨️ Print Leave Card</button>
                 <button class="btn-small" style="background: #999;" onclick="closeModal('editLeaveModal')">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for Editing SO Card -->
-    <div id="editSOModal" class="modal">
-        <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
-            <div class="modal-header">
-                <span>Edit SO Records</span>
-                <button class="modal-close" onclick="closeModal('editSOModal')">×</button>
-            </div>
-            <div class="modal-body">
-                <div id="soEditContent">Loading...</div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-small" style="background: #999;" onclick="closeModal('editSOModal')">Cancel</button>
-                <button class="btn-small btn-approve" onclick="saveSOCard()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -1026,11 +999,11 @@
                 <tr>
                     <td>${app.employeeName || 'N/A'}</td>
                     <td>${getLeaveTypeLabel(app.leaveType)}</td>
-                    <td>${app.dateFrom || 'N/A'}</td>
-                    <td>${app.dateTo || 'N/A'}</td>
+                    <td>${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</td>
+                    <td>${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</td>
                     <td>${app.numDays || 0}</td>
                     <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
-                    <td>${app.dateOfFiling || 'N/A'}</td>
+                    <td>${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</td>
                     <td>
                         <div class="action-buttons">
                             <button class="btn-small btn-details" onclick="viewDetails(${safeId})">View</button>
@@ -1239,7 +1212,7 @@
                     <div class="form-view-row three-col">
                         <div class="form-view-cell">
                             <label>3. DATE OF FILING</label>
-                            <div class="value">${app.dateOfFiling || 'N/A'}</div>
+                            <div class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                         </div>
                         <div class="form-view-cell">
                             <label>4. POSITION</label>
@@ -1272,8 +1245,8 @@
                             <h4>6.C NUMBER OF WORKING DAYS APPLIED FOR</h4>
                             <div class="value" style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">${app.numDays || 0} days</div>
                             <h4>INCLUSIVE DATES</h4>
-                            <div class="value">From: ${app.dateFrom || 'N/A'}</div>
-                            <div class="value">To: ${app.dateTo || 'N/A'}</div>
+                            <div class="value">From: ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                            <div class="value">To: ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
                         </div>
                         <div class="form-view-column">
                             <h4>6.D COMMUTATION</h4>
@@ -1356,7 +1329,8 @@
                 { id: 'leave_rehab', label: 'Rehabilitation Privilege' },
                 { id: 'leave_women', label: 'Special Leave Benefits for Women' },
                 { id: 'leave_calamity', label: 'Special Emergency (Calamity) Leave' },
-                { id: 'leave_adoption', label: 'Adoption Leave' }
+                { id: 'leave_adoption', label: 'Adoption Leave' },
+                { id: 'leave_others', label: 'Others' }
             ];
             
             return leaveTypes.map(lt => `
@@ -1421,6 +1395,47 @@
                 `;
             }
             
+            // Women special leave details
+            if (app.leaveType === 'leave_women') {
+                html += `
+                    <div style="margin-bottom: 8px; padding: 5px; background: #f9f9f9; border-radius: 3px;">
+                        <strong style="font-size: 9px;">In case of Special Leave Benefits for Women:</strong>
+                        <div class="leave-type-item">
+                            <span>(Specify Illness) ${app.womenIllness || ''}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Others leave details
+            if (app.leaveType === 'leave_others' && app.otherLeaveSpecify) {
+                html += `
+                    <div style="margin-bottom: 8px; padding: 5px; background: #f9f9f9; border-radius: 3px;">
+                        <strong style="font-size: 9px;">Others:</strong>
+                        <div class="leave-type-item">
+                            <span>${app.otherLeaveSpecify}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Other purpose details
+            if (app.monetization || app.terminal) {
+                html += `
+                    <div style="margin-bottom: 8px; padding: 5px; background: #f9f9f9; border-radius: 3px;">
+                        <strong style="font-size: 9px;">Other purpose:</strong>
+                        <div class="leave-type-item">
+                            <div class="checkbox ${app.monetization ? 'checked' : ''}">${app.monetization ? '✓' : ''}</div>
+                            <span>Monetization of Leave Credits</span>
+                        </div>
+                        <div class="leave-type-item">
+                            <div class="checkbox ${app.terminal ? 'checked' : ''}">${app.terminal ? '✓' : ''}</div>
+                            <span>Terminal Leave</span>
+                        </div>
+                    </div>
+                `;
+            }
+
             if (!html) {
                 html = '<p style="color: #666; font-style: italic;">No additional details specified</p>';
             }
@@ -1511,7 +1526,6 @@
             // Load card data
             switchCardTab('leave');
             loadLeaveCardData(currentApplicantEmail, app, action);
-            loadSOCardData(currentApplicantEmail);
             loadCTOCardData(currentApplicantEmail);
 
             openModal('actionModal');
@@ -1533,7 +1547,6 @@
             // Load card data and show the first tab
             switchCardTab('leave');
             loadLeaveCardData(currentApplicantEmail);
-            loadSOCardData(currentApplicantEmail);
             loadCTOCardData(currentApplicantEmail);
 
             // Hide the approval action section when editing cards
@@ -1617,14 +1630,11 @@
         function switchCardTab(tab) {
             currentCardTab = tab;
             document.getElementById('leaveCardSection').style.display = tab === 'leave' ? 'block' : 'none';
-            document.getElementById('soCardSection').style.display = tab === 'so' ? 'block' : 'none';
             document.getElementById('ctoCardSection').style.display = tab === 'cto' ? 'block' : 'none';
             
             // Update button styles
             document.getElementById('tabLeaveCard').style.borderBottom = tab === 'leave' ? '3px solid #667eea' : '3px solid transparent';
             document.getElementById('tabLeaveCard').style.color = tab === 'leave' ? '#667eea' : '#666';
-            document.getElementById('tabSOCard').style.borderBottom = tab === 'so' ? '3px solid #667eea' : '3px solid transparent';
-            document.getElementById('tabSOCard').style.color = tab === 'so' ? '#667eea' : '#666';
             document.getElementById('tabCTOCard').style.borderBottom = tab === 'cto' ? '3px solid #667eea' : '3px solid transparent';
             document.getElementById('tabCTOCard').style.color = tab === 'cto' ? '#667eea' : '#666';
         }
@@ -1730,64 +1740,6 @@
             }
         }
 
-        async function loadSOCardData(email) {
-            try {
-                const response = await fetch(`/api/so-records?employeeId=${email}`);
-                const data = await response.json();
-                
-                if (data.success && data.records && data.records.length > 0) {
-                    let html = `
-                        <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                <thead style="background: #f5f5f5; border-bottom: 2px solid #667eea;">
-                                    <tr>
-                                        <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">Period Covered</th>
-                                        <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">Special Order No.</th>
-                                        <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">SO Description/Name</th>
-                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Days Granted</th>
-                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Days Used</th>
-                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Balance</th>
-                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-                    
-                    let totalUsed = 0;
-                    data.records.forEach((so, idx) => {
-                        const balance = (so.daysGranted || 0) - (so.daysUsed || 0);
-                        const periodCovered = so.periodCovered ? new Date(so.periodCovered).toLocaleDateString('en-PH') : '-';
-                        totalUsed += (so.daysUsed || 0);
-                        const hoverBg = idx % 2 === 0 ? 'transparent' : '#fafafa';
-                        html += `
-                            <tr style="border-bottom: 1px solid #ddd; background: ${hoverBg};">
-                                <td style="padding: 12px 15px; text-align: left; color: #666;">${periodCovered}</td>
-                                <td style="padding: 12px 15px; text-align: left; color: #666;">${so.soNumber || 'N/A'}</td>
-                                <td style="padding: 12px 15px; text-align: left; color: #666;">${so.soName || 'N/A'}</td>
-                                <td style="padding: 12px 15px; text-align: center; color: #666;">${so.daysGranted || 0}</td>
-                                <td style="padding: 12px 15px; text-align: center; color: #666;">${so.daysUsed || 0}</td>
-                                <td style="padding: 12px 15px; text-align: center; color: #667eea; font-weight: 600;"><strong>${balance}</strong></td>
-                                <td style="padding: 12px 15px; text-align: center; color: #666;">${(so.daysGranted || 0) + (so.daysUsed || 0)}</td>
-                            </tr>
-                        `;
-                    });
-                    html += `
-                                </tbody>
-                            </table>
-                        </div>
-                        <div style="margin-top: 15px; text-align: right; font-size: 12px; color: #666;">
-                            <strong>Total SO Credits Used: <span style="color: #667eea;">${totalUsed}</span> days</strong>
-                        </div>
-                    `;
-                    document.getElementById('soCardContent').innerHTML = html;
-                } else {
-                    document.getElementById('soCardContent').innerHTML = '<div style="background: white; padding: 30px; text-align: center; border-radius: 8px; color: #999;"><p>No SO records found</p></div>';
-                }
-            } catch (error) {
-                document.getElementById('soCardContent').innerHTML = '<p style="color: #d32f2f; padding: 15px;">Error loading SO card: ' + error.message + '</p>';
-            }
-        }
-
         async function loadCTOCardData(email) {
             try {
                 const response = await fetch(`/api/cto-records?employeeId=${email}`);
@@ -1813,7 +1765,7 @@
                     let totalUsed = 0;
                     data.records.forEach((cto, idx) => {
                         const balance = (cto.daysGranted || 0) - (cto.daysUsed || 0);
-                        const periodCovered = cto.periodCovered ? new Date(cto.periodCovered).toLocaleDateString('en-PH') : '-';
+                        const periodCovered = cto.periodCovered ? new Date(cto.periodCovered).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
                         totalUsed += (cto.daysUsed || 0);
                         const hoverBg = idx % 2 === 0 ? 'transparent' : '#fafafa';
                         html += `
@@ -1869,11 +1821,7 @@
                     credits = data.credits;
                 }
                 
-                const today = new Date().toLocaleDateString('en-PH', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
+                const today = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
                 
                 openModal('editLeaveModal');
                 
@@ -1985,32 +1933,6 @@
             }
         }
 
-        function editSOCard() {
-            openModal('editSOModal');
-            const html = `
-                <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 13px; color: #856404;">
-                    <strong>Note:</strong> This feature allows you to edit SO record days used. Add or edit rows as needed.
-                </div>
-                <div class="form-group">
-                    <label>SO Number</label>
-                    <input type="text" id="edit_so_number" placeholder="e.g., SO-2025-001">
-                </div>
-                <div class="form-group">
-                    <label>SO Description</label>
-                    <input type="text" id="edit_so_name" placeholder="e.g., National Conference">
-                </div>
-                <div class="form-group">
-                    <label>Days Granted</label>
-                    <input type="number" id="edit_so_granted" placeholder="Days" step="0.5" min="0" value="0">
-                </div>
-                <div class="form-group">
-                    <label>Days Used</label>
-                    <input type="number" id="edit_so_used" placeholder="Days" step="0.5" min="0" value="0">
-                </div>
-            `;
-            document.getElementById('soEditContent').innerHTML = html;
-        }
-
         function editCTOCard() {
             openModal('editCTOModal');
             const html = `
@@ -2091,38 +2013,6 @@
                 }
             } catch (error) {
                 showError('Error updating leave credits: ' + error.message);
-            }
-        }
-
-        async function saveSOCard() {
-            if (!currentApplicantEmail) return;
-            
-            const soData = {
-                employeeId: currentApplicantEmail,
-                soNumber: document.getElementById('edit_so_number').value,
-                soName: document.getElementById('edit_so_name').value,
-                daysGranted: parseFloat(document.getElementById('edit_so_granted').value) || 0,
-                daysUsed: parseFloat(document.getElementById('edit_so_used').value) || 0,
-                periodCovered: new Date().toISOString()
-            };
-
-            try {
-                const response = await fetch('/api/update-so-records', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(soData)
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    showSuccess('SO records updated successfully');
-                    closeModal('editSOModal');
-                    loadSOCardData(currentApplicantEmail);
-                } else {
-                    showError(result.error || 'Failed to update SO records');
-                }
-            } catch (error) {
-                showError('Error updating SO records: ' + error.message);
             }
         }
 

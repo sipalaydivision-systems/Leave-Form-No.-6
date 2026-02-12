@@ -584,7 +584,7 @@
                     // Load leave card table
                     await loadLeaveCardTable();
 
-                    document.getElementById('vlAsOf').textContent = leaveCredits.asOf || new Date().toLocaleDateString('en-PH');
+                    document.getElementById('vlAsOf').textContent = leaveCredits.asOf || new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
                 }
             } catch (error) {
                 console.error('Error loading leave credits:', error);
@@ -613,7 +613,7 @@
                 }
 
                 const card = data.credits;
-                const today = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+                const today = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
                 
                 // Get earned values (default to 100 if not set)
                 const vlEarned = parseFloat(card.vacationLeaveEarned) || 100;
@@ -630,8 +630,8 @@
                 // Add usage history if available - each row shows leave spent and updated balance
                 if (card.leaveUsageHistory && Array.isArray(card.leaveUsageHistory) && card.leaveUsageHistory.length > 0) {
                     card.leaveUsageHistory.forEach(usage => {
-                        const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
-                        const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+                        const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
+                        const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
                         const periodDisplay = periodTo && periodTo !== periodFrom ? `${periodFrom} - ${periodTo}` : periodFrom;
                         
                         const daysUsed = parseFloat(usage.daysUsed) || 0;
@@ -764,7 +764,7 @@
 
                         return `
                             <tr>
-                                <td>${new Date(so.periodCovered).toLocaleDateString('en-PH') || 'N/A'}</td>
+                                <td>${new Date(so.periodCovered).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) || 'N/A'}</td>
                                 <td><strong>${so.soNumber || 'N/A'}</strong></td>
                                 <td>${so.soName || 'N/A'}</td>
                                 <td style="text-align: center; font-weight: 600;">${granted}</td>

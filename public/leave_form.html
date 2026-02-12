@@ -365,7 +365,7 @@
             border-bottom: 2px solid #003366;
         }
 
-        input[type="date"] {
+        input[type="date"], .date-picker-input {
             display: inline-block;
             vertical-align: baseline;
             width: auto;
@@ -374,9 +374,10 @@
             padding: 2px 0;
             font-size: 11px;
             background: transparent;
+            cursor: pointer;
         }
 
-        input[type="date"]:focus {
+        input[type="date"]:focus, .date-picker-input:focus {
             outline: none;
             border-bottom: 2px solid #003366;
         }
@@ -998,9 +999,10 @@
 
         <!-- Row 2: Date, Position, Salary -->
         <div class="info-row three-col">
-            <div class="info-cell">
+            <div class="info-cell" style="position: relative;">
                 <label>3. DATE OF FILING</label>
-                <input type="date" name="date_filing" id="date_filing">
+                <input type="text" name="date_filing_display" id="date_filing" placeholder="mm/dd/yyyy" readonly style="cursor: pointer;">
+                <input type="hidden" name="date_filing" id="date_filing_iso">
             </div>
             <div class="info-cell">
                 <label>4. POSITION</label>
@@ -1162,11 +1164,13 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-bottom: 1px solid #000; padding-bottom: 5px;">
                     <div style="display: flex; flex-direction: column;">
                         <label style="font-size: 9px; display: block; margin-bottom: 3px;">From:</label>
-                        <input type="date" name="date_from" class="field-input" id="date_from" style="font-size: 10px; border: none; background: transparent;">
+                        <input type="text" name="date_from_display" class="field-input date-picker-input" id="date_from" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
+                        <input type="hidden" name="date_from" id="date_from_iso">
                     </div>
                     <div style="display: flex; flex-direction: column;">
                         <label style="font-size: 9px; display: block; margin-bottom: 3px;">To:</label>
-                        <input type="date" name="date_to" class="field-input" id="date_to" style="font-size: 10px; border: none; background: transparent;">
+                        <input type="text" name="date_to_display" class="field-input date-picker-input" id="date_to" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
+                        <input type="hidden" name="date_to" id="date_to_iso">
                     </div>
                 </div>
             </div>
@@ -1352,9 +1356,12 @@
             document.getElementById('name_middle').value = middleName;
         }
 
-        // Set current date for filing
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('date_filing').value = today;
+        // Set current date for filing in MM/DD/YYYY format
+        const today = new Date();
+        const todayFormatted = (today.getMonth() + 1).toString().padStart(2, '0') + '/' + today.getDate().toString().padStart(2, '0') + '/' + today.getFullYear();
+        const todayISO = today.getFullYear() + '-' + (today.getMonth() + 1).toString().padStart(2, '0') + '-' + today.getDate().toString().padStart(2, '0');
+        document.getElementById('date_filing').value = todayFormatted;
+        document.getElementById('date_filing_iso').value = todayISO;
 
         // ===== Set "As of" Date for Leave Credits (Last day of previous month) =====
         function getLastDayOfPreviousMonth() {
@@ -1557,15 +1564,63 @@
             return workingDays;
         }
 
-        // Add event listeners for date range inputs
+        // Helper: convert MM/DD/YYYY display to ISO YYYY-MM-DD for internal use
+        function displayToISO(mmddyyyy) {
+            if (!mmddyyyy) return '';
+            const parts = mmddyyyy.split('/');
+            if (parts.length !== 3) return mmddyyyy;
+            return parts[2] + '-' + parts[0] + '-' + parts[1];
+        }
+        // Helper: convert ISO YYYY-MM-DD to MM/DD/YYYY display
+        function isoToDisplay(isoDate) {
+            if (!isoDate) return '';
+            const parts = isoDate.split('-');
+            if (parts.length !== 3) return isoDate;
+            return parts[1] + '/' + parts[2] + '/' + parts[0];
+        }
+
+        // Add date picker popups to From/To fields
+        function setupDatePicker(displayInput, hiddenInput) {
+            // Create a real date input positioned behind the display input
+            const realDateInput = document.createElement('input');
+            realDateInput.type = 'date';
+            realDateInput.style.position = 'absolute';
+            realDateInput.style.top = '0';
+            realDateInput.style.left = '0';
+            realDateInput.style.width = '100%';
+            realDateInput.style.height = '100%';
+            realDateInput.style.opacity = '0';
+            realDateInput.style.cursor = 'pointer';
+            if (hiddenInput.value) realDateInput.value = hiddenInput.value;
+            
+            // Make parent relative for positioning
+            displayInput.parentElement.style.position = 'relative';
+            displayInput.parentElement.appendChild(realDateInput);
+            
+            realDateInput.addEventListener('change', function() {
+                hiddenInput.value = realDateInput.value;
+                displayInput.value = isoToDisplay(realDateInput.value);
+                // Trigger change event on display input for working days calc
+                displayInput.dispatchEvent(new Event('change'));
+            });
+        }
+
         const dateFromInput = document.getElementById('date_from');
         const dateToInput = document.getElementById('date_to');
+        const dateFromISO = document.getElementById('date_from_iso');
+        const dateToISO = document.getElementById('date_to_iso');
+        const dateFilingInput = document.getElementById('date_filing');
+        const dateFilingISO = document.getElementById('date_filing_iso');
         const numDaysInput = document.getElementById('num_days');
+
+        setupDatePicker(dateFilingInput, dateFilingISO);
+        setupDatePicker(dateFromInput, dateFromISO);
+        setupDatePicker(dateToInput, dateToISO);
 
         if (dateFromInput && dateToInput && numDaysInput) {
             const updateWorkingDays = function() {
-                if (dateFromInput.value && dateToInput.value) {
-                    const workingDays = calculateWorkingDays(dateFromInput.value, dateToInput.value);
+                if (dateFromISO.value && dateToISO.value) {
+                    const workingDays = calculateWorkingDays(dateFromISO.value, dateToISO.value);
                     numDaysInput.value = workingDays;
                     
                     // Auto-populate "Less this application" based on selected leave type
@@ -2437,10 +2492,10 @@
             office: document.getElementById('office').value,
             position: document.getElementById('position').value,
             salary: document.getElementById('salary').value,
-            dateOfFiling: document.getElementById('date_filing').value,
+            dateOfFiling: document.getElementById('date_filing_iso').value || document.getElementById('date_filing').value,
             leaveType: selectedLeaveType,
-            dateFrom: document.getElementById('date_from').value,
-            dateTo: document.getElementById('date_to').value,
+            dateFrom: document.getElementById('date_from_iso').value || document.getElementById('date_from').value,
+            dateTo: document.getElementById('date_to_iso').value || document.getElementById('date_to').value,
             numDays: document.getElementById('num_days').value,
             vlEarned: document.querySelector('input[name="vl_earned"]').value,
             slEarned: document.querySelector('input[name="sl_earned"]').value,
