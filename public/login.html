@@ -954,6 +954,7 @@
                             <option value="Division Office Proper">Division Office Proper</option>
                             <option value="OSDS">OSDS - Office of the Schools Division Superintendent</option>
                             <option value="SGOD">SGOD - School Governance and Operations Division</option>
+                            
                         </optgroup>
                     </select>
                 </div>
@@ -962,7 +963,7 @@
                     <label>Position <span class="required">*</span></label>
                     <select id="regPosition" onchange="updateSalaryFromPosition()" required>
                         <option value="">-- Select Position --</option>
-                        
+                        <optgroup label="Teaching Positions">
                             <option value="Teacher I" data-sg="11">Teacher I (SG-11)</option>
                             <option value="Teacher II" data-sg="12">Teacher II (SG-12)</option>
                             <option value="Teacher III" data-sg="13">Teacher III (SG-13)</option>
@@ -971,12 +972,16 @@
                             <option value="Guidance Counselor I" data-sg="11">Guidance Counselor I (SG-11)</option>
                             <option value="Master Teacher I" data-sg="18">Master Teacher I (SG-18)</option>
                             <option value="Master Teacher II" data-sg="19">Master Teacher II (SG-19)</option>
+                        </optgroup>
+                        <optgroup label="School Heads">
                             <option value="Head Teacher I" data-sg="14">Head Teacher I (SG-14)</option>
                             <option value="Head Teacher II" data-sg="15">Head Teacher II (SG-15)</option>
                             <option value="Head Teacher III" data-sg="16">Head Teacher III (SG-16)</option>
                             <option value="School Principal I" data-sg="19">School Principal I (SG-19)</option>
                             <option value="School Principal II" data-sg="20">School Principal II (SG-20)</option>
                             <option value="Assistant School Principal II" data-sg="19">Assistant School Principal II (SG-19)</option>
+                        </optgroup>
+                        <optgroup label="Administrative">
                             <option value="Administrative Officer V" data-sg="18">Administrative Officer V (SG-18)</option>
                             <option value="Administrative Officer IV" data-sg="15">Administrative Officer IV (SG-15)</option>
                             <option value="Administrative Officer II" data-sg="11">Administrative Officer II (SG-11)</option>
@@ -984,26 +989,40 @@
                             <option value="Administrative Assistant II" data-sg="8">Administrative Assistant II (SG-8)</option>
                             <option value="Administrative Aide VI" data-sg="6">Administrative Aide VI (SG-6)</option>
                             <option value="Administrative Aide IV" data-sg="4">Administrative Aide IV (SG-4)</option>
+                        </optgroup>
+                        <optgroup label="Specialist">
                             <option value="Chief Education Supervisor" data-sg="24">Chief Education Supervisor (SG-24)</option>
                             <option value="Education Program Supervisor" data-sg="22">Education Program Supervisor (SG-22)</option>
                             <option value="Public Schools District Supervisor" data-sg="22">Public Schools District Supervisor (SG-22)</option>
                             <option value="Senior Education Program Specialist" data-sg="19">Senior Education Program Specialist (SG-19)</option>
                             <option value="Education Program Specialist II" data-sg="16">Education Program Specialist II (SG-16)</option>
+                        </optgroup>
+                        <optgroup label="Finance & Planning">
                             <option value="Accountant III" data-sg="19">Accountant III (SG-19)</option>
                             <option value="Planning Officer III" data-sg="18">Planning Officer III (SG-18)</option>
                             <option value="Project Development Officer II" data-sg="15">Project Development Officer II (SG-15)</option>
                             <option value="Project Development Officer I" data-sg="11">Project Development Officer I (SG-11)</option>
+                        </optgroup>
+                        <optgroup label="Technical & IT">
                             <option value="Information Technology Officer I" data-sg="19">Information Technology Officer I (SG-19)</option>
                             <option value="Engineer III" data-sg="19">Engineer III (SG-19)</option>
+                        </optgroup>
+                        <optgroup label="Legal">
                             <option value="Attorney III" data-sg="21">Attorney III (SG-21)</option>
                             <option value="Legal Assistant I" data-sg="10">Legal Assistant I (SG-10)</option>
+                        </optgroup>
+                        <optgroup label="Medical/Health">
                             <option value="Medical Officer III" data-sg="21">Medical Officer III (SG-21)</option>
                             <option value="Dentist II" data-sg="17">Dentist II (SG-17)</option>
                             <option value="Nurse II" data-sg="16">Nurse II (SG-16)</option>
+                        </optgroup>
+                        <optgroup label="Records & Library">
                             <option value="Registrar I" data-sg="11">Registrar I (SG-11)</option>
                             <option value="Librarian II" data-sg="15">Librarian II (SG-15)</option>
+                        </optgroup>
+                        <optgroup label="Executive">
                             <option value="Assistant Schools Division Superintendent" data-sg="25">Assistant Schools Division Superintendent (SG-25)</option>
-                       
+                        </optgroup>
                     </select>
                 </div>
                 
