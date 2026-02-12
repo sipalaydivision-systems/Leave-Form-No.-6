@@ -213,7 +213,19 @@ app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // Data file paths
-const dataDir = path.join(__dirname, 'data');
+// Railway Volume: When RAILWAY_VOLUME_MOUNT_PATH is set, data persists across deployments.
+// In development or without a volume, falls back to local ./data directory.
+const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
+    : path.join(__dirname, 'data');
+
+console.log(`[DATA] Using data directory: ${dataDir}`);
+if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+    console.log(`[DATA] Railway Volume detected at: ${process.env.RAILWAY_VOLUME_MOUNT_PATH}`);
+} else {
+    console.log('[DATA] No Railway Volume detected - using local filesystem (data will NOT persist on redeploy)');
+}
+
 const usersFile = path.join(dataDir, 'users.json');
 const employeesFile = path.join(dataDir, 'employees.json');
 const applicationsFile = path.join(dataDir, 'applications.json');
@@ -306,10 +318,22 @@ function getClientIp(req) {
            'unknown';
 }
 
-// Ensure all data files exist
+// Ensure all data files exist — seeds from bundled defaults on first deploy
+const defaultsDir = path.join(__dirname, 'data', 'defaults');
+
 function ensureFile(filepath, defaultContent = '[]') {
     if (!fs.existsSync(filepath)) {
-        fs.writeFileSync(filepath, defaultContent);
+        // Try to seed from bundled defaults (useful for Railway Volume first deploy)
+        const filename = path.basename(filepath);
+        const defaultFile = path.join(defaultsDir, filename);
+        if (fs.existsSync(defaultFile)) {
+            const content = fs.readFileSync(defaultFile, 'utf8');
+            fs.writeFileSync(filepath, content);
+            console.log(`[DATA] Seeded ${filename} from defaults`);
+        } else {
+            fs.writeFileSync(filepath, defaultContent);
+            console.log(`[DATA] Created empty ${filename}`);
+        }
     }
 }
 
@@ -3758,6 +3782,251 @@ app.get('/api/export-activity-logs', (req, res) => {
     }
 });
 
+// ========== DATA BACKUP & RESTORE SYSTEM ==========
+// Prevents data loss during redeployments
+
+const backupDir = path.join(dataDir, 'backups');
+if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+}
+
+// List of all data files to backup/restore
+const DATA_FILES = [
+    'users.json', 'employees.json', 'applications.json', 'leavecards.json',
+    'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json',
+    'it-users.json', 'pending-registrations.json', 'so-records.json',
+    'cto-records.json', 'schools.json', 'initial-credits.json',
+    'activity-logs.json', 'applications.backup.json'
+];
+
+// POST /api/data/backup - Create a timestamped backup of all data
+app.post('/api/data/backup', requireAuth('it'), (req, res) => {
+    try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupFolder = path.join(backupDir, `backup-${timestamp}`);
+        fs.mkdirSync(backupFolder, { recursive: true });
+
+        const backedUp = [];
+        for (const file of DATA_FILES) {
+            const src = path.join(dataDir, file);
+            if (fs.existsSync(src)) {
+                fs.copyFileSync(src, path.join(backupFolder, file));
+                backedUp.push(file);
+            }
+        }
+
+        logActivity('data_backup', 'it', {
+            userEmail: req.session.email,
+            userId: req.session.userId,
+            ip: getClientIp(req),
+            details: { backupFolder: `backup-${timestamp}`, filesCount: backedUp.length }
+        });
+
+        res.json({
+            success: true,
+            message: `Backup created successfully with ${backedUp.length} files`,
+            backupId: `backup-${timestamp}`,
+            files: backedUp
+        });
+    } catch (error) {
+        console.error('Backup error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create backup: ' + error.message });
+    }
+});
+
+// GET /api/data/backups - List available backups
+app.get('/api/data/backups', requireAuth('it'), (req, res) => {
+    try {
+        if (!fs.existsSync(backupDir)) {
+            return res.json({ success: true, backups: [] });
+        }
+        const backups = fs.readdirSync(backupDir)
+            .filter(f => f.startsWith('backup-'))
+            .map(name => {
+                const backupPath = path.join(backupDir, name);
+                const stat = fs.statSync(backupPath);
+                const files = fs.readdirSync(backupPath);
+                return { id: name, createdAt: stat.mtime.toISOString(), filesCount: files.length, files };
+            })
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+        res.json({ success: true, backups });
+    } catch (error) {
+        console.error('List backups error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/data/restore - Restore data from a specific backup
+app.post('/api/data/restore', requireAuth('it'), (req, res) => {
+    try {
+        const { backupId } = req.body;
+        if (!backupId) {
+            return res.status(400).json({ success: false, error: 'backupId is required' });
+        }
+
+        // Prevent path traversal
+        const safeName = path.basename(backupId);
+        const backupFolder = path.join(backupDir, safeName);
+        if (!fs.existsSync(backupFolder)) {
+            return res.status(404).json({ success: false, error: 'Backup not found' });
+        }
+
+        // Create a pre-restore backup first (safety net)
+        const preRestoreTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const preRestoreFolder = path.join(backupDir, `pre-restore-${preRestoreTimestamp}`);
+        fs.mkdirSync(preRestoreFolder, { recursive: true });
+        for (const file of DATA_FILES) {
+            const src = path.join(dataDir, file);
+            if (fs.existsSync(src)) {
+                fs.copyFileSync(src, path.join(preRestoreFolder, file));
+            }
+        }
+
+        // Restore files from backup
+        const restored = [];
+        const backupFiles = fs.readdirSync(backupFolder);
+        for (const file of backupFiles) {
+            if (file.endsWith('.json')) {
+                fs.copyFileSync(path.join(backupFolder, file), path.join(dataDir, file));
+                restored.push(file);
+            }
+        }
+
+        logActivity('data_restore', 'it', {
+            userEmail: req.session.email,
+            userId: req.session.userId,
+            ip: getClientIp(req),
+            details: { backupId: safeName, filesRestored: restored.length }
+        });
+
+        res.json({
+            success: true,
+            message: `Restored ${restored.length} files from ${safeName}`,
+            preRestoreBackup: `pre-restore-${preRestoreTimestamp}`,
+            files: restored
+        });
+    } catch (error) {
+        console.error('Restore error:', error);
+        res.status(500).json({ success: false, error: 'Failed to restore: ' + error.message });
+    }
+});
+
+// GET /api/data/export - Download all data as a single JSON bundle
+app.get('/api/data/export', requireAuth('it'), (req, res) => {
+    try {
+        const bundle = {};
+        for (const file of DATA_FILES) {
+            const filePath = path.join(dataDir, file);
+            if (fs.existsSync(filePath)) {
+                bundle[file] = readJSON(filePath);
+            }
+        }
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="data-export-${timestamp}.json"`);
+        res.json({ exportDate: new Date().toISOString(), data: bundle });
+    } catch (error) {
+        console.error('Export error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/data/import - Import data from a previously exported JSON bundle
+app.post('/api/data/import', requireAuth('it'), (req, res) => {
+    try {
+        const { data } = req.body;
+        if (!data || typeof data !== 'object') {
+            return res.status(400).json({ success: false, error: 'Invalid import data. Expected { data: { "filename.json": [...], ... } }' });
+        }
+
+        // Create safety backup before import
+        const safetyTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safetyFolder = path.join(backupDir, `pre-import-${safetyTimestamp}`);
+        fs.mkdirSync(safetyFolder, { recursive: true });
+        for (const file of DATA_FILES) {
+            const src = path.join(dataDir, file);
+            if (fs.existsSync(src)) {
+                fs.copyFileSync(src, path.join(safetyFolder, file));
+            }
+        }
+
+        const imported = [];
+        for (const [filename, content] of Object.entries(data)) {
+            // Only allow known data files (prevent writing to arbitrary paths)
+            if (DATA_FILES.includes(filename)) {
+                writeJSON(path.join(dataDir, filename), content);
+                imported.push(filename);
+            }
+        }
+
+        logActivity('data_import', 'it', {
+            userEmail: req.session.email,
+            userId: req.session.userId,
+            ip: getClientIp(req),
+            details: { filesImported: imported.length, safetyBackup: `pre-import-${safetyTimestamp}` }
+        });
+
+        res.json({
+            success: true,
+            message: `Imported ${imported.length} data files`,
+            safetyBackup: `pre-import-${safetyTimestamp}`,
+            files: imported
+        });
+    } catch (error) {
+        console.error('Import error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ========== AUTO-BACKUP ON SERVER START ==========
+// Automatically create a backup when the server starts (protects against redeployment data loss)
+(function autoBackupOnStart() {
+    try {
+        // Check if any data files exist with actual data
+        const hasData = DATA_FILES.some(file => {
+            const filePath = path.join(dataDir, file);
+            if (!fs.existsSync(filePath)) return false;
+            try {
+                const content = fs.readFileSync(filePath, 'utf8').trim();
+                const parsed = JSON.parse(content);
+                return Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0;
+            } catch { return false; }
+        });
+
+        if (hasData) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const autoBackupFolder = path.join(backupDir, `auto-startup-${timestamp}`);
+            fs.mkdirSync(autoBackupFolder, { recursive: true });
+
+            let count = 0;
+            for (const file of DATA_FILES) {
+                const src = path.join(dataDir, file);
+                if (fs.existsSync(src)) {
+                    fs.copyFileSync(src, path.join(autoBackupFolder, file));
+                    count++;
+                }
+            }
+            console.log(`[STARTUP] Auto-backup created: ${autoBackupFolder} (${count} files)`);
+
+            // Keep only last 5 auto-startup backups to save disk space
+            const autoBackups = fs.readdirSync(backupDir)
+                .filter(f => f.startsWith('auto-startup-'))
+                .sort()
+                .reverse();
+            if (autoBackups.length > 5) {
+                for (const old of autoBackups.slice(5)) {
+                    const oldPath = path.join(backupDir, old);
+                    fs.rmSync(oldPath, { recursive: true, force: true });
+                }
+                console.log(`[STARTUP] Cleaned up ${autoBackups.length - 5} old auto-backups`);
+            }
+        }
+    } catch (err) {
+        console.error('[STARTUP] Auto-backup failed:', err.message);
+    }
+})();
+
 // ========== ERROR HANDLERS (Must be last before server start) ==========
 // Only catch API routes - let static files pass through
 app.use('/api/*', (req, res) => {
@@ -3780,6 +4049,12 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('  Login Page: http://localhost:' + PORT);
     console.log('  Database: http://localhost:' + PORT + '/database');
     console.log('  PID: ' + process.pid);
+    console.log('  Data Dir: ' + dataDir);
+    if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+        console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
+    } else {
+        console.log('  Storage: ⚠️  Local filesystem (data lost on redeploy!)');
+    }
     console.log('==========================================================');
     console.log('');
     console.log('[STARTUP] Server started successfully at', new Date().toISOString());

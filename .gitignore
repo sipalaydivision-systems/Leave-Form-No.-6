@@ -1,0 +1,55 @@
+# ==============================
+# DATA FILES - DO NOT TRACK
+# These files contain production data (users, applications, leave cards, etc.)
+# They must NOT be overwritten during deployments
+# ==============================
+data/users.json
+data/employees.json
+data/applications.json
+data/applications.backup.json
+data/leavecards.json
+data/ao-users.json
+data/hr-users.json
+data/asds-users.json
+data/sds-users.json
+data/it-users.json
+data/cto-records.json
+data/so-records.json
+data/pending-registrations.json
+data/initial-credits.json
+data/activity-logs.json
+data/schools.json
+data/register_requests.log
+
+# Root-level data file duplicate
+users.json
+
+# Keep the data directory itself and seed/default files
+!data/
+!data/.gitkeep
+!data/defaults/
+
+# ==============================
+# NODE
+# ==============================
+node_modules/
+npm-debug.log*
+
+# ==============================
+# ENVIRONMENT
+# ==============================
+.env
+.env.local
+.env.production
+
+# ==============================
+# OS FILES
+# ==============================
+Thumbs.db
+.DS_Store
+~$*
+
+# ==============================
+# BACKUPS (created by backup system)
+# ==============================
+data/backups/
