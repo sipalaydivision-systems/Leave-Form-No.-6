@@ -2215,9 +2215,9 @@
 
                 const result = await response.json();
                 if (result.success) {
+                    // Reload the leave card modal first, then show success
+                    await editLeaveCard();
                     showSuccess('Leave entry saved successfully');
-                    // Reload the leave card modal
-                    editLeaveCard();
                 } else {
                     showError(result.error || 'Failed to save leave entry');
                 }

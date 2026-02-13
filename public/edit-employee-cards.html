@@ -1047,14 +1047,14 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert('Leave entry saved successfully!');
                     removeEditableLeaveRow();
-                    loadLeaveCardData();
+                    await loadLeaveCardData();
+                    alertSuccess('Leave entry saved successfully!');
                 } else {
-                    alert('Error: ' + (result.error || 'Failed to save leave entry'));
+                    alertError(result.error || 'Failed to save leave entry');
                 }
             } catch (error) {
-                alert('Error saving leave entry: ' + error.message);
+                alertError('Error saving leave entry: ' + error.message);
             }
         }
 
