@@ -22,12 +22,13 @@ data/schools.json
 data/register_requests.log
 
 # Root-level data file duplicate
-users.json
+/users.json
 
 # Keep the data directory itself and seed/default files
 !data/
 !data/.gitkeep
 !data/defaults/
+!data/defaults/*
 
 # ==============================
 # NODE

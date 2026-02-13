@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": 1,
+    "email": "jenel.tiad@deped.gov.ph",
+    "password": "562d023e644cb1d9a6059712950b139d:97c9c02d94547103a3ccde91ddeac33bb468fff780f4934b99ddc831c33c9c5e",
+    "fullName": "Tiad, Jenel Timonan",
+    "position": "IT Administrator",
+    "role": "it",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "name": "Tiad, Jenel Timonan",
+    "updatedAt": "2026-01-30T00:36:33.404Z"
+  },
+  {
+    "id": 1769733783775,
+    "email": "wesleyhans.platil@deped.gov.ph",
+    "password": "bcb15f821479b4d5772bd0ca866c00ad5f926e3580720659cc80d39c9d09802a",
+    "name": "Platil, Wesley Hans H.",
+    "fullName": "Platil, Wesley Hans H.",
+    "role": "it",
+    "createdAt": "2026-01-30T00:43:03.776Z"
+  }
+]

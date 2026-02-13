@@ -4037,6 +4037,33 @@ app.post('/api/data/import', requireAuth('it'), (req, res) => {
 })();
 
 // ========== ERROR HANDLERS (Must be last before server start) ==========
+// Diagnostic endpoint to check data persistence status
+app.get('/api/system-status', (req, res) => {
+    try {
+        const itUsers = readJSON(itUsersFile);
+        const users = readJSON(usersFile);
+        const aoUsers = readJSON(aoUsersFile);
+        const hrUsers = readJSON(hrUsersFile);
+        res.json({
+            success: true,
+            volumeMounted: !!process.env.RAILWAY_VOLUME_MOUNT_PATH,
+            volumePath: process.env.RAILWAY_VOLUME_MOUNT_PATH || 'NOT SET',
+            dataDir: dataDir,
+            dataDirExists: fs.existsSync(dataDir),
+            fileCounts: {
+                itUsers: itUsers.length,
+                users: users.length,
+                aoUsers: aoUsers.length,
+                hrUsers: hrUsers.length
+            },
+            itUserEmails: itUsers.map(u => u.email),
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Only catch API routes - let static files pass through
 app.use('/api/*', (req, res) => {
     res.status(404).json({ success: false, error: 'API endpoint not found' });
