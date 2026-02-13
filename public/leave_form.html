@@ -508,7 +508,7 @@
             font-size: 9px;
         }
 
-        .others-field input {
+        .others-field input[type="text"] {
             flex: 1;
             border: none;
             border-bottom: 1px solid #000;
@@ -1622,6 +1622,7 @@
             realDateInput.style.height = '100%';
             realDateInput.style.opacity = '0';
             realDateInput.style.cursor = 'pointer';
+            realDateInput.style.zIndex = '2';
             if (hiddenInput.value) realDateInput.value = hiddenInput.value;
             
             // Make parent relative for positioning
