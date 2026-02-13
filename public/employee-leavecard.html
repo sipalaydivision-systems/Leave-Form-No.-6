@@ -628,16 +628,17 @@
                 const vlEarned = parseFloat(card.vacationLeaveEarned) || 100;
                 const slEarned = parseFloat(card.sickLeaveEarned) || 100;
                 
-                // Track running balance
-                let vlBalance = vlEarned;
-                let slBalance = slEarned;
+                // Track running balance - if transactions exist, they carry their own running balance
+                const hasTransactions = card.transactions && card.transactions.length > 0;
+                let vlBalance = hasTransactions ? 0 : vlEarned;
+                let slBalance = hasTransactions ? 0 : slEarned;
                 let vlTotalSpent = 0;
                 let slTotalSpent = 0;
                 
                 let htmlContent = '';
                 
                 // Render Excel-migrated transactions first (historical data from Excel leave cards)
-                if (card.transactions && card.transactions.length > 0) {
+                if (hasTransactions) {
                     card.transactions.forEach(txn => {
                         const type = (txn.type || 'ADD').toUpperCase();
                         const periodCovered = txn.periodCovered || '-';
@@ -733,8 +734,8 @@
                 htmlContent += `
                     <tr style="background: #e3f2fd; font-weight: 600;">
                         <td style="color: #1565c0;"><strong>${today}</strong><br><small>Current Balance</small></td>
-                        <td style="text-align: center;">${(card.transactions && card.transactions.length > 0) ? '-' : vlEarned.toFixed(3)}</td>
-                        <td style="text-align: center;">${(card.transactions && card.transactions.length > 0) ? '-' : slEarned.toFixed(3)}</td>
+                        <td style="text-align: center;">${hasTransactions ? '-' : vlEarned.toFixed(3)}</td>
+                        <td style="text-align: center;">${hasTransactions ? '-' : slEarned.toFixed(3)}</td>
                         <td style="text-align: center; color: #d32f2f;">${vlTotalSpent.toFixed(3)}</td>
                         <td style="text-align: center; color: #d32f2f;">${slTotalSpent.toFixed(3)}</td>
                         <td style="text-align: center;">-</td>

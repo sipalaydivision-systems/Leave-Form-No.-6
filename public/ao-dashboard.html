@@ -1896,10 +1896,10 @@
                                 <tbody id="aoLeaveHistoryBody">
                     `;
                     
-                    // Render Excel-migrated transactions
-                    let vlBalance = credits.vl || 100;
-                    let slBalance = credits.sl || 100;
+                    // Render Excel-migrated transactions - if transactions exist, they carry their own running balance
                     let hasTransactions = credits.transactions && credits.transactions.length > 0;
+                    let vlBalance = hasTransactions ? 0 : (credits.vl || 100);
+                    let slBalance = hasTransactions ? 0 : (credits.sl || 100);
                     
                     if (hasTransactions) {
                         credits.transactions.forEach((txn, idx) => {
@@ -2209,9 +2209,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         employeeEmail: currentApplicantEmail,
-                        transactions: [transaction],
-                        vl: transaction.vlBalance,
-                        sl: transaction.slBalance
+                        transactions: [transaction]
                     })
                 });
 

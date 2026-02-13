@@ -678,16 +678,17 @@
                     const vlEarned = parseFloat(credits.vacationLeaveEarned) || parseFloat(credits.vl) || 100;
                     const slEarned = parseFloat(credits.sickLeaveEarned) || parseFloat(credits.sl) || 100;
                     
-                    // Track running balance
-                    let vlBalance = vlEarned;
-                    let slBalance = slEarned;
+                    // Track running balance - if transactions exist, they carry their own running balance
+                    const hasTransactions = credits.transactions && credits.transactions.length > 0;
+                    let vlBalance = hasTransactions ? 0 : vlEarned;
+                    let slBalance = hasTransactions ? 0 : slEarned;
                     let vlTotalSpent = 0;
                     let slTotalSpent = 0;
 
                     let html = '';
                     
                     // Render Excel-migrated transactions first (historical data from Excel leave cards)
-                    if (credits.transactions && credits.transactions.length > 0) {
+                    if (hasTransactions) {
                         credits.transactions.forEach(txn => {
                             const type = (txn.type || 'ADD').toUpperCase();
                             const periodCovered = txn.periodCovered || '-';
@@ -783,8 +784,8 @@
                     html += `
                         <tr style="background: #e3f2fd; font-weight: 600;">
                             <td style="color: #1565c0;"><strong>${today}</strong><br><small>Current Balance</small></td>
-                            <td>${(credits.transactions && credits.transactions.length > 0) ? '-' : vlEarned.toFixed(3)}</td>
-                            <td>${(credits.transactions && credits.transactions.length > 0) ? '-' : slEarned.toFixed(3)}</td>
+                            <td>${hasTransactions ? '-' : vlEarned.toFixed(3)}</td>
+                            <td>${hasTransactions ? '-' : slEarned.toFixed(3)}</td>
                             <td style="color: #d32f2f;">${vlTotalSpent.toFixed(3)}</td>
                             <td style="color: #d32f2f;">${slTotalSpent.toFixed(3)}</td>
                             <td>-</td>
@@ -1040,9 +1041,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         employeeEmail: employeeEmail,
-                        transactions: [transaction],
-                        vl: vlBalance,
-                        sl: slBalance
+                        transactions: [transaction]
                     })
                 });
 
