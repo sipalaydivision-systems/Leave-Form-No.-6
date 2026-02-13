@@ -926,6 +926,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
         res.json({ 
             success: true,
             token,
+            mustChangePassword: user.mustChangePassword || false,
             user: { 
                 id: user.id, 
                 email: user.email, 
@@ -939,6 +940,43 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
                 role: 'user' 
             } 
         });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
+    }
+});
+
+// Change password endpoint (for temp password users)
+app.post('/api/change-password', (req, res) => {
+    try {
+        const { email, currentPassword, newPassword } = req.body;
+        
+        if (!email || !currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, error: 'All fields are required' });
+        }
+        
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, error: 'New password must be at least 8 characters' });
+        }
+        
+        let users = readJSON(usersFile);
+        const userIdx = users.findIndex(u => u.email === email && verifyPassword(currentPassword, u.password));
+        
+        if (userIdx === -1) {
+            return res.status(401).json({ success: false, error: 'Current password is incorrect' });
+        }
+        
+        users[userIdx].password = hashPasswordWithSalt(newPassword);
+        users[userIdx].mustChangePassword = false;
+        users[userIdx].passwordChangedAt = new Date().toISOString();
+        writeJSON(usersFile, users);
+        
+        logActivity('PASSWORD_CHANGED', 'employee', {
+            userEmail: email,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+        
+        res.json({ success: true, message: 'Password changed successfully!' });
     } catch (error) {
         res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
