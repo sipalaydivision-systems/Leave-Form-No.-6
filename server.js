@@ -1449,7 +1449,10 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
 // ========== IT DEPARTMENT ==========
 app.post('/api/it-login', loginRateLimiter, (req, res) => {
     try {
-        const { email, pin } = req.body;
+        const rawEmail = req.body?.email;
+        const rawPin = req.body?.pin;
+        const email = (rawEmail || '').trim().toLowerCase();
+        const pin = (rawPin || '').trim();
 
         if (!email || !pin) {
             return res.status(400).json({ success: false, error: 'Email and PIN are required' });
@@ -1460,14 +1463,14 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
         }
 
         let itUsers = readJSON(itUsersFile);
-        const itUser = itUsers.find(u => u.email === email && verifyPassword(pin, u.password));
+        const itUser = itUsers.find(u => (u.email || '').toLowerCase() === email && verifyPassword(pin, u.password));
 
         if (!itUser) {
             return res.status(401).json({ success: false, error: 'Invalid IT email or PIN' });
         }
 
         if (!itUser.password.includes(':')) {
-            const idx = itUsers.findIndex(u => u.email === email);
+            const idx = itUsers.findIndex(u => (u.email || '').toLowerCase() === email);
             if (idx !== -1) {
                 itUsers[idx].password = hashPasswordWithSalt(pin);
                 writeJSON(itUsersFile, itUsers);
@@ -1488,7 +1491,12 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
 
 app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
     try {
-        const { email, pin, fullName } = req.body;
+        const rawEmail = req.body?.email;
+        const rawPin = req.body?.pin;
+        const rawFullName = req.body?.fullName;
+        const email = (rawEmail || '').trim().toLowerCase();
+        const pin = (rawPin || '').trim();
+        const fullName = (rawFullName || '').trim();
 
         if (!email || !pin || !fullName) {
             return res.status(400).json({ success: false, error: 'Email, PIN, and name are required' });
@@ -1503,7 +1511,7 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
         }
 
         let itUsers = readJSON(itUsersFile);
-        if (itUsers.find(u => u.email === email)) {
+        if (itUsers.find(u => (u.email || '').toLowerCase() === email)) {
             return res.status(400).json({ success: false, error: 'IT account already exists' });
         }
 
