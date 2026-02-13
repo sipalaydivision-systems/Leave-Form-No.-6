@@ -1894,17 +1894,106 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr style="background: #f9f9f9; border-bottom: 1px solid #ddd;">
-                                        <td style="padding: 12px; border-right: 1px solid #ddd;"><strong>${today}</strong></td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">100.000</td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">100.000</td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">0.000</td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">0.000</td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">0.000</td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">0.000</td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;"><strong>${credits.vl || 100}</strong></td>
-                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;"><strong>${credits.sl || 100}</strong></td>
-                                        <td style="padding: 12px; text-align: center; color: #667eea; font-weight: 600;"><strong>${(credits.vl || 100) + (credits.sl || 100)}</strong></td>
+                    `;
+                    
+                    // Render Excel-migrated transactions
+                    let vlBalance = credits.vl || 100;
+                    let slBalance = credits.sl || 100;
+                    let hasTransactions = credits.transactions && credits.transactions.length > 0;
+                    
+                    if (hasTransactions) {
+                        credits.transactions.forEach((txn, idx) => {
+                            const type = (txn.type || 'ADD').toUpperCase();
+                            const periodCovered = txn.periodCovered || '-';
+                            const periodDisplay = type === 'ADD' ? 'ADD: ' + periodCovered : 'LESS: ' + periodCovered;
+                            
+                            const tVlEarned = parseFloat(txn.vlEarned) || 0;
+                            const tSlEarned = parseFloat(txn.slEarned) || 0;
+                            const tVlSpent = parseFloat(txn.vlSpent) || 0;
+                            const tSlSpent = parseFloat(txn.slSpent) || 0;
+                            const tForcedLeave = parseFloat(txn.forcedLeave) || 0;
+                            const tSplUsed = parseFloat(txn.splUsed) || 0;
+                            const tVlBalance = parseFloat(txn.vlBalance) || 0;
+                            const tSlBalance = parseFloat(txn.slBalance) || 0;
+                            const tTotal = parseFloat(txn.total) || 0;
+                            
+                            const isAdd = type === 'ADD';
+                            const bg = idx % 2 === 0 ? '#fff' : '#f9f9f9';
+                            
+                            html += '<tr style="border-bottom: 1px solid #ddd; background: ' + bg + ';">';
+                            html += '<td style="padding: 12px; border-right: 1px solid #ddd; color: ' + (isAdd ? '#2e7d32' : '#c62828') + '; font-weight: 600;">' + periodDisplay + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">' + (tVlEarned > 0 ? tVlEarned.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">' + (tSlEarned > 0 ? tSlEarned.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (tVlSpent > 0 ? '#d32f2f' : '#999') + ';">' + (tVlSpent > 0 ? tVlSpent.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (tSlSpent > 0 ? '#d32f2f' : '#999') + ';">' + (tSlSpent > 0 ? tSlSpent.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (tForcedLeave > 0 ? '#d32f2f' : '#999') + ';">' + (tForcedLeave > 0 ? tForcedLeave.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (tSplUsed > 0 ? '#d32f2f' : '#999') + ';">' + (tSplUsed > 0 ? tSplUsed.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;">' + tVlBalance.toFixed(3) + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;">' + tSlBalance.toFixed(3) + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; color: #667eea; font-weight: 600;">' + tTotal.toFixed(3) + '</td>';
+                            html += '</tr>';
+                        });
+                        
+                        const lastTxn = credits.transactions[credits.transactions.length - 1];
+                        vlBalance = parseFloat(lastTxn.vlBalance) || 0;
+                        slBalance = parseFloat(lastTxn.slBalance) || 0;
+                    }
+                    
+                    // Render system leave usage history
+                    if (credits.leaveUsageHistory && credits.leaveUsageHistory.length > 0) {
+                        credits.leaveUsageHistory.forEach(usage => {
+                            const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
+                            const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
+                            const periodDisplay = periodTo && periodTo !== periodFrom ? 'LESS: ' + periodFrom + ' - ' + periodTo : 'LESS: ' + periodFrom;
+                            
+                            const daysUsed = parseFloat(usage.daysUsed) || 0;
+                            const leaveType = (usage.leaveType || '').toLowerCase();
+                            
+                            let vlSpent = 0, slSpent = 0, forceSpent = 0, specialSpent = 0;
+                            
+                            if (leaveType.includes('vacation') || leaveType.includes('vl')) {
+                                vlSpent = daysUsed;
+                                vlBalance -= daysUsed;
+                            } else if (leaveType.includes('sick') || leaveType.includes('sl')) {
+                                slSpent = daysUsed;
+                                slBalance -= daysUsed;
+                            } else if (leaveType.includes('force') || leaveType.includes('mandatory')) {
+                                forceSpent = daysUsed;
+                            } else if (leaveType.includes('special')) {
+                                specialSpent = daysUsed;
+                            } else {
+                                vlSpent = daysUsed;
+                                vlBalance -= daysUsed;
+                            }
+                            
+                            html += '<tr style="border-bottom: 1px solid #ddd; background: #fff8e1;">';
+                            html += '<td style="padding: 12px; border-right: 1px solid #ddd; color: #c62828; font-weight: 600;">' + periodDisplay + '<br><small style="color: #666; font-weight: 400;">' + (usage.leaveType || 'Leave') + '</small></td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">-</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">-</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (vlSpent > 0 ? '#d32f2f' : '#999') + ';">' + (vlSpent > 0 ? vlSpent.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (slSpent > 0 ? '#d32f2f' : '#999') + ';">' + (slSpent > 0 ? slSpent.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (forceSpent > 0 ? '#d32f2f' : '#999') + ';">' + (forceSpent > 0 ? forceSpent.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (specialSpent > 0 ? '#d32f2f' : '#999') + ';">' + (specialSpent > 0 ? specialSpent.toFixed(3) : '-') + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;">' + vlBalance.toFixed(3) + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;">' + slBalance.toFixed(3) + '</td>';
+                            html += '<td style="padding: 12px; text-align: center; color: #667eea; font-weight: 600;">' + (vlBalance + slBalance).toFixed(3) + '</td>';
+                            html += '</tr>';
+                        });
+                    }
+                    
+                    // Current balance row
+                    html += `
+                                    <tr style="background: #e3f2fd; border-bottom: 1px solid #ddd; font-weight: 600;">
+                                        <td style="padding: 12px; border-right: 1px solid #ddd; color: #1565c0;"><strong>${today}</strong><br><small>Current Balance</small></td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">${hasTransactions ? '-' : '100.000'}</td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">${hasTransactions ? '-' : '100.000'}</td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">-</td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">-</td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">-</td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">-</td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;"><strong>${vlBalance.toFixed(3)}</strong></td>
+                                        <td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;"><strong>${slBalance.toFixed(3)}</strong></td>
+                                        <td style="padding: 12px; text-align: center; color: #667eea; font-weight: 600;"><strong>${(vlBalance + slBalance).toFixed(3)}</strong></td>
                                     </tr>
                                 </tbody>
                             </table>

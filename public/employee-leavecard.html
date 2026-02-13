@@ -636,17 +636,59 @@
                 
                 let htmlContent = '';
                 
-                // Add usage history if available - each row shows leave spent and updated balance
+                // Render Excel-migrated transactions first (historical data from Excel leave cards)
+                if (card.transactions && card.transactions.length > 0) {
+                    card.transactions.forEach(txn => {
+                        const type = (txn.type || 'ADD').toUpperCase();
+                        const periodCovered = txn.periodCovered || '-';
+                        const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
+                        
+                        const tVlEarned = parseFloat(txn.vlEarned) || 0;
+                        const tSlEarned = parseFloat(txn.slEarned) || 0;
+                        const tVlSpent = parseFloat(txn.vlSpent) || 0;
+                        const tSlSpent = parseFloat(txn.slSpent) || 0;
+                        const tForcedLeave = parseFloat(txn.forcedLeave) || 0;
+                        const tSplUsed = parseFloat(txn.splUsed) || 0;
+                        const tVlBalance = parseFloat(txn.vlBalance) || 0;
+                        const tSlBalance = parseFloat(txn.slBalance) || 0;
+                        const tTotal = parseFloat(txn.total) || 0;
+                        
+                        const isAdd = type === 'ADD';
+                        
+                        htmlContent += `
+                            <tr>
+                                <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
+                                    ${periodDisplay}
+                                </td>
+                                <td style="text-align: center;">${tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
+                                <td style="text-align: center;">${tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
+                                <td style="text-align: center; color: ${tVlSpent > 0 ? '#d32f2f' : '#999'};">${tVlSpent > 0 ? tVlSpent.toFixed(3) : '-'}</td>
+                                <td style="text-align: center; color: ${tSlSpent > 0 ? '#d32f2f' : '#999'};">${tSlSpent > 0 ? tSlSpent.toFixed(3) : '-'}</td>
+                                <td style="text-align: center; color: ${tForcedLeave > 0 ? '#d32f2f' : '#999'};">${tForcedLeave > 0 ? tForcedLeave.toFixed(3) : '-'}</td>
+                                <td style="text-align: center; color: ${tSplUsed > 0 ? '#d32f2f' : '#999'};">${tSplUsed > 0 ? tSplUsed.toFixed(3) : '-'}</td>
+                                <td style="text-align: center; color: #667eea; font-weight: 700;">${tVlBalance.toFixed(3)}</td>
+                                <td style="text-align: center; color: #667eea; font-weight: 700;">${tSlBalance.toFixed(3)}</td>
+                                <td style="text-align: center; color: #667eea; font-weight: 700;">${tTotal.toFixed(3)}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    // Use the last transaction's balance as the starting point
+                    const lastTxn = card.transactions[card.transactions.length - 1];
+                    vlBalance = parseFloat(lastTxn.vlBalance) || 0;
+                    slBalance = parseFloat(lastTxn.slBalance) || 0;
+                }
+                
+                // Then add system leave usage history (from approved leave applications)
                 if (card.leaveUsageHistory && Array.isArray(card.leaveUsageHistory) && card.leaveUsageHistory.length > 0) {
                     card.leaveUsageHistory.forEach(usage => {
                         const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
                         const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
-                        const periodDisplay = periodTo && periodTo !== periodFrom ? `${periodFrom} - ${periodTo}` : periodFrom;
+                        const periodDisplay = periodTo && periodTo !== periodFrom ? `LESS: ${periodFrom} - ${periodTo}` : `LESS: ${periodFrom}`;
                         
                         const daysUsed = parseFloat(usage.daysUsed) || 0;
                         const leaveType = (usage.leaveType || '').toLowerCase();
                         
-                        // Determine which column to put the spent days
                         let vlSpent = 0, slSpent = 0, forceSpent = 0, specialSpent = 0;
                         
                         if (leaveType.includes('vacation') || leaveType.includes('vl')) {
@@ -658,15 +700,10 @@
                             slBalance -= daysUsed;
                             slTotalSpent += daysUsed;
                         } else if (leaveType.includes('force') || leaveType.includes('mandatory')) {
-                            // Force Leave does NOT deduct from VL/SL balance - tracked separately
                             forceSpent = daysUsed;
-                            // Do NOT deduct from vlBalance or slBalance
                         } else if (leaveType.includes('special')) {
-                            // Special Privilege Leave does NOT deduct from VL/SL balance - tracked separately
                             specialSpent = daysUsed;
-                            // Do NOT deduct from vlBalance or slBalance
                         } else {
-                            // Default to vacation leave
                             vlSpent = daysUsed;
                             vlBalance -= daysUsed;
                             vlTotalSpent += daysUsed;
@@ -674,9 +711,9 @@
                         
                         htmlContent += `
                             <tr style="background: #fff8e1;">
-                                <td style="color: #8b4513;">
-                                    <strong>${periodDisplay}</strong><br>
-                                    <small style="color: #666;">${usage.leaveType || 'Leave'}</small>
+                                <td style="color: #c62828; font-weight: 600;">
+                                    ${periodDisplay}<br>
+                                    <small style="color: #666; font-weight: 400;">${usage.leaveType || 'Leave'}</small>
                                 </td>
                                 <td style="text-align: center;">-</td>
                                 <td style="text-align: center;">-</td>
@@ -696,12 +733,12 @@
                 htmlContent += `
                     <tr style="background: #e3f2fd; font-weight: 600;">
                         <td style="color: #1565c0;"><strong>${today}</strong><br><small>Current Balance</small></td>
-                        <td style="text-align: center;">${vlEarned.toFixed(3)}</td>
-                        <td style="text-align: center;">${slEarned.toFixed(3)}</td>
+                        <td style="text-align: center;">${(card.transactions && card.transactions.length > 0) ? '-' : vlEarned.toFixed(3)}</td>
+                        <td style="text-align: center;">${(card.transactions && card.transactions.length > 0) ? '-' : slEarned.toFixed(3)}</td>
                         <td style="text-align: center; color: #d32f2f;">${vlTotalSpent.toFixed(3)}</td>
                         <td style="text-align: center; color: #d32f2f;">${slTotalSpent.toFixed(3)}</td>
-                        <td style="text-align: center;">0.000</td>
-                        <td style="text-align: center;">0.000</td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">-</td>
                         <td style="text-align: center; color: #667eea; font-weight: 700; font-size: 14px;">${vlBalance.toFixed(3)}</td>
                         <td style="text-align: center; color: #667eea; font-weight: 700; font-size: 14px;">${slBalance.toFixed(3)}</td>
                         <td style="text-align: center; color: #1565c0; font-weight: 700; font-size: 14px;">${(vlBalance + slBalance).toFixed(3)}</td>
