@@ -322,10 +322,11 @@ function getClientIp(req) {
 const defaultsDir = path.join(__dirname, 'data', 'defaults');
 
 function ensureFile(filepath, defaultContent = '[]') {
+    const filename = path.basename(filepath);
+    const defaultFile = path.join(defaultsDir, filename);
+    
     if (!fs.existsSync(filepath)) {
-        // Try to seed from bundled defaults (useful for Railway Volume first deploy)
-        const filename = path.basename(filepath);
-        const defaultFile = path.join(defaultsDir, filename);
+        // File doesn't exist — seed from bundled defaults (useful for Railway Volume first deploy)
         if (fs.existsSync(defaultFile)) {
             const content = fs.readFileSync(defaultFile, 'utf8');
             fs.writeFileSync(filepath, content);
@@ -333,6 +334,22 @@ function ensureFile(filepath, defaultContent = '[]') {
         } else {
             fs.writeFileSync(filepath, defaultContent);
             console.log(`[DATA] Created empty ${filename}`);
+        }
+    } else {
+        // File exists — but if it's empty/just "[]" and defaults have real data, reseed
+        try {
+            const existing = fs.readFileSync(filepath, 'utf8').trim();
+            const existingData = JSON.parse(existing);
+            if (Array.isArray(existingData) && existingData.length === 0 && fs.existsSync(defaultFile)) {
+                const defaultContent = fs.readFileSync(defaultFile, 'utf8').trim();
+                const defaultData = JSON.parse(defaultContent);
+                if (Array.isArray(defaultData) && defaultData.length > 0) {
+                    fs.writeFileSync(filepath, defaultContent);
+                    console.log(`[DATA] Re-seeded empty ${filename} from defaults (${defaultData.length} records)`);
+                }
+            }
+        } catch (e) {
+            console.log(`[DATA] ${filename} exists, keeping as-is`);
         }
     }
 }
