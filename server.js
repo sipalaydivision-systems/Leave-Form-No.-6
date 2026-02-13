@@ -4099,6 +4099,8 @@ app.get('/api/system-status', (req, res) => {
         const users = readJSON(usersFile);
         const aoUsers = readJSON(aoUsersFile);
         const hrUsers = readJSON(hrUsersFile);
+        const leavecards = readJSON(leavecardsFile);
+        const ctoRecords = readJSON(path.join(dataDir, 'cto-records.json'));
         res.json({
             success: true,
             volumeMounted: !!process.env.RAILWAY_VOLUME_MOUNT_PATH,
@@ -4109,12 +4111,51 @@ app.get('/api/system-status', (req, res) => {
                 itUsers: itUsers.length,
                 users: users.length,
                 aoUsers: aoUsers.length,
-                hrUsers: hrUsers.length
+                hrUsers: hrUsers.length,
+                leavecards: leavecards.length,
+                ctoRecords: ctoRecords.length
             },
             itUserEmails: itUsers.map(u => u.email),
             timestamp: new Date().toISOString()
         });
     } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// One-time data upload endpoint (protected by secret key)
+app.post('/api/data/seed', express.json({limit: '50mb'}), (req, res) => {
+    try {
+        const { secretKey, dataType, data } = req.body;
+        
+        // Only allow with correct secret key
+        const SEED_KEY = process.env.DATA_SEED_KEY || 'sipalay-sdo-2026-seed';
+        if (secretKey !== SEED_KEY) {
+            return res.status(403).json({ success: false, error: 'Invalid secret key' });
+        }
+        
+        const fileMap = {
+            'users': usersFile,
+            'leavecards': leavecardsFile,
+            'cto-records': path.join(dataDir, 'cto-records.json'),
+            'so-records': path.join(dataDir, 'so-records.json'),
+            'employees': path.join(dataDir, 'employees.json')
+        };
+        
+        const targetFile = fileMap[dataType];
+        if (!targetFile) {
+            return res.status(400).json({ success: false, error: 'Invalid dataType. Use: ' + Object.keys(fileMap).join(', ') });
+        }
+        
+        fs.writeFileSync(targetFile, JSON.stringify(data, null, 2));
+        console.log(`[SEED] Wrote ${Array.isArray(data) ? data.length : 'N/A'} records to ${dataType}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Seeded ${dataType} with ${Array.isArray(data) ? data.length : 'N/A'} records` 
+        });
+    } catch (error) {
+        console.error('Seed error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
