@@ -3448,7 +3448,7 @@ app.get('/api/cto-records', (req, res) => {
 // Add/Update CTO record
 app.post('/api/update-cto-records', (req, res) => {
     try {
-        const { employeeId, type, soDetails, daysGranted, daysUsed, periodCovered } = req.body;
+        const { employeeId, type, soDetails, daysGranted, daysUsed, periodCovered, soImage } = req.body;
         
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
@@ -3467,6 +3467,7 @@ app.post('/api/update-cto-records', (req, res) => {
             daysGranted: Number(daysGranted) || 0,
             daysUsed: Number(daysUsed) || 0,
             balance: 0,
+            soImage: soImage || '',
             createdAt: new Date().toISOString()
         };
 

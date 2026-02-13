@@ -518,11 +518,12 @@
                                 <th style="background: #f8f0e1; color: #333;">No. of Days Granted</th>
                                 <th style="background: #e8e1f8; color: #333;">No. of Days Used</th>
                                 <th style="background: #e1f0f8; color: #333;">Balance</th>
+                                <th style="background: #e1f8e8; color: #333; width: 60px;">View</th>
                             </tr>
                         </thead>
                         <tbody id="ctoHistoryBody">
                             <tr>
-                                <td colspan="5" class="loading">Loading CTO card data...</td>
+                                <td colspan="6" class="loading">Loading CTO card data...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -574,6 +575,17 @@
                         <div class="form-group">
                             <label>No. of Days Used</label>
                             <input type="number" id="edit_cto_used" step="0.5" placeholder="Enter days used">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>📎 Upload Special Order Image (optional)</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="file" id="edit_cto_so_image" accept="image/*" onchange="previewCTOSOImage(this)" style="font-size: 12px;">
+                                <span id="ctoSOImageName" style="font-size: 11px; color: #666;"></span>
+                                <button type="button" id="ctoSORemoveBtn" style="display: none; background: #fee; border: 1px solid #c99; border-radius: 4px; padding: 4px 10px; font-size: 11px; color: #c33; cursor: pointer;" onclick="removeCTOSOImage()">✕ Remove</button>
+                            </div>
+                            <img id="ctoSOImagePreview" style="display: none; margin-top: 8px; max-width: 200px; max-height: 120px; border: 1px solid #ddd; border-radius: 5px;">
                         </div>
                     </div>
                     <div class="action-buttons">
@@ -828,12 +840,13 @@
                 const data = await response.json();
 
                 const tbody = document.getElementById('ctoHistoryBody');
+                window._ctoSOImages = [];
 
                 if (data.success && data.records && data.records.length > 0) {
                     let html = '';
                     let runningBalance = 0;
                     
-                    data.records.forEach(cto => {
+                    data.records.forEach((cto, idx) => {
                         const type = (cto.type || 'ADD').toUpperCase();
                         const periodCovered = cto.periodCovered || '-';
                         const soDetails = cto.soDetails || cto.soNumber || 'N/A';
@@ -847,6 +860,11 @@
                         }
                         
                         const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
+                        const soImageData = cto.soImage || '';
+                        window._ctoSOImages[idx] = soImageData;
+                        const viewBtn = soImageData
+                            ? `<button onclick="viewSOImage(${idx})" style="padding: 3px 10px; font-size: 11px; background: #e8f0fe; border: 1px solid #4285f4; border-radius: 4px; color: #1a73e8; cursor: pointer; white-space: nowrap;">🔍 View</button>`
+                            : `<span style="color: #ccc; font-size: 11px;">—</span>`;
                         
                         html += `
                             <tr>
@@ -855,6 +873,7 @@
                                 <td style="text-align: center;">${type === 'ADD' ? granted : ''}</td>
                                 <td style="text-align: center;">${type === 'LESS' ? used : ''}</td>
                                 <td class="balance" style="text-align: center;">${runningBalance}</td>
+                                <td style="text-align: center;">${viewBtn}</td>
                             </tr>
                         `;
                     });
@@ -862,7 +881,7 @@
                 } else {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" style="padding: 40px; text-align: center;">
+                            <td colspan="6" style="padding: 40px; text-align: center;">
                                 <div style="font-size: 48px; margin-bottom: 15px;">📑</div>
                                 <p style="font-weight: 600; color: #333; margin-bottom: 5px;">No CTO Records</p>
                                 <p style="color: #999; font-size: 12px;">No CTO records found for this employee.</p>
@@ -873,7 +892,7 @@
             } catch (error) {
                 console.error('Error loading CTO card:', error);
                 document.getElementById('ctoHistoryBody').innerHTML = `
-                    <tr><td colspan="5" style="color: #d32f2f;">Error loading CTO card data</td></tr>
+                    <tr><td colspan="6" style="color: #d32f2f;">Error loading CTO card data</td></tr>
                 `;
             }
         }
@@ -1058,6 +1077,40 @@
             }
         }
 
+        let ctoSOImageBase64 = '';
+
+        function previewCTOSOImage(input) {
+            const preview = document.getElementById('ctoSOImagePreview');
+            const nameSpan = document.getElementById('ctoSOImageName');
+            const removeBtn = document.getElementById('ctoSORemoveBtn');
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Image must be under 5MB');
+                    input.value = '';
+                    return;
+                }
+                nameSpan.textContent = file.name;
+                removeBtn.style.display = 'inline-block';
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    ctoSOImageBase64 = e.target.result;
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeCTOSOImage() {
+            ctoSOImageBase64 = '';
+            document.getElementById('edit_cto_so_image').value = '';
+            document.getElementById('ctoSOImageName').textContent = '';
+            document.getElementById('ctoSORemoveBtn').style.display = 'none';
+            document.getElementById('ctoSOImagePreview').style.display = 'none';
+            document.getElementById('ctoSOImagePreview').src = '';
+        }
+
         async function saveCTORecord() {
             try {
                 const ctoData = {
@@ -1066,7 +1119,8 @@
                     periodCovered: document.getElementById('edit_cto_period').value,
                     soDetails: document.getElementById('edit_cto_so_details').value,
                     daysGranted: parseFloat(document.getElementById('edit_cto_granted').value) || 0,
-                    daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0
+                    daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0,
+                    soImage: ctoSOImageBase64
                 };
 
                 const response = await fetch('/api/update-cto-records', {
@@ -1086,6 +1140,7 @@
                     document.getElementById('edit_cto_so_details').value = '';
                     document.getElementById('edit_cto_granted').value = '';
                     document.getElementById('edit_cto_used').value = '';
+                    removeCTOSOImage();
                 } else {
                     alert('Error: ' + (result.error || 'Failed to save CTO record'));
                 }
@@ -1116,6 +1171,32 @@
             );
             printWindow.document.close();
             printWindow.print();
+        }
+
+        // ========== SO Image Viewer ==========
+        function viewSOImage(index) {
+            const imgData = window._ctoSOImages && window._ctoSOImages[index];
+            if (!imgData) { alert('No image available'); return; }
+            let modal = document.getElementById('soImageModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'soImageModal';
+                modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; justify-content:center; align-items:center;';
+                modal.innerHTML = `
+                    <div style="position:relative; max-width:90vw; max-height:90vh; background:white; border-radius:10px; padding:10px; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                        <button onclick="closeSOImageModal()" style="position:absolute; top:-12px; right:-12px; width:32px; height:32px; border-radius:50%; border:none; background:#d32f2f; color:white; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.3);">✕</button>
+                        <img id="soImageModalImg" style="max-width:85vw; max-height:85vh; border-radius:6px; display:block;">
+                    </div>
+                `;
+                modal.addEventListener('click', function(e) { if (e.target === modal) closeSOImageModal(); });
+                document.body.appendChild(modal);
+            }
+            document.getElementById('soImageModalImg').src = imgData;
+            modal.style.display = 'flex';
+        }
+        function closeSOImageModal() {
+            const modal = document.getElementById('soImageModal');
+            if (modal) modal.style.display = 'none';
         }
     </script>
     <script src="/pwa.js"></script>
