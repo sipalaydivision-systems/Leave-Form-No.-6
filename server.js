@@ -236,7 +236,6 @@ const asdsUsersFile = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile = path.join(dataDir, 'sds-users.json');
 const itUsersFile = path.join(dataDir, 'it-users.json');
 const pendingRegistrationsFile = path.join(dataDir, 'pending-registrations.json');
-const soRecordsFile = path.join(dataDir, 'so-records.json');
 const ctoRecordsFile = path.join(dataDir, 'cto-records.json');
 const schoolsFile = path.join(dataDir, 'schools.json');
 const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
@@ -364,7 +363,6 @@ ensureFile(asdsUsersFile);
 ensureFile(sdsUsersFile);
 ensureFile(itUsersFile);
 ensureFile(pendingRegistrationsFile);
-ensureFile(soRecordsFile);
 
 // Helper functions
 function readJSON(filepath) {
@@ -1988,7 +1986,6 @@ app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
             'sdsUsers': sdsUsersFile,
             'applications': applicationsFile,
             'leavecards': leavecardsFile,
-            'soRecords': soRecordsFile,
             'pendingRegistrations': pendingRegistrationsFile,
             'schools': schoolsFile
         };
@@ -2024,8 +2021,6 @@ app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
                 displayName = `${item.applicationId || item.id || 'N/A'} - ${item.employeeName || item.name || 'N/A'} (${item.leaveType || 'N/A'})`;
             } else if (category === 'leavecards') {
                 displayName = `${item.email || item.employeeId || 'N/A'} - VL: ${item.vl ?? 'N/A'}, SL: ${item.sl ?? 'N/A'}`;
-            } else if (category === 'soRecords') {
-                displayName = `${item.soNumber || 'N/A'} - ${item.soName || 'N/A'}`;
             } else if (category === 'pendingRegistrations') {
                 displayName = `${item.fullName || item.name || 'N/A'} (${item.email || 'N/A'}) [${item.status || 'N/A'}]`;
             } else {
@@ -2059,7 +2054,6 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
             'sdsUsers': sdsUsersFile,
             'applications': applicationsFile,
             'leavecards': leavecardsFile,
-            'soRecords': soRecordsFile,
             'pendingRegistrations': pendingRegistrationsFile,
             'schools': schoolsFile
         };
@@ -2134,7 +2128,6 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
             deleteSDSUsers: sdsUsersFile,
             deleteApplications: applicationsFile,
             deleteLeavecards: leavecardsFile,
-            deleteSORecords: soRecordsFile,
             deletePendingRegistrations: pendingRegistrationsFile,
             deleteSchools: schoolsFile
         };
@@ -2200,7 +2193,6 @@ app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
             sdsUsersFile,               // SDS users
             applicationsFile,           // Leave applications
             leavecardsFile,             // Leave cards
-            soRecordsFile,              // SO records
             pendingRegistrationsFile,   // Pending registrations
             schoolsFile                 // Schools data
         ];
@@ -2818,23 +2810,6 @@ app.get('/api/employee-leavecard', (req, res) => {
     }
 });
 
-// Get SO records for an employee
-app.get('/api/so-records', (req, res) => {
-    try {
-        const employeeId = req.query.employeeId;
-        if (!employeeId) {
-            return res.status(400).json({ success: false, error: 'Employee ID is required' });
-        }
-        
-        const soRecords = readJSON(soRecordsFile);
-        const records = soRecords.filter(so => so.employeeId === employeeId || so.email === employeeId);
-        
-        res.json({ success: true, records });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 // Get returned applications for employee to resubmit
 app.get('/api/returned-applications/:email', (req, res) => {
     try {
@@ -3080,50 +3055,6 @@ app.post('/api/update-leave-credits', (req, res) => {
         });
     } catch (error) {
         console.error('[UPDATE LEAVE] Error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Update SO records for an employee
-app.post('/api/update-so-records', (req, res) => {
-    try {
-        const { employeeId, soNumber, soName, daysGranted, daysUsed, periodFrom, periodTo, periodCovered } = req.body;
-        let soRecords = readJSON(soRecordsFile);
-        
-        const newSORecord = {
-            id: Date.now().toString(),
-            employeeId: employeeId,
-            email: employeeId,
-            soNumber: soNumber,
-            soName: soName,
-            daysGranted: daysGranted || 0,
-            daysUsed: daysUsed || 0,
-            periodFrom: periodFrom || periodCovered || new Date().toISOString(),
-            periodTo: periodTo || '',
-            periodCovered: periodCovered || periodFrom || new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-        
-        // Check if this SO record already exists and update, or add new
-        const existingIndex = soRecords.findIndex(so => so.employeeId === employeeId && so.soNumber === soNumber);
-        if (existingIndex >= 0) {
-            soRecords[existingIndex] = { ...soRecords[existingIndex], ...newSORecord, id: soRecords[existingIndex].id };
-        } else {
-            soRecords.push(newSORecord);
-        }
-        
-        writeJSON(soRecordsFile, soRecords);
-        
-        console.log(`[SO RECORDS] Updated for ${employeeId} - SO: ${soNumber}, Days Granted: ${daysGranted}, Days Used: ${daysUsed}`);
-        
-        res.json({ 
-            success: true, 
-            message: 'SO records updated successfully',
-            soRecord: newSORecord
-        });
-    } catch (error) {
-        console.error('Error updating SO records:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -3495,92 +3426,6 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
 
 // ========== LEAVE CARD ENDPOINTS ==========
 
-// Get SO records for employee (duplicate removed - primary is at line ~2107)
-// Get leave credits for employee
-app.get('/api/so-records-alt', (req, res) => {
-    try {
-        const employeeId = req.query.employeeId;
-        
-        if (!employeeId) {
-            return res.status(400).json({ success: false, error: 'Employee ID is required' });
-        }
-
-        let soRecords = readJSON(soRecordsFile);
-        let records = soRecords.filter(r => String(r.employeeId) === String(employeeId));
-
-        res.json({ 
-            success: true, 
-            records: records || []
-        });
-    } catch (error) {
-        console.error('Error fetching SO records:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Add SO record (for HR/Admin)
-app.post('/api/so-records', (req, res) => {
-    try {
-        const { employeeId, soNumber, soName, daysGranted, periodCovered } = req.body;
-
-        if (!employeeId || !soNumber || !soName || !daysGranted) {
-            return res.status(400).json({ success: false, error: 'All fields are required' });
-        }
-
-        let soRecords = readJSON(soRecordsFile);
-        
-        const newRecord = {
-            id: Date.now(),
-            employeeId,
-            soNumber,
-            soName,
-            daysGranted: Number(daysGranted),
-            daysUsed: 0,
-            periodCovered: periodCovered || new Date().toISOString().split('T')[0],
-            createdAt: new Date().toISOString()
-        };
-
-        soRecords.push(newRecord);
-        writeJSON(soRecordsFile, soRecords);
-
-        res.json({ 
-            success: true, 
-            message: 'Special Order record added successfully',
-            record: newRecord
-        });
-    } catch (error) {
-        console.error('Error adding SO record:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Update SO record (deduct days used)
-app.put('/api/so-records/:recordId', (req, res) => {
-    try {
-        const recordId = req.params.recordId;
-        const { daysUsed } = req.body;
-
-        let soRecords = readJSON(soRecordsFile);
-        const index = soRecords.findIndex(r => r.id == recordId);
-
-        if (index === -1) {
-            return res.status(404).json({ success: false, error: 'Record not found' });
-        }
-
-        soRecords[index].daysUsed = (soRecords[index].daysUsed || 0) + Number(daysUsed);
-        writeJSON(soRecordsFile, soRecords);
-
-        res.json({ 
-            success: true, 
-            message: 'SO record updated successfully',
-            record: soRecords[index]
-        });
-    } catch (error) {
-        console.error('Error updating SO record:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 // ========== CTO RECORDS API ==========
 // Get CTO records for an employee
 app.get('/api/cto-records', (req, res) => {
@@ -3603,10 +3448,10 @@ app.get('/api/cto-records', (req, res) => {
 // Add/Update CTO record
 app.post('/api/update-cto-records', (req, res) => {
     try {
-        const { employeeId, ctoNumber, ctoName, daysGranted, daysUsed, periodFrom, periodTo, periodCovered } = req.body;
+        const { employeeId, type, soDetails, daysGranted, daysUsed, periodCovered } = req.body;
         
-        if (!employeeId || !ctoNumber) {
-            return res.status(400).json({ success: false, error: 'Employee ID and CTO Number are required' });
+        if (!employeeId) {
+            return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
 
         ensureFile(ctoRecordsFile);
@@ -3615,27 +3460,21 @@ app.post('/api/update-cto-records', (req, res) => {
         const newRecord = {
             id: Date.now().toString(),
             employeeId,
-            ctoNumber,
-            ctoName: ctoName || '',
+            email: employeeId,
+            type: type || 'ADD',
+            soDetails: soDetails || '',
+            periodCovered: periodCovered || new Date().toISOString(),
             daysGranted: Number(daysGranted) || 0,
             daysUsed: Number(daysUsed) || 0,
-            periodFrom: periodFrom || periodCovered || new Date().toISOString(),
-            periodTo: periodTo || '',
-            periodCovered: periodCovered || periodFrom || new Date().toISOString(),
+            balance: 0,
             createdAt: new Date().toISOString()
         };
 
-        // Check if this CTO record already exists and update, or add new
-        const existingIndex = ctoRecords.findIndex(cto => cto.employeeId === employeeId && cto.ctoNumber === ctoNumber);
-        if (existingIndex >= 0) {
-            ctoRecords[existingIndex] = { ...ctoRecords[existingIndex], ...newRecord, id: ctoRecords[existingIndex].id };
-        } else {
-            ctoRecords.push(newRecord);
-        }
+        ctoRecords.push(newRecord);
         
         writeJSON(ctoRecordsFile, ctoRecords);
 
-        console.log(`[CTO RECORDS] Updated for ${employeeId} - CTO: ${ctoNumber}, Days Granted: ${daysGranted}, Days Used: ${daysUsed}`);
+        console.log(`[CTO RECORDS] Added for ${employeeId} - Type: ${type}, SO: ${soDetails}, Days Granted: ${daysGranted}, Days Used: ${daysUsed}`);
 
         res.json({ 
             success: true, 
@@ -3858,7 +3697,7 @@ if (!fs.existsSync(backupDir)) {
 const DATA_FILES = [
     'users.json', 'employees.json', 'applications.json', 'leavecards.json',
     'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json',
-    'it-users.json', 'pending-registrations.json', 'so-records.json',
+    'it-users.json', 'pending-registrations.json',
     'cto-records.json', 'schools.json', 'initial-credits.json',
     'activity-logs.json', 'applications.backup.json'
 ];
@@ -4138,7 +3977,6 @@ app.post('/api/data/seed', express.json({limit: '50mb'}), (req, res) => {
             'users': usersFile,
             'leavecards': leavecardsFile,
             'cto-records': path.join(dataDir, 'cto-records.json'),
-            'so-records': path.join(dataDir, 'so-records.json'),
             'employees': path.join(dataDir, 'employees.json')
         };
         

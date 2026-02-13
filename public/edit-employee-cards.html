@@ -376,7 +376,7 @@
         <div class="header">
             <div>
                 <h1>📋 Edit Employee Cards</h1>
-                <p>Manage Leave Card, SO Card, and CTO Card</p>
+                <p>Manage Leave Card and CTO Card</p>
             </div>
             <a href="/ao-dashboard.html" class="back-btn">← Return to Dashboard</a>
         </div>
@@ -390,7 +390,6 @@
 
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('leave')">📋 Leave Card</button>
-            <button class="tab-btn" onclick="switchTab('so')">📄 SO Card</button>
             <button class="tab-btn" onclick="switchTab('cto')">📑 CTO Card</button>
         </div>
 
@@ -498,116 +497,6 @@
             </div>
         </div>
 
-        <!-- SO Card Tab -->
-        <div id="soTab" class="tab-content">
-            <div class="card-section">
-                <div class="card-header">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Seal_of_the_Department_of_Education_of_the_Philippines.png/1200px-Seal_of_the_Department_of_Education_of_the_Philippines.png" alt="DepEd Logo">
-                    <p style="color: #667eea;">Republic of the Philippines</p>
-                    <p style="font-weight: 600;">Department of Education</p>
-                    <p style="color: #667eea; font-size: 11px;">REGION VI-WESTERN VISAYAS</p>
-                    <p style="font-weight: 600; font-size: 13px;">SCHOOLS DIVISION OF SIPALAY CITY</p>
-                    <h2 style="margin-top: 20px;">SPECIAL ORDER (SO) CARD</h2>
-                </div>
-
-                <div class="employee-details">
-                    <div class="details-row">
-                        <div class="detail-item">
-                            <label>Name:</label>
-                            <div class="value" id="soEmpName">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>EMP. NO.:</label>
-                            <div class="value" id="soEmpNo">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>Position:</label>
-                            <div class="value" id="soEmpPosition">-</div>
-                        </div>
-                    </div>
-                    <div class="details-row" style="grid-template-columns: 1.5fr 1fr;">
-                        <div class="detail-item">
-                            <label>School/Office:</label>
-                            <div class="value" id="soEmpOffice">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>Station:</label>
-                            <div class="value" id="soEmpStation">-</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="history-section">
-                    <h3>Special Order Records</h3>
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th style="background: #f8e1e1; color: #8b4513;">PERIOD COVERED</th>
-                                <th style="background: #e1e8f8; color: #333;">SPECIAL ORDER NO.</th>
-                                <th style="background: #e1f0e8; color: #333;">SO DESCRIPTION/NAME</th>
-                                <th style="background: #f8f0e1; color: #333;">DAYS GRANTED</th>
-                                <th style="background: #e8e1f8; color: #333;">DAYS USED</th>
-                                <th style="background: #e1f0f8; color: #333;">BALANCE</th>
-                                <th style="background: #f0e8f8; color: #333;">TOTAL</th>
-                            </tr>
-                        </thead>
-                        <tbody id="soHistoryBody">
-                            <tr>
-                                <td colspan="7" class="loading">Loading SO card data...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="printSOCard()">🖨️ Print SO Card</button>
-                    <button class="btn btn-success" onclick="toggleEditForm('so')">➕ Add SO Record</button>
-                </div>
-
-                <div style="text-align: right; color: #8b4513; font-size: 12px; font-style: italic; margin-top: 15px;">
-                    Total SO Credits Used: <span id="totalSOCreditsUsed">0</span> days
-                </div>
-
-                <div class="edit-form" id="soEditForm">
-                    <h3 style="margin-bottom: 20px; color: #333;">Add/Edit SO Record</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Special Order Number</label>
-                            <input type="text" id="edit_so_number" placeholder="e.g., SO-2026-001">
-                        </div>
-                        <div class="form-group">
-                            <label>SO Description/Name</label>
-                            <input type="text" id="edit_so_name" placeholder="e.g., National Conference">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Period Covered (From)</label>
-                            <input type="date" id="edit_so_period_from">
-                        </div>
-                        <div class="form-group">
-                            <label>Period Covered (To)</label>
-                            <input type="date" id="edit_so_period_to">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Days Granted</label>
-                            <input type="number" id="edit_so_granted" step="0.5" placeholder="Enter days granted">
-                        </div>
-                        <div class="form-group">
-                            <label>Days Used</label>
-                            <input type="number" id="edit_so_used" step="0.5" placeholder="Enter days used">
-                        </div>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="btn btn-success" onclick="saveSORecord()">💾 Save SO Record</button>
-                        <button class="btn btn-secondary" onclick="toggleEditForm('so')">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- CTO Card Tab -->
         <div id="ctoTab" class="tab-content">
             <div class="card-section">
@@ -653,20 +542,30 @@
                         <thead>
                             <tr>
                                 <th style="background: #f8e1e1; color: #8b4513;">PERIOD COVERED</th>
-                                <th style="background: #e1e8f8; color: #333;">CTO NUMBER</th>
-                                <th style="background: #e1f0e8; color: #333;">CTO DESCRIPTION/NAME</th>
-                                <th style="background: #f8f0e1; color: #333;">DAYS GRANTED</th>
-                                <th style="background: #e8e1f8; color: #333;">DAYS USED</th>
-                                <th style="background: #e1f0f8; color: #333;">BALANCE</th>
-                                <th style="background: #f0e8f8; color: #333;">TOTAL</th>
+                                <th style="background: #e1e8f8; color: #333;">Special Order No. and Date Issued</th>
+                                <th style="background: #f8f0e1; color: #333;">No. of Days Granted</th>
+                                <th style="background: #e8e1f8; color: #333;">No. of Days Used</th>
+                                <th style="background: #e1f0f8; color: #333;">Balance</th>
                             </tr>
                         </thead>
                         <tbody id="ctoHistoryBody">
                             <tr>
-                                <td colspan="7" class="loading">Loading CTO card data...</td>
+                                <td colspan="5" class="loading">Loading CTO card data...</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div style="margin-top: 15px; padding: 10px; background: #fff8e1; border: 1px solid #f0e0a0; border-radius: 5px;">
+                    <p style="font-size: 11px; color: #8b4513; font-style: italic; margin: 0;"><strong>NOTE:</strong> Valid for one (1) year only</p>
+                </div>
+
+                <div style="margin-top: 25px; text-align: center;">
+                    <p style="font-size: 11px; color: #333; margin-bottom: 5px;">Certified Correct:</p>
+                    <div style="margin-top: 30px; border-top: 1px solid #333; display: inline-block; padding-top: 5px; min-width: 250px;">
+                        <p style="font-size: 12px; font-weight: 600; margin: 0;">MA. LUISA B. CATIGAN</p>
+                        <p style="font-size: 10px; color: #666; margin: 0;">Administrative Officer IV, HRMO</p>
+                    </div>
                 </div>
 
                 <div class="action-buttons">
@@ -674,39 +573,34 @@
                     <button class="btn btn-success" onclick="toggleEditForm('cto')">➕ Add CTO Record</button>
                 </div>
 
-                <div style="text-align: right; color: #8b4513; font-size: 12px; font-style: italic; margin-top: 15px;">
-                    Total CTO Credits Used: <span id="totalCTOCreditsUsed">0</span> days
-                </div>
-
                 <div class="edit-form" id="ctoEditForm">
                     <h3 style="margin-bottom: 20px; color: #333;">Add/Edit CTO Record</h3>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>CTO Number</label>
-                            <input type="text" id="edit_cto_number" placeholder="e.g., CTO-2026-001">
+                            <label>Type</label>
+                            <select id="edit_cto_type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                                <option value="ADD">ADD (Earned)</option>
+                                <option value="LESS">LESS (Used)</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>CTO Description/Name</label>
-                            <input type="text" id="edit_cto_name" placeholder="e.g., Weekend Duty">
+                            <label>Period Covered</label>
+                            <input type="text" id="edit_cto_period" placeholder="e.g., JULY 13, 2022">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>Special Order No. and Date Issued</label>
+                            <input type="text" id="edit_cto_so_details" placeholder="e.g., S.O. # 052, S. 2022. 124TH PHILIPPINE INDEPENDENCE DAY CELEBRATION">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Period Covered (From)</label>
-                            <input type="date" id="edit_cto_period_from">
-                        </div>
-                        <div class="form-group">
-                            <label>Period Covered (To)</label>
-                            <input type="date" id="edit_cto_period_to">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Days Granted</label>
+                            <label>No. of Days Granted</label>
                             <input type="number" id="edit_cto_granted" step="0.5" placeholder="Enter days granted">
                         </div>
                         <div class="form-group">
-                            <label>Days Used</label>
+                            <label>No. of Days Used</label>
                             <input type="number" id="edit_cto_used" step="0.5" placeholder="Enter days used">
                         </div>
                     </div>
@@ -743,7 +637,6 @@
             }
             loadEmployeeData();
             loadLeaveCardData();
-            loadSOCardData();
             loadCTOCardData();
         });
 
@@ -784,13 +677,6 @@
                         document.getElementById('leaveEmpNo').textContent = empNo;
                         document.getElementById('leaveEmpPosition').textContent = position;
                         document.getElementById('leaveEmpStation').textContent = '-';
-
-                        // Update SO card employee details
-                        document.getElementById('soEmpName').textContent = name;
-                        document.getElementById('soEmpNo').textContent = empNo;
-                        document.getElementById('soEmpPosition').textContent = position;
-                        document.getElementById('soEmpOffice').textContent = office;
-                        document.getElementById('soEmpStation').textContent = '-';
 
                         // Update CTO card employee details
                         document.getElementById('ctoEmpName').textContent = name;
@@ -934,93 +820,39 @@
             }
         }
 
-        async function loadSOCardData() {
-            try {
-                const response = await fetch(`/api/so-records?employeeId=${employeeEmail}`);
-                const data = await response.json();
-
-                const tbody = document.getElementById('soHistoryBody');
-                let totalUsed = 0;
-
-                if (data.success && data.records && data.records.length > 0) {
-                    let html = '';
-                    let runningTotal = 0;
-                    
-                    data.records.forEach(so => {
-                        const periodFrom = so.periodFrom ? new Date(so.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
-                        const periodTo = so.periodTo ? new Date(so.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
-                        const periodDisplay = periodTo ? `${periodFrom} - ${periodTo}` : periodFrom;
-                        const granted = parseFloat(so.daysGranted) || 0;
-                        const used = parseFloat(so.daysUsed) || 0;
-                        const balance = granted - used;
-                        runningTotal += balance;
-                        totalUsed += used;
-                        
-                        html += `
-                            <tr>
-                                <td style="color: #8b4513;">${periodDisplay}</td>
-                                <td><strong>${so.soNumber || 'N/A'}</strong></td>
-                                <td style="text-align: left; padding-left: 15px;">${so.soName || 'N/A'}</td>
-                                <td>${granted}</td>
-                                <td>${used}</td>
-                                <td class="balance">${balance}</td>
-                                <td class="balance">${runningTotal}</td>
-                            </tr>
-                        `;
-                    });
-                    tbody.innerHTML = html;
-                } else {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="7" style="padding: 40px; text-align: center;">
-                                <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
-                                <p style="font-weight: 600; color: #333; margin-bottom: 5px;">No Special Order Records</p>
-                                <p style="color: #999; font-size: 12px;">You don't have any special order records yet.</p>
-                            </td>
-                        </tr>
-                    `;
-                }
-
-                document.getElementById('totalSOCreditsUsed').textContent = totalUsed;
-            } catch (error) {
-                console.error('Error loading SO card:', error);
-                document.getElementById('soHistoryBody').innerHTML = `
-                    <tr><td colspan="7" style="color: #d32f2f;">Error loading SO card data</td></tr>
-                `;
-            }
-        }
-
         async function loadCTOCardData() {
             try {
                 const response = await fetch(`/api/cto-records?employeeId=${employeeEmail}`);
                 const data = await response.json();
 
                 const tbody = document.getElementById('ctoHistoryBody');
-                let totalUsed = 0;
 
                 if (data.success && data.records && data.records.length > 0) {
                     let html = '';
-                    let runningTotal = 0;
+                    let runningBalance = 0;
                     
                     data.records.forEach(cto => {
-                        const periodFrom = cto.periodFrom ? new Date(cto.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
-                        const periodTo = cto.periodTo ? new Date(cto.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
-                        const periodDisplay = periodTo ? `${periodFrom} - ${periodTo}` : periodFrom;
+                        const type = (cto.type || 'ADD').toUpperCase();
+                        const periodCovered = cto.periodCovered || '-';
+                        const soDetails = cto.soDetails || cto.soNumber || 'N/A';
                         const granted = parseFloat(cto.daysGranted) || 0;
                         const used = parseFloat(cto.daysUsed) || 0;
-                        const balance = granted - used;
-                        runningTotal += balance;
-                        totalUsed += used;
+                        
+                        if (type === 'ADD') {
+                            runningBalance += granted;
+                        } else {
+                            runningBalance -= used;
+                        }
+                        
+                        const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
                         
                         html += `
                             <tr>
-                                <td style="color: #8b4513;">${periodDisplay}</td>
-                                <td><strong>${cto.ctoNumber || 'N/A'}</strong></td>
-                                <td style="text-align: left; padding-left: 15px;">${cto.ctoName || 'N/A'}</td>
-                                <td>${granted}</td>
-                                <td>${used}</td>
-                                <td class="balance">${balance}</td>
-                                <td class="balance">${runningTotal}</td>
+                                <td style="color: ${type === 'ADD' ? '#2e7d32' : '#c62828'}; font-weight: 600; text-align: left; padding-left: 10px;">${periodDisplay}</td>
+                                <td style="text-align: left; padding-left: 10px; font-size: 11px;">${soDetails}</td>
+                                <td style="text-align: center;">${type === 'ADD' ? granted : ''}</td>
+                                <td style="text-align: center;">${type === 'LESS' ? used : ''}</td>
+                                <td class="balance" style="text-align: center;">${runningBalance}</td>
                             </tr>
                         `;
                     });
@@ -1028,20 +860,18 @@
                 } else {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="7" style="padding: 40px; text-align: center;">
+                            <td colspan="5" style="padding: 40px; text-align: center;">
                                 <div style="font-size: 48px; margin-bottom: 15px;">📑</div>
                                 <p style="font-weight: 600; color: #333; margin-bottom: 5px;">No CTO Records</p>
-                                <p style="color: #999; font-size: 12px;">You don't have any CTO records yet.</p>
+                                <p style="color: #999; font-size: 12px;">No CTO records found for this employee.</p>
                             </td>
                         </tr>
                     `;
                 }
-
-                document.getElementById('totalCTOCreditsUsed').textContent = totalUsed;
             } catch (error) {
                 console.error('Error loading CTO card:', error);
                 document.getElementById('ctoHistoryBody').innerHTML = `
-                    <tr><td colspan="7" style="color: #d32f2f;">Error loading CTO card data</td></tr>
+                    <tr><td colspan="5" style="color: #d32f2f;">Error loading CTO card data</td></tr>
                 `;
             }
         }
@@ -1080,54 +910,15 @@
             }
         }
 
-        async function saveSORecord() {
-            try {
-                const soData = {
-                    employeeId: employeeEmail,
-                    soNumber: document.getElementById('edit_so_number').value,
-                    soName: document.getElementById('edit_so_name').value,
-                    daysGranted: parseFloat(document.getElementById('edit_so_granted').value) || 0,
-                    daysUsed: parseFloat(document.getElementById('edit_so_used').value) || 0,
-                    periodFrom: document.getElementById('edit_so_period_from').value || new Date().toISOString(),
-                    periodTo: document.getElementById('edit_so_period_to').value || ''
-                };
-
-                const response = await fetch('/api/update-so-records', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(soData)
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    alert('SO record saved successfully!');
-                    toggleEditForm('so');
-                    loadSOCardData();
-                    // Clear form
-                    document.getElementById('edit_so_number').value = '';
-                    document.getElementById('edit_so_name').value = '';
-                    document.getElementById('edit_so_granted').value = '';
-                    document.getElementById('edit_so_used').value = '';
-                    document.getElementById('edit_so_period_from').value = '';
-                    document.getElementById('edit_so_period_to').value = '';
-                } else {
-                    alert('Error: ' + (result.error || 'Failed to save SO record'));
-                }
-            } catch (error) {
-                alert('Error saving SO record: ' + error.message);
-            }
-        }
-
         async function saveCTORecord() {
             try {
                 const ctoData = {
                     employeeId: employeeEmail,
-                    ctoNumber: document.getElementById('edit_cto_number').value,
-                    ctoName: document.getElementById('edit_cto_name').value,
+                    type: document.getElementById('edit_cto_type').value,
+                    periodCovered: document.getElementById('edit_cto_period').value,
+                    soDetails: document.getElementById('edit_cto_so_details').value,
                     daysGranted: parseFloat(document.getElementById('edit_cto_granted').value) || 0,
-                    daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0,
-                    periodFrom: document.getElementById('edit_cto_period_from').value || new Date().toISOString(),
-                    periodTo: document.getElementById('edit_cto_period_to').value || ''
+                    daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0
                 };
 
                 const response = await fetch('/api/update-cto-records', {
@@ -1142,12 +933,11 @@
                     toggleEditForm('cto');
                     loadCTOCardData();
                     // Clear form
-                    document.getElementById('edit_cto_number').value = '';
-                    document.getElementById('edit_cto_name').value = '';
+                    document.getElementById('edit_cto_type').value = 'ADD';
+                    document.getElementById('edit_cto_period').value = '';
+                    document.getElementById('edit_cto_so_details').value = '';
                     document.getElementById('edit_cto_granted').value = '';
                     document.getElementById('edit_cto_used').value = '';
-                    document.getElementById('edit_cto_period_from').value = '';
-                    document.getElementById('edit_cto_period_to').value = '';
                 } else {
                     alert('Error: ' + (result.error || 'Failed to save CTO record'));
                 }
@@ -1161,18 +951,6 @@
             const printWindow = window.open('', '', 'height=600,width=900');
             printWindow.document.write(
                 '<!DOCTYPE html><html><head><title>Service Leave Card</title>' +
-                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form{display:none;}</style>' +
-                '</head><body>' + printContent + '</body></html>'
-            );
-            printWindow.document.close();
-            printWindow.print();
-        }
-
-        function printSOCard() {
-            const printContent = document.getElementById('soTab').innerHTML;
-            const printWindow = window.open('', '', 'height=600,width=900');
-            printWindow.document.write(
-                '<!DOCTYPE html><html><head><title>SO Card</title>' +
                 '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form{display:none;}</style>' +
                 '</head><body>' + printContent + '</body></html>'
             );

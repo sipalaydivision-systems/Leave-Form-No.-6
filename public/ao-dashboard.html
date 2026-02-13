@@ -724,7 +724,7 @@
                     <input type="text" id="actionApplicant" disabled>
                 </div>
 
-                <!-- Tab buttons for Leave Card, SO Card, and CTO Card -->
+                <!-- Tab buttons for Leave Card and CTO Card -->
                 <div style="margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; display: flex; gap: 10px;">
                     <button class="btn-small" style="background: none; border: none; padding: 10px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;" id="tabLeaveCard" onclick="switchCardTab('leave')">📋 Leave Card</button>
                     <button class="btn-small" style="background: none; border: none; padding: 10px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: #666;" id="tabCTOCard" onclick="switchCardTab('cto')">📑 CTO Card</button>
@@ -1623,7 +1623,7 @@
             }
         }
 
-        // Leave Card and SO Card Tab Functions
+        // Leave Card and CTO Card Tab Functions
         let currentCardTab = 'leave';
         let currentApplicantEmail = null;
 
@@ -1752,30 +1752,38 @@
                                 <thead style="background: #f5f5f5; border-bottom: 2px solid #667eea;">
                                     <tr>
                                         <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">Period Covered</th>
-                                        <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">CTO Number</th>
-                                        <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">Description</th>
-                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Days Granted</th>
-                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Days Used</th>
+                                        <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333;">Special Order No. and Date Issued</th>
+                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">No. of Days Granted</th>
+                                        <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">No. of Days Used</th>
                                         <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #333;">Balance</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                     `;
                     
-                    let totalUsed = 0;
+                    let runningBalance = 0;
                     data.records.forEach((cto, idx) => {
-                        const balance = (cto.daysGranted || 0) - (cto.daysUsed || 0);
-                        const periodCovered = cto.periodCovered ? new Date(cto.periodCovered).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
-                        totalUsed += (cto.daysUsed || 0);
+                        const type = (cto.type || 'ADD').toUpperCase();
+                        const periodCovered = cto.periodCovered || '-';
+                        const soDetails = cto.soDetails || cto.soNumber || 'N/A';
+                        const granted = parseFloat(cto.daysGranted) || 0;
+                        const used = parseFloat(cto.daysUsed) || 0;
+                        
+                        if (type === 'ADD') {
+                            runningBalance += granted;
+                        } else {
+                            runningBalance -= used;
+                        }
+                        
+                        const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
                         const hoverBg = idx % 2 === 0 ? 'transparent' : '#fafafa';
                         html += `
                             <tr style="border-bottom: 1px solid #ddd; background: ${hoverBg};">
-                                <td style="padding: 12px 15px; text-align: left; color: #666;">${periodCovered}</td>
-                                <td style="padding: 12px 15px; text-align: left; color: #666;">${cto.ctoNumber || 'N/A'}</td>
-                                <td style="padding: 12px 15px; text-align: left; color: #666;">${cto.ctoName || 'N/A'}</td>
-                                <td style="padding: 12px 15px; text-align: center; color: #666;">${cto.daysGranted || 0}</td>
-                                <td style="padding: 12px 15px; text-align: center; color: #666;">${cto.daysUsed || 0}</td>
-                                <td style="padding: 12px 15px; text-align: center; color: #667eea; font-weight: 600;"><strong>${balance}</strong></td>
+                                <td style="padding: 12px 15px; text-align: left; color: ${type === 'ADD' ? '#2e7d32' : '#c62828'}; font-weight: 600;">${periodDisplay}</td>
+                                <td style="padding: 12px 15px; text-align: left; color: #666; font-size: 11px;">${soDetails}</td>
+                                <td style="padding: 12px 15px; text-align: center; color: #666;">${type === 'ADD' ? granted : ''}</td>
+                                <td style="padding: 12px 15px; text-align: center; color: #666;">${type === 'LESS' ? used : ''}</td>
+                                <td style="padding: 12px 15px; text-align: center; color: #667eea; font-weight: 600;"><strong>${runningBalance}</strong></td>
                             </tr>
                         `;
                     });
@@ -1783,8 +1791,8 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div style="margin-top: 15px; text-align: right; font-size: 12px; color: #666;">
-                            <strong>Total CTO Credits Used: <span style="color: #667eea;">${totalUsed}</span> days</strong>
+                        <div style="margin-top: 10px; padding: 8px; background: #fff8e1; border: 1px solid #f0e0a0; border-radius: 5px;">
+                            <p style="font-size: 11px; color: #8b4513; font-style: italic; margin: 0;"><strong>NOTE:</strong> Valid for one (1) year only</p>
                         </div>
                     `;
                     document.getElementById('ctoCardContent').innerHTML = html;
@@ -1937,22 +1945,29 @@
             openModal('editCTOModal');
             const html = `
                 <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 13px; color: #856404;">
-                    <strong>Note:</strong> This feature allows you to edit CTO record days used. Add or edit rows as needed.
+                    <strong>Note:</strong> Add a new CTO record entry (ADD for earned, LESS for used).
                 </div>
                 <div class="form-group">
-                    <label>CTO Number</label>
-                    <input type="text" id="edit_cto_number" placeholder="e.g., CTO-2025-001">
+                    <label>Type</label>
+                    <select id="edit_cto_type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                        <option value="ADD">ADD (Earned)</option>
+                        <option value="LESS">LESS (Used)</option>
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label>CTO Description</label>
-                    <input type="text" id="edit_cto_name" placeholder="e.g., Compressed Work Schedule">
+                    <label>Period Covered</label>
+                    <input type="text" id="edit_cto_period" placeholder="e.g., JULY 13, 2022">
                 </div>
                 <div class="form-group">
-                    <label>Days Granted</label>
+                    <label>Special Order No. and Date Issued</label>
+                    <input type="text" id="edit_cto_so_details" placeholder="e.g., S.O. # 052, S. 2022. 124TH PHILIPPINE INDEPENDENCE DAY CELEBRATION">
+                </div>
+                <div class="form-group">
+                    <label>No. of Days Granted</label>
                     <input type="number" id="edit_cto_granted" placeholder="Days" step="0.5" min="0" value="0">
                 </div>
                 <div class="form-group">
-                    <label>Days Used</label>
+                    <label>No. of Days Used</label>
                     <input type="number" id="edit_cto_used" placeholder="Days" step="0.5" min="0" value="0">
                 </div>
             `;
@@ -2021,11 +2036,11 @@
             
             const ctoData = {
                 employeeId: currentApplicantEmail,
-                ctoNumber: document.getElementById('edit_cto_number').value,
-                ctoName: document.getElementById('edit_cto_name').value,
+                type: document.getElementById('edit_cto_type').value,
+                periodCovered: document.getElementById('edit_cto_period').value,
+                soDetails: document.getElementById('edit_cto_so_details').value,
                 daysGranted: parseFloat(document.getElementById('edit_cto_granted').value) || 0,
-                daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0,
-                periodCovered: new Date().toISOString()
+                daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0
             };
 
             try {
