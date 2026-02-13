@@ -464,35 +464,7 @@
 
                 <div class="action-buttons">
                     <button class="btn btn-primary" onclick="printLeaveCard()">🖨️ Print Leave Card</button>
-                    <button class="btn btn-success" onclick="toggleEditForm('leave')">✏️ Edit Leave Credits</button>
-                </div>
-
-                <div class="edit-form" id="leaveEditForm">
-                    <h3 style="margin-bottom: 20px; color: #333;">Edit Leave Credits</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Vacation Leave Balance</label>
-                            <input type="number" id="edit_vl" step="0.5" placeholder="Enter VL balance">
-                        </div>
-                        <div class="form-group">
-                            <label>Sick Leave Balance</label>
-                            <input type="number" id="edit_sl" step="0.5" placeholder="Enter SL balance">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Special Privilege Leave Balance</label>
-                            <input type="number" id="edit_spl" step="0.5" placeholder="Enter SPL balance">
-                        </div>
-                        <div class="form-group">
-                            <label>Mandatory Forced Leave Balance</label>
-                            <input type="number" id="edit_others" step="0.5" placeholder="Enter mandatory forced leave balance">
-                        </div>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="btn btn-success" onclick="saveLeaveCredits()">💾 Save Changes</button>
-                        <button class="btn btn-secondary" onclick="toggleEditForm('leave')">Cancel</button>
-                    </div>
+                    <button class="btn btn-success" id="addLeaveRowBtn" onclick="addEditableLeaveRow()">➕ Add Leave Entry</button>
                 </div>
             </div>
         </div>
@@ -712,14 +684,6 @@
                     let vlTotalSpent = 0;
                     let slTotalSpent = 0;
 
-                    // Populate edit form with current balance values
-                    const currentVL = parseFloat(credits.vl) || vlEarned;
-                    const currentSL = parseFloat(credits.sl) || slEarned;
-                    document.getElementById('edit_vl').value = currentVL;
-                    document.getElementById('edit_sl').value = currentSL;
-                    document.getElementById('edit_spl').value = credits.spl || 0;
-                    document.getElementById('edit_others').value = credits.mandatoryForced || credits.others || 0;
-
                     let html = '';
                     
                     // Render Excel-migrated transactions first (historical data from Excel leave cards)
@@ -913,37 +877,185 @@
             }
         }
 
-        async function saveLeaveCredits() {
+        function addEditableLeaveRow() {
+            const tbody = document.getElementById('leaveHistoryBody');
+            // Remove any existing editable row
+            const existingRow = document.getElementById('editableLeaveRow');
+            if (existingRow) existingRow.remove();
+            const existingActionRow = document.getElementById('editableLeaveActions');
+            if (existingActionRow) existingActionRow.remove();
+
+            // Find the current balance row and insert before it
+            const rows = tbody.querySelectorAll('tr');
+            const balanceRow = rows[rows.length - 1]; // last row is Current Balance
+
+            // Create editable row
+            const editRow = document.createElement('tr');
+            editRow.id = 'editableLeaveRow';
+            editRow.style.background = '#e8f5e9';
+            editRow.innerHTML = `
+                <td style="padding: 6px;">
+                    <select id="edit_leave_type" style="width: 70px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
+                        <option value="ADD">ADD</option>
+                        <option value="LESS">LESS</option>
+                    </select><br>
+                    <input type="text" id="edit_leave_period" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+                </td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_vl_earned" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_sl_earned" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_vl_spent" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_sl_spent" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_force" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_special" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_vl_bal">-</td>
+                <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_sl_bal">-</td>
+                <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_total">-</td>
+            `;
+
+            // Insert before the balance row
+            tbody.insertBefore(editRow, balanceRow);
+
+            // Create action buttons row
+            const actionRow = document.createElement('tr');
+            actionRow.id = 'editableLeaveActions';
+            actionRow.style.background = '#e8f5e9';
+            actionRow.innerHTML = `
+                <td colspan="10" style="padding: 8px; text-align: center;">
+                    <button onclick="saveLeaveTransaction()" style="padding: 6px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; margin-right: 8px;">💾 Save Entry</button>
+                    <button onclick="removeEditableLeaveRow()" style="padding: 6px 20px; background: #999; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">✖ Cancel</button>
+                </td>
+            `;
+            tbody.insertBefore(actionRow, balanceRow);
+
+            // Auto-calculate balance as inputs change
+            const inputs = editRow.querySelectorAll('input[type=number]');
+            inputs.forEach(inp => inp.addEventListener('input', recalcEditableLeaveRow));
+            document.getElementById('edit_leave_type').addEventListener('change', recalcEditableLeaveRow);
+
+            // Hide the add button while editing
+            document.getElementById('addLeaveRowBtn').style.display = 'none';
+
+            // Scroll to the new row
+            editRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Initial calc
+            recalcEditableLeaveRow();
+        }
+
+        function recalcEditableLeaveRow() {
+            // Get the previous balance from the row above the editable row
+            const tbody = document.getElementById('leaveHistoryBody');
+            const editRow = document.getElementById('editableLeaveRow');
+            if (!editRow) return;
+
+            let prevVlBal = 0, prevSlBal = 0;
+
+            // Walk backwards to find the last data row with balance values
+            let prevRow = editRow.previousElementSibling;
+            while (prevRow) {
+                const cells = prevRow.querySelectorAll('td');
+                if (cells.length >= 10) {
+                    const vlText = cells[7].textContent.trim();
+                    const slText = cells[8].textContent.trim();
+                    if (vlText !== '-' && vlText !== '' && !isNaN(parseFloat(vlText))) {
+                        prevVlBal = parseFloat(vlText);
+                        prevSlBal = parseFloat(slText);
+                        break;
+                    }
+                }
+                prevRow = prevRow.previousElementSibling;
+            }
+
+            const type = document.getElementById('edit_leave_type').value;
+            const vlEarned = parseFloat(document.getElementById('edit_leave_vl_earned').value) || 0;
+            const slEarned = parseFloat(document.getElementById('edit_leave_sl_earned').value) || 0;
+            const vlSpent = parseFloat(document.getElementById('edit_leave_vl_spent').value) || 0;
+            const slSpent = parseFloat(document.getElementById('edit_leave_sl_spent').value) || 0;
+            const forceLeave = parseFloat(document.getElementById('edit_leave_force').value) || 0;
+            const splUsed = parseFloat(document.getElementById('edit_leave_special').value) || 0;
+
+            let newVlBal, newSlBal;
+            if (type === 'ADD') {
+                newVlBal = prevVlBal + vlEarned;
+                newSlBal = prevSlBal + slEarned;
+            } else {
+                newVlBal = prevVlBal - vlSpent - forceLeave;
+                newSlBal = prevSlBal - slSpent - splUsed;
+            }
+
+            document.getElementById('edit_leave_vl_bal').textContent = newVlBal.toFixed(3);
+            document.getElementById('edit_leave_sl_bal').textContent = newSlBal.toFixed(3);
+            document.getElementById('edit_leave_total').textContent = (newVlBal + newSlBal).toFixed(3);
+        }
+
+        function removeEditableLeaveRow() {
+            const editRow = document.getElementById('editableLeaveRow');
+            if (editRow) editRow.remove();
+            const actionRow = document.getElementById('editableLeaveActions');
+            if (actionRow) actionRow.remove();
+            document.getElementById('addLeaveRowBtn').style.display = '';
+        }
+
+        async function saveLeaveTransaction() {
             try {
                 if (!employeeEmail) {
                     alert('Error: Employee email not found');
                     return;
                 }
 
-                const credits = {
-                    employeeEmail: employeeEmail,
-                    vl: parseFloat(document.getElementById('edit_vl').value) || 0,
-                    sl: parseFloat(document.getElementById('edit_sl').value) || 0,
-                    spl: parseFloat(document.getElementById('edit_spl').value) || 0,
-                    mandatoryForced: parseFloat(document.getElementById('edit_others').value) || 0
+                const type = document.getElementById('edit_leave_type').value;
+                const periodCovered = document.getElementById('edit_leave_period').value.trim();
+                if (!periodCovered) {
+                    alert('Please enter the Period Covered');
+                    document.getElementById('edit_leave_period').focus();
+                    return;
+                }
+
+                const vlEarned = parseFloat(document.getElementById('edit_leave_vl_earned').value) || 0;
+                const slEarned = parseFloat(document.getElementById('edit_leave_sl_earned').value) || 0;
+                const vlSpent = parseFloat(document.getElementById('edit_leave_vl_spent').value) || 0;
+                const slSpent = parseFloat(document.getElementById('edit_leave_sl_spent').value) || 0;
+                const forcedLeave = parseFloat(document.getElementById('edit_leave_force').value) || 0;
+                const splUsed = parseFloat(document.getElementById('edit_leave_special').value) || 0;
+                const vlBalance = parseFloat(document.getElementById('edit_leave_vl_bal').textContent) || 0;
+                const slBalance = parseFloat(document.getElementById('edit_leave_sl_bal').textContent) || 0;
+                const total = parseFloat(document.getElementById('edit_leave_total').textContent) || 0;
+
+                const transaction = {
+                    type: type,
+                    periodCovered: periodCovered,
+                    vlEarned: vlEarned,
+                    slEarned: slEarned,
+                    vlSpent: vlSpent,
+                    slSpent: slSpent,
+                    forcedLeave: forcedLeave,
+                    splUsed: splUsed,
+                    vlBalance: vlBalance,
+                    slBalance: slBalance,
+                    total: total
                 };
 
                 const response = await fetch('/api/update-leave-credits', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(credits)
+                    body: JSON.stringify({
+                        employeeEmail: employeeEmail,
+                        transactions: [transaction],
+                        vl: vlBalance,
+                        sl: slBalance
+                    })
                 });
 
                 const result = await response.json();
                 if (result.success) {
-                    alert('Leave credits updated successfully!');
-                    toggleEditForm('leave');
+                    alert('Leave entry saved successfully!');
+                    removeEditableLeaveRow();
                     loadLeaveCardData();
                 } else {
-                    alert('Error: ' + (result.error || 'Failed to update leave credits'));
+                    alert('Error: ' + (result.error || 'Failed to save leave entry'));
                 }
             } catch (error) {
-                alert('Error updating leave credits: ' + error.message);
+                alert('Error saving leave entry: ' + error.message);
             }
         }
 

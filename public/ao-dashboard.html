@@ -1893,7 +1893,7 @@
                                         <th style="padding: 10px; text-align: center; font-weight: 600; font-size: 11px;">ALL</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="aoLeaveHistoryBody">
                     `;
                     
                     // Render Excel-migrated transactions
@@ -1999,26 +1999,8 @@
                             </table>
                         </div>
                         
-                        <div style="background: #f0f0f0; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                            <p style="font-size: 12px; color: #666; margin: 0;"><strong>Current Balances:</strong></p>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
-                                <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
-                                    <div style="font-size: 11px; color: #666;">Vacation Leave</div>
-                                    <div style="font-size: 18px; font-weight: 600; color: #667eea;">${credits.vl || 100}</div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
-                                    <div style="font-size: 11px; color: #666;">Sick Leave</div>
-                                    <div style="font-size: 18px; font-weight: 600; color: #667eea;">${credits.sl || 100}</div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
-                                    <div style="font-size: 11px; color: #666;">SPL</div>
-                                    <div style="font-size: 18px; font-weight: 600; color: #667eea;">${credits.spl || 0}</div>
-                                </div>
-                                <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
-                                    <div style="font-size: 11px; color: #666;">Other Leave</div>
-                                    <div style="font-size: 18px; font-weight: 600; color: #667eea;">${credits.others || 0}</div>
-                                </div>
-                            </div>
+                        <div style="text-align: center; margin-top: 15px;">
+                            <button id="aoAddLeaveRowBtn" onclick="aoAddEditableLeaveRow()" style="padding: 8px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 13px;">➕ Add Leave Entry</button>
                         </div>
                     </div>
                 `;
@@ -2089,34 +2071,160 @@
             printWindow.document.close();
         }
 
-        async function saveLeaveCard() {
+        function aoAddEditableLeaveRow() {
+            const tbody = document.getElementById('aoLeaveHistoryBody');
+            if (!tbody) return;
+
+            // Remove existing editable row
+            const existing = document.getElementById('aoEditableLeaveRow');
+            if (existing) existing.remove();
+            const existingActions = document.getElementById('aoEditableLeaveActions');
+            if (existingActions) existingActions.remove();
+
+            const rows = tbody.querySelectorAll('tr');
+            const balanceRow = rows[rows.length - 1];
+
+            const editRow = document.createElement('tr');
+            editRow.id = 'aoEditableLeaveRow';
+            editRow.style.background = '#e8f5e9';
+            editRow.style.borderBottom = '1px solid #ddd';
+            editRow.innerHTML = `
+                <td style="padding: 8px; border-right: 1px solid #ddd;">
+                    <select id="ao_edit_leave_type" style="width: 70px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 4px;">
+                        <option value="ADD">ADD</option>
+                        <option value="LESS">LESS</option>
+                    </select><br>
+                    <input type="text" id="ao_edit_leave_period" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 10px; box-sizing: border-box;">
+                </td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_vl_earned" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_sl_earned" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_vl_spent" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_sl_spent" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_force" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_special" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;" id="ao_edit_vl_bal">-</td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;" id="ao_edit_sl_bal">-</td>
+                <td style="padding: 8px; text-align: center; color: #667eea; font-weight: 600;" id="ao_edit_total">-</td>
+            `;
+            tbody.insertBefore(editRow, balanceRow);
+
+            const actionRow = document.createElement('tr');
+            actionRow.id = 'aoEditableLeaveActions';
+            actionRow.style.background = '#e8f5e9';
+            actionRow.innerHTML = `
+                <td colspan="10" style="padding: 8px; text-align: center; border-bottom: 1px solid #ddd;">
+                    <button onclick="aoSaveLeaveTransaction()" style="padding: 5px 18px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 12px; margin-right: 8px;">💾 Save Entry</button>
+                    <button onclick="aoRemoveEditableLeaveRow()" style="padding: 5px 18px; background: #999; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 12px;">✖ Cancel</button>
+                </td>
+            `;
+            tbody.insertBefore(actionRow, balanceRow);
+
+            const inputs = editRow.querySelectorAll('input[type=number]');
+            inputs.forEach(inp => inp.addEventListener('input', aoRecalcEditableLeaveRow));
+            document.getElementById('ao_edit_leave_type').addEventListener('change', aoRecalcEditableLeaveRow);
+
+            document.getElementById('aoAddLeaveRowBtn').style.display = 'none';
+            editRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            aoRecalcEditableLeaveRow();
+        }
+
+        function aoRecalcEditableLeaveRow() {
+            const editRow = document.getElementById('aoEditableLeaveRow');
+            if (!editRow) return;
+
+            let prevVlBal = 0, prevSlBal = 0;
+            let prevRow = editRow.previousElementSibling;
+            while (prevRow) {
+                const cells = prevRow.querySelectorAll('td');
+                if (cells.length >= 10) {
+                    const vlText = cells[7].textContent.trim();
+                    const slText = cells[8].textContent.trim();
+                    if (vlText !== '-' && vlText !== '' && !isNaN(parseFloat(vlText))) {
+                        prevVlBal = parseFloat(vlText);
+                        prevSlBal = parseFloat(slText);
+                        break;
+                    }
+                }
+                prevRow = prevRow.previousElementSibling;
+            }
+
+            const type = document.getElementById('ao_edit_leave_type').value;
+            const vlEarned = parseFloat(document.getElementById('ao_edit_vl_earned').value) || 0;
+            const slEarned = parseFloat(document.getElementById('ao_edit_sl_earned').value) || 0;
+            const vlSpent = parseFloat(document.getElementById('ao_edit_vl_spent').value) || 0;
+            const slSpent = parseFloat(document.getElementById('ao_edit_sl_spent').value) || 0;
+            const forceLeave = parseFloat(document.getElementById('ao_edit_force').value) || 0;
+            const splUsed = parseFloat(document.getElementById('ao_edit_special').value) || 0;
+
+            let newVlBal, newSlBal;
+            if (type === 'ADD') {
+                newVlBal = prevVlBal + vlEarned;
+                newSlBal = prevSlBal + slEarned;
+            } else {
+                newVlBal = prevVlBal - vlSpent - forceLeave;
+                newSlBal = prevSlBal - slSpent - splUsed;
+            }
+
+            document.getElementById('ao_edit_vl_bal').textContent = newVlBal.toFixed(3);
+            document.getElementById('ao_edit_sl_bal').textContent = newSlBal.toFixed(3);
+            document.getElementById('ao_edit_total').textContent = (newVlBal + newSlBal).toFixed(3);
+        }
+
+        function aoRemoveEditableLeaveRow() {
+            const editRow = document.getElementById('aoEditableLeaveRow');
+            if (editRow) editRow.remove();
+            const actionRow = document.getElementById('aoEditableLeaveActions');
+            if (actionRow) actionRow.remove();
+            const btn = document.getElementById('aoAddLeaveRowBtn');
+            if (btn) btn.style.display = '';
+        }
+
+        async function aoSaveLeaveTransaction() {
             if (!currentApplicantEmail) return;
-            
-            const credits = {
-                vl: parseFloat(document.getElementById('edit_vl').value) || 0,
-                sl: parseFloat(document.getElementById('edit_sl').value) || 0,
-                spl: parseFloat(document.getElementById('edit_spl').value) || 0,
-                mandatoryForced: parseFloat(document.getElementById('edit_others').value) || 0,
-                employeeEmail: currentApplicantEmail
+
+            const periodCovered = document.getElementById('ao_edit_leave_period').value.trim();
+            if (!periodCovered) {
+                showError('Please enter the Period Covered');
+                document.getElementById('ao_edit_leave_period').focus();
+                return;
+            }
+
+            const transaction = {
+                type: document.getElementById('ao_edit_leave_type').value,
+                periodCovered: periodCovered,
+                vlEarned: parseFloat(document.getElementById('ao_edit_vl_earned').value) || 0,
+                slEarned: parseFloat(document.getElementById('ao_edit_sl_earned').value) || 0,
+                vlSpent: parseFloat(document.getElementById('ao_edit_vl_spent').value) || 0,
+                slSpent: parseFloat(document.getElementById('ao_edit_sl_spent').value) || 0,
+                forcedLeave: parseFloat(document.getElementById('ao_edit_force').value) || 0,
+                splUsed: parseFloat(document.getElementById('ao_edit_special').value) || 0,
+                vlBalance: parseFloat(document.getElementById('ao_edit_vl_bal').textContent) || 0,
+                slBalance: parseFloat(document.getElementById('ao_edit_sl_bal').textContent) || 0,
+                total: parseFloat(document.getElementById('ao_edit_total').textContent) || 0
             };
 
             try {
                 const response = await fetch('/api/update-leave-credits', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(credits)
+                    body: JSON.stringify({
+                        employeeEmail: currentApplicantEmail,
+                        transactions: [transaction],
+                        vl: transaction.vlBalance,
+                        sl: transaction.slBalance
+                    })
                 });
 
                 const result = await response.json();
                 if (result.success) {
-                    showSuccess('Leave credits updated successfully');
-                    closeModal('editLeaveModal');
-                    loadLeaveCardData(currentApplicantEmail);
+                    showSuccess('Leave entry saved successfully');
+                    // Reload the leave card modal
+                    editLeaveCard();
                 } else {
-                    showError(result.error || 'Failed to update leave credits');
+                    showError(result.error || 'Failed to save leave entry');
                 }
             } catch (error) {
-                showError('Error updating leave credits: ' + error.message);
+                showError('Error saving leave entry: ' + error.message);
             }
         }
 
