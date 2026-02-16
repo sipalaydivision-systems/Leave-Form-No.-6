@@ -1560,6 +1560,16 @@
                             <span style="color: #c62828;">✗ Recommend for Disapproval</span>
                         </label>
                     </div>
+                    
+                    <!-- Return Target Selector (shown only when Return is selected) -->
+                    <div id="asdsReturnTargetSection" style="display: none; margin-top: 12px; padding: 12px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffe0b2;">
+                        <label style="font-weight: 600; color: #e65100; font-size: 13px;">Return To:</label>
+                        <select id="asdsReturnTarget" style="width: 100%; padding: 8px; margin-top: 6px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                            <option value="HR">HR (Previous Approver)</option>
+                            <option value="AO">AO (Administrative Officer)</option>
+                            <option value="EMPLOYEE">Employee (Applicant)</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <!-- Remarks (for return/disapprove) -->
@@ -2066,18 +2076,17 @@
 
             // Build table rows
             let rows = '';
-            sortedSchools.forEach(school => {
+            sortedSchools.forEach((school, schoolIndex) => {
                 const total = schoolData[school].reduce((sum, val) => sum + val, 0);
                 const shortName = school.length > 25 ? school.substring(0, 24) + '...' : school;
-                rows += `<tr><td class="school-name" title="${school}">${shortName}</td>`;
+                const escapedSchool = school.replace(/'/g, "\\'");
+                rows += `<tr data-school="${school}" id="heatmap-row-${schoolIndex}"><td class="school-name" title="${school}">${shortName}</td>`;
                 schoolData[school].forEach((val, monthIndex) => {
                     const color = getColor(val);
                     const textColor = val > maxValue * 0.5 ? '#fff' : '#333';
                     rows += `<td><span class="heatmap-cell" 
                         style="background: ${color}; color: ${textColor}; cursor: pointer;" 
-                        data-school="${school}" 
-                        data-month="${monthIndex}" 
-                        onclick="showHeatmapDetails('${school.replace(/'/g, "\\'")}', ${monthIndex}, '${months[monthIndex]}')">${val || '-'}</span></td>`;
+                        onclick="toggleHeatmapDetails('${escapedSchool}', ${monthIndex}, ${schoolIndex})">${val || '-'}</span></td>`;
                 });
                 rows += `<td><strong>${total}</strong></td></tr>`;
             });
@@ -2101,64 +2110,94 @@
             `;
         }
 
-        function showHeatmapDetails(school, monthIndex, monthName) {
+        // Track currently expanded heatmap detail row
+        let _heatmapExpandedKey = null;
+
+        function toggleHeatmapDetails(school, monthIndex, schoolRowIndex) {
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-            
-            // Get all applications from the current dataset
+            const key = `${school}_${monthIndex}`;
+            const existingRow = document.getElementById('heatmap-detail-row');
+
+            // If same cell clicked, just collapse
+            if (existingRow && _heatmapExpandedKey === key) {
+                existingRow.style.maxHeight = '0';
+                setTimeout(() => existingRow.remove(), 300);
+                _heatmapExpandedKey = null;
+                return;
+            }
+
+            // Remove any existing detail row
+            if (existingRow) {
+                existingRow.remove();
+            }
+
+            _heatmapExpandedKey = key;
+
+            // Find the parent row
+            const parentRow = document.getElementById('heatmap-row-' + schoolRowIndex);
+            if (!parentRow) return;
+            const colCount = parentRow.children.length;
+
+            // Insert a loading placeholder row
+            const detailRow = document.createElement('tr');
+            detailRow.id = 'heatmap-detail-row';
+            detailRow.innerHTML = `<td colspan="${colCount}" style="padding: 0; border: none;"><div class="heatmap-inline-detail" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;"><div style="padding: 12px 16px; color: #999;">Loading...</div></div></td>`;
+            parentRow.after(detailRow);
+
+            // Fetch and render details
             fetch('/api/all-applications')
                 .then(res => res.json())
                 .then(data => {
                     const allApps = (data && data.applications) ? data.applications : [];
                     const currentYear = new Date().getFullYear();
-                    
-                    // Filter applications for this school and month
+
                     const applicants = allApps.filter(app => {
                         if (!app.dateFrom) return false;
                         const date = new Date(app.dateFrom);
                         if (isNaN(date.getTime())) return false;
-                        
                         const appSchool = app.office || app.school || 'Unknown';
-                        const appMonth = date.getMonth();
-                        const appYear = date.getFullYear();
-                        
-                        return appSchool === school && appMonth === monthIndex && appYear === currentYear;
-                    }).slice(0, 5); // Get first 5
+                        return appSchool === school && date.getMonth() === monthIndex && date.getFullYear() === currentYear;
+                    });
 
-                    // Show modal with details
-                    const modalBody = document.getElementById('modalBody');
-                    const modalFooter = document.getElementById('modalFooter');
-                    
-                    let applicantsList = '<div class="heatmap-details">';
+                    let html = '<div class="heatmap-inline-detail" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">';
+                    html += `<div style="background: linear-gradient(135deg, #667eea15, #764ba215); border-left: 4px solid #667eea; padding: 12px 16px;">`;
+                    html += `<div style="font-weight: 600; color: #667eea; margin-bottom: 8px; font-size: 13px;">📋 ${school} — ${months[monthIndex]} ${currentYear} (${applicants.length} application${applicants.length !== 1 ? 's' : ''})</div>`;
+
                     if (applicants.length === 0) {
-                        applicantsList += '<p style="color: #999; text-align: center; padding: 20px;">No applicants found for this period</p>';
+                        html += '<div style="color: #999; padding: 8px 0; font-size: 13px;">No applicants found for this period</div>';
                     } else {
-                        applicantsList += `<h4 style="margin-bottom: 15px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Applicants - ${school} (${months[monthIndex]} ${currentYear})</h4>`;
-                        applicantsList += '<div style="max-height: 400px; overflow-y: auto;">';
                         applicants.forEach((app, index) => {
-                            applicantsList += `
-                                <div style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-                                    <div>
-                                        <div style="font-weight: bold; color: #333;">${index + 1}. ${app.employeeName || 'N/A'}</div>
-                                        <div style="font-size: 12px; color: #666; margin-top: 4px;">
-                                            <strong>Leave Type:</strong> ${getLeaveTypeLabel(app.leaveType)}<br>
-                                            <strong>Days:</strong> ${app.numDays || 0}<br>
-                                            <strong>Dates:</strong> ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}
-                                        </div>
-                                    </div>
+                            const statusColor = app.status === 'approved' ? '#4caf50' : app.status === 'pending' ? '#ff9800' : app.status === 'returned' ? '#2196f3' : '#f44336';
+                            const statusLabel = (app.status || 'pending').charAt(0).toUpperCase() + (app.status || 'pending').slice(1);
+                            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 13px;">
+                                <div style="flex: 1;">
+                                    <strong>${index + 1}. ${app.employeeName || 'N/A'}</strong>
+                                    <span style="margin-left: 12px; color: #666;">Leave Type: ${getLeaveTypeLabel(app.leaveType)}</span>
+                                    <span style="margin-left: 12px; color: #666;">Days: ${app.numDays || 0}</span>
+                                    <span style="margin-left: 12px; color: #666;">Dates: ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</span>
                                 </div>
-                            `;
+                                <span style="background: ${statusColor}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; white-space: nowrap;">${statusLabel}</span>
+                            </div>`;
                         });
-                        applicantsList += '</div>';
                     }
-                    applicantsList += '</div>';
-                    
-                    modalBody.innerHTML = applicantsList;
-                    modalFooter.innerHTML = '<button class="btn" onclick="closeModal();" style="background: #667eea; color: white;">Close</button>';
-                    document.getElementById('detailsModal').classList.add('active');
+                    html += '</div></div>';
+
+                    const detailRowNow = document.getElementById('heatmap-detail-row');
+                    if (detailRowNow) {
+                        detailRowNow.innerHTML = `<td colspan="${colCount}" style="padding: 0; border: none;">${html}</td>`;
+                        // Animate open
+                        requestAnimationFrame(() => {
+                            const innerDiv = detailRowNow.querySelector('.heatmap-inline-detail');
+                            if (innerDiv) innerDiv.style.maxHeight = Math.max(200, applicants.length * 45 + 80) + 'px';
+                        });
+                    }
                 })
                 .catch(error => {
                     console.error('Error loading heatmap details:', error);
-                    alert('Error loading applicant details');
+                    const detailRowNow = document.getElementById('heatmap-detail-row');
+                    if (detailRowNow) {
+                        detailRowNow.innerHTML = `<td colspan="${colCount}" style="padding: 8px 16px; color: #f44336;">Error loading details</td>`;
+                    }
                 });
         }
 
@@ -2564,6 +2603,7 @@
             // Reset form
             document.getElementById('asdsApprovalForm').reset();
             document.getElementById('asdsRemarksSection').style.display = 'none';
+            document.getElementById('asdsReturnTargetSection').style.display = 'none';
             clearAsdsSignature();
 
             // Auto-populate officer name from logged-in ASDS user
@@ -2577,10 +2617,16 @@
             document.querySelectorAll('input[name="asdsRecommendation"]').forEach(radio => {
                 radio.addEventListener('change', function() {
                     const remarksSection = document.getElementById('asdsRemarksSection');
-                    if (this.value === 'return' || this.value === 'disapprove') {
+                    const returnTargetSection = document.getElementById('asdsReturnTargetSection');
+                    if (this.value === 'return') {
                         remarksSection.style.display = 'block';
+                        returnTargetSection.style.display = 'block';
+                    } else if (this.value === 'disapprove') {
+                        remarksSection.style.display = 'block';
+                        returnTargetSection.style.display = 'none';
                     } else {
                         remarksSection.style.display = 'none';
+                        returnTargetSection.style.display = 'none';
                     }
                 });
             });
@@ -2802,18 +2848,24 @@
                 else if (recommendation === 'return') apiAction = 'returned';
                 else apiAction = 'rejected';
 
+                // Get return target if returning
+                const returnTo = recommendation === 'return' ? (document.getElementById('asdsReturnTarget')?.value || 'HR') : null;
+
+                const payload = {
+                    applicationId: currentAsdsAppId,
+                    action: apiAction,
+                    approverPortal: 'ASDS',
+                    approverName: getLoggedInUserName(),
+                    remarks: recommendation === 'approve' ? 'Recommended for approval' : remarks,
+                    asdsOfficerName: asdsOfficerName,
+                    asdsOfficerSignature: asdsOfficerSignature
+                };
+                if (returnTo) payload.returnTo = returnTo;
+
                 const response = await fetch('/api/approve-leave', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        applicationId: currentAsdsAppId,
-                        action: apiAction,
-                        approverPortal: 'ASDS',
-                        approverName: getLoggedInUserName(),
-                        remarks: recommendation === 'approve' ? 'Recommended for approval' : remarks,
-                        asdsOfficerName: asdsOfficerName,
-                        asdsOfficerSignature: asdsOfficerSignature
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const result = await response.json();
@@ -2821,7 +2873,10 @@
                 if (result.success) {
                     let successMsg;
                     if (recommendation === 'approve') successMsg = '✓ Application recommended and forwarded to SDS for final approval!';
-                    else if (recommendation === 'return') successMsg = '✓ Application returned to HR for compliance!';
+                    else if (recommendation === 'return') {
+                        const targetLabel = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
+                        successMsg = `✓ Application returned to ${targetLabel} for compliance!`;
+                    }
                     else successMsg = '✓ Application recommended for disapproval!';
 
                     alert(successMsg);

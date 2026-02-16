@@ -1468,18 +1468,33 @@
                             <input type="radio" name="sdsDecision" value="approve">
                             <span style="color: #2e7d32;">✓ APPROVE Leave Application</span>
                         </label>
+                        <label style="border-color: #ff9800;">
+                            <input type="radio" name="sdsDecision" value="return">
+                            <span style="color: #e65100;">↩️ Return for Compliance</span>
+                        </label>
                         <label style="border-color: #f44336;">
                             <input type="radio" name="sdsDecision" value="disapprove">
                             <span style="color: #c62828;">✗ DISAPPROVE Leave Application</span>
                         </label>
                     </div>
+                    
+                    <!-- Return Target Selector (shown only when Return is selected) -->
+                    <div id="sdsReturnTargetSection" style="display: none; margin-top: 12px; padding: 12px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffe0b2;">
+                        <label style="font-weight: 600; color: #e65100; font-size: 13px;">Return To:</label>
+                        <select id="sdsReturnTarget" style="width: 100%; padding: 8px; margin-top: 6px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                            <option value="ASDS">ASDS (Previous Approver)</option>
+                            <option value="HR">HR</option>
+                            <option value="AO">AO (Administrative Officer)</option>
+                            <option value="EMPLOYEE">Employee (Applicant)</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <!-- Remarks (for disapproval) -->
+                <!-- Remarks (for return/disapproval) -->
                 <div class="sds-form-section" id="sdsRemarksSection" style="display: none;">
-                    <div class="sds-form-section-title">Reason for Disapproval <span class="required-star">*</span></div>
+                    <div class="sds-form-section-title" id="sdsRemarksTitle">Reason <span class="required-star">*</span></div>
                     <div class="sds-form-group">
-                        <textarea id="sdsRemarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;" placeholder="Enter reason for disapproving..."></textarea>
+                        <textarea id="sdsRemarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;" placeholder="Enter reason..."></textarea>
                     </div>
                 </div>
                 
@@ -2064,14 +2079,16 @@
 
             // Build table rows
             let rows = '';
-            sortedSchools.forEach(school => {
+            sortedSchools.forEach((school, schoolIndex) => {
                 const total = schoolData[school].reduce((sum, val) => sum + val, 0);
                 const shortName = school.length > 25 ? school.substring(0, 24) + '...' : school;
-                rows += `<tr><td class="school-name" title="${school}">${shortName}</td>`;
-                schoolData[school].forEach(val => {
+                const escapedSchool = school.replace(/'/g, "\\'");
+                rows += `<tr data-school="${school}" id="heatmap-row-${schoolIndex}"><td class="school-name" title="${school}">${shortName}</td>`;
+                schoolData[school].forEach((val, monthIndex) => {
                     const color = getColor(val);
                     const textColor = val > maxValue * 0.5 ? '#fff' : '#333';
-                    rows += `<td><span class="heatmap-cell" style="background: ${color}; color: ${textColor};">${val || '-'}</span></td>`;
+                    rows += `<td><span class="heatmap-cell" style="background: ${color}; color: ${textColor}; cursor: pointer;" 
+                        onclick="toggleHeatmapDetails('${escapedSchool}', ${monthIndex}, ${schoolIndex})">${val || '-'}</span></td>`;
                 });
                 rows += `<td><strong>${total}</strong></td></tr>`;
             });
@@ -2987,18 +3004,133 @@
             });
         }
 
+        // Track currently expanded heatmap detail row
+        let _heatmapExpandedKey = null;
+
+        function toggleHeatmapDetails(school, monthIndex, schoolRowIndex) {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const key = `${school}_${monthIndex}`;
+            const existingRow = document.getElementById('heatmap-detail-row');
+
+            // If same cell clicked, just collapse
+            if (existingRow && _heatmapExpandedKey === key) {
+                existingRow.style.maxHeight = '0';
+                setTimeout(() => existingRow.remove(), 300);
+                _heatmapExpandedKey = null;
+                return;
+            }
+
+            // Remove any existing detail row
+            if (existingRow) existingRow.remove();
+            _heatmapExpandedKey = key;
+
+            const parentRow = document.getElementById('heatmap-row-' + schoolRowIndex);
+            if (!parentRow) return;
+            const colCount = parentRow.children.length;
+
+            // Insert loading placeholder
+            const detailRow = document.createElement('tr');
+            detailRow.id = 'heatmap-detail-row';
+            detailRow.innerHTML = `<td colspan="${colCount}" style="padding: 0; border: none;"><div class="heatmap-inline-detail" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;"><div style="padding: 12px 16px; color: #999;">Loading...</div></div></td>`;
+            parentRow.after(detailRow);
+
+            fetch('/api/all-applications')
+                .then(res => res.json())
+                .then(data => {
+                    const allApps = (data && data.applications) ? data.applications : [];
+                    const currentYear = new Date().getFullYear();
+
+                    const applicants = allApps.filter(app => {
+                        if (!app.dateFrom) return false;
+                        const date = new Date(app.dateFrom);
+                        if (isNaN(date.getTime())) return false;
+                        const appSchool = app.office || app.school || 'Unknown';
+                        return appSchool === school && date.getMonth() === monthIndex && date.getFullYear() === currentYear;
+                    });
+
+                    let html = '<div class="heatmap-inline-detail" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">';
+                    html += `<div style="background: linear-gradient(135deg, #6a1b9a10, #8e24aa10); border-left: 4px solid #8a2be2; padding: 12px 16px;">`;
+                    html += `<div style="font-weight: 600; color: #6a1b9a; margin-bottom: 8px; font-size: 13px;">📋 ${school} — ${months[monthIndex]} ${currentYear} (${applicants.length} application${applicants.length !== 1 ? 's' : ''})</div>`;
+
+                    if (applicants.length === 0) {
+                        html += '<div style="color: #999; padding: 8px 0; font-size: 13px;">No applicants found for this period</div>';
+                    } else {
+                        applicants.forEach((app, index) => {
+                            const statusColor = app.status === 'approved' ? '#4caf50' : app.status === 'pending' ? '#ff9800' : app.status === 'returned' ? '#2196f3' : '#f44336';
+                            const statusLabel = (app.status || 'pending').charAt(0).toUpperCase() + (app.status || 'pending').slice(1);
+                            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 13px;">
+                                <div style="flex: 1;">
+                                    <strong>${index + 1}. ${app.employeeName || 'N/A'}</strong>
+                                    <span style="margin-left: 12px; color: #666;">Leave Type: ${getLeaveTypeLabel(app.leaveType)}</span>
+                                    <span style="margin-left: 12px; color: #666;">Days: ${app.numDays || 0}</span>
+                                    <span style="margin-left: 12px; color: #666;">Dates: ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</span>
+                                </div>
+                                <span style="background: ${statusColor}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; white-space: nowrap;">${statusLabel}</span>
+                            </div>`;
+                        });
+                    }
+                    html += '</div></div>';
+
+                    const detailRowNow = document.getElementById('heatmap-detail-row');
+                    if (detailRowNow) {
+                        detailRowNow.innerHTML = `<td colspan="${colCount}" style="padding: 0; border: none;">${html}</td>`;
+                        requestAnimationFrame(() => {
+                            const innerDiv = detailRowNow.querySelector('.heatmap-inline-detail');
+                            if (innerDiv) innerDiv.style.maxHeight = Math.max(200, applicants.length * 45 + 80) + 'px';
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading heatmap details:', error);
+                    const detailRowNow = document.getElementById('heatmap-detail-row');
+                    if (detailRowNow) {
+                        detailRowNow.innerHTML = `<td colspan="${colCount}" style="padding: 8px 16px; color: #f44336;">Error loading details</td>`;
+                    }
+                });
+        }
+
         function closeModal() {
             document.getElementById('detailsModal').classList.remove('active');
         }
 
         async function returnApp(appId) {
-            const reason = prompt('Please enter reason for returning (e.g., lacking documents):');
-            if (reason === null) return;
-            if (!reason.trim()) {
-                alert('Reason is required for returning an application');
-                return;
+            // Show return target dialog
+            const targetOptions = [
+                { value: 'ASDS', label: 'ASDS (Previous Approver)' },
+                { value: 'HR', label: 'HR' },
+                { value: 'AO', label: 'AO (Administrative Officer)' },
+                { value: 'EMPLOYEE', label: 'Employee (Applicant)' }
+            ];
+            let selectHtml = '<div style="margin-bottom: 12px;"><label style="font-weight: 600; display: block; margin-bottom: 6px;">Return To:</label>';
+            selectHtml += '<select id="quickReturnTarget" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">';
+            targetOptions.forEach(opt => {
+                selectHtml += `<option value="${opt.value}">${opt.label}</option>`;
+            });
+            selectHtml += '</select></div>';
+            selectHtml += '<div><label style="font-weight: 600; display: block; margin-bottom: 6px;">Reason (required):</label>';
+            selectHtml += '<textarea id="quickReturnReason" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;" placeholder="Enter reason for returning..."></textarea></div>';
+            
+            const modalBody = document.getElementById('modalBody');
+            const modalFooter = document.getElementById('modalFooter');
+            if (modalBody && modalFooter) {
+                modalBody.innerHTML = `<h4 style="margin-bottom: 15px; color: #e65100;">↩️ Return Application for Compliance</h4>${selectHtml}`;
+                modalFooter.innerHTML = `<button class="btn" style="background: #f0ad4e; color: white;" onclick="submitQuickReturn('${appId}')">Return Application</button> <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>`;
+                document.getElementById('detailsModal').classList.add('active');
+            } else {
+                // Fallback to prompt
+                const reason = prompt('Please enter reason for returning (e.g., lacking documents):');
+                if (reason === null) return;
+                if (!reason.trim()) { alert('Reason is required'); return; }
+                await processAction(appId, 'returned', reason, 'ASDS');
             }
-            await processAction(appId, 'returned', reason);
+        }
+
+        async function submitQuickReturn(appId) {
+            const target = document.getElementById('quickReturnTarget')?.value || 'ASDS';
+            const reason = document.getElementById('quickReturnReason')?.value?.trim();
+            if (!reason) { alert('Reason is required for returning an application'); return; }
+            closeModal();
+            await processAction(appId, 'returned', reason, target);
         }
 
         async function rejectApp(appId) {
@@ -3011,18 +3143,21 @@
             await processAction(appId, 'rejected', reason);
         }
 
-        async function processAction(appId, action, remarks = '') {
+        async function processAction(appId, action, remarks = '', returnTo = null) {
             try {
+                const payload = {
+                    applicationId: appId,
+                    action: action,
+                    approverPortal: 'SDS',
+                    approverName: getLoggedInUserName(),
+                    remarks: remarks
+                };
+                if (returnTo) payload.returnTo = returnTo;
+
                 const response = await fetch('/api/approve-leave', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        applicationId: appId,
-                        action: action,
-                        approverPortal: 'SDS',
-                        approverName: getLoggedInUserName(),
-                        remarks: remarks
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const result = await response.json();
@@ -3030,7 +3165,10 @@
                 if (result.success) {
                     let successMsg;
                     if (action === 'approved') successMsg = '✓ Application APPROVED! Employee\'s leave balance has been updated.';
-                    else if (action === 'returned') successMsg = 'Application returned to ASDS for compliance!';
+                    else if (action === 'returned') {
+                        const targetLabel = returnTo === 'EMPLOYEE' ? 'Employee' : (returnTo || 'ASDS');
+                        successMsg = `Application returned to ${targetLabel} for compliance!`;
+                    }
                     else successMsg = 'Application rejected.';
                     
                     alert(successMsg);
@@ -3072,6 +3210,7 @@
             // Reset form
             document.getElementById('sdsApprovalForm').reset();
             document.getElementById('sdsRemarksSection').style.display = 'none';
+            document.getElementById('sdsReturnTargetSection').style.display = 'none';
             clearSdsSignature();
 
             // Auto-populate officer name from logged-in SDS user
@@ -3085,10 +3224,19 @@
             document.querySelectorAll('input[name="sdsDecision"]').forEach(radio => {
                 radio.addEventListener('change', function() {
                     const remarksSection = document.getElementById('sdsRemarksSection');
+                    const returnTargetSection = document.getElementById('sdsReturnTargetSection');
+                    const remarksTitle = document.getElementById('sdsRemarksTitle');
                     if (this.value === 'disapprove') {
                         remarksSection.style.display = 'block';
+                        returnTargetSection.style.display = 'none';
+                        remarksTitle.textContent = 'Reason for Disapproval ';
+                    } else if (this.value === 'return') {
+                        remarksSection.style.display = 'block';
+                        returnTargetSection.style.display = 'block';
+                        remarksTitle.textContent = 'Reason for Return ';
                     } else {
                         remarksSection.style.display = 'none';
+                        returnTargetSection.style.display = 'none';
                     }
                 });
             });
@@ -3283,17 +3431,20 @@
             // Validate Decision
             const decision = document.querySelector('input[name="sdsDecision"]:checked')?.value;
             if (!decision) {
-                showAlertModal('❌ Please select a decision (Approve or Disapprove)');
+                showAlertModal('❌ Please select a decision (Approve, Return, or Disapprove)');
                 return;
             }
 
-            // Validate Remarks for disapproval
+            // Validate Remarks for return/disapproval
             const remarks = document.getElementById('sdsRemarks')?.value?.trim() || '';
-            if (decision === 'disapprove' && !remarks) {
-                showAlertModal('❌ Please provide a reason for disapproving this application');
+            if ((decision === 'disapprove' || decision === 'return') && !remarks) {
+                showAlertModal('❌ Please provide a reason for ' + (decision === 'return' ? 'returning' : 'disapproving') + ' this application');
                 document.getElementById('sdsRemarks')?.focus();
                 return;
             }
+
+            // Get return target if returning
+            const returnTo = decision === 'return' ? (document.getElementById('sdsReturnTarget')?.value || 'ASDS') : null;
 
             // Get signature data
             const sdsOfficerSignature = getSdsSignatureData();
@@ -3303,20 +3454,26 @@
             if (submitBtn) submitBtn.disabled = true;
 
             try {
-                const apiAction = decision === 'approve' ? 'approved' : 'rejected';
+                let apiAction;
+                if (decision === 'approve') apiAction = 'approved';
+                else if (decision === 'return') apiAction = 'returned';
+                else apiAction = 'rejected';
+
+                const payload = {
+                    applicationId: currentSdsAppId,
+                    action: apiAction,
+                    approverPortal: 'SDS',
+                    approverName: getLoggedInUserName(),
+                    remarks: decision === 'approve' ? 'Approved' : remarks,
+                    sdsOfficerName: sdsOfficerName,
+                    sdsOfficerSignature: sdsOfficerSignature
+                };
+                if (returnTo) payload.returnTo = returnTo;
 
                 const response = await fetch('/api/approve-leave', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        applicationId: currentSdsAppId,
-                        action: apiAction,
-                        approverPortal: 'SDS',
-                        approverName: getLoggedInUserName(),
-                        remarks: decision === 'approve' ? 'Approved' : remarks,
-                        sdsOfficerName: sdsOfficerName,
-                        sdsOfficerSignature: sdsOfficerSignature
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const result = await response.json();
@@ -3324,6 +3481,10 @@
                 if (result.success) {
                     let successMsg;
                     if (decision === 'approve') successMsg = '✓ Application APPROVED! Employee\'s leave balance has been updated.';
+                    else if (decision === 'return') {
+                        const targetLabel = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
+                        successMsg = `✓ Application returned to ${targetLabel} for compliance!`;
+                    }
                     else successMsg = '✓ Application DISAPPROVED!';
 
                     alert(successMsg);

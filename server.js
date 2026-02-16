@@ -3216,30 +3216,45 @@ app.post('/api/approve-leave', (req, res) => {
         });
         
         if (action === 'returned') {
-            // Return application to previous step for compliance (lacking documents)
+            // Return application to a specific step or previous step for compliance
             // Workflow: Employee <- AO <- HR <- ASDS <- SDS
+            // With returnTo parameter, approver can send directly to any lower step
+            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'AO', 'HR', 'ASDS'
             let returnedTo = null;
             
-            if (currentApprover === 'AO') {
-                // AO returns -> back to Employee for compliance
-                app.status = 'returned';
-                app.currentApprover = 'EMPLOYEE';
-                returnedTo = 'Employee';
-            } else if (currentApprover === 'HR') {
-                // HR returns -> back to AO
-                app.status = 'pending';
-                app.currentApprover = 'AO';
-                returnedTo = 'AO';
-            } else if (currentApprover === 'ASDS') {
-                // ASDS returns -> back to HR
-                app.status = 'pending';
-                app.currentApprover = 'HR';
-                returnedTo = 'HR';
-            } else if (currentApprover === 'SDS') {
-                // SDS returns -> back to ASDS
-                app.status = 'pending';
-                app.currentApprover = 'ASDS';
-                returnedTo = 'ASDS';
+            // Define the workflow hierarchy (lower index = lower in chain)
+            const workflowOrder = ['EMPLOYEE', 'AO', 'HR', 'ASDS', 'SDS'];
+            const currentIndex = workflowOrder.indexOf(currentApprover);
+            
+            if (returnTo && workflowOrder.indexOf(returnTo) < currentIndex) {
+                // Return to specific target (must be below current approver in hierarchy)
+                if (returnTo === 'EMPLOYEE') {
+                    app.status = 'returned';
+                    app.currentApprover = 'EMPLOYEE';
+                } else {
+                    app.status = 'pending';
+                    app.currentApprover = returnTo;
+                }
+                returnedTo = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
+            } else {
+                // Default: return to previous step
+                if (currentApprover === 'AO') {
+                    app.status = 'returned';
+                    app.currentApprover = 'EMPLOYEE';
+                    returnedTo = 'Employee';
+                } else if (currentApprover === 'HR') {
+                    app.status = 'pending';
+                    app.currentApprover = 'AO';
+                    returnedTo = 'AO';
+                } else if (currentApprover === 'ASDS') {
+                    app.status = 'pending';
+                    app.currentApprover = 'HR';
+                    returnedTo = 'HR';
+                } else if (currentApprover === 'SDS') {
+                    app.status = 'pending';
+                    app.currentApprover = 'ASDS';
+                    returnedTo = 'ASDS';
+                }
             }
             
             app.returnedAt = new Date().toISOString();

@@ -1000,6 +1000,15 @@
                                         For disapproval/rejection
                                     </label>
                                 </div>
+                                
+                                <!-- Return Target Selector (shown only when Return is selected) -->
+                                <div id="hrReturnTargetSection" style="display: none; margin-top: 12px; padding: 12px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffe0b2;">
+                                    <label style="font-weight: 600; color: #e65100; font-size: 13px;">Return To:</label>
+                                    <select id="hrReturnTarget" style="width: 100%; padding: 8px; margin-top: 6px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                                        <option value="AO">AO (Previous Approver)</option>
+                                        <option value="EMPLOYEE">Employee (Applicant)</option>
+                                    </select>
+                                </div>
                             </div>
                             
                             <!-- 7C: Approved For -->
@@ -1223,6 +1232,16 @@
             document.getElementById('hrUserDisplay').textContent = user.name + ' (' + user.email + ')';
             
             loadApplications();
+            
+            // Add change listener for recommendation radio buttons
+            document.querySelectorAll('input[name="recommendation"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const returnTargetSection = document.getElementById('hrReturnTargetSection');
+                    if (returnTargetSection) {
+                        returnTargetSection.style.display = this.value === 'return' ? 'block' : 'none';
+                    }
+                });
+            });
         });
         
         async function loadApplications() {
@@ -1683,15 +1702,22 @@
                             <div class="action-title">📋 Select Your Action:</div>
                             <div class="radio-group">
                                 <label style="background: #e8f5e9; border-color: #4caf50;">
-                                    <input type="radio" name="returnedAction" value="resubmit">
+                                    <input type="radio" name="returnedAction" value="resubmit" onchange="var s=document.getElementById('hrReturnedTargetSection'); if(s) s.style.display='none'">
                                     <span>✅ <strong>Re-approve & Forward to ASDS</strong> - Issue resolved, forward application again</span>
                                 </label>
                                 <label style="background: #fff3e0; border-color: #f0ad4e;">
-                                    <input type="radio" name="returnedAction" value="return">
-                                    <span>↩️ <strong>Return to AO</strong> - Need AO to address the issue</span>
+                                    <input type="radio" name="returnedAction" value="return" onchange="document.getElementById('hrReturnedTargetSection').style.display='block'">
+                                    <span>↩️ <strong>Return for Compliance</strong> - Send back to a lower approver</span>
                                 </label>
+                                <div id="hrReturnedTargetSection" style="display:none; margin-left:28px; margin-top:4px; margin-bottom:4px;">
+                                    <label style="font-weight:bold; font-size:13px; margin-bottom:4px; display:block;">Return To:</label>
+                                    <select id="hrReturnedTarget" style="padding:8px 12px; border-radius:5px; border:1px solid #ccc; font-size:14px; width:220px;">
+                                        <option value="AO">AO (Previous Approver)</option>
+                                        <option value="EMPLOYEE">Employee (Applicant)</option>
+                                    </select>
+                                </div>
                                 <label style="background: #ffebee; border-color: #f44336;">
-                                    <input type="radio" name="returnedAction" value="reject">
+                                    <input type="radio" name="returnedAction" value="reject" onchange="var s=document.getElementById('hrReturnedTargetSection'); if(s) s.style.display='none'">
                                     <span>❌ <strong>Reject Application</strong> - Cannot be processed</span>
                                 </label>
                             </div>
@@ -1742,6 +1768,11 @@
                     remarks: remarks || (selectedAction === 'resubmit' ? 'Re-approved after compliance review' : remarks)
                 };
                 
+                // Add return target if returning
+                if (selectedAction === 'return') {
+                    payload.returnTo = document.getElementById('hrReturnedTarget')?.value || 'AO';
+                }
+                
                 const response = await fetch('/api/approve-leave', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1753,7 +1784,11 @@
                 if (result.success) {
                     let successMsg;
                     if (selectedAction === 'resubmit') successMsg = '✓ Application re-approved and forwarded to ASDS!';
-                    else if (selectedAction === 'return') successMsg = '✓ Application returned to AO!';
+                    else if (selectedAction === 'return') {
+                        const returnTarget = payload.returnTo || 'AO';
+                        const targetLabel = returnTarget === 'EMPLOYEE' ? 'Employee' : returnTarget;
+                        successMsg = `✓ Application returned to ${targetLabel} for compliance!`;
+                    }
                     else successMsg = '✓ Application rejected!';
                     
                     showMessage(successMsg, 'success');
@@ -2048,6 +2083,11 @@
                     authorizedOfficerSignature: authorizedOfficerSignature
                 };
                 
+                // Add return target if returning
+                if (recommendation === 'return') {
+                    payload.returnTo = document.getElementById('hrReturnTarget')?.value || 'AO';
+                }
+                
                 console.log('[SUBMIT] Sending approval payload:', payload);
                 
                 const response = await fetch('/api/approve-leave', {
@@ -2066,7 +2106,11 @@
                 if (result.success) {
                     let successMsg;
                     if (recommendation === 'approve') successMsg = '✓ Application approved and forwarded to ASDS!';
-                    else if (recommendation === 'return') successMsg = '✓ Application returned to AO for compliance!';
+                    else if (recommendation === 'return') {
+                        const returnTarget = payload.returnTo || 'AO';
+                        const targetLabel = returnTarget === 'EMPLOYEE' ? 'Employee' : returnTarget;
+                        successMsg = `✓ Application returned to ${targetLabel} for compliance!`;
+                    }
                     else successMsg = '✓ Application rejected!';
                     
                     showMessage(successMsg, 'success');
