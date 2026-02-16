@@ -960,6 +960,18 @@
                                         <td><input type="number" id="slLess" step="0.01" style="width: 100%;"></td>
                                         <td><input type="number" id="slBalance" step="0.01" style="width: 100%;"></td>
                                     </tr>
+                                    <tr>
+                                        <td>Special Privilege Leave</td>
+                                        <td><input type="number" id="splEarned" step="0.01" style="width: 100%;"></td>
+                                        <td><input type="number" id="splLess" step="0.01" style="width: 100%;"></td>
+                                        <td><input type="number" id="splBalance" step="0.01" style="width: 100%;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Force Leave</td>
+                                        <td><input type="number" id="flEarned" step="0.01" style="width: 100%;"></td>
+                                        <td><input type="number" id="flLess" step="0.01" style="width: 100%;"></td>
+                                        <td><input type="number" id="flBalance" step="0.01" style="width: 100%;"></td>
+                                    </tr>
                                 </tbody>
                             </table>
                             
@@ -1833,10 +1845,10 @@
                                 <div class="form-view-section">7. LEAVE CREDITS</div>
                                 <div style="padding: 10px; border: 1px solid #000; border-top: none;">
                                     <table class="credits-table">
-                                        <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th></tr>
-                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td></tr>
-                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td></tr>
-                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td></tr>
+                                        <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th><th>Special Privilege Leave</th><th>Force Leave</th></tr>
+                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td><td>${app.splEarned || '0.000'}</td><td>${app.flEarned || '0.000'}</td></tr>
+                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td><td>${app.splLess || '0'}</td><td>${app.flLess || '0'}</td></tr>
+                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td><td><strong>${app.splBalance || '0.000'}</strong></td><td><strong>${app.flBalance || '0.000'}</strong></td></tr>
                                     </table>
                                 </div>
                                 
@@ -2240,6 +2252,12 @@
             document.getElementById('slEarned').value = app.slEarned || '';
             document.getElementById('slLess').value = app.slLess || '';
             document.getElementById('slBalance').value = app.slBalance || '';
+            document.getElementById('splEarned').value = app.splEarned || '';
+            document.getElementById('splLess').value = app.splLess || '';
+            document.getElementById('splBalance').value = app.splBalance || '';
+            document.getElementById('flEarned').value = app.flEarned || '';
+            document.getElementById('flLess').value = app.flLess || '';
+            document.getElementById('flBalance').value = app.flBalance || '';
             
             // Clear recommendation fields
             document.querySelectorAll('input[name="recommendation"]').forEach(r => r.checked = false);
@@ -2391,7 +2409,20 @@
                     remarks: remarks,
                     // Add authorized officer info for Section 7.A
                     authorizedOfficerName: authorizedOfficerName,
-                    authorizedOfficerSignature: authorizedOfficerSignature
+                    authorizedOfficerSignature: authorizedOfficerSignature,
+                    // Leave credits data
+                    vlEarned: document.getElementById('vlEarned')?.value || '',
+                    vlLess: document.getElementById('vlLess')?.value || '',
+                    vlBalance: document.getElementById('vlBalance')?.value || '',
+                    slEarned: document.getElementById('slEarned')?.value || '',
+                    slLess: document.getElementById('slLess')?.value || '',
+                    slBalance: document.getElementById('slBalance')?.value || '',
+                    splEarned: document.getElementById('splEarned')?.value || '',
+                    splLess: document.getElementById('splLess')?.value || '',
+                    splBalance: document.getElementById('splBalance')?.value || '',
+                    flEarned: document.getElementById('flEarned')?.value || '',
+                    flLess: document.getElementById('flLess')?.value || '',
+                    flBalance: document.getElementById('flBalance')?.value || ''
                 };
                 
                 // Add return target if returning
@@ -2740,21 +2771,29 @@
                                 <th colspan="2">LEAVE CREDITS</th>
                                 <th>Vacation Leave</th>
                                 <th>Sick Leave</th>
+                                <th>Special Privilege Leave</th>
+                                <th>Force Leave</th>
                             </tr>
                             <tr>
                                 <td colspan="2">Total Earned</td>
                                 <td>${app.vlEarned || '0.000'}</td>
                                 <td>${app.slEarned || '0.000'}</td>
+                                <td>${app.splEarned || '0.000'}</td>
+                                <td>${app.flEarned || '0.000'}</td>
                             </tr>
                             <tr>
                                 <td colspan="2">Less this Application</td>
                                 <td>${app.vlLess || '0'}</td>
                                 <td>${app.slLess || '0'}</td>
+                                <td>${app.splLess || '0'}</td>
+                                <td>${app.flLess || '0'}</td>
                             </tr>
                             <tr>
                                 <td colspan="2"><strong>Balance</strong></td>
                                 <td><strong>${app.vlBalance || '0.000'}</strong></td>
                                 <td><strong>${app.slBalance || '0.000'}</strong></td>
+                                <td><strong>${app.splBalance || '0.000'}</strong></td>
+                                <td><strong>${app.flBalance || '0.000'}</strong></td>
                             </tr>
                         </table>
                     </div>

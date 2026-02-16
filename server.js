@@ -3187,7 +3187,7 @@ app.post('/api/update-leave-credits', (req, res) => {
 // Approve, return, or reject application
 app.post('/api/approve-leave', (req, res) => {
     try {
-        const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature } = req.body;
+        const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance } = req.body;
         const ip = getClientIp(req);
         console.log('[APPROVE-LEAVE] Request received:', { applicationId, action, approverPortal, approverName });
         
@@ -3299,6 +3299,20 @@ app.post('/api/approve-leave', (req, res) => {
                 if (authorizedOfficerSignature) {
                     app.authorizedOfficerSignature = authorizedOfficerSignature;
                 }
+                
+                // Store leave credits certified by HR
+                if (vlEarned !== undefined) app.vlEarned = vlEarned;
+                if (vlLess !== undefined) app.vlLess = vlLess;
+                if (vlBalance !== undefined) app.vlBalance = vlBalance;
+                if (slEarned !== undefined) app.slEarned = slEarned;
+                if (slLess !== undefined) app.slLess = slLess;
+                if (slBalance !== undefined) app.slBalance = slBalance;
+                if (splEarned !== undefined) app.splEarned = splEarned;
+                if (splLess !== undefined) app.splLess = splLess;
+                if (splBalance !== undefined) app.splBalance = splBalance;
+                if (flEarned !== undefined) app.flEarned = flEarned;
+                if (flLess !== undefined) app.flLess = flLess;
+                if (flBalance !== undefined) app.flBalance = flBalance;
                 
                 console.log(`[WORKFLOW] HR approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
             } else if (currentApprover === 'ASDS') {

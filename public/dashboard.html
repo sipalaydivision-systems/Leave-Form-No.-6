@@ -2492,6 +2492,8 @@
                                         <th></th>
                                         <th>Vacation Leave</th>
                                         <th>Sick Leave</th>
+                                        <th>Special Privilege Leave</th>
+                                        <th>Force Leave</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2499,16 +2501,22 @@
                                         <td>Total Earned</td>
                                         <td>${app.vlEarned || '0.000'}</td>
                                         <td>${app.slEarned || '0.000'}</td>
+                                        <td>${app.splEarned || '0.000'}</td>
+                                        <td>${app.flEarned || '0.000'}</td>
                                     </tr>
                                     <tr>
                                         <td>Less this application</td>
                                         <td>${app.vlLess || '0'}</td>
                                         <td>${app.slLess || '0'}</td>
+                                        <td>${app.splLess || '0'}</td>
+                                        <td>${app.flLess || '0'}</td>
                                     </tr>
                                     <tr>
                                         <td>Balance</td>
                                         <td>${app.vlBalance || '0.000'}</td>
                                         <td>${app.slBalance || '0.000'}</td>
+                                        <td>${app.splBalance || '0.000'}</td>
+                                        <td>${app.flBalance || '0.000'}</td>
                                     </tr>
                                 </tbody>
                             </table>
