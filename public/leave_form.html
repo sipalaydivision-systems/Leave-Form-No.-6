@@ -547,6 +547,21 @@
             margin-bottom: 8px;
         }
 
+        .commutation-options {
+            margin-top: 5px;
+        }
+
+        .commutation-options label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 3px;
+            font-size: 9px;
+        }
+
+        .commutation-options input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
         .signature-area {
             margin-top: 15px;
             text-align: center;
@@ -1158,21 +1173,22 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-bottom: 1px solid #000; padding-bottom: 5px;">
                     <div style="display: flex; flex-direction: column;">
                         <label style="font-size: 9px; display: block; margin-bottom: 3px;">From:</label>
-                        <div style="position: relative;">
-                            <input type="text" name="date_from_display" class="field-input date-picker-input" id="date_from" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
-                            <input type="hidden" name="date_from" id="date_from_iso">
-                        </div>
+                        <input type="text" name="date_from_display" class="field-input date-picker-input" id="date_from" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
+                        <input type="hidden" name="date_from" id="date_from_iso">
                     </div>
                     <div style="display: flex; flex-direction: column;">
                         <label style="font-size: 9px; display: block; margin-bottom: 3px;">To:</label>
-                        <div style="position: relative;">
-                            <input type="text" name="date_to_display" class="field-input date-picker-input" id="date_to" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
-                            <input type="hidden" name="date_to" id="date_to_iso">
-                        </div>
+                        <input type="text" name="date_to_display" class="field-input date-picker-input" id="date_to" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
+                        <input type="hidden" name="date_to" id="date_to_iso">
                     </div>
                 </div>
             </div>
             <div class="bottom-column">
+                <div class="field-label">6.D COMMUTATION</div>
+                <div class="commutation-options">
+                    <label><input type="checkbox" name="commutation_not" id="comm_not"> Not Requested</label>
+                    <label><input type="checkbox" name="commutation_req" id="comm_req"> Requested</label>
+                </div>
                 <div class="signature-area">
                     <div class="signature-pad-container">
                         <canvas id="signaturePad" width="300" height="80" style="border: 1px solid #999; cursor: crosshair; display: block; margin: 0 auto;"></canvas>
@@ -1596,22 +1612,21 @@
 
         // Add date picker popups to From/To fields
         function setupDatePicker(displayInput, hiddenInput) {
-            // Create a real date input positioned behind the display input
+            // Wrap the display input in a position:relative container
+            // so the overlay is scoped exactly to the input area
+            const wrapper = document.createElement('div');
+            wrapper.style.position = 'relative';
+            wrapper.style.display = 'inline-block';
+            wrapper.style.width = displayInput.offsetWidth ? displayInput.offsetWidth + 'px' : '100%';
+            displayInput.parentElement.insertBefore(wrapper, displayInput);
+            wrapper.appendChild(displayInput);
+
+            // Create a real date input overlay covering exactly this input
             const realDateInput = document.createElement('input');
             realDateInput.type = 'date';
-            realDateInput.style.position = 'absolute';
-            realDateInput.style.top = '0';
-            realDateInput.style.left = '0';
-            realDateInput.style.width = '100%';
-            realDateInput.style.height = '100%';
-            realDateInput.style.opacity = '0';
-            realDateInput.style.cursor = 'pointer';
-            realDateInput.style.zIndex = '2';
+            realDateInput.setAttribute('style', 'all:unset; position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10; box-sizing:border-box;');
             if (hiddenInput.value) realDateInput.value = hiddenInput.value;
-            
-            // Make parent relative for positioning
-            displayInput.parentElement.style.position = 'relative';
-            displayInput.parentElement.appendChild(realDateInput);
+            wrapper.appendChild(realDateInput);
             
             realDateInput.addEventListener('change', function() {
                 hiddenInput.value = realDateInput.value;
@@ -2012,6 +2027,26 @@
             otherLeaveInputInit.style.opacity = '0.5';
         }
 
+        // ===== Commutation Checkbox Logic (Mutually Exclusive) =====
+        const commutationNotCheckbox = document.getElementById('comm_not');
+        const commutationReqCheckbox = document.getElementById('comm_req');
+
+        if (commutationNotCheckbox) {
+            commutationNotCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    commutationReqCheckbox.checked = false;
+                }
+            });
+        }
+
+        if (commutationReqCheckbox) {
+            commutationReqCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    commutationNotCheckbox.checked = false;
+                }
+            });
+        }
+
         // ===== Other Purpose Checkbox Logic (Mutually Exclusive) =====
         const monetizationCheckbox = document.getElementById('monetization');
         const terminalCheckbox = document.getElementById('terminal');
@@ -2407,6 +2442,9 @@
             }
         }
         
+        // ===== COMMUTATION: Optional - no validation required =====
+        // Commutation checkboxes are available but not mandatory for submission
+        
         // ===== VALIDATION: Prevent Force/SPL submission if exhausted =====
         if (selectedLeaveType === 'leave_mfl' || selectedLeaveType === 'leave_spl') {
             const leaveCardStr = sessionStorage.getItem('leaveCardData');
@@ -2490,6 +2528,7 @@
             slLess: document.querySelector('input[name="sl_less"]').value,
             vlBalance: document.querySelector('input[name="vl_balance"]').value,
             slBalance: document.querySelector('input[name="sl_balance"]').value,
+            commutation: document.getElementById('comm_req').checked ? 'requested' : 'not-requested',
             employeeSignature: signatureData,
             // Capture vacation/SPL location details
             locationPH: (document.getElementById('loc_ph') && document.getElementById('loc_ph').checked) || false,
