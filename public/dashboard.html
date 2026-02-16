@@ -2512,6 +2512,7 @@
                             </table>
 
                             <div class="officer-signature">
+                                ${app.authorizedOfficerSignature && app.authorizedOfficerSignature.startsWith('data:image') ? `<img src="${app.authorizedOfficerSignature}" alt="AO Signature">` : '<div style="height: 30px;"></div>'}
                                 <div class="officer-name">${hrApproval ? hrApproval.approverName : ''}</div>
                                 <div class="officer-title">Administrative Officer IV-Personnel Section</div>
                                 ${hrApproval ? `<div style="font-size: 8px; margin-top: 5px;">Certified: ${new Date(hrApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
@@ -2534,6 +2535,7 @@
                             </div>
 
                             <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
+                                ${app.asdsOfficerSignature && app.asdsOfficerSignature.startsWith('data:image') ? `<img src="${app.asdsOfficerSignature}" alt="ASDS Signature">` : '<div style="height: 30px;"></div>'}
                                 <div class="officer-name" style="color: #003366;">${asdsApproval ? asdsApproval.approverName : ''}</div>
                                 <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
                                 ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
@@ -2565,6 +2567,7 @@
 
                     <!-- Final Signature -->
                     <div class="final-signature">
+                        ${app.sdsOfficerSignature && app.sdsOfficerSignature.startsWith('data:image') ? `<img src="${app.sdsOfficerSignature}" alt="SDS Signature">` : '<div style="height: 40px;"></div>'}
                         <div class="final-officer-name">${sdsApproval ? sdsApproval.approverName : ''}</div>
                         <div class="final-officer-title">Officer-In-Charge</div>
                         <div class="final-officer-title">Office of the Schools Division Superintendent</div>
