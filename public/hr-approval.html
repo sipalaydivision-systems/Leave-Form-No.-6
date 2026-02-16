@@ -972,6 +972,12 @@
                                         <td><input type="number" id="flLess" step="0.01" style="width: 100%;"></td>
                                         <td><input type="number" id="flBalance" step="0.01" style="width: 100%;"></td>
                                     </tr>
+                                    <tr>
+                                        <td>CTO</td>
+                                        <td><input type="number" id="ctoEarned" step="0.01" style="width: 100%;"></td>
+                                        <td><input type="number" id="ctoLess" step="0.01" style="width: 100%;"></td>
+                                        <td><input type="number" id="ctoBalance" step="0.01" style="width: 100%;"></td>
+                                    </tr>
                                 </tbody>
                             </table>
                             
@@ -1845,10 +1851,10 @@
                                 <div class="form-view-section">7. LEAVE CREDITS</div>
                                 <div style="padding: 10px; border: 1px solid #000; border-top: none;">
                                     <table class="credits-table">
-                                        <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th><th>Special Privilege Leave</th><th>Force Leave</th></tr>
-                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td><td>${app.splEarned || '0.000'}</td><td>${app.flEarned || '0.000'}</td></tr>
-                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td><td>${app.splLess || '0'}</td><td>${app.flLess || '0'}</td></tr>
-                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td><td><strong>${app.splBalance || '0.000'}</strong></td><td><strong>${app.flBalance || '0.000'}</strong></td></tr>
+                                        <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th><th>Special Privilege Leave</th><th>Force Leave</th><th>CTO</th></tr>
+                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td><td>${app.splEarned || '0.000'}</td><td>${app.flEarned || '0.000'}</td><td>${app.ctoEarned || '0.000'}</td></tr>
+                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td><td>${app.splLess || '0'}</td><td>${app.flLess || '0'}</td><td>${app.ctoLess || '0'}</td></tr>
+                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td><td><strong>${app.splBalance || '0.000'}</strong></td><td><strong>${app.flBalance || '0.000'}</strong></td><td><strong>${app.ctoBalance || '0.000'}</strong></td></tr>
                                     </table>
                                 </div>
                                 
@@ -2258,6 +2264,9 @@
             document.getElementById('flEarned').value = app.flEarned || '';
             document.getElementById('flLess').value = app.flLess || '';
             document.getElementById('flBalance').value = app.flBalance || '';
+            document.getElementById('ctoEarned').value = app.ctoEarned || '';
+            document.getElementById('ctoLess').value = app.ctoLess || '';
+            document.getElementById('ctoBalance').value = app.ctoBalance || '';
             
             // Clear recommendation fields
             document.querySelectorAll('input[name="recommendation"]').forEach(r => r.checked = false);
@@ -2422,7 +2431,10 @@
                     splBalance: document.getElementById('splBalance')?.value || '',
                     flEarned: document.getElementById('flEarned')?.value || '',
                     flLess: document.getElementById('flLess')?.value || '',
-                    flBalance: document.getElementById('flBalance')?.value || ''
+                    flBalance: document.getElementById('flBalance')?.value || '',
+                    ctoEarned: document.getElementById('ctoEarned')?.value || '',
+                    ctoLess: document.getElementById('ctoLess')?.value || '',
+                    ctoBalance: document.getElementById('ctoBalance')?.value || ''
                 };
                 
                 // Add return target if returning

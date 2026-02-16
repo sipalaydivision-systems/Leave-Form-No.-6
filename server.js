@@ -3187,7 +3187,7 @@ app.post('/api/update-leave-credits', (req, res) => {
 // Approve, return, or reject application
 app.post('/api/approve-leave', (req, res) => {
     try {
-        const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance } = req.body;
+        const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
         const ip = getClientIp(req);
         console.log('[APPROVE-LEAVE] Request received:', { applicationId, action, approverPortal, approverName });
         
@@ -3313,6 +3313,9 @@ app.post('/api/approve-leave', (req, res) => {
                 if (flEarned !== undefined) app.flEarned = flEarned;
                 if (flLess !== undefined) app.flLess = flLess;
                 if (flBalance !== undefined) app.flBalance = flBalance;
+                if (ctoEarned !== undefined) app.ctoEarned = ctoEarned;
+                if (ctoLess !== undefined) app.ctoLess = ctoLess;
+                if (ctoBalance !== undefined) app.ctoBalance = ctoBalance;
                 
                 console.log(`[WORKFLOW] HR approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
             } else if (currentApprover === 'ASDS') {
