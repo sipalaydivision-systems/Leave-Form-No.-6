@@ -1,5 +1,12 @@
 # Lessons Learned
 
+## Standing Rules
+
+### Rule: Always commit, push, and deploy after every completed task
+- After finishing any work: `git add -A && git commit && git push origin main`
+- Railway auto-deploys from `main` — push triggers deployment automatically
+- Do NOT wait to be asked — this is part of the standard workflow
+
 ## 2026-02-16 — System Bug Audit
 
 ### Lesson 1: Always check middleware ordering in Express
