@@ -2534,7 +2534,7 @@
             slLess: document.querySelector('input[name="sl_less"]').value,
             vlBalance: document.querySelector('input[name="vl_balance"]').value,
             slBalance: document.querySelector('input[name="sl_balance"]').value,
-            commutation: document.getElementById('comm_req').checked ? 'requested' : 'not-requested',
+            commutation: document.getElementById('comm_req').checked ? 'requested' : (document.getElementById('comm_not').checked ? 'not-requested' : ''),
             employeeSignature: signatureData,
             // Capture vacation/SPL location details
             locationPH: (document.getElementById('loc_ph') && document.getElementById('loc_ph').checked) || false,

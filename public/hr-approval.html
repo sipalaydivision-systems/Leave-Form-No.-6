@@ -2217,6 +2217,27 @@
             const formHtml = generateLeaveFormView(app, lastName, firstName, middleName);
             document.getElementById('formViewBody').innerHTML = formHtml;
             document.getElementById('formViewModal').classList.add('active');
+
+            // Fetch CTO balance for this employee
+            const empEmail = app.employeeEmail || app.email || app.employeeId || '';
+            if (empEmail) {
+                fetch('/api/cto-records?employeeId=' + encodeURIComponent(empEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        const ctoDiv = document.getElementById('ctoBalanceSection');
+                        if (ctoDiv && data.success && data.records) {
+                            const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
+                            const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
+                            const balance = totalGranted - totalUsed;
+                            ctoDiv.innerHTML = '<strong>CTO Balance:</strong> ' + balance.toFixed(3) + ' days <span style="color:#666;">(Granted: ' + totalGranted.toFixed(3) + ' | Used: ' + totalUsed.toFixed(3) + ')</span>';
+                        } else if (ctoDiv) {
+                            ctoDiv.innerHTML = '<strong>CTO Balance:</strong> No CTO records';
+                        }
+                    }).catch(() => {
+                        const ctoDiv = document.getElementById('ctoBalanceSection');
+                        if (ctoDiv) ctoDiv.innerHTML = '<strong>CTO Balance:</strong> Unable to load';
+                    });
+            }
         }
 
         function closeFormViewModal() {
@@ -2297,7 +2318,7 @@
                     <div class="form-view-details">
                         <div class="form-view-column">
                             <h4>6.A TYPE OF LEAVE TO BE AVAILED OF</h4>
-                            ${generateLeaveTypeChecklistHR(app.leaveType)}
+                            ${generateLeaveTypeChecklistHR(app.leaveType, app)}
                         </div>
                         <div class="form-view-column">
                             <h4>6.B DETAILS OF LEAVE</h4>
@@ -2347,11 +2368,11 @@
                         <div class="form-view-column">
                             <h4>6.D COMMUTATION</h4>
                             <div class="leave-type-item">
-                                <div class="checkbox ${app.commutation === 'not-requested' ? 'checked' : ''}">✓</div>
+                                <div class="checkbox ${app.commutation === 'not-requested' ? 'checked' : ''}">${app.commutation === 'not-requested' ? '✓' : ''}</div>
                                 <span>Not Requested</span>
                             </div>
                             <div class="leave-type-item">
-                                <div class="checkbox ${app.commutation === 'requested' ? 'checked' : ''}">✓</div>
+                                <div class="checkbox ${app.commutation === 'requested' ? 'checked' : ''}">${app.commutation === 'requested' ? '✓' : ''}</div>
                                 <span>Requested</span>
                             </div>
                         </div>
@@ -2381,6 +2402,7 @@
                                 <td><strong>${app.slBalance || '0.000'}</strong></td>
                             </tr>
                         </table>
+                        <div id="ctoBalanceSection" style="margin-top: 8px; font-size: 10px; padding: 5px; background: #f0f7ff; border-radius: 3px;"><em>Loading CTO balance...</em></div>
                     </div>
                     
                     <div class="status-display status-${app.status}">
@@ -2405,7 +2427,7 @@
             `;
         }
 
-        function generateLeaveTypeChecklistHR(leaveType) {
+        function generateLeaveTypeChecklistHR(leaveType, app) {
             const leaveTypes = [
                 { id: 'leave_vl', label: 'Vacation Leave' },
                 { id: 'leave_mfl', label: 'Mandatory/Forced Leave' },
@@ -2423,12 +2445,16 @@
                 { id: 'leave_others', label: 'Others' }
             ];
             
-            return leaveTypes.map(lt => `
+            let html = leaveTypes.map(lt => `
                 <div class="leave-type-item">
                     <div class="checkbox ${leaveType === lt.id ? 'checked' : ''}">${leaveType === lt.id ? '✓' : ''}</div>
                     <span>${lt.label}</span>
                 </div>
             `).join('');
+            if (leaveType === 'leave_others' && app && app.otherLeaveSpecify) {
+                html += '<div style="margin-top: 3px; font-size: 9px; padding-left: 20px; font-style: italic;">' + app.otherLeaveSpecify + '</div>';
+            }
+            return html;
         }
 
         function printLeaveForm() {
