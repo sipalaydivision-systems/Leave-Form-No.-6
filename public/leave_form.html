@@ -1083,8 +1083,8 @@
                     <input type="text" name="other_leave" id="other_leave_specify" placeholder="Please specify..." style="width: 80%; margin-top: 5px;">
                     <div id="soUploadSection" style="margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <label for="soImageUpload" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #f0f4ff; border: 1px solid #99b; border-radius: 4px; cursor: pointer; font-size: 10px; color: #336; white-space: nowrap;">
-                            📎 Upload Special Order
-                            <input type="file" id="soImageUpload" name="so_image" accept="image/*" style="display: none;" onchange="previewSOImage(this)">
+                            📎 Upload Special Order (PDF only)
+                            <input type="file" id="soImageUpload" name="so_image" accept="application/pdf,.pdf" style="display: none;" onchange="previewSOImage(this)">
                         </label>
                         <span id="soFileName" style="font-size: 10px; color: #666; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
                         <button type="button" id="soRemoveBtn" style="display: none; background: #fee; border: 1px solid #c99; border-radius: 4px; padding: 2px 8px; font-size: 10px; color: #c33; cursor: pointer;" onclick="removeSOImage()">✕</button>
@@ -1317,12 +1317,19 @@
         const fileNameSpan = document.getElementById('soFileName');
         const removeBtn = document.getElementById('soRemoveBtn');
         if (input.files && input.files[0]) {
-            if (input.files[0].size > 5 * 1024 * 1024) {
-                alert('Image must be under 5MB');
+            const file = input.files[0];
+            // Only accept PDF files
+            if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                alert('❌ Invalid File Type\n\nOnly PDF files are accepted for Special Order uploads.\n\nPlease select a PDF file.');
                 input.value = '';
                 return;
             }
-            fileNameSpan.textContent = input.files[0].name;
+            if (file.size > 10 * 1024 * 1024) {
+                alert('❌ File Too Large\n\nPDF file must be under 10MB.');
+                input.value = '';
+                return;
+            }
+            fileNameSpan.textContent = file.name;
             removeBtn.style.display = 'inline-block';
         }
     }
@@ -2438,12 +2445,30 @@
             }
         }
         
-        // Others leave type requires specification
+        // Others leave type requires specification AND PDF upload
         if (selectedLeaveType === 'leave_others') {
             const otherLeaveSpecify = document.getElementById('other_leave_specify').value.trim();
-            if (!otherLeaveSpecify) {
-                alert('❌ Leave Type Specification Required\n\nYou selected "Others" as your leave type but did not specify what type of leave.\n\nPlease enter the type of leave in the text field.');
+            const soFileInput = document.getElementById('soImageUpload');
+            const hasSOFile = soFileInput && soFileInput.files && soFileInput.files.length > 0;
+            
+            if (!otherLeaveSpecify && !hasSOFile) {
+                alert('❌ Required Fields Missing\n\nYou selected "Others" as your leave type. Please complete the following:\n\n1. Enter the type of leave in the text field (e.g., CTO - SO #12345)\n2. Upload the PDF copy of your Special Order\n\nBoth fields are required to proceed.');
                 document.getElementById('other_leave_specify').focus();
+                return;
+            }
+            if (!otherLeaveSpecify) {
+                alert('❌ Leave Type Specification Required\n\nYou selected "Others" as your leave type but did not specify what type of leave.\n\nPlease enter the type of leave in the text field (e.g., CTO - SO #12345).');
+                document.getElementById('other_leave_specify').focus();
+                return;
+            }
+            if (!hasSOFile) {
+                alert('❌ Special Order PDF Required\n\nYou selected "Others" as your leave type. A PDF copy of your Special Order is required.\n\nPlease upload the PDF file of your Special Order to proceed.');
+                return;
+            }
+            // Validate it's actually a PDF
+            const soFile = soFileInput.files[0];
+            if (soFile.type !== 'application/pdf' && !soFile.name.toLowerCase().endsWith('.pdf')) {
+                alert('❌ Invalid File Type\n\nOnly PDF files are accepted for Special Order uploads.\n\nPlease select a PDF file.');
                 return;
             }
         }
@@ -2551,8 +2576,27 @@
             // Capture women's special leave illness
             womenIllness: (document.querySelector('input[name="women_illness"]') && document.querySelector('input[name="women_illness"]').value) || '',
             // Capture "Others" leave type specification
-            otherLeaveSpecify: (document.getElementById('other_leave_specify') && document.getElementById('other_leave_specify').value) || ''
+            otherLeaveSpecify: (document.getElementById('other_leave_specify') && document.getElementById('other_leave_specify').value) || '',
+            // SO PDF will be attached below if present
+            soFileData: null,
+            soFileName: ''
         };
+        
+        // Read SO PDF file as base64 if uploaded
+        const soFileInput = document.getElementById('soImageUpload');
+        if (soFileInput && soFileInput.files && soFileInput.files.length > 0) {
+            const soFile = soFileInput.files[0];
+            const soBase64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(soFile);
+            });
+            if (soBase64) {
+                applicationData.soFileData = soBase64;
+                applicationData.soFileName = soFile.name;
+            }
+        }
         
         try {
             const response = await fetch('/api/submit-leave', {

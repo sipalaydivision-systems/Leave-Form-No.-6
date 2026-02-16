@@ -3538,6 +3538,36 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
             leavecard.forceLeaveSpent = (leavecard.forceLeaveSpent || 0) + forceLeaveUsed;
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
+        } else if (application.leaveType === 'leave_others' || String(application.leaveType || '').toLowerCase().includes('others')) {
+            // CTO/Others leave - deduct from CTO records
+            const ctoUsed = parseFloat(application.numDays) || parseFloat(application.daysApplied) || 1;
+            leaveType = 'CTO';
+            daysUsed = ctoUsed;
+            try {
+                ensureFile(ctoRecordsFile);
+                const ctoRecords = readJSON(ctoRecordsFile);
+                const empCtoRecords = ctoRecords.filter(r => r.employeeId === application.employeeEmail);
+                if (empCtoRecords.length > 0) {
+                    // Find the most recent CTO record with remaining balance
+                    let remaining = ctoUsed;
+                    for (let i = empCtoRecords.length - 1; i >= 0 && remaining > 0; i--) {
+                        const rec = empCtoRecords[i];
+                        const recIndex = ctoRecords.indexOf(rec);
+                        const granted = parseFloat(rec.daysGranted) || 0;
+                        const used = parseFloat(rec.daysUsed) || 0;
+                        const available = granted - used;
+                        if (available > 0) {
+                            const deduct = Math.min(remaining, available);
+                            ctoRecords[recIndex].daysUsed = (used + deduct);
+                            remaining -= deduct;
+                        }
+                    }
+                    writeJSON(ctoRecordsFile, ctoRecords);
+                    console.log(`[LEAVECARD] Deducted ${ctoUsed} CTO days from records for ${application.employeeEmail}`);
+                }
+            } catch (ctoErr) {
+                console.error('Error deducting CTO:', ctoErr);
+            }
         } else {
             leavecard.vl = Math.max(0, (leavecard.vl || 100) - vlUsed);
             leavecard.sl = Math.max(0, (leavecard.sl || 100) - slUsed);
