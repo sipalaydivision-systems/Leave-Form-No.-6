@@ -385,6 +385,23 @@ function readJSON(filepath) {
     }
 }
 
+// Helper: ensure data from readJSON is always an array (handles both [] and {key:[]} formats)
+function readJSONArray(filepath) {
+    const data = readJSON(filepath);
+    if (Array.isArray(data)) return data;
+    // If it's an object with a single key containing an array, unwrap it
+    if (data && typeof data === 'object') {
+        const keys = Object.keys(data);
+        if (keys.length === 1 && Array.isArray(data[keys[0]])) {
+            console.log(`[readJSONArray] Unwrapping "${keys[0]}" from ${path.basename(filepath)}, fixing file format...`);
+            // Also fix the file to plain array for future reads
+            fs.writeFileSync(filepath, JSON.stringify(data[keys[0]], null, 2));
+            return data[keys[0]];
+        }
+    }
+    return [];
+}
+
 function writeJSON(filepath, data) {
     fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
 }
@@ -2343,7 +2360,7 @@ function generateApplicationId(applications) {
 app.post('/api/submit-leave', (req, res) => {
     try {
         const applicationData = req.body;
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         const ip = getClientIp(req);
         
         // ===== VALIDATION: Check Force/SPL leave balance =====
@@ -2449,7 +2466,7 @@ app.get('/api/application-status/:id', (req, res) => {
             appId = idParam; // Try as string if not a valid number
         }
         
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         const app = applications.find(a => a.id === appId || a.id === parseInt(appId) || String(a.id) === idParam);
         
         if (!app) {
@@ -2468,7 +2485,7 @@ app.get('/api/application-status/:id', (req, res) => {
 app.get('/api/my-applications/:email', (req, res) => {
     try {
         const email = req.params.email;
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         const myApps = applications.filter(a => a.employeeEmail === email);
         
         res.json({ success: true, applications: myApps });
@@ -2481,7 +2498,7 @@ app.get('/api/my-applications/:email', (req, res) => {
 app.get('/api/application-details/:id', (req, res) => {
     try {
         const idParam = req.params.id;
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         const application = applications.find(a => a.id === idParam || a.id === parseInt(idParam) || String(a.id) === idParam);
         
         if (!application) {
@@ -2498,7 +2515,7 @@ app.get('/api/application-details/:id', (req, res) => {
 app.get('/api/pending-applications/:portal', (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         
         let pendingApps = applications.filter(a => 
             (a.status === 'pending' || a.status === 'returned') && a.currentApprover === portal
@@ -2514,7 +2531,7 @@ app.get('/api/pending-applications/:portal', (req, res) => {
 app.get('/api/approved-applications/:portal', (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         
         // Get applications approved by this portal
         let approvedApps = applications.filter(a => {
@@ -2535,7 +2552,7 @@ app.get('/api/approved-applications/:portal', (req, res) => {
 // Get HR-approved applications (applications that HR has processed and forwarded to next level)
 app.get('/api/hr-approved-applications', (req, res) => {
     try {
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         
         // Get applications where HR has approved them (hrApprovedAt exists and currentApprover is not HR)
         let hrApprovedApps = applications.filter(a => {
@@ -2561,7 +2578,7 @@ app.get('/api/all-users', (req, res) => {
 // Get all applications for demographics
 app.get('/api/all-applications', (req, res) => {
     try {
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         res.json({ success: true, applications: applications });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2592,7 +2609,7 @@ app.get('/api/all-employees', (req, res) => {
 app.get('/api/portal-applications/:portal', (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         
         let portalApps = applications.filter(a => {
             const approvalKey = portal.toLowerCase() + 'ApprovedAt';
@@ -2817,7 +2834,7 @@ app.get('/api/employee-leavecard', (req, res) => {
 app.get('/api/returned-applications/:email', (req, res) => {
     try {
         const email = req.params.email;
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         
         let returnedApps = applications.filter(a => 
             a.employeeEmail === email && 
@@ -2835,7 +2852,7 @@ app.get('/api/returned-applications/:email', (req, res) => {
 app.post('/api/resubmit-leave', (req, res) => {
     try {
         const { applicationId, updatedData, employeeEmail } = req.body;
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         const appIndex = applications.findIndex(a => a.id === applicationId);
         
         if (appIndex === -1) {
@@ -3069,7 +3086,7 @@ app.post('/api/approve-leave', (req, res) => {
         const ip = getClientIp(req);
         console.log('[APPROVE-LEAVE] Request received:', { applicationId, action, approverPortal, approverName });
         
-        const applications = readJSON(applicationsFile);
+        const applications = readJSONArray(applicationsFile);
         // Handle both string and number applicationId
         const appIndex = applications.findIndex(a => a.id === applicationId || a.id === parseInt(applicationId));
         
@@ -4038,8 +4055,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     try {
         const appsPath = path.join(dataDir, 'applications.json');
         if (fs.existsSync(appsPath)) {
-            const appsData = JSON.parse(fs.readFileSync(appsPath, 'utf8'));
-            const apps = appsData.applications || appsData || [];
+            let appsData = JSON.parse(fs.readFileSync(appsPath, 'utf8'));
+            // Normalize: extract array if wrapped in {applications: [...]}
+            let apps = Array.isArray(appsData) ? appsData : (appsData.applications || []);
             let fixedCount = 0;
             apps.forEach(app => {
                 if (app.commutation === 'not-requested') {
@@ -4047,10 +4065,12 @@ const server = app.listen(PORT, '0.0.0.0', () => {
                     fixedCount++;
                 }
             });
-            if (fixedCount > 0) {
-                const toSave = appsData.applications ? appsData : { applications: apps };
-                fs.writeFileSync(appsPath, JSON.stringify(toSave, null, 2));
-                console.log(`[MIGRATION] Fixed commutation on ${fixedCount} old applications (cleared 'not-requested' → '')`);
+            // Always check if file needs format normalization (object → array)
+            const needsNormalize = !Array.isArray(appsData);
+            if (fixedCount > 0 || needsNormalize) {
+                fs.writeFileSync(appsPath, JSON.stringify(apps, null, 2));
+                if (fixedCount > 0) console.log(`[MIGRATION] Fixed commutation on ${fixedCount} old applications`);
+                if (needsNormalize) console.log(`[MIGRATION] Normalized applications.json from object to array format`);
             }
         }
     } catch (migrationErr) {
