@@ -2215,13 +2215,13 @@
                     .signature-line { border-bottom: 1px solid #000; height: 25px; margin-bottom: 3px; }
                     .signature-label { font-size: 8px; font-style: italic; }
                     .action-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .action-column { padding: 8px; font-size: 9px; display: flex; flex-direction: column; }
+                    .action-column { padding: 8px; font-size: 9px; display: flex; flex-direction: column; min-height: 160px; }
                     .action-column:first-child { border-right: 1px solid #000; }
                     .credits-table { width: 100%; border-collapse: collapse; font-size: 9px; margin: 8px 0; }
                     .credits-table th, .credits-table td { border: 1px solid #000; padding: 4px; text-align: center; }
                     .credits-table th { background: #f0f0f0; font-weight: bold; }
                     .credits-table td:first-child { text-align: left; font-style: italic; }
-                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 3px; min-height: 60px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 3px; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
                     .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; object-fit: contain; }
                     .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
                     .officer-title { font-size: 9px; color: #003366; }
@@ -2581,15 +2581,49 @@
 
         // Print Final Leave Form
         function printFinalLeaveForm() {
-            const printContent = document.getElementById('printableFinalForm').innerHTML;
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
+            const formContainer = document.getElementById('printableFinalForm');
+            const styleContent = document.querySelector('#leaveFormViewContainer style')?.innerHTML || '';
+            
+            // Convert images to base64 data URLs so they show in print window
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = formContainer.innerHTML;
+            const images = tempDiv.querySelectorAll('img');
+            const imagePromises = [];
+            images.forEach(img => {
+                if (img.src && !img.src.startsWith('data:')) {
+                    imagePromises.push(new Promise((resolve) => {
+                        const canvas = document.createElement('canvas');
+                        const tempImg = new Image();
+                        tempImg.crossOrigin = 'anonymous';
+                        tempImg.onload = () => {
+                            canvas.width = tempImg.naturalWidth;
+                            canvas.height = tempImg.naturalHeight;
+                            canvas.getContext('2d').drawImage(tempImg, 0, 0);
+                            try {
+                                img.src = canvas.toDataURL('image/png');
+                            } catch(e) { /* keep original src */ }
+                            resolve();
+                        };
+                        tempImg.onerror = () => resolve();
+                        tempImg.src = img.src;
+                    }));
+                }
+            });
+            
+            Promise.all(imagePromises).then(() => {
+                const printContent = tempDiv.innerHTML;
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
                 <html>
                 <head>
                     <title>Final Leave Application Form</title>
                     <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        ${styleContent}
+                        * { box-sizing: border-box; }
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 3mm 5mm; }
+                        img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                         @media print {
+                            @page { size: A4; margin: 3mm; }
                             body { padding: 0; }
                             .no-print { display: none; }
                         }
@@ -2598,8 +2632,9 @@
                 <body>${printContent}</body>
                 </html>
             `);
-            printWindow.document.close();
-            printWindow.print();
+                printWindow.document.close();
+                printWindow.print();
+            });
         }
 
         // Initialize on page load

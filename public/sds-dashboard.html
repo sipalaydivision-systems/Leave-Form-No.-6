@@ -2433,13 +2433,13 @@
                     .commutation-options input { margin-right: 4px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .recommendation-options input[type="checkbox"] { accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .action-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .action-column { padding: 4px; font-size: 9px; display: flex; flex-direction: column; min-height: 100px; }
+                    .action-column { padding: 4px; font-size: 9px; display: flex; flex-direction: column; min-height: 160px; }
                     .action-column:first-child { border-right: 1px solid #000; }
                     .credits-table { width: 100%; border-collapse: collapse; font-size: 8px; margin: 4px 0; }
                     .credits-table th, .credits-table td { border: 1px solid #000; padding: 2px; text-align: center; }
                     .credits-table th { background: #f0f0f0; font-weight: bold; }
                     .credits-table td:first-child { text-align: left; font-style: italic; }
-                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 2px; min-height: 60px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 2px; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
                     .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; object-fit: contain; }
                     .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
                     .officer-title { font-size: 9px; color: #003366; }
@@ -2829,9 +2829,37 @@
         function printLeaveForm() {
             const formContainer = document.getElementById('printableFinalForm');
             const styleContent = document.querySelector('#modalBody style')?.innerHTML || '';
-            const printContent = formContainer.innerHTML;
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
+            
+            // Convert images to base64 data URLs so they show in print window
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = formContainer.innerHTML;
+            const images = tempDiv.querySelectorAll('img');
+            const imagePromises = [];
+            images.forEach(img => {
+                if (img.src && !img.src.startsWith('data:')) {
+                    imagePromises.push(new Promise((resolve) => {
+                        const canvas = document.createElement('canvas');
+                        const tempImg = new Image();
+                        tempImg.crossOrigin = 'anonymous';
+                        tempImg.onload = () => {
+                            canvas.width = tempImg.naturalWidth;
+                            canvas.height = tempImg.naturalHeight;
+                            canvas.getContext('2d').drawImage(tempImg, 0, 0);
+                            try {
+                                img.src = canvas.toDataURL('image/png');
+                            } catch(e) { /* keep original src */ }
+                            resolve();
+                        };
+                        tempImg.onerror = () => resolve();
+                        tempImg.src = img.src;
+                    }));
+                }
+            });
+            
+            Promise.all(imagePromises).then(() => {
+                const printContent = tempDiv.innerHTML;
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
                 <html>
                 <head>
                     <title>Leave Application</title>
@@ -2859,6 +2887,7 @@
                         }
                         .printable-form .form-header { margin-bottom: 3px; }
                         .printable-form .letterhead { margin-top: -3px; margin-bottom: 2px; }
+                        .printable-form .letterhead img { -webkit-print-color-adjust: exact; print-color-adjust: exact; display: inline-block !important; visibility: visible !important; }
                         .printable-form .form-title { margin: 5px 0; font-size: 14px; }
                         .printable-form .info-cell { padding: 3px 5px; font-size: 9px; }
                         .printable-form .section-header { padding: 3px 5px; font-size: 9px; }
@@ -2871,14 +2900,14 @@
                         .printable-form .sub-field input { font-size: 7px; }
                         .printable-form .bottom-column { padding: 4px; font-size: 8px; }
                         .printable-form .field-label { font-size: 8px; margin-bottom: 2px; }
-                        .printable-form .action-column { padding: 3px; font-size: 8px; min-height: 100px; }
+                        .printable-form .action-column { padding: 3px; font-size: 8px; min-height: 160px; }
                         .printable-form .credits-table { margin: 3px 0; font-size: 7px; }
                         .printable-form .credits-table th, .printable-form .credits-table td { padding: 2px; }
                         .printable-form .approval-column { padding: 4px; font-size: 8px; min-height: 50px; }
                         .printable-form .final-signature { padding: 4px 8px; min-height: 70px; }
                         .printable-form .signature-area { margin-top: 0; min-height: 40px; }
                         .printable-form .signature-area img { border: none !important; background: transparent !important; max-width: 200px; max-height: 70px; }
-                        .printable-form .officer-signature { min-height: 55px; padding-bottom: 2px; }
+                        .printable-form .officer-signature { min-height: 80px; padding-bottom: 2px; }
                         .printable-form .officer-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
                         .printable-form .officer-name { font-size: 10px; min-width: 180px; padding-top: 2px; text-decoration: underline; }
                         .printable-form .officer-title { font-size: 8px; }
@@ -2928,7 +2957,7 @@
                                 min-height: 65px;
                             }
                             .printable-form .action-column {
-                                min-height: 95px;
+                                min-height: 160px;
                             }
                             .printable-form .officer-signature img,
                             .printable-form .final-signature img,
@@ -2940,7 +2969,7 @@
                                 background: transparent !important;
                                 box-shadow: none !important;
                             }
-                            .printable-form .officer-signature { min-height: 55px; }
+                            .printable-form .officer-signature { min-height: 80px; }
                             .printable-form .officer-signature img { max-width: 200px; max-height: 70px; }
                             .printable-form .final-signature img { max-width: 200px; max-height: 70px; }
                             .printable-form .signature-area { min-height: 35px; margin-top: 0; }
@@ -2953,8 +2982,9 @@
                 </body>
                 </html>
             `);
-            printWindow.document.close();
-            printWindow.print();
+                printWindow.document.close();
+                printWindow.print();
+            });
         }
 
         function closeModal() {
