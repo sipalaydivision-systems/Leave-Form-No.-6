@@ -2851,6 +2851,10 @@
             document.getElementById('sdsRemarksSection').style.display = 'none';
             clearSdsSignature();
 
+            // Auto-populate officer name from logged-in SDS user
+            const sdsUserData = JSON.parse(localStorage.getItem('sdsUser') || '{}');
+            document.getElementById('sdsOfficerName').value = sdsUserData.name || '';
+
             // Initialize signature pad
             initSdsSignaturePad();
 

@@ -2363,6 +2363,10 @@
             document.getElementById('asdsRemarksSection').style.display = 'none';
             clearAsdsSignature();
 
+            // Auto-populate officer name from logged-in ASDS user
+            const asdsUserData = JSON.parse(localStorage.getItem('asdsUser') || '{}');
+            document.getElementById('asdsOfficerName').value = asdsUserData.name || '';
+
             // Initialize signature pad
             initAsdsSignaturePad();
 

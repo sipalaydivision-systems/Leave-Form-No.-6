@@ -1945,7 +1945,8 @@
             }, 100);
             
             // Clear authorized officer fields
-            document.getElementById('authorizedOfficer').value = '';
+            const hrUserData = JSON.parse(localStorage.getItem('hrUser') || '{}');
+            document.getElementById('authorizedOfficer').value = hrUserData.name || '';
         }
         
         function closeApprovalModal() {
