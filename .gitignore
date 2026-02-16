@@ -54,10 +54,3 @@ Thumbs.db
 # BACKUPS (created by backup system)
 # ==============================
 data/backups/
-
-# ==============================
-# MIGRATION SCRIPTS (not needed in production)
-# ==============================
-transform-server.js
-transform-server-v2.js
-server-json-backup.js
