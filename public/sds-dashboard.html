@@ -726,6 +726,11 @@
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 30px;
             margin-bottom: 20px;
+            position: relative;
+        }
+
+        .charts-grid.has-expanded .chart-box:not(.expanded) {
+            display: none;
         }
 
         .chart-container {
@@ -970,6 +975,80 @@
             padding: 20px;
             border-radius: 8px;
             min-height: 200px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .chart-box:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .chart-box.expanded {
+            grid-column: 1 / -1;
+            min-height: 400px;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border: 2px solid #6a1b9a;
+            cursor: default;
+        }
+
+        .chart-title .expand-hint {
+            font-size: 11px;
+            color: #999;
+            font-weight: 400;
+        }
+
+        .chart-box.expanded .chart-title .expand-hint {
+            display: none;
+        }
+
+        .collapse-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #6a1b9a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: none;
+            z-index: 5;
+            transition: background 0.2s;
+        }
+
+        .collapse-btn:hover {
+            background: #5a148a;
+        }
+
+        .chart-box.expanded .collapse-btn {
+            display: block;
+        }
+
+        .chart-box.expanded .vertical-bars {
+            height: 250px;
+            flex-wrap: wrap;
+        }
+
+        .chart-box.expanded .bar-chart {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .chart-box.expanded .top-5-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .show-more-hint {
+            text-align: center;
+            font-size: 11px;
+            color: #6a1b9a;
+            margin-top: 8px;
+            font-weight: 500;
         }
 
         .bar-chart {
@@ -1208,21 +1287,25 @@
                     <div class="stat-box-label">Pending Applications</div>
                 </div>
             </div>
-            <div class="charts-grid">
-                <div class="chart-box">
-                    <div class="chart-title">Users by School/Office</div>
+            <div class="charts-grid" id="chartsGrid">
+                <div class="chart-box" id="chartBoxDept" onclick="expandChart('chartBoxDept')">
+                    <button class="collapse-btn" onclick="event.stopPropagation(); collapseChart('chartBoxDept')">✕ Close</button>
+                    <div class="chart-title">Users by School/Office <span class="expand-hint">(click to expand)</span></div>
                     <div class="bar-chart" id="departmentBars"></div>
                 </div>
-                <div class="chart-box">
-                    <div class="chart-title">Leave Applications Status</div>
+                <div class="chart-box" id="chartBoxStatus" onclick="expandChart('chartBoxStatus')">
+                    <button class="collapse-btn" onclick="event.stopPropagation(); collapseChart('chartBoxStatus')">✕ Close</button>
+                    <div class="chart-title">Leave Applications Status <span class="expand-hint">(click to expand)</span></div>
                     <div class="donut-chart" id="statusDonut"></div>
                 </div>
-                <div class="chart-box">
-                    <div class="chart-title">Applications by Leave Type</div>
+                <div class="chart-box" id="chartBoxType" onclick="expandChart('chartBoxType')">
+                    <button class="collapse-btn" onclick="event.stopPropagation(); collapseChart('chartBoxType')">✕ Close</button>
+                    <div class="chart-title">Applications by Leave Type <span class="expand-hint">(click to expand)</span></div>
                     <div class="vertical-bars" id="leaveTypeBars"></div>
                 </div>
-                <div class="chart-box">
-                    <div class="chart-title">🏆 Top 5 Leave Takers (<span id="currentYear"></span>)</div>
+                <div class="chart-box" id="chartBoxTop5" onclick="expandChart('chartBoxTop5')">
+                    <button class="collapse-btn" onclick="event.stopPropagation(); collapseChart('chartBoxTop5')">✕ Close</button>
+                    <div class="chart-title">🏆 Top 5 Leave Takers (<span id="currentYear"></span>) <span class="expand-hint">(click to expand)</span></div>
                     <div class="top-5-list" id="topLeaveTakers"></div>
                 </div>
             </div>
@@ -1607,6 +1690,53 @@
             loadDemographics();
         });
 
+        // ========== EXPAND / COLLAPSE CHART SECTIONS ==========
+        function expandChart(chartBoxId) {
+            const chartBox = document.getElementById(chartBoxId);
+            if (!chartBox || chartBox.classList.contains('expanded')) return;
+
+            const grid = document.getElementById('chartsGrid');
+            chartBox.classList.add('expanded');
+            grid.classList.add('has-expanded');
+
+            // Re-render charts with full data when expanded
+            const cd = window._chartData;
+            if (!cd) return;
+
+            if (chartBoxId === 'chartBoxDept') {
+                createBarChart('departmentBars', cd.departmentCounts, cd.colors.dept); // no limit
+            } else if (chartBoxId === 'chartBoxStatus') {
+                createDonutChart('statusDonut', cd.statusCounts, cd.colors.status);
+            } else if (chartBoxId === 'chartBoxType') {
+                createVerticalBarChart('leaveTypeBars', cd.leaveTypeCounts, cd.colors.leaveType); // no limit
+            } else if (chartBoxId === 'chartBoxTop5') {
+                createTop5Chart('topLeaveTakers', cd.allLeaveTakers, true); // show ALL
+            }
+        }
+
+        function collapseChart(chartBoxId) {
+            const chartBox = document.getElementById(chartBoxId);
+            if (!chartBox) return;
+
+            const grid = document.getElementById('chartsGrid');
+            chartBox.classList.remove('expanded');
+            grid.classList.remove('has-expanded');
+
+            // Re-render charts with limited data
+            const cd = window._chartData;
+            if (!cd) return;
+
+            if (chartBoxId === 'chartBoxDept') {
+                createBarChart('departmentBars', cd.departmentCounts, cd.colors.dept, 5);
+            } else if (chartBoxId === 'chartBoxStatus') {
+                createDonutChart('statusDonut', cd.statusCounts, cd.colors.status);
+            } else if (chartBoxId === 'chartBoxType') {
+                createVerticalBarChart('leaveTypeBars', cd.leaveTypeCounts, cd.colors.leaveType, 5);
+            } else if (chartBoxId === 'chartBoxTop5') {
+                createTop5Chart('topLeaveTakers', cd.allLeaveTakers.slice(0, 5));
+            }
+        }
+
         async function loadAllApplications() {
             try {
                 // Load both pending and approved applications
@@ -1708,11 +1838,23 @@
                     }
                 });
 
-                // Calculate top 5 leave takers for current year
-                const top5LeaveTakers = Object.entries(employeeLeaveCounts)
+                // Calculate ALL leave takers for current year (sorted desc)
+                const allLeaveTakers = Object.entries(employeeLeaveCounts)
                     .map(([name, count]) => ({ name, count }))
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 5);
+                    .sort((a, b) => b.count - a.count);
+
+                // Store full datasets globally for expand/collapse
+                window._chartData = {
+                    departmentCounts,
+                    statusCounts,
+                    leaveTypeCounts,
+                    allLeaveTakers,
+                    colors: {
+                        dept: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+                        status: ['#4CAF50', '#FF9800', '#F44336'],
+                        leaveType: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                    }
+                };
 
                 // Update statistics
                 document.getElementById('totalUsers').textContent = users.length;
@@ -1720,11 +1862,11 @@
                 document.getElementById('approvedApps').textContent = statusCounts['Approved'];
                 document.getElementById('pendingApps').textContent = statusCounts['Pending'];
 
-                // Create variety of charts
-                createBarChart('departmentBars', departmentCounts, ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']);
-                createDonutChart('statusDonut', statusCounts, ['#4CAF50', '#FF9800', '#F44336']);
-                createVerticalBarChart('leaveTypeBars', leaveTypeCounts, ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']);
-                createTop5Chart('topLeaveTakers', top5LeaveTakers);
+                // Create charts (limited to top 5 by default)
+                createBarChart('departmentBars', departmentCounts, window._chartData.colors.dept, 5);
+                createDonutChart('statusDonut', statusCounts, window._chartData.colors.status);
+                createVerticalBarChart('leaveTypeBars', leaveTypeCounts, window._chartData.colors.leaveType, 5);
+                createTop5Chart('topLeaveTakers', allLeaveTakers.slice(0, 5));
 
                 // Create heatmap chart for school trends
                 createHeatmapChart('schoolTrendsHeatmap', schoolMonthlyData, '#6a1b9a');
@@ -1733,17 +1875,23 @@
             }
         }
 
-        function createBarChart(containerId, data, colors) {
+        function createBarChart(containerId, data, colors, limit) {
             const container = document.getElementById(containerId);
             if (!container) return;
 
-            const entries = Object.entries(data);
-            if (entries.length === 0) {
+            let entries = Object.entries(data);
+            const totalEntries = entries.length;
+            if (totalEntries === 0) {
                 container.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">No data available</div>';
                 return;
             }
 
-            const maxValue = Math.max(...Object.values(data));
+            const isLimited = limit && totalEntries > limit;
+            if (isLimited) {
+                entries = entries.slice(0, limit);
+            }
+
+            const maxValue = Math.max(...entries.map(e => e[1]));
             let html = '';
 
             entries.forEach(([label, value], index) => {
@@ -1760,6 +1908,10 @@
                     </div>
                 `;
             });
+
+            if (isLimited) {
+                html += `<div class="show-more-hint">Showing top ${limit} of ${totalEntries} — click to see all</div>`;
+            }
 
             container.innerHTML = html;
         }
@@ -1817,24 +1969,32 @@
             `;
         }
 
-        function createVerticalBarChart(containerId, data, colors) {
+        function createVerticalBarChart(containerId, data, colors, limit) {
             const container = document.getElementById(containerId);
             if (!container) return;
 
-            const entries = Object.entries(data);
-            if (entries.length === 0) {
+            let entries = Object.entries(data);
+            const totalEntries = entries.length;
+            if (totalEntries === 0) {
                 container.innerHTML = '<div style="color: #999; text-align: center; padding: 40px;">No data available</div>';
                 return;
             }
 
-            const maxValue = Math.max(...Object.values(data));
+            // Limit entries if specified
+            const isLimited = limit && totalEntries > limit;
+            if (isLimited) {
+                entries = entries.slice(0, limit);
+            }
+
+            const maxValue = Math.max(...entries.map(e => e[1]));
             let html = '';
 
             entries.forEach(([label, value], index) => {
                 const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
                 const color = colors[index % colors.length];
-                // Shorten label for display
-                const shortLabel = label.length > 8 ? label.substring(0, 7) + '...' : label;
+                // Shorten label for display (use longer label when expanded)
+                const maxLen = limit ? 8 : 14;
+                const shortLabel = label.length > maxLen ? label.substring(0, maxLen - 1) + '...' : label;
                 html += `
                     <div class="vbar-item" title="${label}: ${value}">
                         <div class="vbar-container">
@@ -1846,6 +2006,10 @@
                     </div>
                 `;
             });
+
+            if (isLimited) {
+                html += `<div class="show-more-hint" style="width:100%;">Showing top ${limit} of ${totalEntries} — click to see all</div>`;
+            }
 
             container.innerHTML = html;
         }
@@ -1931,7 +2095,7 @@
             `;
         }
 
-        function createTop5Chart(containerId, data) {
+        function createTop5Chart(containerId, data, showAll) {
             const container = document.getElementById(containerId);
             if (!container) return;
 
@@ -1951,14 +2115,19 @@
             let html = '';
             data.forEach((item, index) => {
                 const rankClass = rankClasses[index] || '';
+                const rankEmoji = rankEmojis[index] || `${index + 1}.`;
                 html += `
                     <div class="top-5-item ${rankClass}">
-                        <span class="top-5-rank">${rankEmojis[index]}</span>
+                        <span class="top-5-rank">${rankEmoji}</span>
                         <span class="top-5-name" title="${item.name}">${item.name}</span>
                         <span class="top-5-count">${item.count} leave${item.count > 1 ? 's' : ''}</span>
                     </div>
                 `;
             });
+
+            if (!showAll && window._chartData && window._chartData.allLeaveTakers.length > 5) {
+                html += `<div class="show-more-hint">Showing top 5 of ${window._chartData.allLeaveTakers.length} — click to see all</div>`;
+            }
 
             container.innerHTML = html;
         }
@@ -2163,15 +2332,16 @@
                 </div>
             `;
 
+            const safeAppId = typeof appId === 'string' ? appId.replace(/'/g, "\\'") : appId;
             const isApproved = app.status === 'approved';
             document.getElementById('modalFooter').innerHTML = isApproved ? `
-                <button class="btn" style="background: #666;" onclick="viewDetails(${appId})">📄 View Form</button>
+                <button class="btn" style="background: #666;" onclick="viewDetails('${safeAppId}')">📄 View Form</button>
                 <button class="btn" style="background: #333;" onclick="closeModal();">Close</button>
             ` : `
-                <button class="btn" style="background: #666;" onclick="viewDetails(${appId})">📄 View Form</button>
-                <button class="btn btn-reject" onclick="rejectApp(${appId}); closeModal();">Reject</button>
-                <button class="btn" style="background: #f0ad4e; color: white;" onclick="returnApp(${appId}); closeModal();">Return</button>
-                <button class="btn btn-approve" onclick="approveApp(${appId}); closeModal();">✓ Final Approve</button>
+                <button class="btn" style="background: #666;" onclick="viewDetails('${safeAppId}')">📄 View Form</button>
+                <button class="btn btn-reject" onclick="rejectApp('${safeAppId}'); closeModal();">Reject</button>
+                <button class="btn" style="background: #f0ad4e; color: white;" onclick="returnApp('${safeAppId}'); closeModal();">Return</button>
+                <button class="btn btn-approve" onclick="approveApp('${safeAppId}'); closeModal();">✓ Final Approve</button>
             `;
 
             document.getElementById('detailsModal').classList.add('active');
@@ -2616,11 +2786,12 @@
                 </div>
             `;
 
+            const safeAppId2 = typeof appId === 'string' ? appId.replace(/'/g, "\\'") : appId;
             document.getElementById('modalFooter').innerHTML = `
                 <button class="btn" style="background: #666;" onclick="printLeaveForm()">🖨️ Print</button>
-                <button class="btn btn-reject" onclick="closeModal(); rejectApp(${appId});">Reject</button>
-                <button class="btn" style="background: #f0ad4e; color: white;" onclick="closeModal(); returnApp(${appId});">Return</button>
-                <button class="btn btn-approve" onclick="closeModal(); openSdsApprovalModal(${appId});">✓ Final Approve</button>
+                <button class="btn btn-reject" onclick="closeModal(); rejectApp('${safeAppId2}');">Reject</button>
+                <button class="btn" style="background: #f0ad4e; color: white;" onclick="closeModal(); returnApp('${safeAppId2}');">Return</button>
+                <button class="btn btn-approve" onclick="closeModal(); openSdsApprovalModal('${safeAppId2}');">✓ Final Approve</button>
             `;
 
             document.getElementById('detailsModal').classList.add('active');
