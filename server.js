@@ -4032,6 +4032,30 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('==========================================================');
     console.log('');
     console.log('[STARTUP] Server started successfully at', new Date().toISOString());
+
+    // One-time migration: Fix old applications that have commutation='not-requested' 
+    // when user didn't actually select anything (old code always defaulted to 'not-requested')
+    try {
+        const appsPath = path.join(dataDir, 'applications.json');
+        if (fs.existsSync(appsPath)) {
+            const appsData = JSON.parse(fs.readFileSync(appsPath, 'utf8'));
+            const apps = appsData.applications || appsData || [];
+            let fixedCount = 0;
+            apps.forEach(app => {
+                if (app.commutation === 'not-requested') {
+                    app.commutation = '';
+                    fixedCount++;
+                }
+            });
+            if (fixedCount > 0) {
+                const toSave = appsData.applications ? appsData : { applications: apps };
+                fs.writeFileSync(appsPath, JSON.stringify(toSave, null, 2));
+                console.log(`[MIGRATION] Fixed commutation on ${fixedCount} old applications (cleared 'not-requested' → '')`);
+            }
+        }
+    } catch (migrationErr) {
+        console.error('[MIGRATION] Error fixing commutation data:', migrationErr.message);
+    }
 });
 
 server.on('error', (err) => {
