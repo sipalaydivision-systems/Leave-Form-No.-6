@@ -547,21 +547,6 @@
             margin-bottom: 8px;
         }
 
-        .commutation-options {
-            margin-top: 5px;
-        }
-
-        .commutation-options label {
-            display: flex;
-            align-items: center;
-            margin-bottom: 3px;
-            font-size: 9px;
-        }
-
-        .commutation-options input[type="checkbox"] {
-            margin-right: 5px;
-        }
-
         .signature-area {
             margin-top: 15px;
             text-align: center;
@@ -1173,22 +1158,21 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-bottom: 1px solid #000; padding-bottom: 5px;">
                     <div style="display: flex; flex-direction: column;">
                         <label style="font-size: 9px; display: block; margin-bottom: 3px;">From:</label>
-                        <input type="text" name="date_from_display" class="field-input date-picker-input" id="date_from" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
-                        <input type="hidden" name="date_from" id="date_from_iso">
+                        <div style="position: relative;">
+                            <input type="text" name="date_from_display" class="field-input date-picker-input" id="date_from" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
+                            <input type="hidden" name="date_from" id="date_from_iso">
+                        </div>
                     </div>
                     <div style="display: flex; flex-direction: column;">
                         <label style="font-size: 9px; display: block; margin-bottom: 3px;">To:</label>
-                        <input type="text" name="date_to_display" class="field-input date-picker-input" id="date_to" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
-                        <input type="hidden" name="date_to" id="date_to_iso">
+                        <div style="position: relative;">
+                            <input type="text" name="date_to_display" class="field-input date-picker-input" id="date_to" placeholder="mm/dd/yyyy" style="font-size: 10px; border: none; background: transparent; cursor: pointer;" readonly>
+                            <input type="hidden" name="date_to" id="date_to_iso">
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="bottom-column">
-                <div class="field-label">6.D COMMUTATION</div>
-                <div class="commutation-options">
-                    <label><input type="checkbox" name="commutation_not" id="comm_not"> Not Requested</label>
-                    <label><input type="checkbox" name="commutation_req" id="comm_req"> Requested</label>
-                </div>
                 <div class="signature-area">
                     <div class="signature-pad-container">
                         <canvas id="signaturePad" width="300" height="80" style="border: 1px solid #999; cursor: crosshair; display: block; margin: 0 auto;"></canvas>
@@ -2028,26 +2012,6 @@
             otherLeaveInputInit.style.opacity = '0.5';
         }
 
-        // ===== Commutation Checkbox Logic (Mutually Exclusive) =====
-        const commutationNotCheckbox = document.getElementById('comm_not');
-        const commutationReqCheckbox = document.getElementById('comm_req');
-
-        if (commutationNotCheckbox) {
-            commutationNotCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    commutationReqCheckbox.checked = false;
-                }
-            });
-        }
-
-        if (commutationReqCheckbox) {
-            commutationReqCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    commutationNotCheckbox.checked = false;
-                }
-            });
-        }
-
         // ===== Other Purpose Checkbox Logic (Mutually Exclusive) =====
         const monetizationCheckbox = document.getElementById('monetization');
         const terminalCheckbox = document.getElementById('terminal');
@@ -2443,15 +2407,6 @@
             }
         }
         
-        // ===== VALIDATION: Commutation is REQUIRED =====
-        const commNotChecked = document.getElementById('comm_not').checked;
-        const commReqChecked = document.getElementById('comm_req').checked;
-        if (!commNotChecked && !commReqChecked) {
-            alert('❌ Commutation Required\n\nYou must select a commutation option:\n• Not Requested, OR\n• Requested\n\nPlease check one of the options.');
-            document.querySelector('.commutation-options').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
-        
         // ===== VALIDATION: Prevent Force/SPL submission if exhausted =====
         if (selectedLeaveType === 'leave_mfl' || selectedLeaveType === 'leave_spl') {
             const leaveCardStr = sessionStorage.getItem('leaveCardData');
@@ -2535,7 +2490,6 @@
             slLess: document.querySelector('input[name="sl_less"]').value,
             vlBalance: document.querySelector('input[name="vl_balance"]').value,
             slBalance: document.querySelector('input[name="sl_balance"]').value,
-            commutation: document.getElementById('comm_req').checked ? 'requested' : 'not-requested',
             employeeSignature: signatureData,
             // Capture vacation/SPL location details
             locationPH: (document.getElementById('loc_ph') && document.getElementById('loc_ph').checked) || false,
