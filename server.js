@@ -6,6 +6,8 @@ const path = require('path');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const https = require('https');
+const db = require('./db');
+const r2 = require('./r2');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -221,67 +223,35 @@ app.use('/sipalay_logo.png', (req, res, next) => {
 app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
-// Data file paths
-// Railway Volume: When RAILWAY_VOLUME_MOUNT_PATH is set, data persists across deployments.
-// In development or without a volume, falls back to local ./data directory.
-const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH 
-    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
-    : path.join(__dirname, 'data');
-
-console.log(`[DATA] Using data directory: ${dataDir}`);
-if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-    console.log(`[DATA] Railway Volume detected at: ${process.env.RAILWAY_VOLUME_MOUNT_PATH}`);
-} else {
-    console.log('[DATA] No Railway Volume detected - using local filesystem (data will NOT persist on redeploy)');
-}
-
-const usersFile = path.join(dataDir, 'users.json');
-const employeesFile = path.join(dataDir, 'employees.json');
-const applicationsFile = path.join(dataDir, 'applications.json');
-const leavecardsFile = path.join(dataDir, 'leavecards.json');
-const aoUsersFile = path.join(dataDir, 'ao-users.json');
-const hrUsersFile = path.join(dataDir, 'hr-users.json');
-const asdsUsersFile = path.join(dataDir, 'asds-users.json');
-const sdsUsersFile = path.join(dataDir, 'sds-users.json');
-const itUsersFile = path.join(dataDir, 'it-users.json');
-const pendingRegistrationsFile = path.join(dataDir, 'pending-registrations.json');
-const ctoRecordsFile = path.join(dataDir, 'cto-records.json');
-const schoolsFile = path.join(dataDir, 'schools.json');
-const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
-const activityLogsFile = path.join(dataDir, 'activity-logs.json');
-
-// Ensure data directory exists
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
+// Data is stored in PostgreSQL via db.js module
+// Legacy file path constants (used by readJSON/writeJSON wrappers for backward compat)
+const usersFile = 'users.json';
+const employeesFile = 'employees.json';
+const applicationsFile = 'applications.json';
+const leavecardsFile = 'leavecards.json';
+const aoUsersFile = 'ao-users.json';
+const hrUsersFile = 'hr-users.json';
+const asdsUsersFile = 'asds-users.json';
+const sdsUsersFile = 'sds-users.json';
+const itUsersFile = 'it-users.json';
+const pendingRegistrationsFile = 'pending-registrations.json';
+const ctoRecordsFile = 'cto-records.json';
+const schoolsFile = 'schools.json';
+const initialCreditsFile = 'initial-credits.json';
+const activityLogsFile = 'activity-logs.json';
 // ========== ACTIVITY LOGGING SYSTEM ==========
 
-/**
- * Log user activity with detailed information
- * @param {string} action - Action type (login, logout, create, update, delete, etc.)
- * @param {string} portalType - Portal type (employee, hr, asds, sds, ao, it)
- * @param {object} details - Additional details about the activity
- */
-function logActivity(action, portalType, details = {}) {
+async function logActivity(action, portalType, details = {}) {
     try {
-        const ip = details.ip || 'unknown';
-        const userEmail = details.userEmail || 'anonymous';
-        const userId = details.userId || null;
-        const timestamp = new Date().toISOString();
-        
-        // Get user agent info
-        const userAgent = details.userAgent || 'unknown';
-        
         const logEntry = {
             id: crypto.randomUUID(),
-            timestamp,
+            timestamp: new Date().toISOString(),
             action,
             portalType,
-            userEmail,
-            userId,
-            ip,
-            userAgent,
+            userEmail: details.userEmail || 'anonymous',
+            userId: details.userId || null,
+            ip: details.ip || 'unknown',
+            userAgent: details.userAgent || 'unknown',
             details: {
                 ...details,
                 ip: undefined,
@@ -290,26 +260,8 @@ function logActivity(action, portalType, details = {}) {
                 userAgent: undefined
             }
         };
-        
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
-        
-        // Keep only last 10,000 logs to prevent file from getting too large
-        logs.push(logEntry);
-        if (logs.length > 10000) {
-            logs = logs.slice(-10000);
-        }
-        
-        fs.writeFileSync(activityLogsFile, JSON.stringify(logs, null, 2));
-        console.log(`Activity logged: ${action} by ${userEmail} (${portalType})`);
+        await db.insertActivityLog(logEntry);
+        console.log(`Activity logged: ${action} by ${logEntry.userEmail} (${portalType})`);
     } catch (error) {
         console.error('Error logging activity:', error);
     }
@@ -325,94 +277,58 @@ function getClientIp(req) {
            req.connection.socket?.remoteAddress ||
            'unknown';
 }
+// No-op: data lives in PostgreSQL
+async function ensureFile() {}
 
-// Ensure all data files exist — seeds from bundled defaults on first deploy
-const defaultsDir = path.join(__dirname, 'data', 'defaults');
-
-function ensureFile(filepath, defaultContent = '[]') {
-    const filename = path.basename(filepath);
-    const defaultFile = path.join(defaultsDir, filename);
-    
-    if (!fs.existsSync(filepath)) {
-        // File doesn't exist — seed from bundled defaults (useful for Railway Volume first deploy)
-        if (fs.existsSync(defaultFile)) {
-            const content = fs.readFileSync(defaultFile, 'utf8');
-            fs.writeFileSync(filepath, content);
-            console.log(`[DATA] Seeded ${filename} from defaults`);
-        } else {
-            fs.writeFileSync(filepath, defaultContent);
-            console.log(`[DATA] Created empty ${filename}`);
-        }
-    } else {
-        // File exists — but if it's empty/just "[]" and defaults have real data, reseed
-        try {
-            const existing = fs.readFileSync(filepath, 'utf8').trim();
-            const existingData = JSON.parse(existing);
-            if (Array.isArray(existingData) && existingData.length === 0 && fs.existsSync(defaultFile)) {
-                const defaultContent = fs.readFileSync(defaultFile, 'utf8').trim();
-                const defaultData = JSON.parse(defaultContent);
-                if (Array.isArray(defaultData) && defaultData.length > 0) {
-                    fs.writeFileSync(filepath, defaultContent);
-                    console.log(`[DATA] Re-seeded empty ${filename} from defaults (${defaultData.length} records)`);
-                }
-            }
-        } catch (e) {
-            console.log(`[DATA] ${filename} exists, keeping as-is`);
-        }
-    }
-}
-
-ensureFile(usersFile);
-ensureFile(employeesFile);
-ensureFile(applicationsFile);
-ensureFile(leavecardsFile);
-ensureFile(aoUsersFile);
-ensureFile(hrUsersFile);
-ensureFile(asdsUsersFile);
-ensureFile(sdsUsersFile);
-ensureFile(itUsersFile);
-ensureFile(pendingRegistrationsFile);
-
-// Helper functions
-function readJSON(filepath) {
+// Async wrappers that route legacy readJSON/writeJSON calls to PostgreSQL via db.js
+async function readJSON(filepath) {
     try {
-        if (!fs.existsSync(filepath)) {
-            return [];
+        const basename = path.basename(filepath);
+        switch (basename) {
+            case 'users.json': return await db.getUsers('user');
+            case 'ao-users.json': return await db.getUsers('ao');
+            case 'hr-users.json': return await db.getUsers('hr');
+            case 'asds-users.json': return await db.getUsers('asds');
+            case 'sds-users.json': return await db.getUsers('sds');
+            case 'it-users.json': return await db.getUsers('it');
+            case 'applications.json': return await db.getApplications();
+            case 'leavecards.json': return await db.getLeavecards();
+            case 'employees.json': return await db.getEmployees();
+            case 'cto-records.json': return await db.getAllCtoRecords();
+            case 'pending-registrations.json': return await db.getPendingRegistrations();
+            case 'schools.json': return await db.getSchools();
+            case 'initial-credits.json': return await db.getInitialCredits();
+            case 'activity-logs.json': return await db.getAllActivityLogs();
+            default:
+                console.warn('[readJSON] Unknown file:', basename);
+                return [];
         }
-        let content = fs.readFileSync(filepath, 'utf8');
-        // Strip UTF-8 BOM if present
-        if (content.charCodeAt(0) === 0xFEFF) {
-            content = content.slice(1);
-        }
-        return JSON.parse(content);
     } catch (error) {
-        console.error(`Error reading JSON file ${filepath}:`, error.message);
+        console.error(`Error reading from DB for ${filepath}:`, error.message);
         return [];
     }
 }
 
-// Helper: ensure data from readJSON is always an array (handles both [] and {key:[]} formats)
-function readJSONArray(filepath) {
-    const data = readJSON(filepath);
-    if (Array.isArray(data)) return data;
-    // If it's an object with a single key containing an array, unwrap it
-    if (data && typeof data === 'object') {
-        const keys = Object.keys(data);
-        if (keys.length === 1 && Array.isArray(data[keys[0]])) {
-            console.log(`[readJSONArray] Unwrapping "${keys[0]}" from ${path.basename(filepath)}, fixing file format...`);
-            // Also fix the file to plain array for future reads
-            fs.writeFileSync(filepath, JSON.stringify(data[keys[0]], null, 2));
-            return data[keys[0]];
+async function readJSONArray(filepath) {
+    const data = await readJSON(filepath);
+    return Array.isArray(data) ? data : [];
+}
+
+async function writeJSON(filepath, data) {
+    try {
+        const basename = path.basename(filepath);
+        const key = basename.replace('.json', '');
+        if (key === 'schools') {
+            await db.setSchools(data);
+        } else if (key === 'initial-credits') {
+            await db.setInitialCredits(data);
+        } else {
+            await db.importDataForKey(key, data);
         }
+    } catch (error) {
+        console.error(`Error writing to DB for ${filepath}:`, error.message);
     }
-    return [];
 }
-
-function writeJSON(filepath, data) {
-    fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
-}
-
-// Hash password with salt for new registrations
 function hashPasswordWithSalt(password) {
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.createHash('sha256').update(salt + password).digest('hex');
@@ -496,55 +412,27 @@ function buildEmployeeRecord(office, fullName, email, position, salaryGrade, ste
 }
 
 // ========== INITIAL CREDITS LOOKUP FUNCTION ==========
-/**
- * Normalize a name for matching (remove special chars, uppercase)
- */
 function normalizeNameForMatching(name) {
-    return name
-        .toUpperCase()
-        .replace(/[.,\-_]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    return name.toUpperCase().replace(/[.,\-_]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Look up initial leave credits from the extracted Excel data
- * @param {string} fullName - Employee full name (e.g., "Platil, Wesley Hans Magbanua")
- * @returns {object|null} - { vacationLeave, sickLeave } or null if not found
- */
-function lookupInitialCredits(fullName) {
+async function lookupInitialCredits(fullName) {
     try {
-        if (!fs.existsSync(initialCreditsFile)) {
-            console.log('[INITIAL CREDITS] File not found:', initialCreditsFile);
-            return null;
-        }
-        
-        const data = JSON.parse(fs.readFileSync(initialCreditsFile, 'utf8'));
-        
+        const data = await db.getInitialCredits();
         if (!data || !data.lookupMap) {
-            console.log('[INITIAL CREDITS] Invalid data format');
+            console.log('[INITIAL CREDITS] No data in DB');
             return null;
         }
-        
-        // Normalize the input name for matching
         const normalizedInput = normalizeNameForMatching(fullName);
-        
-        // Try exact match first
         if (data.lookupMap[normalizedInput]) {
             const credits = data.lookupMap[normalizedInput];
-            console.log(`[INITIAL CREDITS] Found exact match for "${fullName}": VL=${credits.vacationLeave}, SL=${credits.sickLeave}`);
-            return {
-                vacationLeave: credits.vacationLeave,
-                sickLeave: credits.sickLeave
-            };
+            console.log(`[INITIAL CREDITS] Exact match for "${fullName}": VL=${credits.vacationLeave}, SL=${credits.sickLeave}`);
+            return { vacationLeave: credits.vacationLeave, sickLeave: credits.sickLeave };
         }
-        
-        // Extract last name and first name from input
         let inputLastName = '', inputFirstName = '';
         if (fullName.includes(',')) {
             const parts = fullName.split(',');
             inputLastName = parts[0].trim().toUpperCase();
-            // Get just the first word of the remaining part as first name
             const restParts = (parts[1] || '').trim().split(/\s+/);
             inputFirstName = restParts[0].toUpperCase();
         } else {
@@ -552,49 +440,38 @@ function lookupInitialCredits(fullName) {
             inputFirstName = parts[0].toUpperCase();
             inputLastName = parts[parts.length - 1].toUpperCase();
         }
-        
-        // Search through all credits for partial match
-        for (const credit of data.credits) {
-            // The credit.name is in format "LASTNAME, FIRSTNAME" from file name
-            let creditLastName = '', creditFirstName = '';
-            if (credit.name.includes(',')) {
-                const parts = credit.name.split(',');
-                creditLastName = parts[0].trim().toUpperCase();
-                const restParts = (parts[1] || '').trim().split(/\s+/);
-                creditFirstName = restParts[0].toUpperCase();
-            } else {
-                const parts = credit.name.trim().split(/\s+/);
-                creditFirstName = parts[0].toUpperCase();
-                creditLastName = parts[parts.length - 1].toUpperCase();
-            }
-            
-            // Remove special characters for comparison
-            creditLastName = creditLastName.replace(/[.,\-_]/g, '');
-            creditFirstName = creditFirstName.replace(/[.,\-_]/g, '');
-            inputLastName = inputLastName.replace(/[.,\-_]/g, '');
-            inputFirstName = inputFirstName.replace(/[.,\-_]/g, '');
-            
-            // Match if last name matches and first name starts with same letters
-            if (creditLastName === inputLastName && 
-                (creditFirstName === inputFirstName || 
-                 creditFirstName.startsWith(inputFirstName) || 
-                 inputFirstName.startsWith(creditFirstName))) {
-                console.log(`[INITIAL CREDITS] Found partial match for "${fullName}" -> "${credit.name}": VL=${credit.vacationLeave}, SL=${credit.sickLeave}`);
-                return {
-                    vacationLeave: credit.vacationLeave,
-                    sickLeave: credit.sickLeave
-                };
+        if (data.credits) {
+            for (const credit of data.credits) {
+                let creditLastName = '', creditFirstName = '';
+                if (credit.name.includes(',')) {
+                    const cParts = credit.name.split(',');
+                    creditLastName = cParts[0].trim().toUpperCase();
+                    creditFirstName = (cParts[1] || '').trim().split(/\s+/)[0].toUpperCase();
+                } else {
+                    const cParts = credit.name.trim().split(/\s+/);
+                    creditFirstName = cParts[0].toUpperCase();
+                    creditLastName = cParts[cParts.length - 1].toUpperCase();
+                }
+                creditLastName = creditLastName.replace(/[.,\-_]/g, '');
+                creditFirstName = creditFirstName.replace(/[.,\-_]/g, '');
+                const cleanLast = inputLastName.replace(/[.,\-_]/g, '');
+                const cleanFirst = inputFirstName.replace(/[.,\-_]/g, '');
+                if (creditLastName === cleanLast &&
+                    (creditFirstName === cleanFirst ||
+                     creditFirstName.startsWith(cleanFirst) ||
+                     cleanFirst.startsWith(creditFirstName))) {
+                    console.log(`[INITIAL CREDITS] Partial match: "${fullName}" → "${credit.name}"`);
+                    return { vacationLeave: credit.vacationLeave, sickLeave: credit.sickLeave };
+                }
             }
         }
-        
-        console.log(`[INITIAL CREDITS] No match found for "${fullName}"`);
+        console.log(`[INITIAL CREDITS] No match for "${fullName}"`);
         return null;
     } catch (error) {
-        console.error('[INITIAL CREDITS] Error looking up credits:', error.message);
+        console.error('[INITIAL CREDITS] Error:', error.message);
         return null;
     }
 }
-
 // ========== EMAIL SENDING FUNCTION ==========
 /**
  * Send email using MailerSend API
@@ -763,30 +640,30 @@ function generateLoginFormEmail(userEmail, userName, portal, temporaryPassword =
 }
 
 // ========== PAGE ROUTES ==========
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
-app.get('/hr-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-login.html')));
-app.get('/asds-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-login.html')));
-app.get('/sds-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-login.html')));
-app.get('/ao-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-login.html')));
-app.get('/ao-register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-register.html')));
-app.get('/it-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-login.html')));
-app.get('/it-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-dashboard.html')));
-app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-app.get('/database', (req, res) => res.sendFile(path.join(__dirname, 'public', 'database.html')));
-app.get('/ao-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-dashboard.html')));
-app.get('/leave-form', (req, res) => res.sendFile(path.join(__dirname, 'public', 'leave_form.html')));
-app.get('/hr-approval', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-approval.html')));
-app.get('/asds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-dashboard.html')));
-app.get('/sds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-dashboard.html')));
+app.get('/', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/login', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/hr-login', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-login.html')));
+app.get('/asds-login', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-login.html')));
+app.get('/sds-login', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-login.html')));
+app.get('/ao-login', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-login.html')));
+app.get('/ao-register', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-register.html')));
+app.get('/it-login', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-login.html')));
+app.get('/it-dashboard', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-dashboard.html')));
+app.get('/dashboard', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/database', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'database.html')));
+app.get('/ao-dashboard', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-dashboard.html')));
+app.get('/leave-form', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'leave_form.html')));
+app.get('/hr-approval', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-approval.html')));
+app.get('/asds-dashboard', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-dashboard.html')));
+app.get('/sds-dashboard', async (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-dashboard.html')));
 
 // ========== HEALTH CHECK ==========
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
     res.json({ success: true, uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
 // ========== SESSION VALIDATION & LOGOUT ==========
-app.get('/api/validate-session', (req, res) => {
+app.get('/api/validate-session', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ success: false, error: 'No session' });
@@ -798,13 +675,13 @@ app.get('/api/validate-session', (req, res) => {
     res.json({ success: true, session: { email: session.email, role: session.role, portal: session.portal } });
 });
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         const session = validateSession(token);
         if (session) {
-            logActivity('LOGOUT', session.portal, {
+            await logActivity('LOGOUT', session.portal, {
                 userEmail: session.email,
                 ip: getClientIp(req),
                 userAgent: req.get('user-agent')
@@ -816,7 +693,7 @@ app.post('/api/logout', (req, res) => {
 });
 
 // ========== EMPLOYEE REGISTRATION & LOGIN ==========
-app.post('/api/register', apiRateLimiter, (req, res) => {
+app.post('/api/register', apiRateLimiter, async (req, res) => {
     try {
         const { fullName, email, password, office, position, salaryGrade, step, salary, employeeNo } = req.body || {};
 
@@ -851,8 +728,8 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Please select a valid position and step increment' });
         }
 
-        let users = readJSON(usersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let users = await readJSON(usersFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
 
         if (users.find(u => u.email === email)) {
             return res.status(400).json({ success: false, error: 'Email already registered' });
@@ -880,10 +757,10 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
         };
 
         pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'employee', {
+        await logActivity('REGISTRATION_SUBMITTED', 'employee', {
             userEmail: email,
             fullName: fullName,
             portal: 'employee',
@@ -899,23 +776,23 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
 });
 
 // Apply rate limiting to login endpoint
-app.post('/api/login', loginRateLimiter, (req, res) => {
+app.post('/api/login', loginRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         const ip = getClientIp(req);
 
-        let users = readJSON(usersFile);
+        let users = await readJSON(usersFile);
         const user = users.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!user) {
             // Log failed login attempt
-            logActivity('LOGIN_FAILED', 'employee', {
+            await logActivity('LOGIN_FAILED', 'employee', {
                 userEmail: email,
                 ip,
                 userAgent: req.get('user-agent')
             });
             
-            let pendingRegs = readJSON(pendingRegistrationsFile);
+            let pendingRegs = await readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'employee' && r.status === 'pending');
             if (pending) {
                 return res.status(401).json({
@@ -931,7 +808,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
             const idx = users.findIndex(u => u.email === email);
             if (idx !== -1) {
                 users[idx].password = hashPasswordWithSalt(password);
-                writeJSON(usersFile, users);
+                await writeJSON(usersFile, users);
             }
         }
 
@@ -939,7 +816,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
         const token = createSession(user, 'user');
 
         // Log successful login
-        logActivity('LOGIN_SUCCESS', 'employee', {
+        await logActivity('LOGIN_SUCCESS', 'employee', {
             userEmail: user.email,
             userId: user.id,
             ip,
@@ -970,7 +847,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
 });
 
 // Change password endpoint (for temp password users)
-app.post('/api/change-password', (req, res) => {
+app.post('/api/change-password', async (req, res) => {
     try {
         const { email, currentPassword, newPassword } = req.body;
         
@@ -982,7 +859,7 @@ app.post('/api/change-password', (req, res) => {
             return res.status(400).json({ success: false, error: 'New password must be at least 8 characters' });
         }
         
-        let users = readJSON(usersFile);
+        let users = await readJSON(usersFile);
         const userIdx = users.findIndex(u => u.email === email && verifyPassword(currentPassword, u.password));
         
         if (userIdx === -1) {
@@ -992,9 +869,9 @@ app.post('/api/change-password', (req, res) => {
         users[userIdx].password = hashPasswordWithSalt(newPassword);
         users[userIdx].mustChangePassword = false;
         users[userIdx].passwordChangedAt = new Date().toISOString();
-        writeJSON(usersFile, users);
+        await writeJSON(usersFile, users);
         
-        logActivity('PASSWORD_CHANGED', 'employee', {
+        await logActivity('PASSWORD_CHANGED', 'employee', {
             userEmail: email,
             ip: getClientIp(req),
             userAgent: req.get('user-agent')
@@ -1007,14 +884,14 @@ app.post('/api/change-password', (req, res) => {
 });
 
 // Get user details by email
-app.get('/api/user-details', (req, res) => {
+app.get('/api/user-details', async (req, res) => {
     try {
         const email = req.query.email;
         if (!email) {
             return res.status(400).json({ success: false, error: 'Email is required' });
         }
 
-        let users = readJSON(usersFile);
+        let users = await readJSON(usersFile);
         const user = users.find(u => u.email === email);
 
         if (!user) {
@@ -1041,7 +918,7 @@ app.get('/api/user-details', (req, res) => {
 });
 
 // ========== HR REGISTRATION & LOGIN ==========
-app.post('/api/hr-register', apiRateLimiter, (req, res) => {
+app.post('/api/hr-register', apiRateLimiter, async (req, res) => {
     try {
         const { email, password, fullName, name, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
@@ -1064,8 +941,8 @@ app.post('/api/hr-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee Number is required' });
         }
 
-        let hrUsers = readJSON(hrUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let hrUsers = await readJSON(hrUsersFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
 
         if (hrUsers.find(u => u.email === email)) {
             return res.status(400).json({ success: false, error: 'HR account already exists' });
@@ -1095,10 +972,10 @@ app.post('/api/hr-register', apiRateLimiter, (req, res) => {
         };
 
         pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'hr', {
+        await logActivity('REGISTRATION_SUBMITTED', 'hr', {
             userEmail: email,
             fullName: userName,
             portal: 'hr',
@@ -1112,22 +989,22 @@ app.post('/api/hr-register', apiRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/hr-login', loginRateLimiter, (req, res) => {
+app.post('/api/hr-login', loginRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         const ip = getClientIp(req);
 
-        let hrUsers = readJSON(hrUsersFile);
+        let hrUsers = await readJSON(hrUsersFile);
         const hrUser = hrUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!hrUser) {
-            logActivity('LOGIN_FAILED', 'hr', {
+            await logActivity('LOGIN_FAILED', 'hr', {
                 userEmail: email,
                 ip,
                 userAgent: req.get('user-agent')
             });
             
-            let pendingRegs = readJSON(pendingRegistrationsFile);
+            let pendingRegs = await readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'hr' && r.status === 'pending');
             if (pending) {
                 return res.status(401).json({
@@ -1143,13 +1020,13 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
             const idx = hrUsers.findIndex(u => u.email === email);
             if (idx !== -1) {
                 hrUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(hrUsersFile, hrUsers);
+                await writeJSON(hrUsersFile, hrUsers);
             }
         }
 
         const token = createSession(hrUser, 'hr');
 
-        logActivity('LOGIN_SUCCESS', 'hr', {
+        await logActivity('LOGIN_SUCCESS', 'hr', {
             userEmail: hrUser.email,
             userId: hrUser.id,
             ip,
@@ -1168,7 +1045,7 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
 });
 
 // ========== ASDS REGISTRATION & LOGIN ==========
-app.post('/api/asds-register', apiRateLimiter, (req, res) => {
+app.post('/api/asds-register', apiRateLimiter, async (req, res) => {
     try {
         const { email, password, fullName, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
@@ -1189,8 +1066,8 @@ app.post('/api/asds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: passwordValidation.error });
         }
 
-        let asdsUsers = readJSON(asdsUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let asdsUsers = await readJSON(asdsUsersFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
 
         if (asdsUsers.find(u => u.email === email)) {
             return res.status(400).json({ success: false, error: 'ASDS account already exists' });
@@ -1219,10 +1096,10 @@ app.post('/api/asds-register', apiRateLimiter, (req, res) => {
         };
 
         pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'asds', {
+        await logActivity('REGISTRATION_SUBMITTED', 'asds', {
             userEmail: email,
             fullName: fullName,
             portal: 'asds',
@@ -1236,22 +1113,22 @@ app.post('/api/asds-register', apiRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/asds-login', loginRateLimiter, (req, res) => {
+app.post('/api/asds-login', loginRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         const ip = getClientIp(req);
 
-        let asdsUsers = readJSON(asdsUsersFile);
+        let asdsUsers = await readJSON(asdsUsersFile);
         const asdsUser = asdsUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!asdsUser) {
-            logActivity('LOGIN_FAILED', 'asds', {
+            await logActivity('LOGIN_FAILED', 'asds', {
                 userEmail: email,
                 ip,
                 userAgent: req.get('user-agent')
             });
             
-            let pendingRegs = readJSON(pendingRegistrationsFile);
+            let pendingRegs = await readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'asds' && r.status === 'pending');
             if (pending) {
                 return res.status(401).json({
@@ -1266,7 +1143,7 @@ app.post('/api/asds-login', loginRateLimiter, (req, res) => {
             const idx = asdsUsers.findIndex(u => u.email === email);
             if (idx !== -1) {
                 asdsUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(asdsUsersFile, asdsUsers);
+                await writeJSON(asdsUsersFile, asdsUsers);
             }
         }
 
@@ -1283,7 +1160,7 @@ app.post('/api/asds-login', loginRateLimiter, (req, res) => {
 });
 
 // ========== SDS REGISTRATION & LOGIN ==========
-app.post('/api/sds-register', apiRateLimiter, (req, res) => {
+app.post('/api/sds-register', apiRateLimiter, async (req, res) => {
     try {
         const { email, fullName, office, position, salaryGrade, step, salary, password, employeeNo } = req.body;
 
@@ -1304,8 +1181,8 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, message: passwordValidation.error });
         }
 
-        let sdsUsers = readJSON(sdsUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let sdsUsers = await readJSON(sdsUsersFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
 
         if (sdsUsers.find(u => u.email === email)) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
@@ -1352,10 +1229,10 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
         };
 
         pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'sds', {
+        await logActivity('REGISTRATION_SUBMITTED', 'sds', {
             userEmail: email,
             fullName: fullName,
             portal: 'sds',
@@ -1369,22 +1246,22 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/sds-login', loginRateLimiter, (req, res) => {
+app.post('/api/sds-login', loginRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         const ip = getClientIp(req);
 
-        let sdsUsers = readJSON(sdsUsersFile);
+        let sdsUsers = await readJSON(sdsUsersFile);
         const sdsUser = sdsUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!sdsUser) {
-            logActivity('LOGIN_FAILED', 'sds', {
+            await logActivity('LOGIN_FAILED', 'sds', {
                 userEmail: email,
                 ip,
                 userAgent: req.get('user-agent')
             });
             
-            let pendingRegs = readJSON(pendingRegistrationsFile);
+            let pendingRegs = await readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'sds' && r.status === 'pending');
             if (pending) {
                 return res.status(401).json({
@@ -1399,7 +1276,7 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
             const idx = sdsUsers.findIndex(u => u.email === email);
             if (idx !== -1) {
                 sdsUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(sdsUsersFile, sdsUsers);
+                await writeJSON(sdsUsersFile, sdsUsers);
             }
         }
 
@@ -1416,7 +1293,7 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
 });
 
 // ========== AO REGISTRATION & LOGIN ==========
-app.post('/api/ao-register', apiRateLimiter, (req, res) => {
+app.post('/api/ao-register', apiRateLimiter, async (req, res) => {
     try {
         const { fullName, email, password, office, position, salaryGrade, step, employeeNo } = req.body;
 
@@ -1433,8 +1310,8 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: passwordValidation.error });
         }
 
-        let aoUsers = readJSON(aoUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let aoUsers = await readJSON(aoUsersFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
 
         if (aoUsers.find(u => u.email === email)) {
             return res.status(400).json({ success: false, error: 'Email already registered' });
@@ -1462,10 +1339,10 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
         };
 
         pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'ao', {
+        await logActivity('REGISTRATION_SUBMITTED', 'ao', {
             userEmail: email,
             fullName: fullName,
             portal: 'ao',
@@ -1479,22 +1356,22 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/ao-login', loginRateLimiter, (req, res) => {
+app.post('/api/ao-login', loginRateLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         const ip = getClientIp(req);
 
-        let aoUsers = readJSON(aoUsersFile);
+        let aoUsers = await readJSON(aoUsersFile);
         const aoUser = aoUsers.find(u => u.email === email && verifyPassword(password, u.password));
 
         if (!aoUser) {
-            logActivity('LOGIN_FAILED', 'ao', {
+            await logActivity('LOGIN_FAILED', 'ao', {
                 userEmail: email,
                 ip,
                 userAgent: req.get('user-agent')
             });
             
-            let pendingRegs = readJSON(pendingRegistrationsFile);
+            let pendingRegs = await readJSON(pendingRegistrationsFile);
             const pending = pendingRegs.find(r => r.email === email && r.portal === 'ao' && r.status === 'pending');
             if (pending) {
                 return res.status(401).json({
@@ -1509,7 +1386,7 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
             const idx = aoUsers.findIndex(u => u.email === email);
             if (idx !== -1) {
                 aoUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(aoUsersFile, aoUsers);
+                await writeJSON(aoUsersFile, aoUsers);
             }
         }
 
@@ -1526,7 +1403,7 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
 });
 
 // ========== IT DEPARTMENT ==========
-app.post('/api/it-login', loginRateLimiter, (req, res) => {
+app.post('/api/it-login', loginRateLimiter, async (req, res) => {
     try {
         const rawEmail = req.body?.email;
         const rawPin = req.body?.pin;
@@ -1541,7 +1418,7 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'PIN must be at least 5 digits' });
         }
 
-        let itUsers = readJSON(itUsersFile);
+        let itUsers = await readJSON(itUsersFile);
         const itUser = itUsers.find(u => (u.email || '').toLowerCase() === email && verifyPassword(pin, u.password));
 
         if (!itUser) {
@@ -1552,7 +1429,7 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
             const idx = itUsers.findIndex(u => (u.email || '').toLowerCase() === email);
             if (idx !== -1) {
                 itUsers[idx].password = hashPasswordWithSalt(pin);
-                writeJSON(itUsersFile, itUsers);
+                await writeJSON(itUsersFile, itUsers);
             }
         }
 
@@ -1568,7 +1445,7 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
+app.post('/api/add-it-staff', requireAuth('it'), async (req, res) => {
     try {
         const rawEmail = req.body?.email;
         const rawPin = req.body?.pin;
@@ -1589,7 +1466,7 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
         }
 
-        let itUsers = readJSON(itUsersFile);
+        let itUsers = await readJSON(itUsersFile);
         if (itUsers.find(u => (u.email || '').toLowerCase() === email)) {
             return res.status(400).json({ success: false, error: 'IT account already exists' });
         }
@@ -1604,7 +1481,7 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
             createdAt: new Date().toISOString()
         };
         itUsers.push(newITStaff);
-        writeJSON(itUsersFile, itUsers);
+        await writeJSON(itUsersFile, itUsers);
 
         res.json({ success: true, message: 'IT staff added successfully' });
     } catch (error) {
@@ -1613,7 +1490,7 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
 });
 
 // Update IT Profile endpoint
-app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
+app.post('/api/update-it-profile', requireAuth('it'), async (req, res) => {
     try {
         const { email, fullName, newPin } = req.body;
 
@@ -1621,7 +1498,7 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
         }
 
-        let itUsers = readJSON(itUsersFile);
+        let itUsers = await readJSON(itUsersFile);
         const userIndex = itUsers.findIndex(u => u.email === email);
 
         if (userIndex === -1) {
@@ -1636,7 +1513,7 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
         }
 
         itUsers[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(itUsersFile, itUsers);
+        await writeJSON(itUsersFile, itUsers);
 
         res.json({ 
             success: true, 
@@ -1655,9 +1532,9 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
 });
 
 // ========== PENDING REGISTRATIONS ==========
-app.get('/api/pending-registrations', requireAuth('it'), (req, res) => {
+app.get('/api/pending-registrations', requireAuth('it'), async (req, res) => {
     try {
-        const pendingRegs = readJSON(pendingRegistrationsFile);
+        const pendingRegs = await readJSON(pendingRegistrationsFile);
         const pending = pendingRegs.filter(r => r.status === 'pending');
         res.json(pending);
     } catch (error) {
@@ -1665,9 +1542,9 @@ app.get('/api/pending-registrations', requireAuth('it'), (req, res) => {
     }
 });
 
-app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
+app.get('/api/all-registered-users', requireAuth('it'), async (req, res) => {
     try {
-        const pendingRegs = readJSON(pendingRegistrationsFile);
+        const pendingRegs = await readJSON(pendingRegistrationsFile);
         // Filter out deleted records - they are permanently removed but just in case
         const activeRegs = pendingRegs.filter(r => r.status !== 'deleted');
 
@@ -1682,9 +1559,9 @@ app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
             { file: sdsUsersFile, portal: 'sds' }
         ];
 
-        portalFiles.forEach(({ file, portal }) => {
-            const users = readJSON(file);
-            users.forEach(user => {
+        for (const { file, portal } of portalFiles) {
+            const users = await readJSON(file);
+            for (const user of users) {
                 if (!existingEmails.has(user.email)) {
                     activeRegs.push({
                         id: user.id,
@@ -1705,8 +1582,8 @@ app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
                     });
                     existingEmails.add(user.email);
                 }
-            });
-        });
+            }
+        }
 
         res.json({ success: true, registrations: activeRegs });
     } catch (error) {
@@ -1714,20 +1591,20 @@ app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
     }
 });
 
-app.get('/api/registration-stats', requireAuth('it'), (req, res) => {
+app.get('/api/registration-stats', requireAuth('it'), async (req, res) => {
     try {
-        const pendingRegs = readJSON(pendingRegistrationsFile);
+        const pendingRegs = await readJSON(pendingRegistrationsFile);
         const pending = pendingRegs.filter(r => r.status === 'pending').length;
         const approvedToday = pendingRegs.filter(r => r.status === 'approved' && r.processedAt && new Date(r.processedAt).toDateString() === new Date().toDateString()).length;
         const rejectedToday = pendingRegs.filter(r => r.status === 'rejected' && r.processedAt && new Date(r.processedAt).toDateString() === new Date().toDateString()).length;
         const deletedUsers = pendingRegs.filter(r => r.status === 'deleted').length;
 
         const allUsers = [
-            ...readJSON(usersFile),
-            ...readJSON(hrUsersFile),
-            ...readJSON(aoUsersFile),
-            ...readJSON(asdsUsersFile),
-            ...readJSON(sdsUsersFile)
+            ...await readJSON(usersFile),
+            ...await readJSON(hrUsersFile),
+            ...await readJSON(aoUsersFile),
+            ...await readJSON(asdsUsersFile),
+            ...await readJSON(sdsUsersFile)
         ];
 
         res.json({
@@ -1746,11 +1623,11 @@ app.get('/api/registration-stats', requireAuth('it'), (req, res) => {
 });
 
 // ========== APPROVAL / REJECTION / DELETION ==========
-app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
+app.post('/api/approve-registration', requireAuth('it'), async (req, res) => {
     try {
         const { id, processedBy } = req.body;
 
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
         const regIndex = pendingRegs.findIndex(r => r.id == id);
 
         if (regIndex === -1) {
@@ -1783,7 +1660,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     createdAt: registration.createdAt
                 };
 
-                const employees = readJSON(employeesFile);
+                const employees = await readJSON(employeesFile);
                 const employeeRecord = buildEmployeeRecord(
                     registration.office,
                     registration.fullName,
@@ -1795,14 +1672,14 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     registration.district
                 );
                 employees.push(employeeRecord);
-                writeJSON(employeesFile, employees);
+                await writeJSON(employeesFile, employees);
                 
                 // Create initial leave card with credits from Excel data
-                const initialCredits = lookupInitialCredits(registration.fullName || registration.name);
+                const initialCredits = await lookupInitialCredits(registration.fullName || registration.name);
                 const defaultVL = 100;
                 const defaultSL = 100;
                 
-                const leavecards = readJSON(leavecardsFile);
+                const leavecards = await readJSON(leavecardsFile);
                 const existingLeavecard = leavecards.find(lc => lc.email === registration.email);
                 
                 if (!existingLeavecard) {
@@ -1829,7 +1706,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                         initialCreditsSource: initialCredits ? 'excel' : 'default'
                     };
                     leavecards.push(newLeavecard);
-                    writeJSON(leavecardsFile, leavecards);
+                    await writeJSON(leavecardsFile, leavecards);
                     console.log(`[REGISTRATION] Created leave card for ${registration.email}: VL=${newLeavecard.vl}, SL=${newLeavecard.sl}, Source=${newLeavecard.initialCreditsSource}`);
                 }
                 break;
@@ -1909,9 +1786,9 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
         }
 
         if (targetFile && newUser) {
-            let targetUsers = readJSON(targetFile);
+            let targetUsers = await readJSON(targetFile);
             targetUsers.push(newUser);
-            writeJSON(targetFile, targetUsers);
+            await writeJSON(targetFile, targetUsers);
         }
 
         registration.status = 'approved';
@@ -1919,10 +1796,10 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
         registration.processedBy = processedBy;
 
         pendingRegs[regIndex] = registration;
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration approval
-        logActivity('REGISTRATION_APPROVED', 'it', {
+        await logActivity('REGISTRATION_APPROVED', 'it', {
             userEmail: registration.email,
             fullName: registration.fullName || registration.name,
             portal: registration.portal,
@@ -1962,11 +1839,11 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
     }
 });
 
-app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
+app.post('/api/reject-registration', requireAuth('it'), async (req, res) => {
     try {
         const { id, reason, processedBy } = req.body;
 
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
         const regIndex = pendingRegs.findIndex(r => r.id == id);
 
         if (regIndex === -1) {
@@ -1981,10 +1858,10 @@ app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
         pendingRegs[regIndex].rejectionReason = reason || 'No reason provided';
         pendingRegs[regIndex].processedAt = new Date().toISOString();
         pendingRegs[regIndex].processedBy = processedBy;
-        writeJSON(pendingRegistrationsFile, pendingRegs);
+        await writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration rejection
-        logActivity('REGISTRATION_REJECTED', 'it', {
+        await logActivity('REGISTRATION_REJECTED', 'it', {
             userEmail: pendingRegs[regIndex].email,
             fullName: pendingRegs[regIndex].fullName || pendingRegs[regIndex].name,
             portal: pendingRegs[regIndex].portal,
@@ -2001,7 +1878,7 @@ app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
 });
 
 // Fetch items for a specific data category (for selective deletion)
-app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
+app.get('/api/data-items/:category', requireAuth('it'), async (req, res) => {
     try {
         const category = req.params.category;
         const categoryToFile = {
@@ -2021,11 +1898,7 @@ app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid category' });
         }
 
-        if (!fs.existsSync(filePath)) {
-            return res.json({ success: true, items: [], category });
-        }
-
-        const data = readJSON(filePath);
+        const data = await readJSON(filePath);
 
         // For schools, it's an object with districts array, flatten for display
         if (category === 'schools' && data && data.districts) {
@@ -2063,7 +1936,7 @@ app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
 });
 
 // Delete specific items by IDs from a data category
-app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
+app.post('/api/delete-specific-items', requireAuth('it'), async (req, res) => {
     try {
         const { category, itemIds } = req.body;
         const ip = getClientIp(req);
@@ -2089,11 +1962,7 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid category' });
         }
 
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ success: false, error: 'Data file not found' });
-        }
-
-        const data = readJSON(filePath);
+        const data = await readJSON(filePath);
         let deletedCount = 0;
 
         // Special handling for schools (object with districts)
@@ -2106,7 +1975,7 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
             });
             // Remove empty districts
             data.districts = data.districts.filter(d => d.schools.length > 0);
-            writeJSON(filePath, data);
+            await writeJSON(filePath, data);
         } else if (Array.isArray(data)) {
             const idsToDelete = new Set(itemIds.map(String));
             const filtered = data.filter(item => {
@@ -2118,11 +1987,11 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
                 }
                 return true;
             });
-            writeJSON(filePath, filtered);
+            await writeJSON(filePath, filtered);
         }
 
         // Log deletion activity
-        logActivity('DATA_DELETION', 'it', {
+        await logActivity('DATA_DELETION', 'it', {
             userEmail: 'system-admin',
             ip,
             userAgent: req.get('user-agent'),
@@ -2139,7 +2008,7 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
     }
 });
 
-app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
+app.post('/api/delete-selected-data', requireAuth('it'), async (req, res) => {
     try {
         console.log('[SYSTEM] Delete selected data request received');
 
@@ -2160,23 +2029,21 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
 
         let filesDeleted = 0;
 
-        // Clear selected files
-        Object.keys(deleteOptions).forEach(key => {
+        // Clear selected data
+        for (const key of Object.keys(deleteOptions)) {
             if (deleteOptions[key] === true && fileMapping[key]) {
                 const filePath = fileMapping[key];
-                if (fs.existsSync(filePath)) {
-                    writeJSON(filePath, []);
-                    filesDeleted++;
-                    console.log(`[SYSTEM] Cleared: ${filePath}`);
-                }
+                await writeJSON(filePath, []);
+                filesDeleted++;
+                console.log(`[SYSTEM] Cleared: ${filePath}`);
             }
-        });
+        }
 
         console.log(`[SYSTEM] Deleted ${filesDeleted} data file(s)`);
 
         // Log bulk deletion activity
         const deletedCategories = Object.keys(deleteOptions).filter(k => deleteOptions[k] === true && fileMapping[k]);
-        logActivity('DATA_DELETION', 'it', {
+        await logActivity('DATA_DELETION', 'it', {
             userEmail: 'system-admin',
             action: 'delete-selected-data',
             deletedCategories: deletedCategories,
@@ -2197,7 +2064,7 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
 });
 
 // DANGEROUS: Delete all data - requires confirmation key
-app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
+app.post('/api/delete-all-data', loginRateLimiter, async (req, res) => {
     try {
         // Require confirmation key to prevent accidental deletion
         const { confirmationKey } = req.body || {};
@@ -2223,18 +2090,16 @@ app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
             schoolsFile                 // Schools data
         ];
 
-        // Clear each file by writing empty array
-        dataFilesToClear.forEach(filePath => {
-            if (fs.existsSync(filePath)) {
-                writeJSON(filePath, []);
-                console.log(`[SYSTEM] Cleared: ${filePath}`);
-            }
-        });
+        // Clear each table
+        for (const filePath of dataFilesToClear) {
+            await writeJSON(filePath, []);
+            console.log(`[SYSTEM] Cleared: ${filePath}`);
+        }
 
         console.log('[SYSTEM] All system data has been deleted');
 
         // Log delete-all activity
-        logActivity('DATA_DELETION', 'it', {
+        await logActivity('DATA_DELETION', 'it', {
             userEmail: 'system-admin',
             action: 'delete-all-data',
             filesCleared: dataFilesToClear.length,
@@ -2253,7 +2118,7 @@ app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
     }
 });
 
-app.post('/api/delete-user', requireAuth('it'), (req, res) => {
+app.post('/api/delete-user', requireAuth('it'), async (req, res) => {
     try {
         const { id, email, portal, deletedBy } = req.body;
 
@@ -2276,20 +2141,18 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 
         let userDeleted = false;
 
-        if (fs.existsSync(userFile)) {
-            let users = readJSON(userFile);
-            const userIndex = users.findIndex(u => u.email === email);
-            if (userIndex !== -1) {
-                users.splice(userIndex, 1);
-                writeJSON(userFile, users);
-                userDeleted = true;
-                console.log(`User ${email} deleted from ${userFile} by ${deletedBy}`);
-            }
+        let users = await readJSON(userFile);
+        const userIndex = users.findIndex(u => u.email === email);
+        if (userIndex !== -1) {
+            users.splice(userIndex, 1);
+            await writeJSON(userFile, users);
+            userDeleted = true;
+            console.log(`User ${email} deleted from ${userFile} by ${deletedBy}`);
         }
 
         // Permanently delete from pending registrations
         let regDeleted = false;
-        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let pendingRegs = await readJSON(pendingRegistrationsFile);
         // Try to find by email+portal first, then fallback to id
         let regIndex = pendingRegs.findIndex(r => r.email === email && r.portal === portal);
         if (regIndex === -1 && id) {
@@ -2297,14 +2160,14 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
         }
         if (regIndex !== -1) {
             pendingRegs.splice(regIndex, 1);
-            writeJSON(pendingRegistrationsFile, pendingRegs);
+            await writeJSON(pendingRegistrationsFile, pendingRegs);
             regDeleted = true;
             console.log(`Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
         }
 
         if (userDeleted || regDeleted) {
             // Log user deletion
-            logActivity('DATA_DELETION', 'it', {
+            await logActivity('DATA_DELETION', 'it', {
                 userEmail: email,
                 action: 'delete-user',
                 portal: portal,
@@ -2363,10 +2226,10 @@ function generateApplicationId(applications) {
 }
 
 // Submit leave application
-app.post('/api/submit-leave', (req, res) => {
+app.post('/api/submit-leave', async (req, res) => {
     try {
         const applicationData = req.body;
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         const ip = getClientIp(req);
         
         // ===== VALIDATION: Check Force/SPL leave balance =====
@@ -2375,7 +2238,7 @@ app.post('/api/submit-leave', (req, res) => {
         const numDays = parseFloat(applicationData.numDays) || 0;
         
         if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            const leavecards = readJSON(leavecardsFile);
+            const leavecards = await readJSON(leavecardsFile);
             const employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
             
             if (employeeLeave) {
@@ -2434,10 +2297,10 @@ app.post('/api/submit-leave', (req, res) => {
         };
         
         applications.push(newApplication);
-        writeJSON(applicationsFile, applications);
+        await writeJSON(applicationsFile, applications);
         
         // Log activity
-        logActivity('LEAVE_APPLICATION_SUBMITTED', 'employee', {
+        await logActivity('LEAVE_APPLICATION_SUBMITTED', 'employee', {
             userEmail: applicationData.employeeEmail,
             ip,
             userAgent: req.get('user-agent'),
@@ -2464,7 +2327,7 @@ app.post('/api/submit-leave', (req, res) => {
 });
 
 // Get application status for tracker
-app.get('/api/application-status/:id', (req, res) => {
+app.get('/api/application-status/:id', async (req, res) => {
     try {
         const idParam = req.params.id;
         let appId = parseInt(idParam);
@@ -2472,7 +2335,7 @@ app.get('/api/application-status/:id', (req, res) => {
             appId = idParam; // Try as string if not a valid number
         }
         
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         const app = applications.find(a => a.id === appId || a.id === parseInt(appId) || String(a.id) === idParam);
         
         if (!app) {
@@ -2488,10 +2351,10 @@ app.get('/api/application-status/:id', (req, res) => {
 });
 
 // Get applications by email (for employee to track their own)
-app.get('/api/my-applications/:email', (req, res) => {
+app.get('/api/my-applications/:email', async (req, res) => {
     try {
         const email = req.params.email;
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         const myApps = applications.filter(a => a.employeeEmail === email);
         
         res.json({ success: true, applications: myApps });
@@ -2501,10 +2364,10 @@ app.get('/api/my-applications/:email', (req, res) => {
 });
 
 // Get application details by ID
-app.get('/api/application-details/:id', (req, res) => {
+app.get('/api/application-details/:id', async (req, res) => {
     try {
         const idParam = req.params.id;
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         const application = applications.find(a => a.id === idParam || a.id === parseInt(idParam) || String(a.id) === idParam);
         
         if (!application) {
@@ -2518,10 +2381,10 @@ app.get('/api/application-details/:id', (req, res) => {
 });
 
 // Get applications pending for a specific portal (includes returned applications)
-app.get('/api/pending-applications/:portal', (req, res) => {
+app.get('/api/pending-applications/:portal', async (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         
         let pendingApps = applications.filter(a => 
             (a.status === 'pending' || a.status === 'returned') && a.currentApprover === portal
@@ -2534,10 +2397,10 @@ app.get('/api/pending-applications/:portal', (req, res) => {
 });
 
 // Get approved applications for a specific portal (SDS or ASDS)
-app.get('/api/approved-applications/:portal', (req, res) => {
+app.get('/api/approved-applications/:portal', async (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         
         // Get applications approved by this portal
         let approvedApps = applications.filter(a => {
@@ -2556,9 +2419,9 @@ app.get('/api/approved-applications/:portal', (req, res) => {
 });
 
 // Get HR-approved applications (applications that HR has processed and forwarded to next level)
-app.get('/api/hr-approved-applications', (req, res) => {
+app.get('/api/hr-approved-applications', async (req, res) => {
     try {
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         
         // Get applications where HR has approved them (hrApprovedAt exists and currentApprover is not HR)
         let hrApprovedApps = applications.filter(a => {
@@ -2572,9 +2435,9 @@ app.get('/api/hr-approved-applications', (req, res) => {
 });
 
 // Get all users for demographics
-app.get('/api/all-users', (req, res) => {
+app.get('/api/all-users', async (req, res) => {
     try {
-        const users = readJSON(usersFile);
+        const users = await readJSON(usersFile);
         res.json({ success: true, users: users });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2582,9 +2445,9 @@ app.get('/api/all-users', (req, res) => {
 });
 
 // Get all applications for demographics
-app.get('/api/all-applications', (req, res) => {
+app.get('/api/all-applications', async (req, res) => {
     try {
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         res.json({ success: true, applications: applications });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2592,9 +2455,9 @@ app.get('/api/all-applications', (req, res) => {
 });
 
 // Get all registered employees (for AO to manage their cards)
-app.get('/api/all-employees', (req, res) => {
+app.get('/api/all-employees', async (req, res) => {
     try {
-        const users = readJSON(usersFile);
+        const users = await readJSON(usersFile);
         // Return only necessary fields for privacy
         const employees = users.map(user => ({
             id: user.id,
@@ -2612,10 +2475,10 @@ app.get('/api/all-employees', (req, res) => {
 });
 
 // Get all applications for a portal (pending, approved, and rejected by this portal)
-app.get('/api/portal-applications/:portal', (req, res) => {
+app.get('/api/portal-applications/:portal', async (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         
         let portalApps = applications.filter(a => {
             const approvalKey = portal.toLowerCase() + 'ApprovedAt';
@@ -2634,14 +2497,14 @@ app.get('/api/portal-applications/:portal', (req, res) => {
 });
 
 // Get leave credits for an employee
-app.get('/api/leave-credits', (req, res) => {
+app.get('/api/leave-credits', async (req, res) => {
     try {
         const employeeId = req.query.employeeId;
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
         
-        const leavecards = readJSON(leavecardsFile);
+        const leavecards = await readJSON(leavecardsFile);
         // Find all records for this employee to get the latest one
         const employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
         
@@ -2749,7 +2612,7 @@ app.get('/api/leave-credits', (req, res) => {
         // Also account for pending/approved applications that haven't been reflected in leave card yet
         // This ensures the dashboard shows the same balance as the leave card
         try {
-            const applications = readJSONArray(applicationsFile);
+            const applications = await readJSONArray(applicationsFile);
             const employeeApps = applications.filter(a => 
                 (a.employeeEmail === employeeId || a.email === employeeId) &&
                 (a.status === 'pending' || a.status === 'approved')
@@ -2839,7 +2702,7 @@ app.get('/api/leave-credits', (req, res) => {
 });
 
 // Get actual leave card allocation (for return/compliance preview)
-app.get('/api/leave-card', (req, res) => {
+app.get('/api/leave-card', async (req, res) => {
     try {
         const employeeId = req.query.employeeId;
         
@@ -2847,7 +2710,7 @@ app.get('/api/leave-card', (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
         
-        const leavecards = readJSON(leavecardsFile);
+        const leavecards = await readJSON(leavecardsFile);
         
         // Find all records for this employee to get the latest one
         const employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
@@ -2896,14 +2759,14 @@ app.get('/api/leave-card', (req, res) => {
 });
 
 // Get employee leave card with earned and spent data
-app.get('/api/employee-leavecard', (req, res) => {
+app.get('/api/employee-leavecard', async (req, res) => {
     try {
         const employeeId = req.query.employeeId;
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
         
-        const leavecards = readJSON(leavecardsFile);
+        const leavecards = await readJSON(leavecardsFile);
         
         // Try to find by employeeId first, then by email (since we use email as ID now)
         let leavecard = leavecards.find(lc => lc.employeeId === employeeId || lc.email === employeeId);
@@ -2936,10 +2799,10 @@ app.get('/api/employee-leavecard', (req, res) => {
 });
 
 // Get returned applications for employee to resubmit
-app.get('/api/returned-applications/:email', (req, res) => {
+app.get('/api/returned-applications/:email', async (req, res) => {
     try {
         const email = req.params.email;
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         
         let returnedApps = applications.filter(a => 
             a.employeeEmail === email && 
@@ -2954,10 +2817,10 @@ app.get('/api/returned-applications/:email', (req, res) => {
 });
 
 // Resubmit application after compliance
-app.post('/api/resubmit-leave', (req, res) => {
+app.post('/api/resubmit-leave', async (req, res) => {
     try {
         const { applicationId, updatedData, employeeEmail } = req.body;
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         const appIndex = applications.findIndex(a => a.id === applicationId);
         
         if (appIndex === -1) {
@@ -2981,7 +2844,7 @@ app.post('/api/resubmit-leave', (req, res) => {
         const numDays = parseFloat(updatedData?.numDays || app.numDays) || 0;
         
         if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            const leavecards = readJSON(leavecardsFile);
+            const leavecards = await readJSON(leavecardsFile);
             const employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
             
             if (employeeLeave) {
@@ -3040,7 +2903,7 @@ app.post('/api/resubmit-leave', (req, res) => {
         app.resubmittedAt = new Date().toISOString();
         
         applications[appIndex] = app;
-        writeJSON(applicationsFile, applications);
+        await writeJSON(applicationsFile, applications);
         
         console.log(`[LEAVE] Application ${applicationId} resubmitted by ${app.employeeName}`);
         
@@ -3056,7 +2919,7 @@ app.post('/api/resubmit-leave', (req, res) => {
 });
 
 // Update leave credits for an employee
-app.post('/api/update-leave-credits', (req, res) => {
+app.post('/api/update-leave-credits', async (req, res) => {
     try {
         const { 
             applicationId, 
@@ -3074,7 +2937,7 @@ app.post('/api/update-leave-credits', (req, res) => {
             vl, sl, spl, others, mandatoryForced 
         } = req.body;
         
-        let leavecards = readJSON(leavecardsFile);
+        let leavecards = await readJSON(leavecardsFile);
         
         // Use email as primary lookup key since that's what we have from applications
         console.log(`[UPDATE LEAVE] Received: email=${employeeEmail}, applicationId=${applicationId}`);
@@ -3159,11 +3022,11 @@ app.post('/api/update-leave-credits', (req, res) => {
             console.log('[UPDATE LEAVE] Updated existing leave card for:', employeeEmail);
         }
         
-        writeJSON(leavecardsFile, leavecards);
+        await writeJSON(leavecardsFile, leavecards);
         console.log('[UPDATE LEAVE] Successfully saved leave card data');
         
         // Log leave credits update
-        logActivity('LEAVE_CREDITS_UPDATED', 'employee', {
+        await logActivity('LEAVE_CREDITS_UPDATED', 'employee', {
             userEmail: employeeEmail,
             applicationId: applicationId,
             vl: employeeLeave.vl,
@@ -3185,13 +3048,13 @@ app.post('/api/update-leave-credits', (req, res) => {
 });
 
 // Approve, return, or reject application
-app.post('/api/approve-leave', (req, res) => {
+app.post('/api/approve-leave', async (req, res) => {
     try {
         const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
         const ip = getClientIp(req);
         console.log('[APPROVE-LEAVE] Request received:', { applicationId, action, approverPortal, approverName });
         
-        const applications = readJSONArray(applicationsFile);
+        const applications = await readJSONArray(applicationsFile);
         // Handle both string and number applicationId
         const appIndex = applications.findIndex(a => a.id === applicationId || a.id === parseInt(applicationId));
         
@@ -3350,14 +3213,14 @@ app.post('/api/approve-leave', (req, res) => {
                 console.log(`[WORKFLOW] SDS approved - FINAL APPROVAL. OIC-SDS: ${sdsOfficerName || 'Not specified'}`);
                 
                 // Update employee's leave balance
-                updateEmployeeLeaveBalance(app);
+                await updateEmployeeLeaveBalance(app);
             }
             
             console.log(`[LEAVE] Application ${applicationId} approved by ${approverPortal}, new currentApprover: ${app.currentApprover}`);
         }
         
         applications[appIndex] = app;
-        writeJSON(applicationsFile, applications);
+        await writeJSON(applicationsFile, applications);
         
         console.log('[APPROVE-LEAVE] Application updated successfully', { 
             applicationId: app.id, 
@@ -3373,7 +3236,7 @@ app.post('/api/approve-leave', (req, res) => {
         });
         
         // Log activity after successful action
-        logActivity(`LEAVE_APPLICATION_${action.toUpperCase()}`, approverPortal.toLowerCase(), {
+        await logActivity(`LEAVE_APPLICATION_${action.toUpperCase()}`, approverPortal.toLowerCase(), {
             userEmail: approverName,
             ip,
             userAgent: req.get('user-agent'),
@@ -3389,126 +3252,80 @@ app.post('/api/approve-leave', (req, res) => {
 });
 
 // Function to update employee leave balance after final approval
-function updateEmployeeLeaveBalance(application) {
+async function updateEmployeeLeaveBalance(application) {
     try {
-        const employees = readJSON(employeesFile);
-        const empIndex = employees.findIndex(e => e.email === application.employeeEmail);
-        
-        if (empIndex === -1) {
+        const employee = await db.getEmployeeByEmail(application.employeeEmail);
+        if (!employee) {
             console.error('Employee not found for balance update:', application.employeeEmail);
             return;
         }
-        
-        const employee = employees[empIndex];
-        
-        // Initialize leave credits if not present
         if (!employee.leaveCredits) {
-            employee.leaveCredits = {
-                vacationLeave: 0,
-                sickLeave: 0
-            };
+            employee.leaveCredits = { vacationLeave: 0, sickLeave: 0 };
         }
-        
-        // Deduct based on leave type and days
         const vlLess = parseFloat(application.vlLess) || 0;
         const slLess = parseFloat(application.slLess) || 0;
         const leaveType = application.typeOfLeave || application.leaveType || '';
         const leaveTypeLower = String(leaveType).toLowerCase();
-        
-        // Only deduct VL/SL if it's not a Force or Special Privilege leave
         const isForceLeave = leaveTypeLower.includes('force') || leaveTypeLower.includes('mandatory') || leaveTypeLower.includes('leave_mfl');
         const isSpecialLeave = leaveTypeLower.includes('special') || leaveTypeLower.includes('leave_spl');
-        
         if (vlLess > 0 && !isForceLeave && !isSpecialLeave) {
             employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - vlLess);
         }
         if (slLess > 0 && !isForceLeave && !isSpecialLeave) {
             employee.leaveCredits.sickLeave = Math.max(0, (employee.leaveCredits.sickLeave || 0) - slLess);
         }
-        
         employee.lastLeaveUpdate = new Date().toISOString();
-        employees[empIndex] = employee;
-        writeJSON(employeesFile, employees);
-        
-        // Update leave card with leave usage history
-        updateLeaveCardWithUsage(application, vlLess, slLess);
-        
-        console.log(`[LEAVE] Updated leave balance for ${application.employeeEmail}: VL=${employee.leaveCredits.vacationLeave}, SL=${employee.leaveCredits.sickLeave}, LeaveType=${leaveType}`);
+        await db.upsertEmployee(employee.email, employee);
+        await updateLeaveCardWithUsage(application, vlLess, slLess);
+        console.log(`[LEAVE] Balance updated for ${application.employeeEmail}: VL=${employee.leaveCredits.vacationLeave}, SL=${employee.leaveCredits.sickLeave}`);
     } catch (error) {
         console.error('Error updating leave balance:', error);
     }
 }
 
-function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
+async function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
     try {
-        const leavecards = readJSON(leavecardsFile);
-        let leavecard = leavecards.find(lc => lc.email === application.employeeEmail || lc.employeeId === application.employeeEmail);
+        let leavecard = await db.getLeavecardByEmail(application.employeeEmail);
         const currentYear = new Date().getFullYear();
-        
         if (!leavecard) {
-            // Create new leave card if not found with proper initial values
             leavecard = {
                 email: application.employeeEmail,
                 employeeId: application.employeeEmail,
-                vacationLeaveEarned: 100,
-                sickLeaveEarned: 100,
-                forceLeaveEarned: 0,
-                splEarned: 3,
-                vacationLeaveSpent: 0,
-                sickLeaveSpent: 0,
-                forceLeaveSpent: 0,
-                splSpent: 0,
-                forceLeaveYear: currentYear,
-                splYear: currentYear,
-                vl: 100,  // Start with full balance
-                sl: 100,  // Start with full balance
-                spl: 3,
-                others: 0,
+                vacationLeaveEarned: 100, sickLeaveEarned: 100,
+                forceLeaveEarned: 0, splEarned: 3,
+                vacationLeaveSpent: 0, sickLeaveSpent: 0,
+                forceLeaveSpent: 0, splSpent: 0,
+                forceLeaveYear: currentYear, splYear: currentYear,
+                vl: 100, sl: 100, spl: 3, others: 0,
                 leaveUsageHistory: [],
                 createdAt: new Date().toISOString()
             };
-            leavecards.push(leavecard);
         }
-        
-        // Initialize earned values if not present (for existing cards)
         if (!leavecard.vacationLeaveEarned) leavecard.vacationLeaveEarned = 100;
         if (!leavecard.sickLeaveEarned) leavecard.sickLeaveEarned = 100;
-        
-        // Initialize year tracking if not present
         if (!leavecard.forceLeaveYear) leavecard.forceLeaveYear = currentYear;
         if (!leavecard.splYear) leavecard.splYear = currentYear;
-        
-        // Reset Force Leave balance if year has changed
         if (leavecard.forceLeaveYear !== currentYear) {
             leavecard.forceLeaveSpent = 0;
             leavecard.forceLeaveYear = currentYear;
         }
-        
-        // Reset Special Privilege Leave balance if year has changed
         if (leavecard.splYear !== currentYear) {
             leavecard.splSpent = 0;
             leavecard.splYear = currentYear;
         }
-        
-        // Initialize balance if not set (use earned values)
         if (leavecard.vl === undefined || leavecard.vl === null) {
             leavecard.vl = leavecard.vacationLeaveEarned - (leavecard.vacationLeaveSpent || 0);
         }
         if (leavecard.sl === undefined || leavecard.sl === null) {
             leavecard.sl = leavecard.sickLeaveEarned - (leavecard.sickLeaveSpent || 0);
         }
-        
-        // Initialize usage history if not present
-        if (!leavecard.leaveUsageHistory) {
-            leavecard.leaveUsageHistory = [];
-        }
-        
-        // Determine leave type from application
+        if (!leavecard.leaveUsageHistory) leavecard.leaveUsageHistory = [];
+
         let leaveType = 'Leave';
         let daysUsed = 0;
         let forceLeaveUsed = 0;
         let splUsed = 0;
-        
+
         if (application.typeOfLeave || application.leaveType) {
             const lType = application.typeOfLeave || application.leaveType;
             if (lType === 'leave_mfl' || String(lType).toLowerCase().includes('force')) {
@@ -3521,49 +3338,36 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 splUsed = daysUsed;
             }
         }
-        
-        // If no specific leave type matched, use VL/SL
         if (!forceLeaveUsed && !splUsed) {
-            if (vlUsed > 0) {
-                leaveType = 'Vacation Leave';
-                daysUsed = vlUsed;
-            } else if (slUsed > 0) {
-                leaveType = 'Sick Leave';
-                daysUsed = slUsed;
-            }
+            if (vlUsed > 0) { leaveType = 'Vacation Leave'; daysUsed = vlUsed; }
+            else if (slUsed > 0) { leaveType = 'Sick Leave'; daysUsed = slUsed; }
         }
-        
-        // Deduct from balance based on leave type
+
         if (forceLeaveUsed > 0) {
             leavecard.forceLeaveSpent = (leavecard.forceLeaveSpent || 0) + forceLeaveUsed;
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
         } else if (application.leaveType === 'leave_others' || String(application.leaveType || '').toLowerCase().includes('others')) {
-            // CTO/Others leave - deduct from CTO records
             const ctoUsed = parseFloat(application.numDays) || parseFloat(application.daysApplied) || 1;
             leaveType = 'CTO';
             daysUsed = ctoUsed;
             try {
-                ensureFile(ctoRecordsFile);
-                const ctoRecords = readJSON(ctoRecordsFile);
-                const empCtoRecords = ctoRecords.filter(r => r.employeeId === application.employeeEmail);
+                const empCtoRecords = await db.getCtoRecordsByEmployee(application.employeeEmail);
                 if (empCtoRecords.length > 0) {
-                    // Find the most recent CTO record with remaining balance
                     let remaining = ctoUsed;
                     for (let i = empCtoRecords.length - 1; i >= 0 && remaining > 0; i--) {
                         const rec = empCtoRecords[i];
-                        const recIndex = ctoRecords.indexOf(rec);
                         const granted = parseFloat(rec.daysGranted) || 0;
                         const used = parseFloat(rec.daysUsed) || 0;
                         const available = granted - used;
                         if (available > 0) {
                             const deduct = Math.min(remaining, available);
-                            ctoRecords[recIndex].daysUsed = (used + deduct);
+                            rec.daysUsed = used + deduct;
+                            await db.updateCtoRecord(rec.id, rec);
                             remaining -= deduct;
                         }
                     }
-                    writeJSON(ctoRecordsFile, ctoRecords);
-                    console.log(`[LEAVECARD] Deducted ${ctoUsed} CTO days from records for ${application.employeeEmail}`);
+                    console.log(`[LEAVECARD] Deducted ${ctoUsed} CTO days for ${application.employeeEmail}`);
                 }
             } catch (ctoErr) {
                 console.error('Error deducting CTO:', ctoErr);
@@ -3574,52 +3378,37 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
             leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlUsed;
             leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slUsed;
         }
-        
-        // Record usage with period covered
+
         const dateFrom = application.dateFrom || application.date_from || application.inclusiveDatesFrom || '';
         const dateTo = application.dateTo || application.date_to || application.inclusiveDatesTo || '';
-        
-        // balanceAfterVL/SL should always reflect the current VL/SL balance, regardless of leave type
-        const balanceAfterVL = leavecard.vl;
-        const balanceAfterSL = leavecard.sl;
-        
         leavecard.leaveUsageHistory.push({
             applicationId: application.id,
-            leaveType: leaveType,
-            daysUsed: daysUsed,
+            leaveType,
+            daysUsed,
             periodFrom: dateFrom,
             periodTo: dateTo,
             dateApproved: new Date().toISOString(),
             approvedBy: 'SDS',
             remarks: application.remarks || '',
-            balanceAfterVL: balanceAfterVL,
-            balanceAfterSL: balanceAfterSL
+            balanceAfterVL: leavecard.vl,
+            balanceAfterSL: leavecard.sl
         });
-        
         leavecard.updatedAt = new Date().toISOString();
-        
-        // Find and update the leavecard entry
-        const lcIndex = leavecards.findIndex(lc => lc.email === application.employeeEmail || lc.employeeId === application.employeeEmail);
-        if (lcIndex !== -1) {
-            leavecards[lcIndex] = leavecard;
-        }
-        
-        writeJSON(leavecardsFile, leavecards);
-        console.log(`[LEAVECARD] Updated leave card for ${application.employeeEmail}: VL Balance=${leavecard.vl}, SL Balance=${leavecard.sl}, Force Spent=${leavecard.forceLeaveSpent}, SPL Spent=${leavecard.splSpent}, Year=${currentYear}`);
+        await db.upsertLeavecard(leavecard.email || application.employeeEmail, leavecard);
+        console.log(`[LEAVECARD] Updated for ${application.employeeEmail}: VL=${leavecard.vl}, SL=${leavecard.sl}, FL Spent=${leavecard.forceLeaveSpent}, SPL Spent=${leavecard.splSpent}`);
     } catch (error) {
         console.error('Error updating leave card:', error);
     }
 }
-
 // ========== LEAVE CARD ENDPOINTS ==========
 
 // ========== CTO RECORDS API ==========
 // Get CTO records for an employee
-app.get('/api/cto-records', (req, res) => {
+app.get('/api/cto-records', async (req, res) => {
     try {
         const { employeeId } = req.query;
-        ensureFile(ctoRecordsFile);
-        let ctoRecords = readJSON(ctoRecordsFile);
+        await ensureFile(ctoRecordsFile);
+        let ctoRecords = await readJSON(ctoRecordsFile);
 
         if (employeeId) {
             ctoRecords = ctoRecords.filter(r => r.employeeId === employeeId);
@@ -3633,7 +3422,7 @@ app.get('/api/cto-records', (req, res) => {
 });
 
 // Add/Update CTO record
-app.post('/api/update-cto-records', (req, res) => {
+app.post('/api/update-cto-records', async (req, res) => {
     try {
         const { employeeId, type, soDetails, daysGranted, daysUsed, periodCovered, soImage } = req.body;
         
@@ -3641,8 +3430,8 @@ app.post('/api/update-cto-records', (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
 
-        ensureFile(ctoRecordsFile);
-        let ctoRecords = readJSON(ctoRecordsFile);
+        await ensureFile(ctoRecordsFile);
+        let ctoRecords = await readJSON(ctoRecordsFile);
 
         const newRecord = {
             id: Date.now().toString(),
@@ -3660,7 +3449,7 @@ app.post('/api/update-cto-records', (req, res) => {
 
         ctoRecords.push(newRecord);
         
-        writeJSON(ctoRecordsFile, ctoRecords);
+        await writeJSON(ctoRecordsFile, ctoRecords);
 
         console.log(`[CTO RECORDS] Added for ${employeeId} - Type: ${type}, SO: ${soDetails}, Days Granted: ${daysGranted}, Days Used: ${daysUsed}`);
 
@@ -3676,13 +3465,13 @@ app.post('/api/update-cto-records', (req, res) => {
 });
 
 // Update CTO record (deduct days used)
-app.put('/api/cto-records/:recordId', (req, res) => {
+app.put('/api/cto-records/:recordId', async (req, res) => {
     try {
         const recordId = req.params.recordId;
         const { daysUsed } = req.body;
 
-        ensureFile(ctoRecordsFile);
-        let ctoRecords = readJSON(ctoRecordsFile);
+        await ensureFile(ctoRecordsFile);
+        let ctoRecords = await readJSON(ctoRecordsFile);
         const index = ctoRecords.findIndex(r => r.id == recordId);
 
         if (index === -1) {
@@ -3690,7 +3479,7 @@ app.put('/api/cto-records/:recordId', (req, res) => {
         }
 
         ctoRecords[index].daysUsed = (ctoRecords[index].daysUsed || 0) + Number(daysUsed);
-        writeJSON(ctoRecordsFile, ctoRecords);
+        await writeJSON(ctoRecordsFile, ctoRecords);
 
         res.json({ 
             success: true, 
@@ -3705,66 +3494,25 @@ app.put('/api/cto-records/:recordId', (req, res) => {
 
 // ========== ACTIVITY LOG ENDPOINTS ==========
 
-// Get all activity logs with pagination and filtering
-app.get('/api/activity-logs', (req, res) => {
+app.get('/api/activity-logs', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
-        const action = req.query.action;
-        const portal = req.query.portal;
-        const userEmail = req.query.userEmail;
-        const startDate = req.query.startDate;
-        const endDate = req.query.endDate;
-        
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
-        
-        // Apply filters
-        let filtered = logs;
-        if (action) {
-            filtered = filtered.filter(log => log.action.includes(action.toUpperCase()));
-        }
-        if (portal) {
-            filtered = filtered.filter(log => log.portalType === portal.toLowerCase());
-        }
-        if (userEmail) {
-            filtered = filtered.filter(log => log.userEmail.toLowerCase().includes(userEmail.toLowerCase()));
-        }
-        if (startDate) {
-            const start = new Date(startDate);
-            filtered = filtered.filter(log => new Date(log.timestamp) >= start);
-        }
-        if (endDate) {
-            const end = new Date(endDate);
-            filtered = filtered.filter(log => new Date(log.timestamp) <= end);
-        }
-        
-        // Sort by timestamp descending (newest first)
-        filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
-        // Pagination
-        const totalItems = filtered.length;
-        const totalPages = Math.ceil(totalItems / limit);
-        const start = (page - 1) * limit;
-        const paginated = filtered.slice(start, start + limit);
-        
+        const filters = {
+            action: req.query.action,
+            portal: req.query.portal,
+            email: req.query.userEmail,
+            startDate: req.query.startDate,
+            endDate: req.query.endDate,
+        };
+        const [logs, totalItems] = await Promise.all([
+            db.getActivityLogs({ ...filters, page, limit }),
+            db.getActivityLogCount(filters),
+        ]);
         res.json({
             success: true,
-            logs: paginated,
-            pagination: {
-                page,
-                limit,
-                totalItems,
-                totalPages
-            }
+            logs,
+            pagination: { page, limit, totalItems, totalPages: Math.ceil(totalItems / limit) }
         });
     } catch (error) {
         console.error('Error fetching activity logs:', error);
@@ -3772,60 +3520,24 @@ app.get('/api/activity-logs', (req, res) => {
     }
 });
 
-// Get activity log summary (stats)
-app.get('/api/activity-logs-summary', (req, res) => {
+app.get('/api/activity-logs-summary', async (req, res) => {
     try {
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
-        
-        // Calculate statistics
+        const logs = await db.getAllActivityLogs();
         const stats = {
             totalActivities: logs.length,
             activitiesByAction: {},
             activitiesByPortal: {},
             activitiesByIp: {},
-            recentActivities: logs.slice(-10),
-            last24Hours: logs.filter(log => {
-                const logTime = new Date(log.timestamp);
-                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                return logTime >= oneDayAgo;
-            }).length,
-            uniqueUsers: new Set(logs.map(log => log.userEmail)).size,
-            uniqueIps: new Set(logs.map(log => log.ip)).size
+            recentActivities: logs.slice(0, 10),
+            last24Hours: logs.filter(l => new Date(l.timestamp) >= new Date(Date.now() - 86400000)).length,
+            uniqueUsers: new Set(logs.map(l => l.userEmail)).size,
+            uniqueIps: new Set(logs.map(l => l.ip)).size
         };
-        
-        // Group by action
         logs.forEach(log => {
-            if (!stats.activitiesByAction[log.action]) {
-                stats.activitiesByAction[log.action] = 0;
-            }
-            stats.activitiesByAction[log.action]++;
+            stats.activitiesByAction[log.action] = (stats.activitiesByAction[log.action] || 0) + 1;
+            stats.activitiesByPortal[log.portalType] = (stats.activitiesByPortal[log.portalType] || 0) + 1;
+            stats.activitiesByIp[log.ip] = (stats.activitiesByIp[log.ip] || 0) + 1;
         });
-        
-        // Group by portal
-        logs.forEach(log => {
-            if (!stats.activitiesByPortal[log.portalType]) {
-                stats.activitiesByPortal[log.portalType] = 0;
-            }
-            stats.activitiesByPortal[log.portalType]++;
-        });
-        
-        // Group by IP
-        logs.forEach(log => {
-            if (!stats.activitiesByIp[log.ip]) {
-                stats.activitiesByIp[log.ip] = 0;
-            }
-            stats.activitiesByIp[log.ip]++;
-        });
-        
         res.json({ success: true, stats });
     } catch (error) {
         console.error('Error fetching activity logs summary:', error);
@@ -3833,37 +3545,18 @@ app.get('/api/activity-logs-summary', (req, res) => {
     }
 });
 
-// Export activity logs as CSV
-app.get('/api/export-activity-logs', (req, res) => {
+app.get('/api/export-activity-logs', async (req, res) => {
     try {
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
-        
-        // Convert to CSV
-        const headers = ['ID', 'Timestamp', 'Action', 'Portal', 'User Email', 'User ID', 'IP Address', 'User Agent', 'Details'];
+        const logs = await db.getAllActivityLogs();
+        const headers = ['ID','Timestamp','Action','Portal','User Email','User ID','IP Address','User Agent','Details'];
         const csvContent = [
             headers.join(','),
             ...logs.map(log => [
-                log.id,
-                log.timestamp,
-                log.action,
-                log.portalType,
-                log.userEmail,
-                log.userId || '',
-                log.ip,
-                (log.userAgent || '').replace(/,/g, ';'),
+                log.id, log.timestamp, log.action, log.portalType, log.userEmail,
+                log.userId || '', log.ip, (log.userAgent || '').replace(/,/g, ';'),
                 JSON.stringify(log.details).replace(/,/g, ';')
-            ].map(field => `"${String(field || '').replace(/"/g, '""')}"` ).join(','))
+            ].map(f => `"${String(f || '').replace(/"/g, '""')}"` ).join(','))
         ].join('\n');
-        
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', 'attachment; filename="activity-logs.csv"');
         res.send(csvContent);
@@ -3872,147 +3565,53 @@ app.get('/api/export-activity-logs', (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
-
 // ========== DATA BACKUP & RESTORE SYSTEM ==========
-// Prevents data loss during redeployments
+// PostgreSQL-backed (replaces file-based backups)
 
-const backupDir = path.join(dataDir, 'backups');
-if (!fs.existsSync(backupDir)) {
-    fs.mkdirSync(backupDir, { recursive: true });
-}
-
-// List of all data files to backup/restore
-const DATA_FILES = [
-    'users.json', 'employees.json', 'applications.json', 'leavecards.json',
-    'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json',
-    'it-users.json', 'pending-registrations.json',
-    'cto-records.json', 'schools.json', 'initial-credits.json',
-    'activity-logs.json', 'applications.backup.json'
-];
-
-// POST /api/data/backup - Create a timestamped backup of all data
-app.post('/api/data/backup', requireAuth('it'), (req, res) => {
+app.post('/api/data/backup', requireAuth('it'), async (req, res) => {
     try {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const backupFolder = path.join(backupDir, `backup-${timestamp}`);
-        fs.mkdirSync(backupFolder, { recursive: true });
-
-        const backedUp = [];
-        for (const file of DATA_FILES) {
-            const src = path.join(dataDir, file);
-            if (fs.existsSync(src)) {
-                fs.copyFileSync(src, path.join(backupFolder, file));
-                backedUp.push(file);
-            }
-        }
-
-        logActivity('data_backup', 'it', {
-            userEmail: req.session.email,
-            userId: req.session.userId,
-            ip: getClientIp(req),
-            details: { backupFolder: `backup-${timestamp}`, filesCount: backedUp.length }
+        const bundle = await db.exportAllData();
+        const timestamp = new Date().toISOString();
+        await logActivity('data_backup', 'it', {
+            userEmail: req.session.email, userId: req.session.userId,
+            ip: getClientIp(req), details: { timestamp }
         });
-
-        res.json({
-            success: true,
-            message: `Backup created successfully with ${backedUp.length} files`,
-            backupId: `backup-${timestamp}`,
-            files: backedUp
-        });
+        res.json({ success: true, message: 'Data exported from PostgreSQL', backupId: `pg-${timestamp}`, data: bundle });
     } catch (error) {
         console.error('Backup error:', error);
-        res.status(500).json({ success: false, error: 'Failed to create backup: ' + error.message });
-    }
-});
-
-// GET /api/data/backups - List available backups
-app.get('/api/data/backups', requireAuth('it'), (req, res) => {
-    try {
-        if (!fs.existsSync(backupDir)) {
-            return res.json({ success: true, backups: [] });
-        }
-        const backups = fs.readdirSync(backupDir)
-            .filter(f => f.startsWith('backup-'))
-            .map(name => {
-                const backupPath = path.join(backupDir, name);
-                const stat = fs.statSync(backupPath);
-                const files = fs.readdirSync(backupPath);
-                return { id: name, createdAt: stat.mtime.toISOString(), filesCount: files.length, files };
-            })
-            .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-        res.json({ success: true, backups });
-    } catch (error) {
-        console.error('List backups error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// POST /api/data/restore - Restore data from a specific backup
-app.post('/api/data/restore', requireAuth('it'), (req, res) => {
+app.get('/api/data/backups', requireAuth('it'), async (req, res) => {
+    res.json({ success: true, backups: [], message: 'Backups managed via PostgreSQL. Use export/import.' });
+});
+
+app.post('/api/data/restore', requireAuth('it'), async (req, res) => {
     try {
-        const { backupId } = req.body;
-        if (!backupId) {
-            return res.status(400).json({ success: false, error: 'backupId is required' });
+        const { data } = req.body;
+        if (!data || typeof data !== 'object') {
+            return res.status(400).json({ success: false, error: 'Invalid restore data' });
         }
-
-        // Prevent path traversal
-        const safeName = path.basename(backupId);
-        const backupFolder = path.join(backupDir, safeName);
-        if (!fs.existsSync(backupFolder)) {
-            return res.status(404).json({ success: false, error: 'Backup not found' });
+        const imported = [];
+        for (const [key, records] of Object.entries(data)) {
+            await db.importDataForKey(key, records);
+            imported.push(key);
         }
-
-        // Create a pre-restore backup first (safety net)
-        const preRestoreTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const preRestoreFolder = path.join(backupDir, `pre-restore-${preRestoreTimestamp}`);
-        fs.mkdirSync(preRestoreFolder, { recursive: true });
-        for (const file of DATA_FILES) {
-            const src = path.join(dataDir, file);
-            if (fs.existsSync(src)) {
-                fs.copyFileSync(src, path.join(preRestoreFolder, file));
-            }
-        }
-
-        // Restore files from backup
-        const restored = [];
-        const backupFiles = fs.readdirSync(backupFolder);
-        for (const file of backupFiles) {
-            if (file.endsWith('.json')) {
-                fs.copyFileSync(path.join(backupFolder, file), path.join(dataDir, file));
-                restored.push(file);
-            }
-        }
-
-        logActivity('data_restore', 'it', {
-            userEmail: req.session.email,
-            userId: req.session.userId,
-            ip: getClientIp(req),
-            details: { backupId: safeName, filesRestored: restored.length }
+        await logActivity('data_restore', 'it', {
+            userEmail: req.session.email, userId: req.session.userId,
+            ip: getClientIp(req), details: { filesRestored: imported.length }
         });
-
-        res.json({
-            success: true,
-            message: `Restored ${restored.length} files from ${safeName}`,
-            preRestoreBackup: `pre-restore-${preRestoreTimestamp}`,
-            files: restored
-        });
+        res.json({ success: true, message: `Restored ${imported.length} data sets`, files: imported });
     } catch (error) {
         console.error('Restore error:', error);
         res.status(500).json({ success: false, error: 'Failed to restore: ' + error.message });
     }
 });
 
-// GET /api/data/export - Download all data as a single JSON bundle
-app.get('/api/data/export', requireAuth('it'), (req, res) => {
+app.get('/api/data/export', requireAuth('it'), async (req, res) => {
     try {
-        const bundle = {};
-        for (const file of DATA_FILES) {
-            const filePath = path.join(dataDir, file);
-            if (fs.existsSync(filePath)) {
-                bundle[file] = readJSON(filePath);
-            }
-        }
+        const bundle = await db.exportAllData();
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', `attachment; filename="data-export-${timestamp}.json"`);
@@ -4023,126 +3622,37 @@ app.get('/api/data/export', requireAuth('it'), (req, res) => {
     }
 });
 
-// POST /api/data/import - Import data from a previously exported JSON bundle
-app.post('/api/data/import', requireAuth('it'), (req, res) => {
+app.post('/api/data/import', requireAuth('it'), async (req, res) => {
     try {
         const { data } = req.body;
         if (!data || typeof data !== 'object') {
-            return res.status(400).json({ success: false, error: 'Invalid import data. Expected { data: { "filename.json": [...], ... } }' });
+            return res.status(400).json({ success: false, error: 'Invalid import data' });
         }
-
-        // Create safety backup before import
-        const safetyTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const safetyFolder = path.join(backupDir, `pre-import-${safetyTimestamp}`);
-        fs.mkdirSync(safetyFolder, { recursive: true });
-        for (const file of DATA_FILES) {
-            const src = path.join(dataDir, file);
-            if (fs.existsSync(src)) {
-                fs.copyFileSync(src, path.join(safetyFolder, file));
-            }
-        }
-
         const imported = [];
-        for (const [filename, content] of Object.entries(data)) {
-            // Only allow known data files (prevent writing to arbitrary paths)
-            if (DATA_FILES.includes(filename)) {
-                writeJSON(path.join(dataDir, filename), content);
-                imported.push(filename);
-            }
+        for (const [key, records] of Object.entries(data)) {
+            await db.importDataForKey(key, records);
+            imported.push(key);
         }
-
-        logActivity('data_import', 'it', {
-            userEmail: req.session.email,
-            userId: req.session.userId,
-            ip: getClientIp(req),
-            details: { filesImported: imported.length, safetyBackup: `pre-import-${safetyTimestamp}` }
+        await logActivity('data_import', 'it', {
+            userEmail: req.session.email, userId: req.session.userId,
+            ip: getClientIp(req), details: { filesImported: imported.length }
         });
-
-        res.json({
-            success: true,
-            message: `Imported ${imported.length} data files`,
-            safetyBackup: `pre-import-${safetyTimestamp}`,
-            files: imported
-        });
+        res.json({ success: true, message: `Imported ${imported.length} data sets`, files: imported });
     } catch (error) {
         console.error('Import error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
+// ========== DIAGNOSTIC & SEED ENDPOINTS ==========
 
-// ========== AUTO-BACKUP ON SERVER START ==========
-// Automatically create a backup when the server starts (protects against redeployment data loss)
-(function autoBackupOnStart() {
+app.get('/api/system-status', async (req, res) => {
     try {
-        // Check if any data files exist with actual data
-        const hasData = DATA_FILES.some(file => {
-            const filePath = path.join(dataDir, file);
-            if (!fs.existsSync(filePath)) return false;
-            try {
-                const content = fs.readFileSync(filePath, 'utf8').trim();
-                const parsed = JSON.parse(content);
-                return Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0;
-            } catch { return false; }
-        });
-
-        if (hasData) {
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const autoBackupFolder = path.join(backupDir, `auto-startup-${timestamp}`);
-            fs.mkdirSync(autoBackupFolder, { recursive: true });
-
-            let count = 0;
-            for (const file of DATA_FILES) {
-                const src = path.join(dataDir, file);
-                if (fs.existsSync(src)) {
-                    fs.copyFileSync(src, path.join(autoBackupFolder, file));
-                    count++;
-                }
-            }
-            console.log(`[STARTUP] Auto-backup created: ${autoBackupFolder} (${count} files)`);
-
-            // Keep only last 5 auto-startup backups to save disk space
-            const autoBackups = fs.readdirSync(backupDir)
-                .filter(f => f.startsWith('auto-startup-'))
-                .sort()
-                .reverse();
-            if (autoBackups.length > 5) {
-                for (const old of autoBackups.slice(5)) {
-                    const oldPath = path.join(backupDir, old);
-                    fs.rmSync(oldPath, { recursive: true, force: true });
-                }
-                console.log(`[STARTUP] Cleaned up ${autoBackups.length - 5} old auto-backups`);
-            }
-        }
-    } catch (err) {
-        console.error('[STARTUP] Auto-backup failed:', err.message);
-    }
-})();
-
-// ========== ERROR HANDLERS (Must be last before server start) ==========
-// Diagnostic endpoint to check data persistence status
-app.get('/api/system-status', (req, res) => {
-    try {
-        const itUsers = readJSON(itUsersFile);
-        const users = readJSON(usersFile);
-        const aoUsers = readJSON(aoUsersFile);
-        const hrUsers = readJSON(hrUsersFile);
-        const leavecards = readJSON(leavecardsFile);
-        const ctoRecords = readJSON(path.join(dataDir, 'cto-records.json'));
+        const counts = await db.getSystemStatus();
         res.json({
             success: true,
-            volumeMounted: !!process.env.RAILWAY_VOLUME_MOUNT_PATH,
-            volumePath: process.env.RAILWAY_VOLUME_MOUNT_PATH || 'NOT SET',
-            dataDir: dataDir,
-            dataDirExists: fs.existsSync(dataDir),
-            fileCounts: {
-                itUsers: itUsers.length,
-                users: users.length,
-                aoUsers: aoUsers.length,
-                hrUsers: hrUsers.length,
-                leavecards: leavecards.length,
-                ctoRecords: ctoRecords.length
-            },
-            itUserEmails: itUsers.map(u => u.email),
+            database: 'PostgreSQL (Neon)',
+            storage: 'persistent',
+            fileCounts: counts,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -4150,44 +3660,27 @@ app.get('/api/system-status', (req, res) => {
     }
 });
 
-// One-time data upload endpoint (protected by secret key)
-app.post('/api/data/seed', express.json({limit: '50mb'}), (req, res) => {
+app.post('/api/data/seed', express.json({limit: '50mb'}), async (req, res) => {
     try {
         const { secretKey, dataType, data } = req.body;
-        
-        // Only allow with correct secret key
         const SEED_KEY = process.env.DATA_SEED_KEY || 'sipalay-sdo-2026-seed';
         if (secretKey !== SEED_KEY) {
             return res.status(403).json({ success: false, error: 'Invalid secret key' });
         }
-        
-        const fileMap = {
-            'users': usersFile,
-            'leavecards': leavecardsFile,
-            'cto-records': path.join(dataDir, 'cto-records.json'),
-            'employees': path.join(dataDir, 'employees.json')
-        };
-        
-        const targetFile = fileMap[dataType];
-        if (!targetFile) {
-            return res.status(400).json({ success: false, error: 'Invalid dataType. Use: ' + Object.keys(fileMap).join(', ') });
+        const validTypes = ['users', 'leavecards', 'cto-records', 'employees', 'schools', 'initial-credits'];
+        if (!validTypes.includes(dataType)) {
+            return res.status(400).json({ success: false, error: 'Invalid dataType. Use: ' + validTypes.join(', ') });
         }
-        
-        fs.writeFileSync(targetFile, JSON.stringify(data, null, 2));
+        await db.importDataForKey(dataType, data);
         console.log(`[SEED] Wrote ${Array.isArray(data) ? data.length : 'N/A'} records to ${dataType}`);
-        
-        res.json({ 
-            success: true, 
-            message: `Seeded ${dataType} with ${Array.isArray(data) ? data.length : 'N/A'} records` 
-        });
+        res.json({ success: true, message: `Seeded ${dataType}` });
     } catch (error) {
         console.error('Seed error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
-
 // Only catch API routes - let static files pass through
-app.use('/api/*', (req, res) => {
+app.use('/api/*', async (req, res) => {
     res.status(404).json({ success: false, error: 'API endpoint not found' });
 });
 
@@ -4198,61 +3691,43 @@ app.use((err, req, res, next) => {
 });
 
 // ========== START SERVER ==========
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log('');
-    console.log('==========================================================');
-    console.log('     CS Form No. 6 - Application for Leave Server');
-    console.log('==========================================================');
-    console.log('  Server running at: http://localhost:' + PORT);
-    console.log('  Login Page: http://localhost:' + PORT);
-    console.log('  Database: http://localhost:' + PORT + '/database');
-    console.log('  PID: ' + process.pid);
-    console.log('  Data Dir: ' + dataDir);
-    if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-        console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
-    } else {
-        console.log('  Storage: ⚠️  Local filesystem (data lost on redeploy!)');
-    }
-    console.log('==========================================================');
-    console.log('');
-    console.log('[STARTUP] Server started successfully at', new Date().toISOString());
-
-    // One-time migration: Fix old applications that have commutation='not-requested' 
-    // when user didn't actually select anything (old code always defaulted to 'not-requested')
+async function startServer() {
     try {
-        const appsPath = path.join(dataDir, 'applications.json');
-        if (fs.existsSync(appsPath)) {
-            let appsData = JSON.parse(fs.readFileSync(appsPath, 'utf8'));
-            // Normalize: extract array if wrapped in {applications: [...]}
-            let apps = Array.isArray(appsData) ? appsData : (appsData.applications || []);
-            let fixedCount = 0;
-            apps.forEach(app => {
-                if (app.commutation === 'not-requested') {
-                    app.commutation = '';
-                    fixedCount++;
-                }
-            });
-            // Always check if file needs format normalization (object → array)
-            const needsNormalize = !Array.isArray(appsData);
-            if (fixedCount > 0 || needsNormalize) {
-                fs.writeFileSync(appsPath, JSON.stringify(apps, null, 2));
-                if (fixedCount > 0) console.log(`[MIGRATION] Fixed commutation on ${fixedCount} old applications`);
-                if (needsNormalize) console.log(`[MIGRATION] Normalized applications.json from object to array format`);
-            }
-        }
-    } catch (migrationErr) {
-        console.error('[MIGRATION] Error fixing commutation data:', migrationErr.message);
+        await db.initialize();
+        console.log('[DB] PostgreSQL database initialized successfully');
+    } catch (err) {
+        console.error('[DB] Failed to initialize database:', err.message);
+        process.exit(1);
     }
-});
 
-server.on('error', (err) => {
-    console.error('Server "error" event:', err.message || err);
-});
+    const server = app.listen(PORT, '0.0.0.0', () => {
+        console.log('');
+        console.log('==========================================================');
+        console.log('     CS Form No. 6 - Application for Leave Server');
+        console.log('==========================================================');
+        console.log('  Server running at: http://localhost:' + PORT);
+        console.log('  Database: PostgreSQL (Neon)');
+        console.log('  PID: ' + process.pid);
+        console.log('  Storage: ✅ PostgreSQL (data persists across deploys)');
+        console.log('==========================================================');
+        console.log('');
+        console.log('[STARTUP] Server started successfully at', new Date().toISOString());
+    });
 
-server.on('clientError', (err, socket) => {
-    console.error('Client error:', err);
-    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
-});
+    server.on('error', (err) => {
+        console.error('Server error:', err.message || err);
+    });
+
+    server.on('clientError', (err, socket) => {
+        console.error('Client error:', err);
+        socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+    });
+
+    server.setTimeout(0);
+    setInterval(() => {
+        console.log('✓ Server still running - ' + new Date().toISOString());
+    }, 60000);
+}
 
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err.message || err);
@@ -4264,10 +3739,4 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
 });
 
-// Keep the server running
-server.setTimeout(0);
-
-// Periodic heartbeat
-setInterval(() => {
-    console.log('✓ Server still running - ' + new Date().toISOString());
-}, 60000);
+startServer();
