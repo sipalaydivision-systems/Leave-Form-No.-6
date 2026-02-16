@@ -1277,25 +1277,25 @@
                                 <td colspan="2">Total Earned</td>
                                 <td>${app.vlEarned || '0.000'}</td>
                                 <td>${app.slEarned || '0.000'}</td>
-                                <td>${app.splEarned || '0.000'}</td>
-                                <td>${app.flEarned || '0.000'}</td>
-                                <td>${app.ctoEarned || '0.000'}</td>
+                                <td class="spl-credit-cell">${app.splEarned || '0.000'}</td>
+                                <td class="fl-credit-cell">${app.flEarned || '0.000'}</td>
+                                <td class="cto-credit-cell">${app.ctoEarned || '0.000'}</td>
                             </tr>
                             <tr>
                                 <td colspan="2">Less this Application</td>
                                 <td>${app.vlLess || '0'}</td>
                                 <td>${app.slLess || '0'}</td>
-                                <td>${app.splLess || '0'}</td>
-                                <td>${app.flLess || '0'}</td>
-                                <td>${app.ctoLess || '0'}</td>
+                                <td class="spl-credit-cell">${app.splLess || '0'}</td>
+                                <td class="fl-credit-cell">${app.flLess || '0'}</td>
+                                <td class="cto-credit-cell">${app.ctoLess || '0'}</td>
                             </tr>
                             <tr>
                                 <td colspan="2"><strong>Balance</strong></td>
                                 <td><strong>${app.vlBalance || '0.000'}</strong></td>
                                 <td><strong>${app.slBalance || '0.000'}</strong></td>
-                                <td><strong>${app.splBalance || '0.000'}</strong></td>
-                                <td><strong>${app.flBalance || '0.000'}</strong></td>
-                                <td><strong>${app.ctoBalance || '0.000'}</strong></td>
+                                <td class="spl-credit-cell"><strong>${app.splBalance || '0.000'}</strong></td>
+                                <td class="fl-credit-cell"><strong>${app.flBalance || '0.000'}</strong></td>
+                                <td class="cto-credit-cell"><strong>${app.ctoBalance || '0.000'}</strong></td>
                             </tr>
                         </table>
                     </div>
@@ -1326,25 +1326,52 @@
             document.getElementById('detailsBody').innerHTML = detailsHtml;
             openModal('detailsModal');
 
-            // Fetch CTO balance for this employee
+            // Fetch CTO balance for this employee and populate credits table
             const empEmail = app.employeeEmail || app.email || app.employeeId || '';
             if (empEmail) {
                 fetch('/api/cto-records?employeeId=' + encodeURIComponent(empEmail))
                     .then(r => r.json())
                     .then(data => {
-                        const ctoDiv = document.getElementById('ctoBalanceSection');
-                        if (ctoDiv && data.success && data.records) {
+                        if (data.success && data.records && data.records.length > 0) {
                             const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
                             const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
                             const balance = totalGranted - totalUsed;
-                            ctoDiv.innerHTML = '<strong>CTO Balance:</strong> ' + balance.toFixed(3) + ' days <span style="color:#666;">(Granted: ' + totalGranted.toFixed(3) + ' | Used: ' + totalUsed.toFixed(3) + ')</span>';
-                        } else if (ctoDiv) {
-                            ctoDiv.innerHTML = '<strong>CTO Balance:</strong> No CTO records';
+                            // Update CTO cells in the credits table
+                            const ctoCells = document.querySelectorAll('.cto-credit-cell');
+                            if (ctoCells.length >= 3) {
+                                ctoCells[0].textContent = totalGranted.toFixed(3);
+                                ctoCells[1].textContent = totalUsed.toFixed(3);
+                                ctoCells[2].innerHTML = '<strong>' + balance.toFixed(3) + '</strong>';
+                            }
                         }
-                    }).catch(() => {
-                        const ctoDiv = document.getElementById('ctoBalanceSection');
-                        if (ctoDiv) ctoDiv.innerHTML = '<strong>CTO Balance:</strong> Unable to load';
-                    });
+                    }).catch(() => {});
+                
+                // Auto-fetch SPL and Force Leave balances from leave credits
+                fetch('/api/leave-credits?employeeId=' + encodeURIComponent(empEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.credits) {
+                            const c = data.credits;
+                            const splEarned = c.splEarned || 3;
+                            const splSpent = c.splSpent || 0;
+                            const splBalance = splEarned - splSpent;
+                            const flEarned = c.forceLeaveEarned || 5;
+                            const flSpent = c.forceLeaveSpent || 0;
+                            const flBalance = flEarned - flSpent;
+                            const splCells = document.querySelectorAll('.spl-credit-cell');
+                            if (splCells.length >= 3) {
+                                splCells[0].textContent = splEarned.toFixed(3);
+                                splCells[1].textContent = splSpent.toFixed(3);
+                                splCells[2].innerHTML = '<strong>' + splBalance.toFixed(3) + '</strong>';
+                            }
+                            const flCells = document.querySelectorAll('.fl-credit-cell');
+                            if (flCells.length >= 3) {
+                                flCells[0].textContent = flEarned.toFixed(3);
+                                flCells[1].textContent = flSpent.toFixed(3);
+                                flCells[2].innerHTML = '<strong>' + flBalance.toFixed(3) + '</strong>';
+                            }
+                        }
+                    }).catch(() => {});
             }
         }
 

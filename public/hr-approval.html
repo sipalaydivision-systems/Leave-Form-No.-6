@@ -1852,9 +1852,9 @@
                                 <div style="padding: 10px; border: 1px solid #000; border-top: none;">
                                     <table class="credits-table">
                                         <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th><th>Special Privilege Leave</th><th>Force Leave</th><th>CTO</th></tr>
-                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td><td>${app.splEarned || '0.000'}</td><td>${app.flEarned || '0.000'}</td><td>${app.ctoEarned || '0.000'}</td></tr>
-                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td><td>${app.splLess || '0'}</td><td>${app.flLess || '0'}</td><td>${app.ctoLess || '0'}</td></tr>
-                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td><td><strong>${app.splBalance || '0.000'}</strong></td><td><strong>${app.flBalance || '0.000'}</strong></td><td><strong>${app.ctoBalance || '0.000'}</strong></td></tr>
+                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td><td class="spl-credit-cell">${app.splEarned || '0.000'}</td><td class="fl-credit-cell">${app.flEarned || '0.000'}</td><td class="cto-credit-cell">${app.ctoEarned || '0.000'}</td></tr>
+                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td><td class="spl-credit-cell">${app.splLess || '0'}</td><td class="fl-credit-cell">${app.flLess || '0'}</td><td class="cto-credit-cell">${app.ctoLess || '0'}</td></tr>
+                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td><td class="spl-credit-cell"><strong>${app.splBalance || '0.000'}</strong></td><td class="fl-credit-cell"><strong>${app.flBalance || '0.000'}</strong></td><td class="cto-credit-cell"><strong>${app.ctoBalance || '0.000'}</strong></td></tr>
                                     </table>
                                 </div>
                                 
@@ -2268,6 +2268,44 @@
             document.getElementById('ctoLess').value = app.ctoLess || '';
             document.getElementById('ctoBalance').value = app.ctoBalance || '';
             
+            // Auto-fetch CTO balance from CTO records for this employee
+            const hrEmpEmail = app.employeeEmail || app.email || app.employeeId || '';
+            if (hrEmpEmail) {
+                fetch('/api/cto-records?employeeId=' + encodeURIComponent(hrEmpEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.records && data.records.length > 0) {
+                            const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
+                            const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
+                            const balance = totalGranted - totalUsed;
+                            // Pre-fill CTO inputs if not already set by HR
+                            if (!app.ctoEarned) document.getElementById('ctoEarned').value = totalGranted.toFixed(3);
+                            if (!app.ctoLess) document.getElementById('ctoLess').value = totalUsed.toFixed(3);
+                            if (!app.ctoBalance) document.getElementById('ctoBalance').value = balance.toFixed(3);
+                        }
+                    }).catch(() => {});
+                
+                // Auto-fetch SPL and Force Leave balances from leave credits
+                fetch('/api/leave-credits?employeeId=' + encodeURIComponent(hrEmpEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.credits) {
+                            const c = data.credits;
+                            const splEarned = c.splEarned || 3;
+                            const splSpent = c.splSpent || 0;
+                            const splBalance = splEarned - splSpent;
+                            const flEarned = c.forceLeaveEarned || 5;
+                            const flSpent = c.forceLeaveSpent || 0;
+                            const flBalance = flEarned - flSpent;
+                            // Pre-fill if not already set
+                            if (!app.splEarned) document.getElementById('splEarned').value = splEarned.toFixed(3);
+                            if (!app.splBalance) document.getElementById('splBalance').value = splBalance.toFixed(3);
+                            if (!app.flEarned) document.getElementById('flEarned').value = flEarned.toFixed(3);
+                            if (!app.flBalance) document.getElementById('flBalance').value = flBalance.toFixed(3);
+                        }
+                    }).catch(() => {});
+            }
+            
             // Clear recommendation fields
             document.querySelectorAll('input[name="recommendation"]').forEach(r => r.checked = false);
             document.getElementById('recDays').value = '';
@@ -2616,25 +2654,51 @@
             document.getElementById('formViewBody').innerHTML = formHtml;
             document.getElementById('formViewModal').classList.add('active');
 
-            // Fetch CTO balance for this employee
+            // Fetch CTO balance for this employee and populate credits table
             const empEmail = app.employeeEmail || app.email || app.employeeId || '';
             if (empEmail) {
                 fetch('/api/cto-records?employeeId=' + encodeURIComponent(empEmail))
                     .then(r => r.json())
                     .then(data => {
-                        const ctoDiv = document.getElementById('ctoBalanceSection');
-                        if (ctoDiv && data.success && data.records) {
+                        if (data.success && data.records && data.records.length > 0) {
                             const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
                             const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
                             const balance = totalGranted - totalUsed;
-                            ctoDiv.innerHTML = '<strong>CTO Balance:</strong> ' + balance.toFixed(3) + ' days <span style="color:#666;">(Granted: ' + totalGranted.toFixed(3) + ' | Used: ' + totalUsed.toFixed(3) + ')</span>';
-                        } else if (ctoDiv) {
-                            ctoDiv.innerHTML = '<strong>CTO Balance:</strong> No CTO records';
+                            const ctoCells = document.querySelectorAll('.cto-credit-cell');
+                            if (ctoCells.length >= 3) {
+                                ctoCells[0].textContent = totalGranted.toFixed(3);
+                                ctoCells[1].textContent = totalUsed.toFixed(3);
+                                ctoCells[2].innerHTML = '<strong>' + balance.toFixed(3) + '</strong>';
+                            }
                         }
-                    }).catch(() => {
-                        const ctoDiv = document.getElementById('ctoBalanceSection');
-                        if (ctoDiv) ctoDiv.innerHTML = '<strong>CTO Balance:</strong> Unable to load';
-                    });
+                    }).catch(() => {});
+                
+                // Auto-fetch SPL and Force Leave balances from leave credits
+                fetch('/api/leave-credits?employeeId=' + encodeURIComponent(empEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.credits) {
+                            const c = data.credits;
+                            const splEarned = c.splEarned || 3;
+                            const splSpent = c.splSpent || 0;
+                            const splBalance = splEarned - splSpent;
+                            const flEarned = c.forceLeaveEarned || 5;
+                            const flSpent = c.forceLeaveSpent || 0;
+                            const flBalance = flEarned - flSpent;
+                            const splCells = document.querySelectorAll('.spl-credit-cell');
+                            if (splCells.length >= 3) {
+                                splCells[0].textContent = splEarned.toFixed(3);
+                                splCells[1].textContent = splSpent.toFixed(3);
+                                splCells[2].innerHTML = '<strong>' + splBalance.toFixed(3) + '</strong>';
+                            }
+                            const flCells = document.querySelectorAll('.fl-credit-cell');
+                            if (flCells.length >= 3) {
+                                flCells[0].textContent = flEarned.toFixed(3);
+                                flCells[1].textContent = flSpent.toFixed(3);
+                                flCells[2].innerHTML = '<strong>' + flBalance.toFixed(3) + '</strong>';
+                            }
+                        }
+                    }).catch(() => {});
             }
         }
 
