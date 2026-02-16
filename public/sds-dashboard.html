@@ -2388,8 +2388,8 @@
             const modalBody = document.getElementById('modalBody');
             modalBody.innerHTML = `
                 <style>
-                    .printable-form { max-width: 900px; margin: 0 auto; background-color: white; padding: 10px 15px; border: 2px solid #000; font-family: Arial, sans-serif; font-size: 10px; line-height: 1.3; }
-                    .form-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
+                    .printable-form { max-width: 900px; margin: 0 auto; background-color: white; padding: 8px 12px; border: 2px solid #000; font-family: Arial, sans-serif; font-size: 10px; line-height: 1.2; }
+                    .form-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
                     .form-number { font-size: 10px; font-style: italic; }
                     .stamp-box { border: 1px solid #000; padding: 6px 10px; font-size: 9px; text-align: center; min-width: 90px; }
                     .letterhead { text-align: center; margin-bottom: 0; margin-top: -3px; }
@@ -2409,11 +2409,11 @@
                     .info-row:last-of-type { border-bottom: 1px solid #000 !important; }
                     .section-header { background-color: #f0f0f0; border: 1px solid #000; padding: 4px 6px; font-weight: bold; font-size: 10px; text-align: center; }
                     .details-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .details-column { padding: 6px; font-size: 9px; }
+                    .details-column { padding: 4px; font-size: 9px; }
                     .details-column:first-child { border-right: 1px solid #000; }
                     .column-header { font-weight: bold; font-size: 9px; margin-bottom: 3px; text-decoration: underline; }
-                    .leave-option { display: flex; align-items: flex-start; margin-bottom: 1px; font-size: 11px; }
-                    .leave-option input { margin-right: 3px; margin-top: 3px; flex-shrink: 0; accent-color: #228B22; width: 14px; height: 14px; }
+                    .leave-option { display: flex; align-items: flex-start; margin-bottom: 0px; font-size: 10px; }
+                    .leave-option input { margin-right: 3px; margin-top: 2px; flex-shrink: 0; accent-color: #228B22; width: 13px; height: 13px; }
                     .leave-option input[type="checkbox"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .leave-option span { line-height: 1.2; }
                     .leave-option small { color: #444; font-size: 9px; }
@@ -2425,7 +2425,7 @@
                     .sub-field { margin-left: 18px; margin-top: 1px; }
                     .sub-field input { width: calc(100% - 5px); border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; }
                     .bottom-details { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .bottom-column { padding: 4px 6px; font-size: 9px; }
+                    .bottom-column { padding: 3px 5px; font-size: 9px; }
                     .bottom-column:first-child { border-right: 1px solid #000; }
                     .field-label { font-weight: bold; font-size: 9px; margin-bottom: 2px; }
                     .field-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 2px; font-size: 10px; background: transparent; }
@@ -2433,14 +2433,14 @@
                     .commutation-options input { margin-right: 4px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .recommendation-options input[type="checkbox"] { accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .action-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .action-column { padding: 4px; font-size: 9px; display: flex; flex-direction: column; min-height: 120px; }
+                    .action-column { padding: 4px; font-size: 9px; display: flex; flex-direction: column; min-height: 100px; }
                     .action-column:first-child { border-right: 1px solid #000; }
                     .credits-table { width: 100%; border-collapse: collapse; font-size: 8px; margin: 4px 0; }
                     .credits-table th, .credits-table td { border: 1px solid #000; padding: 2px; text-align: center; }
                     .credits-table th { background: #f0f0f0; font-weight: bold; }
                     .credits-table td:first-child { text-align: left; font-style: italic; }
-                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 3px; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-                    .officer-signature img { max-width: 160px; max-height: 55px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; }
+                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 2px; min-height: 60px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+                    .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; }
                     .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
                     .officer-title { font-size: 9px; color: #003366; }
                     .recommendation-options label { display: flex; align-items: flex-start; margin-bottom: 2px; font-size: 8px; }
@@ -2451,8 +2451,8 @@
                     .approval-column:first-child { border-right: 1px solid transparent; }
                     .approval-field { display: flex; align-items: center; margin-bottom: 3px; font-size: 9px; }
                     .approval-field input { width: 45px; border: none; border-bottom: 1px solid #000; margin-right: 4px; text-align: center; font-size: 9px; background: transparent; }
-                    .final-signature { text-align: center; padding: 6px 8px; border: 1px solid #000; border-top: none; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-                    .final-signature img { max-width: 160px; max-height: 55px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; }
+                    .final-signature { text-align: center; padding: 4px 8px; border: 1px solid #000; border-top: none; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+                    .final-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; }
                     .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; border-top: none; }
                     .final-officer-title { font-size: 9px; line-height: 1.1; }
                     .signature-line { border-bottom: 1px solid #000; width: 220px; margin: 0 auto; }
@@ -2870,18 +2870,18 @@
                         .printable-form .sub-field input { font-size: 7px; }
                         .printable-form .bottom-column { padding: 4px; font-size: 8px; }
                         .printable-form .field-label { font-size: 8px; margin-bottom: 2px; }
-                        .printable-form .action-column { padding: 4px; font-size: 8px; min-height: 120px; }
+                        .printable-form .action-column { padding: 3px; font-size: 8px; min-height: 100px; }
                         .printable-form .credits-table { margin: 3px 0; font-size: 7px; }
                         .printable-form .credits-table th, .printable-form .credits-table td { padding: 2px; }
-                        .printable-form .approval-column { padding: 5px; font-size: 8px; min-height: 55px; }
-                        .printable-form .final-signature { padding: 6px 10px; min-height: 80px; }
-                        .printable-form .signature-area { margin-top: 0; min-height: 45px; }
-                        .printable-form .signature-area img { border: none !important; background: transparent !important; max-width: 150px; max-height: 50px; }
-                        .printable-form .officer-signature { min-height: 65px; padding-bottom: 3px; }
-                        .printable-form .officer-signature img { max-width: 160px; max-height: 55px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
+                        .printable-form .approval-column { padding: 4px; font-size: 8px; min-height: 50px; }
+                        .printable-form .final-signature { padding: 4px 8px; min-height: 70px; }
+                        .printable-form .signature-area { margin-top: 0; min-height: 40px; }
+                        .printable-form .signature-area img { border: none !important; background: transparent !important; max-width: 200px; max-height: 70px; }
+                        .printable-form .officer-signature { min-height: 55px; padding-bottom: 2px; }
+                        .printable-form .officer-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
                         .printable-form .officer-name { font-size: 10px; min-width: 180px; padding-top: 2px; text-decoration: underline; }
                         .printable-form .officer-title { font-size: 8px; }
-                        .printable-form .final-signature img { max-width: 160px; max-height: 55px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
+                        .printable-form .final-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
                         .printable-form .final-officer-name { font-size: 10px; min-width: 180px; text-decoration: underline; }
                         .printable-form .final-officer-title { font-size: 8px; line-height: 1.2; }
                         /* Ensure checkboxes are visible and dark when printing */
@@ -2919,14 +2919,14 @@
                                 flex-direction: column;
                             }
                             .printable-form .approval-section {
-                                min-height: 60px;
+                                min-height: 50px;
                                 flex-grow: 1;
                             }
                             .printable-form .final-signature {
-                                min-height: 75px;
+                                min-height: 65px;
                             }
                             .printable-form .action-column {
-                                min-height: 110px;
+                                min-height: 95px;
                             }
                             .printable-form .officer-signature img,
                             .printable-form .final-signature img,
@@ -2938,11 +2938,11 @@
                                 background: transparent !important;
                                 box-shadow: none !important;
                             }
-                            .printable-form .officer-signature { min-height: 60px; }
-                            .printable-form .officer-signature img { max-width: 150px; max-height: 50px; }
-                            .printable-form .final-signature img { max-width: 150px; max-height: 50px; }
-                            .printable-form .signature-area { min-height: 40px; margin-top: 0; }
-                            .printable-form .signature-area img { max-width: 140px; max-height: 45px; }
+                            .printable-form .officer-signature { min-height: 55px; }
+                            .printable-form .officer-signature img { max-width: 200px; max-height: 70px; }
+                            .printable-form .final-signature img { max-width: 200px; max-height: 70px; }
+                            .printable-form .signature-area { min-height: 35px; margin-top: 0; }
+                            .printable-form .signature-area img { max-width: 200px; max-height: 70px; }
                         }
                     </style>
                 </head>
