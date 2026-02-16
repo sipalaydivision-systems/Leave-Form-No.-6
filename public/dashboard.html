@@ -1511,25 +1511,23 @@
                 if (response.ok && result.credits) {
                     const credits = result.credits;
                     
-                    // Get values from the latest leave card data
-                    const vlEarned = credits.vacationLeaveEarned || 0;
-                    const slEarned = credits.sickLeaveEarned || 0;
-                    const vlSpent = credits.vacationLeaveSpent || 0;
-                    const slSpent = credits.sickLeaveSpent || 0;
-                    const forceSpent = credits.forceLeaveSpent || 0;
-                    const splSpent = credits.splSpent || 0;
+                    // Use direct balance values from the API if available (computed from transactions)
+                    // Otherwise fall back to earned - spent calculation
+                    const vlBalance = credits.currentVlBalance !== undefined 
+                        ? credits.currentVlBalance 
+                        : Math.max(0, (credits.vacationLeaveEarned || 0) - (credits.vacationLeaveSpent || 0));
+                    const slBalance = credits.currentSlBalance !== undefined 
+                        ? credits.currentSlBalance 
+                        : Math.max(0, (credits.sickLeaveEarned || 0) - (credits.sickLeaveSpent || 0));
                     
-                    // Calculate current balances from the latest leave card data
-                    // Vacation and Sick leave: earned - spent
-                    const vlBalance = Math.max(0, vlEarned - vlSpent);
-                    const slBalance = Math.max(0, slEarned - slSpent);
-                    
-                    // Force Leave: use AO-set balance (forceLeaveEarned/mandatoryForced), default 5 per year
+                    // Force Leave: use AO-set balance, default 5 per year
                     const forceLeaveAllocation = credits.forceLeaveEarned || credits.mandatoryForced || credits.others || 5;
+                    const forceSpent = credits.forceLeaveSpent || 0;
                     const forceBalance = Math.max(0, forceLeaveAllocation - forceSpent);
                     
-                    // Special Privilege Leave: use AO-set balance (splEarned/spl), default 3 per year
+                    // Special Privilege Leave: use AO-set balance, default 3 per year
                     const splAllocation = credits.splEarned || credits.spl || 3;
+                    const splSpent = credits.splSpent || 0;
                     const splBalance = Math.max(0, splAllocation - splSpent);
                     
                     document.getElementById('vacationCredits').textContent = vlBalance.toFixed(0);

@@ -2687,44 +2687,143 @@ app.get('/api/leave-credits', (req, res) => {
             splSpent = 0;
         }
         
-        // Get the latest balance from leaveUsageHistory if available
-        let vacationLeaveSpent = latestRecord.vacationLeaveSpent || 0;
-        let sickLeaveSpent = latestRecord.sickLeaveSpent || 0;
+        // Determine current balance from transactions (AO leave card entries) first,
+        // then fall back to leaveUsageHistory, then to earned-spent fields
+        let vlBalance = null;
+        let slBalance = null;
+        let totalForceSpent = forceLeaveSpent;
+        let totalSplSpent = splSpent;
         
-        // If there's leave usage history, use the latest entry
-        if (latestRecord.leaveUsageHistory && Array.isArray(latestRecord.leaveUsageHistory) && latestRecord.leaveUsageHistory.length > 0) {
-            const latestUsage = latestRecord.leaveUsageHistory[latestRecord.leaveUsageHistory.length - 1];
-            if (latestUsage.balanceAfterVL !== undefined) {
-                vacationLeaveSpent = latestRecord.vacationLeaveEarned - latestUsage.balanceAfterVL;
+        // Check transactions array (from AO "Add Leave Entry") - most authoritative source
+        if (latestRecord.transactions && Array.isArray(latestRecord.transactions) && latestRecord.transactions.length > 0) {
+            // The last transaction's vlBalance/slBalance is the current running balance
+            const lastTx = latestRecord.transactions[latestRecord.transactions.length - 1];
+            if (lastTx.vlBalance !== undefined) vlBalance = lastTx.vlBalance;
+            if (lastTx.slBalance !== undefined) slBalance = lastTx.slBalance;
+            
+            // Sum up force and special leave usage from all transactions
+            totalForceSpent = 0;
+            totalSplSpent = 0;
+            latestRecord.transactions.forEach(tx => {
+                totalForceSpent += parseFloat(tx.forcedLeave) || 0;
+                totalSplSpent += parseFloat(tx.splUsed) || 0;
+            });
+            
+            console.log('[LEAVE-CREDITS API] Using transactions balance: VL=', vlBalance, 'SL=', slBalance);
+        }
+        
+        // If no transaction data, check leaveUsageHistory (from SDS approval flow)
+        if (vlBalance === null || slBalance === null) {
+            if (latestRecord.leaveUsageHistory && Array.isArray(latestRecord.leaveUsageHistory) && latestRecord.leaveUsageHistory.length > 0) {
+                const latestUsage = latestRecord.leaveUsageHistory[latestRecord.leaveUsageHistory.length - 1];
+                if (vlBalance === null && latestUsage.balanceAfterVL !== undefined) {
+                    vlBalance = latestUsage.balanceAfterVL;
+                }
+                if (slBalance === null && latestUsage.balanceAfterSL !== undefined) {
+                    slBalance = latestUsage.balanceAfterSL;
+                }
             }
-            if (latestUsage.balanceAfterSL !== undefined) {
-                sickLeaveSpent = latestRecord.sickLeaveEarned - latestUsage.balanceAfterSL;
+        }
+        
+        // Fall back to earned - spent calculation
+        const vacationLeaveEarned = latestRecord.vacationLeaveEarned || latestRecord.vl || 100;
+        const sickLeaveEarned = latestRecord.sickLeaveEarned || latestRecord.sl || 100;
+        
+        if (vlBalance === null) {
+            vlBalance = Math.max(0, vacationLeaveEarned - (latestRecord.vacationLeaveSpent || 0));
+        }
+        if (slBalance === null) {
+            slBalance = Math.max(0, sickLeaveEarned - (latestRecord.sickLeaveSpent || 0));
+        }
+        
+        // Compute "spent" values from the balance for backward compat
+        let vacationLeaveSpent = Math.max(0, vacationLeaveEarned - vlBalance);
+        let sickLeaveSpent = Math.max(0, sickLeaveEarned - slBalance);
+        
+        // Also account for pending/approved applications that haven't been reflected in leave card yet
+        // This ensures the dashboard shows the same balance as the leave card
+        try {
+            const applications = readJSONArray(applicationsFile);
+            const employeeApps = applications.filter(a => 
+                (a.employeeEmail === employeeId || a.email === employeeId) &&
+                (a.status === 'pending' || a.status === 'approved')
+            );
+            
+            // Track which application IDs are already reflected in leaveUsageHistory
+            const reflectedAppIds = new Set();
+            if (latestRecord.leaveUsageHistory && Array.isArray(latestRecord.leaveUsageHistory)) {
+                latestRecord.leaveUsageHistory.forEach(h => {
+                    if (h.applicationId) reflectedAppIds.add(h.applicationId);
+                });
             }
+            // Also check transactions
+            if (latestRecord.transactions && Array.isArray(latestRecord.transactions)) {
+                latestRecord.transactions.forEach(t => {
+                    if (t.applicationId) reflectedAppIds.add(t.applicationId);
+                });
+            }
+            
+            employeeApps.forEach(app => {
+                // Skip if already reflected in leave card history
+                if (reflectedAppIds.has(app.id)) return;
+                
+                const numDays = parseFloat(app.numDays) || 0;
+                if (numDays <= 0) return;
+                
+                const leaveType = (app.leaveType || '').toLowerCase();
+                
+                // Deduct from appropriate balance based on leave type
+                if (leaveType.includes('vl') || leaveType.includes('vacation')) {
+                    vlBalance = Math.max(0, vlBalance - numDays);
+                } else if (leaveType.includes('mfl') || leaveType.includes('mandatory') || leaveType.includes('forced')) {
+                    totalForceSpent += numDays;
+                } else if (leaveType.includes('sl') || leaveType.includes('sick')) {
+                    slBalance = Math.max(0, slBalance - numDays);
+                } else if (leaveType.includes('spl') || leaveType.includes('special')) {
+                    totalSplSpent += numDays;
+                }
+                // Other leave types - don't deduct from VL/SL (they use their own allocation)
+            });
+            
+            // Recompute spent after app deductions
+            vacationLeaveSpent = Math.max(0, vacationLeaveEarned - vlBalance);
+            sickLeaveSpent = Math.max(0, sickLeaveEarned - slBalance);
+            
+            if (employeeApps.length > 0) {
+                console.log('[LEAVE-CREDITS API] After pending apps deduction: VL=', vlBalance, 'SL=', slBalance, 'apps checked=', employeeApps.length);
+            }
+        } catch (appErr) {
+            console.log('[LEAVE-CREDITS API] Could not read applications for deduction:', appErr.message);
         }
         
         // Ensure the credits object has all required fields with defaults
         const enrichedCredits = {
             ...latestRecord,
-            vacationLeaveEarned: latestRecord.vacationLeaveEarned || latestRecord.vl || 100,
-            sickLeaveEarned: latestRecord.sickLeaveEarned || latestRecord.sl || 100,
+            vacationLeaveEarned: vacationLeaveEarned,
+            sickLeaveEarned: sickLeaveEarned,
             forceLeaveEarned: latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5,
             splEarned: latestRecord.splEarned || latestRecord.spl || 3,
             vacationLeaveSpent: vacationLeaveSpent,
             sickLeaveSpent: sickLeaveSpent,
-            forceLeaveSpent: forceLeaveSpent,
-            splSpent: splSpent,
+            forceLeaveSpent: totalForceSpent,
+            splSpent: totalSplSpent,
             forceLeaveYear: currentYear,
             splYear: currentYear,
-            leaveUsageHistory: latestRecord.leaveUsageHistory || []
+            leaveUsageHistory: latestRecord.leaveUsageHistory || [],
+            // Direct balance values for dashboard convenience
+            currentVlBalance: vlBalance,
+            currentSlBalance: slBalance
         };
         
         console.log('[LEAVE-CREDITS API] Returning:', JSON.stringify({
+            vlBalance, slBalance,
             vacationLeaveEarned: enrichedCredits.vacationLeaveEarned,
             vacationLeaveSpent: enrichedCredits.vacationLeaveSpent,
             sickLeaveEarned: enrichedCredits.sickLeaveEarned,
             sickLeaveSpent: enrichedCredits.sickLeaveSpent,
             forceLeaveSpent: enrichedCredits.forceLeaveSpent,
-            splSpent: enrichedCredits.splSpent
+            splSpent: enrichedCredits.splSpent,
+            txCount: (latestRecord.transactions || []).length
         }));
         
         res.json({ success: true, credits: enrichedCredits });
