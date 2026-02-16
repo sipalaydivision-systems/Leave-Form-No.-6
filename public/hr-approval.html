@@ -1635,32 +1635,110 @@
                 modalHeader.textContent = '⚠️ APPLICATION RETURNED FOR COMPLIANCE';
             }
             
+            // Build the leave types list
+            const leaveTypes = [
+                { id: 'leave_vl', label: 'Vacation Leave' },
+                { id: 'leave_mfl', label: 'Mandatory/Forced Leave' },
+                { id: 'leave_sl', label: 'Sick Leave' },
+                { id: 'leave_ml', label: 'Maternity Leave' },
+                { id: 'leave_pl', label: 'Paternity Leave' },
+                { id: 'leave_spl', label: 'Special Privilege Leave' },
+                { id: 'leave_solo', label: 'Solo Parent Leave' },
+                { id: 'leave_study', label: 'Study Leave' },
+                { id: 'leave_vawc', label: '10-Day VAWC Leave' },
+                { id: 'leave_rehab', label: 'Rehabilitation Privilege' },
+                { id: 'leave_women', label: 'Special Leave Benefits for Women' },
+                { id: 'leave_calamity', label: 'Special Emergency Leave' },
+                { id: 'leave_adoption', label: 'Adoption Leave' },
+                { id: 'leave_others', label: 'Others' }
+            ];
+            
+            // Build leave details section
+            let leaveDetailsHTML = '';
+            if (app.leaveType === 'leave_vl' || app.leaveType === 'leave_spl') {
+                leaveDetailsHTML += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Vacation/Special Privilege Leave:</strong></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.locationPH ? 'checked' : '') + '">' + (app.locationPH ? '✓' : '') + '</div><span>Within the Philippines ' + (app.locationPHSpecify || '') + '</span></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.locationAbroad ? 'checked' : '') + '">' + (app.locationAbroad ? '✓' : '') + '</div><span>Abroad ' + (app.abroadSpecify ? '(' + app.abroadSpecify + ')' : '') + '</span></div>';
+            }
+            if (app.leaveType === 'leave_sl') {
+                leaveDetailsHTML += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Sick Leave:</strong></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.sickHospital ? 'checked' : '') + '">' + (app.sickHospital ? '✓' : '') + '</div><span>In Hospital ' + (app.hospitalIllness ? '(' + app.hospitalIllness + ')' : '') + '</span></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.sickOutpatient ? 'checked' : '') + '">' + (app.sickOutpatient ? '✓' : '') + '</div><span>Out Patient ' + (app.outpatientIllness ? '(' + app.outpatientIllness + ')' : '') + '</span></div>';
+            }
+            if (app.leaveType === 'leave_study') {
+                leaveDetailsHTML += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Study Leave:</strong></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.studyMasters ? 'checked' : '') + '">' + (app.studyMasters ? '✓' : '') + '</div><span>Completion of Master\'s Degree</span></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.studyBar ? 'checked' : '') + '">' + (app.studyBar ? '✓' : '') + '</div><span>BAR/Board Examination Review</span></div>';
+            }
+            if (app.leaveType === 'leave_women') {
+                leaveDetailsHTML += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">In case of Special Leave Benefits for Women:</strong></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><span>(Specify Illness) ' + (app.womenIllness || '') + '</span></div>';
+            }
+            if (app.monetization || app.terminal) {
+                leaveDetailsHTML += '<div style="margin-bottom: 6px;"><strong style="font-size: 9px;">Other purpose:</strong></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.monetization ? 'checked' : '') + '">' + (app.monetization ? '✓' : '') + '</div><span>Monetization of Leave Credits</span></div>';
+                leaveDetailsHTML += '<div class="leave-type-item"><div class="checkbox ' + (app.terminal ? 'checked' : '') + '">' + (app.terminal ? '✓' : '') + '</div><span>Terminal Leave</span></div>';
+            }
+            if (!leaveDetailsHTML) leaveDetailsHTML = '<p style="color: #666; font-style: italic;">No additional details specified</p>';
+            
+            // Get HR user for officer name
+            const hrUserData = JSON.parse(localStorage.getItem('hrUser') || '{}');
+            
             if (modalContent) {
                 modalContent.innerHTML = `
                     <style>
-                        .returned-view { max-width: 800px; margin: 0 auto; }
+                        .returned-view { max-width: 900px; margin: 0 auto; }
                         .returned-header { 
                             background: linear-gradient(135deg, #f0ad4e, #ec971f);
                             color: white;
-                            padding: 20px;
+                            padding: 15px 20px;
                             border-radius: 8px;
-                            margin-bottom: 20px;
+                            margin-bottom: 15px;
                             text-align: center;
                         }
-                        .returned-header h2 { margin: 0 0 10px 0; font-size: 24px; }
-                        .returned-status { font-size: 16px; }
-                        .returned-details { background: white; padding: 20px; border-radius: 8px; border: 2px solid #f0ad4e; margin-bottom: 20px; }
-                        .detail-row { display: grid; grid-template-columns: 200px 1fr; margin-bottom: 15px; gap: 20px; }
-                        .detail-label { font-weight: bold; color: #333; }
-                        .detail-value { color: #666; }
-                        .reason-box { background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #f0ad4e; margin: 15px 0; }
-                        .action-section { background: #f0f7ff; padding: 20px; border-radius: 8px; margin-top: 20px; }
+                        .returned-header h2 { margin: 0 0 5px 0; font-size: 20px; }
+                        .returned-status { font-size: 14px; }
+                        .reason-box { background: #fff3cd; padding: 12px; border-radius: 5px; border-left: 4px solid #f0ad4e; margin-bottom: 15px; }
+                        .view-form-section { background: white; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; overflow: hidden; }
+                        .view-form-toggle { background: #003366; color: white; padding: 12px 20px; cursor: pointer; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+                        .view-form-toggle:hover { background: #004080; }
+                        .view-form-content { padding: 15px; display: none; }
+                        .view-form-content.show { display: block; }
+                        .form-view-header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                        .form-view-header h3 { font-size: 14px; margin: 5px 0; }
+                        .form-view-title { text-align: center; font-weight: bold; font-size: 14px; margin: 10px 0; background: #f0f0f0; padding: 8px; border: 1px solid #000; }
+                        .form-view-row { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                        .form-view-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
+                        .form-view-cell { padding: 8px; border-right: 1px solid #000; }
+                        .form-view-cell:last-child { border-right: none; }
+                        .form-view-cell label { font-weight: bold; font-size: 9px; color: #333; display: block; margin-bottom: 3px; }
+                        .form-view-cell .value { font-size: 12px; color: #000; font-weight: 500; }
+                        .form-view-section { background: #f5f5f5; padding: 8px; font-weight: bold; font-size: 10px; text-align: center; border: 1px solid #000; border-top: none; }
+                        .form-view-details { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
+                        .form-view-column { padding: 10px; font-size: 10px; }
+                        .form-view-column:first-child { border-right: 1px solid #000; }
+                        .form-view-column h4 { font-size: 10px; margin-bottom: 8px; text-decoration: underline; }
+                        .leave-type-item { display: flex; align-items: flex-start; margin-bottom: 4px; }
+                        .leave-type-item .checkbox { width: 14px; height: 14px; border: 1px solid #000; margin-right: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+                        .leave-type-item .checkbox.checked { background: #4caf50; color: white; }
+                        .credits-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9px; }
+                        .credits-table th, .credits-table td { border: 1px solid #000; padding: 5px; text-align: center; }
+                        .credits-table th { background: #f0f0f0; }
+                        .approval-history { margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px; }
+                        .action-section { background: #f0f7ff; padding: 20px; border-radius: 8px; margin-top: 15px; }
                         .action-title { font-weight: bold; font-size: 16px; color: #003366; margin-bottom: 15px; }
-                        .radio-group { display: flex; flex-direction: column; gap: 12px; }
+                        .radio-group { display: flex; flex-direction: column; gap: 10px; }
                         .radio-group label { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; border-radius: 5px; background: white; border: 1px solid #ddd; }
                         .radio-group label:hover { background: #f5f5f5; }
                         .radio-group input[type="radio"] { width: 18px; height: 18px; }
-                        .remarks-input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; margin-top: 15px; font-size: 14px; }
+                        .remarks-input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; margin-top: 10px; font-size: 14px; }
+                        .hr-signature-section { margin-top: 15px; padding: 15px; border: 2px dashed #ccc; border-radius: 8px; background: #fafafa; }
+                        .hr-signature-section label { font-weight: bold; font-size: 14px; color: #333; display: block; margin-bottom: 8px; }
+                        .hr-ret-signature-canvas { width: 100%; height: 100px; border: 1px solid #999; border-radius: 4px; cursor: crosshair; background: white; touch-action: none; }
+                        .hr-ret-sig-controls { display: flex; gap: 8px; margin-top: 8px; }
+                        .hr-ret-sig-controls button { padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 12px; }
+                        .hr-ret-sig-controls button:hover { background: #f0f0f0; }
+                        .officer-name-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; margin-top: 8px; }
                     </style>
                     
                     <div class="returned-view">
@@ -1669,33 +1747,126 @@
                             <div class="returned-status">This application was returned by ${returnEntry?.portal || 'ASDS'} and needs your action</div>
                         </div>
                         
-                        <div class="returned-details">
-                            <div class="detail-row">
-                                <div class="detail-label">Employee:</div>
-                                <div class="detail-value">${app.employeeName || 'N/A'}</div>
+                        <div class="reason-box">
+                            <strong>🔔 Return Reason from ${returnEntry?.portal || 'ASDS'}:</strong><br>
+                            <span style="font-size: 14px; margin-top: 5px; display: block;">${returnEntry?.remarks || app.returnRemarks || 'No reason provided'}</span>
+                            <div style="font-size: 12px; color: #856404; margin-top: 8px;">Returned on: ${returnDate}</div>
+                        </div>
+                        
+                        <!-- Full Application View (Collapsible) -->
+                        <div class="view-form-section">
+                            <div class="view-form-toggle" onclick="var c=this.nextElementSibling; c.classList.toggle('show'); this.querySelector('.toggle-icon').textContent = c.classList.contains('show') ? '▼' : '▶';">
+                                <span>📋 View Full Application</span>
+                                <span class="toggle-icon">▶</span>
                             </div>
-                            <div class="detail-row">
-                                <div class="detail-label">Email:</div>
-                                <div class="detail-value">${app.employeeEmail || 'N/A'}</div>
-                            </div>
-                            <div class="detail-row">
-                                <div class="detail-label">Leave Type:</div>
-                                <div class="detail-value">${getLeaveTypeLabel(app.leaveType) || 'N/A'}</div>
-                            </div>
-                            <div class="detail-row">
-                                <div class="detail-label">Period:</div>
-                                <div class="detail-value">${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'} to ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-'}</div>
-                            </div>
-                            <div class="detail-row">
-                                <div class="detail-label">Working Days:</div>
-                                <div class="detail-value">${app.numDays || app.workingDays || 'N/A'}</div>
+                            <div class="view-form-content">
+                                <div class="form-view-header">
+                                    <p style="font-style: italic;">Republic of the Philippines</p>
+                                    <h3>Department of Education</h3>
+                                    <p>NEGROS ISLAND REGION</p>
+                                    <p style="font-weight: bold;">SCHOOLS DIVISION OF SIPALAY CITY</p>
+                                </div>
+                                
+                                <div class="form-view-title">APPLICATION FOR LEAVE</div>
+                                
+                                <div class="form-view-row" style="border-top: 1px solid #000;">
+                                    <div class="form-view-cell">
+                                        <label>1. OFFICE/DEPARTMENT/SCHOOL</label>
+                                        <div class="value">${app.office || 'N/A'}</div>
+                                    </div>
+                                    <div class="form-view-cell">
+                                        <label>2. NAME (Last, First, Middle)</label>
+                                        <div class="value">${app.employeeName || 'N/A'}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-view-row three-col">
+                                    <div class="form-view-cell">
+                                        <label>3. DATE OF FILING</label>
+                                        <div class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                                    </div>
+                                    <div class="form-view-cell">
+                                        <label>4. POSITION</label>
+                                        <div class="value">${app.position || 'N/A'}</div>
+                                    </div>
+                                    <div class="form-view-cell">
+                                        <label>5. SALARY</label>
+                                        <div class="value">${app.salary || 'N/A'}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-view-section">6. DETAILS OF APPLICATION</div>
+                                
+                                <div class="form-view-details">
+                                    <div class="form-view-column">
+                                        <h4>6.A TYPE OF LEAVE TO BE AVAILED OF</h4>
+                                        ${leaveTypes.map(lt => '<div class="leave-type-item"><div class="checkbox ' + (app.leaveType === lt.id ? 'checked' : '') + '">' + (app.leaveType === lt.id ? '✓' : '') + '</div><span>' + lt.label + '</span></div>').join('')}
+                                        ${app.leaveType === 'leave_others' && app.otherLeaveSpecify ? '<div style="margin-top: 3px; font-size: 9px; padding-left: 20px;">' + app.otherLeaveSpecify + '</div>' : ''}
+                                    </div>
+                                    <div class="form-view-column">
+                                        <h4>6.B DETAILS OF LEAVE</h4>
+                                        ${leaveDetailsHTML}
+                                    </div>
+                                </div>
+                                
+                                <div class="form-view-details">
+                                    <div class="form-view-column">
+                                        <h4>6.C NUMBER OF WORKING DAYS APPLIED FOR</h4>
+                                        <div class="value" style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">${app.numDays || 0} days</div>
+                                        <h4>INCLUSIVE DATES</h4>
+                                        <div class="value">From: ${app.dateFrom ? new Date(app.dateFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                                        <div class="value">To: ${app.dateTo ? new Date(app.dateTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A'}</div>
+                                    </div>
+                                    <div class="form-view-column">
+                                        <h4>6.D COMMUTATION</h4>
+                                        <div class="leave-type-item">
+                                            <div class="checkbox ${app.commutation === 'not-requested' ? 'checked' : ''}">${app.commutation === 'not-requested' ? '✓' : ''}</div>
+                                            <span>Not Requested</span>
+                                        </div>
+                                        <div class="leave-type-item">
+                                            <div class="checkbox ${app.commutation === 'requested' ? 'checked' : ''}">${app.commutation === 'requested' ? '✓' : ''}</div>
+                                            <span>Requested</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-view-section">7. LEAVE CREDITS</div>
+                                <div style="padding: 10px; border: 1px solid #000; border-top: none;">
+                                    <table class="credits-table">
+                                        <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th></tr>
+                                        <tr><td>Total Earned</td><td>${app.vlEarned || '0.000'}</td><td>${app.slEarned || '0.000'}</td></tr>
+                                        <tr><td>Less this Application</td><td>${app.vlLess || '0'}</td><td>${app.slLess || '0'}</td></tr>
+                                        <tr><td><strong>Balance</strong></td><td><strong>${app.vlBalance || '0.000'}</strong></td><td><strong>${app.slBalance || '0.000'}</strong></td></tr>
+                                    </table>
+                                </div>
+                                
+                                ${app.approvalHistory && app.approvalHistory.length > 0 ? `
+                                <div class="approval-history">
+                                    <h4 style="margin-bottom: 8px; font-size: 11px;">Approval History</h4>
+                                    ${app.approvalHistory.map(h => `
+                                        <div style="font-size: 10px; padding: 5px; border-bottom: 1px solid #e0e0e0;">
+                                            <strong>${h.portal}</strong>: ${h.action} on ${new Date(h.timestamp).toLocaleString()}
+                                            ${h.remarks ? '<br><em>Remarks: ' + h.remarks + '</em>' : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                         
-                        <div class="reason-box">
-                            <strong>🔔 Return Reason from ${returnEntry?.portal || 'ASDS'}:</strong><br>
-                            <span style="font-size: 15px; margin-top: 8px; display: block;">${returnEntry?.remarks || app.returnRemarks || 'No reason provided'}</span>
-                            <div style="font-size: 12px; color: #856404; margin-top: 10px;">Returned on: ${returnDate}</div>
+                        <!-- Officer Name & Signature Section -->
+                        <div class="hr-signature-section">
+                            <label>Authorized Officer Name: <span style="color: red;">*</span></label>
+                            <input type="text" id="hrReturnedOfficerName" class="officer-name-input" value="${hrUserData.name || ''}" placeholder="Enter officer name">
+                            
+                            <label style="margin-top: 12px;">Authorized Officer Signature: <span style="color: red;">*</span></label>
+                            <canvas id="hrReturnedSignaturePad" class="hr-ret-signature-canvas" width="400" height="100"></canvas>
+                            <div class="hr-ret-sig-controls">
+                                <button type="button" onclick="clearReturnedSignature()">🗑️ Clear</button>
+                                <button type="button" onclick="document.getElementById('hrRetSigUpload').click()">📤 Upload Image</button>
+                                <input type="file" id="hrRetSigUpload" style="display:none;" accept="image/*" onchange="uploadReturnedSignature(event)">
+                            </div>
+                            <div id="hrRetSigError" style="color: red; font-size: 12px; margin-top: 5px; display: none;">⚠️ Signature is required for re-approval</div>
                         </div>
                         
                         <div class="action-section">
@@ -1735,6 +1906,124 @@
             }
             
             document.getElementById('approvalModal').classList.add('active');
+            
+            // Initialize the returned signature pad after the modal is visible
+            setTimeout(() => {
+                initReturnedSignaturePad();
+            }, 150);
+        }
+        
+        // Returned application signature pad functions
+        let retSignatureCanvas = null;
+        let retSignatureCtx = null;
+        let retIsDrawing = false;
+        
+        function initReturnedSignaturePad() {
+            retSignatureCanvas = document.getElementById('hrReturnedSignaturePad');
+            if (!retSignatureCanvas) return;
+            
+            retSignatureCtx = retSignatureCanvas.getContext('2d');
+            
+            // Resize canvas to actual display size
+            const rect = retSignatureCanvas.getBoundingClientRect();
+            retSignatureCanvas.width = rect.width;
+            retSignatureCanvas.height = rect.height;
+            
+            retSignatureCanvas.addEventListener('mousedown', function(e) {
+                retIsDrawing = true;
+                const pos = getRetCanvasPos(e.clientX, e.clientY);
+                retSignatureCtx.beginPath();
+                retSignatureCtx.moveTo(pos.x, pos.y);
+            });
+            retSignatureCanvas.addEventListener('mousemove', function(e) {
+                if (!retIsDrawing) return;
+                const pos = getRetCanvasPos(e.clientX, e.clientY);
+                retSignatureCtx.lineTo(pos.x, pos.y);
+                retSignatureCtx.strokeStyle = '#000';
+                retSignatureCtx.lineWidth = 2;
+                retSignatureCtx.lineCap = 'round';
+                retSignatureCtx.stroke();
+            });
+            retSignatureCanvas.addEventListener('mouseup', function() { retIsDrawing = false; });
+            retSignatureCanvas.addEventListener('mouseout', function() { retIsDrawing = false; });
+            
+            // Touch support
+            retSignatureCanvas.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                retIsDrawing = true;
+                const touch = e.touches[0];
+                const pos = getRetCanvasPos(touch.clientX, touch.clientY);
+                retSignatureCtx.beginPath();
+                retSignatureCtx.moveTo(pos.x, pos.y);
+            });
+            retSignatureCanvas.addEventListener('touchmove', function(e) {
+                if (!retIsDrawing) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                const pos = getRetCanvasPos(touch.clientX, touch.clientY);
+                retSignatureCtx.lineTo(pos.x, pos.y);
+                retSignatureCtx.strokeStyle = '#000';
+                retSignatureCtx.lineWidth = 2;
+                retSignatureCtx.lineCap = 'round';
+                retSignatureCtx.stroke();
+            });
+            retSignatureCanvas.addEventListener('touchend', function() { retIsDrawing = false; });
+        }
+        
+        function getRetCanvasPos(clientX, clientY) {
+            const rect = retSignatureCanvas.getBoundingClientRect();
+            const scaleX = retSignatureCanvas.width / rect.width;
+            const scaleY = retSignatureCanvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+        
+        function clearReturnedSignature() {
+            if (!retSignatureCanvas) retSignatureCanvas = document.getElementById('hrReturnedSignaturePad');
+            if (!retSignatureCanvas) return;
+            const ctx = retSignatureCanvas.getContext('2d');
+            ctx.clearRect(0, 0, retSignatureCanvas.width, retSignatureCanvas.height);
+            const errEl = document.getElementById('hrRetSigError');
+            if (errEl) errEl.style.display = 'none';
+        }
+        
+        function uploadReturnedSignature(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    if (!retSignatureCanvas) retSignatureCanvas = document.getElementById('hrReturnedSignaturePad');
+                    if (!retSignatureCanvas) return;
+                    const ctx = retSignatureCanvas.getContext('2d');
+                    ctx.clearRect(0, 0, retSignatureCanvas.width, retSignatureCanvas.height);
+                    const scale = Math.min(retSignatureCanvas.width / img.width, retSignatureCanvas.height / img.height);
+                    const x = (retSignatureCanvas.width - img.width * scale) / 2;
+                    const y = (retSignatureCanvas.height - img.height * scale) / 2;
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            const errEl = document.getElementById('hrRetSigError');
+            if (errEl) errEl.style.display = 'none';
+        }
+        
+        function hasReturnedSignature() {
+            if (!retSignatureCanvas) retSignatureCanvas = document.getElementById('hrReturnedSignaturePad');
+            if (!retSignatureCanvas) return false;
+            const ctx = retSignatureCanvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, retSignatureCanvas.width, retSignatureCanvas.height);
+            return imageData.data.some((value, index) => index % 4 === 3 && value > 0);
+        }
+        
+        function getReturnedSignatureData() {
+            if (!retSignatureCanvas) retSignatureCanvas = document.getElementById('hrReturnedSignaturePad');
+            if (!retSignatureCanvas) return '';
+            return retSignatureCanvas.toDataURL('image/png');
         }
         
         async function processReturnedApplication(appId) {
@@ -1749,6 +2038,22 @@
             if ((selectedAction === 'return' || selectedAction === 'reject') && !remarks) {
                 showMessage('Please provide a reason for ' + (selectedAction === 'return' ? 'returning' : 'rejecting'), 'error');
                 return;
+            }
+            
+            // Validate signature for re-approval
+            const authorizedOfficerName = document.getElementById('hrReturnedOfficerName')?.value?.trim() || '';
+            if (selectedAction === 'resubmit') {
+                if (!authorizedOfficerName) {
+                    showMessage('❌ Authorized Officer Name is required for re-approval', 'error');
+                    document.getElementById('hrReturnedOfficerName')?.focus();
+                    return;
+                }
+                if (!hasReturnedSignature()) {
+                    showMessage('❌ Authorized Officer Signature is required for re-approval. Please draw or upload a signature.', 'error');
+                    const errEl = document.getElementById('hrRetSigError');
+                    if (errEl) errEl.style.display = 'block';
+                    return;
+                }
             }
             
             try {
@@ -1767,6 +2072,12 @@
                     approverName: hrUser?.name || 'HR Officer',
                     remarks: remarks || (selectedAction === 'resubmit' ? 'Re-approved after compliance review' : remarks)
                 };
+                
+                // Add signature data for re-approval (same as regular HR approval)
+                if (selectedAction === 'resubmit') {
+                    payload.authorizedOfficerName = authorizedOfficerName;
+                    payload.authorizedOfficerSignature = getReturnedSignatureData();
+                }
                 
                 // Add return target if returning
                 if (selectedAction === 'return') {

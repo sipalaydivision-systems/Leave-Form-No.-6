@@ -2151,8 +2151,10 @@
             const getApprovalInfo = (approver) => {
                 if (!app.approvalHistory) return null;
                 const portal = approver.toUpperCase();
-                const approval = app.approvalHistory.find(a => a.portal === portal);
-                return approval && approval.action === 'approved' ? approval : null;
+                // Use slice().reverse().find() to get the LATEST approved entry
+                // This handles re-approvals after returns correctly
+                const approval = app.approvalHistory.slice().reverse().find(a => a.portal === portal && a.action === 'approved');
+                return approval || null;
             };
 
             // Get approver info
@@ -2592,7 +2594,7 @@
                     imagePromises.push(new Promise((resolve) => {
                         const canvas = document.createElement('canvas');
                         const tempImg = new Image();
-                        tempImg.crossOrigin = 'anonymous';
+                        // Don't set crossOrigin for same-origin images to avoid CORS canvas taint
                         tempImg.onload = () => {
                             canvas.width = tempImg.naturalWidth;
                             canvas.height = tempImg.naturalHeight;

@@ -41,3 +41,18 @@
 - **Pattern**: Creating an `<input type="date">` with `opacity: 0` positioned over a text input fails because parent CSS rules (`.info-cell input { width: calc(100% - 80px) }`, `.field-input { margin-bottom }`) resize/reposition the overlay unpredictably
 - **Rule**: Use `showPicker()` API instead — create a fully hidden date input (`visibility: hidden; width: 0; height: 0`) and call `realDateInput.showPicker()` from the display input's click handler. No overlay = no CSS interference.
 - **Mistake**: Tried the invisible overlay approach twice (z-index fix, then wrapper div with `all:unset`) — both failed because the overlay was still a visible DOM element subject to inherited CSS rules
+
+### Lesson 9: Use findLast/reverse pattern for approval history
+- **Pattern**: `approvalHistory.find()` returns the FIRST entry, but after return-and-re-approve cycles, the first entry may be outdated
+- **Rule**: Always use `approvalHistory.slice().reverse().find()` when looking for the latest approval action
+- **Mistake**: `getApprovalInfo` used `find()` which could return an old non-approved entry instead of the latest approved one
+
+### Lesson 10: crossOrigin attribute breaks same-origin canvas operations
+- **Pattern**: Setting `img.crossOrigin = 'anonymous'` forces CORS requests — Express.static doesn't send CORS headers by default
+- **Rule**: Don't set crossOrigin on same-origin images used for canvas toDataURL(). Only set it for cross-origin images with proper CORS support
+- **Mistake**: Print function set crossOrigin on the logo image, causing canvas taint and silent toDataURL failure
+
+### Lesson 11: Feature parity when building alternate flows
+- **Pattern**: When a returned application goes back to an approver, the re-approval flow must include the same fields as the original flow
+- **Rule**: When building a "returned" or "re-process" view, always cross-reference the original view to ensure all required fields (signatures, officer names) are included
+- **Mistake**: HR returned flow was missing signature pad and officer name fields that the regular approval flow had

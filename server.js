@@ -212,6 +212,12 @@ app.use((req, res, next) => {
     next();
 });
 
+// Enable CORS headers for static image files (needed for canvas operations in print)
+app.use('/sipalay_logo.png', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+});
+
 app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 

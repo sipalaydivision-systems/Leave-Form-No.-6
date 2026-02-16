@@ -1,3 +1,19 @@
+# Current Task — 4 Issues Fix (Feb 16, 2026)
+
+## Issue 1: Signatures & Logo Not Appearing
+- [ ] Fix logo and signature rendering
+
+## Issue 2: HR No View/Sign for Returned Applications  
+- [ ] Add view + signature pad matching ASDS/SDS flow
+
+## Issue 3: Remove Position Categories in Registration
+- [ ] Flatten optgroups in login.html and ao-register.html
+
+## Issue 4: Rename "Division Office Proper" → "ASDS - Assistant Schools Division Superintendent"
+- [ ] Update across all 6 registration files
+
+---
+
 # System Bug Audit - February 16, 2026
 
 ## Plan
