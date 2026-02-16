@@ -1471,8 +1471,9 @@
             const app = allApplications.find(a => a.id === appId);
             if (!app) return;
 
-            // Store applicant email for card operations
-            currentApplicantEmail = app.email || app.employeeId;
+            // Store applicant email and name for card operations
+            currentApplicantEmail = app.employeeEmail || app.email || app.employeeId;
+            currentApplicantName = app.employeeName || app.name || null;
 
             let title, btnText, btnClass;
             const reasonRequired = (action === 'return' || action === 'reject');
@@ -1535,8 +1536,9 @@
             const app = allApplications.find(a => a.id === appId);
             if (!app) return;
 
-            // Store applicant email for card operations
-            currentApplicantEmail = app.email || app.employeeId;
+            // Store applicant email and name for card operations
+            currentApplicantEmail = app.employeeEmail || app.email || app.employeeId;
+            currentApplicantName = app.employeeName || app.name || null;
 
             // Set the header to show applicant name
             const headerTitle = document.getElementById('actionTitle');
@@ -1626,6 +1628,7 @@
         // Leave Card and CTO Card Tab Functions
         let currentCardTab = 'leave';
         let currentApplicantEmail = null;
+        let currentApplicantName = null;
 
         function switchCardTab(tab) {
             currentCardTab = tab;

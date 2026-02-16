@@ -368,8 +368,8 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('leavecard')">🗂️ Leave Card</button>
-            <button class="tab-btn" onclick="switchTab('ctocard')">📑 CTO Card</button>
+            <button class="tab-btn active" onclick="switchTab('leavecard', event)">🗂️ Leave Card</button>
+            <button class="tab-btn" onclick="switchTab('ctocard', event)">📑 CTO Card</button>
         </div>
 
         <!-- Leave Card Tab -->
@@ -554,14 +554,14 @@
             loadCTOCardData();
         });
 
-        function switchTab(tabName) {
+        function switchTab(tabName, evt) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             
             // Show selected tab
             document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
+            if (evt && evt.target) evt.target.classList.add('active');
         }
 
         async function loadLeaveCardData() {

@@ -96,16 +96,7 @@ function isValidDate(dateStr) {
     return date instanceof Date && !isNaN(date);
 }
 
-// Security middleware - sanitize all incoming requests
-app.use((req, res, next) => {
-    if (req.body && typeof req.body === 'object') {
-        req.body = sanitizeObject(req.body);
-    }
-    if (req.query && typeof req.query === 'object') {
-        req.query = sanitizeObject(req.query);
-    }
-    next();
-});
+// NOTE: Body sanitization middleware moved below bodyParser (see after line ~213)
 
 // Security headers middleware
 app.use((req, res, next) => {
@@ -209,6 +200,18 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
+// Security middleware - sanitize all incoming requests (must be AFTER bodyParser)
+app.use((req, res, next) => {
+    if (req.body && typeof req.body === 'object') {
+        req.body = sanitizeObject(req.body);
+    }
+    if (req.query && typeof req.query === 'object') {
+        req.query = sanitizeObject(req.query);
+    }
+    next();
+});
+
 app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 

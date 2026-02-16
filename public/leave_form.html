@@ -1133,7 +1133,7 @@
                     <div class="sub-section-title">In case of Special Leave Benefits for Women:</div>
                     <span style="font-size: 8px;">(Specify Illness)</span>
                     <div class="sub-field">
-                        <input type="text" name="women_illness">
+                        <input type="text" name="women_illness" id="women_illness">
                     </div>
                 </div>
 
@@ -2549,6 +2549,8 @@
             // Capture study leave details
             studyMasters: (document.getElementById('study_masters') && document.getElementById('study_masters').checked) || false,
             studyBar: (document.getElementById('study_bar') && document.getElementById('study_bar').checked) || false,
+            // Capture women's special leave illness
+            womenIllness: (document.querySelector('input[name="women_illness"]') && document.querySelector('input[name="women_illness"]').value) || '',
             // Capture "Others" leave type specification
             otherLeaveSpecify: (document.getElementById('other_leave_specify') && document.getElementById('other_leave_specify').value) || ''
         };
