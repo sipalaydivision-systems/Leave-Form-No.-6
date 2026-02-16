@@ -1925,6 +1925,53 @@
             
             document.getElementById('approvalModal').classList.add('active');
             
+            // Fetch CTO balance and SPL/FL balances for the returned application view
+            const retEmpEmail = app.employeeEmail || app.email || app.employeeId || '';
+            if (retEmpEmail) {
+                const retModal = document.getElementById('approvalModal');
+                fetch('/api/cto-records?employeeId=' + encodeURIComponent(retEmpEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.records && data.records.length > 0) {
+                            const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
+                            const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
+                            const balance = totalGranted - totalUsed;
+                            const ctoCells = retModal.querySelectorAll('.cto-credit-cell');
+                            if (ctoCells.length >= 3) {
+                                ctoCells[0].textContent = totalGranted.toFixed(3);
+                                ctoCells[1].textContent = totalUsed.toFixed(3);
+                                ctoCells[2].innerHTML = '<strong>' + balance.toFixed(3) + '</strong>';
+                            }
+                        }
+                    }).catch(() => {});
+                
+                fetch('/api/leave-credits?employeeId=' + encodeURIComponent(retEmpEmail))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.credits) {
+                            const c = data.credits;
+                            const splEarned = c.splEarned || 3;
+                            const splSpent = c.splSpent || 0;
+                            const splBalance = splEarned - splSpent;
+                            const flEarned = c.forceLeaveEarned || 5;
+                            const flSpent = c.forceLeaveSpent || 0;
+                            const flBalance = flEarned - flSpent;
+                            const splCells = retModal.querySelectorAll('.spl-credit-cell');
+                            if (splCells.length >= 3) {
+                                splCells[0].textContent = splEarned.toFixed(3);
+                                splCells[1].textContent = splSpent.toFixed(3);
+                                splCells[2].innerHTML = '<strong>' + splBalance.toFixed(3) + '</strong>';
+                            }
+                            const flCells = retModal.querySelectorAll('.fl-credit-cell');
+                            if (flCells.length >= 3) {
+                                flCells[0].textContent = flEarned.toFixed(3);
+                                flCells[1].textContent = flSpent.toFixed(3);
+                                flCells[2].innerHTML = '<strong>' + flBalance.toFixed(3) + '</strong>';
+                            }
+                        }
+                    }).catch(() => {});
+            }
+            
             // Initialize the returned signature pad after the modal is visible
             setTimeout(() => {
                 initReturnedSignaturePad();
