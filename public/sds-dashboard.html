@@ -2835,9 +2835,11 @@
                             const balance = totalGranted - totalUsed;
                             const ctoCells = document.querySelectorAll('.cto-credit-cell');
                             if (ctoCells.length >= 3) {
+                                const isCtoApp = app.leaveType === 'leave_others' || (app.leaveType || '').toLowerCase().includes('cto');
+                                const ctoLessThisApp = isCtoApp ? (parseFloat(app.numDays) || 0) : 0;
                                 ctoCells[0].value = totalGranted.toFixed(3);
-                                ctoCells[1].value = totalUsed.toFixed(3);
-                                ctoCells[2].value = balance.toFixed(3);
+                                ctoCells[1].value = ctoLessThisApp.toFixed(3);
+                                ctoCells[2].value = (balance - ctoLessThisApp).toFixed(3);
                             }
                         }
                     }).catch(() => {});
@@ -2854,16 +2856,20 @@
                             const flEarned = c.forceLeaveEarned || 5;
                             const flSpent = c.forceLeaveSpent || 0;
                             const flBalance = flEarned - flSpent;
+                            const isSplApp = app.leaveType === 'leave_spl' || (app.leaveType || '').toLowerCase().includes('special privilege');
+                            const splLessThisApp = isSplApp ? (parseFloat(app.numDays) || 0) : 0;
+                            const isFlApp = app.leaveType === 'leave_mfl' || (app.leaveType || '').toLowerCase().includes('force');
+                            const flLessThisApp = isFlApp ? (parseFloat(app.numDays) || 0) : 0;
                             const splCells = document.querySelectorAll('.spl-credit-cell');
                             if (splCells.length >= 3) {
                                 splCells[0].value = splEarned.toFixed(3);
-                                splCells[1].value = splSpent.toFixed(3);
+                                splCells[1].value = splLessThisApp.toFixed(3);
                                 splCells[2].value = splBalance.toFixed(3);
                             }
                             const flCells = document.querySelectorAll('.fl-credit-cell');
                             if (flCells.length >= 3) {
                                 flCells[0].value = flEarned.toFixed(3);
-                                flCells[1].value = flSpent.toFixed(3);
+                                flCells[1].value = flLessThisApp.toFixed(3);
                                 flCells[2].value = flBalance.toFixed(3);
                             }
                         }

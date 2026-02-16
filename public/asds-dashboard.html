@@ -2572,9 +2572,11 @@
                             const balance = totalGranted - totalUsed;
                             const ctoCells = document.querySelectorAll('.cto-credit-cell');
                             if (ctoCells.length >= 3) {
+                                const isCtoApp = app.leaveType === 'leave_others' || (app.leaveType || '').toLowerCase().includes('cto');
+                                const ctoLessThisApp = isCtoApp ? (parseFloat(app.numDays) || 0) : 0;
                                 ctoCells[0].textContent = totalGranted.toFixed(3);
-                                ctoCells[1].textContent = totalUsed.toFixed(3);
-                                ctoCells[2].innerHTML = '<strong>' + balance.toFixed(3) + '</strong>';
+                                ctoCells[1].textContent = ctoLessThisApp.toFixed(3);
+                                ctoCells[2].innerHTML = '<strong>' + (balance - ctoLessThisApp).toFixed(3) + '</strong>';
                             }
                         }
                     }).catch(() => {});
@@ -2591,16 +2593,20 @@
                             const flEarned = c.forceLeaveEarned || 5;
                             const flSpent = c.forceLeaveSpent || 0;
                             const flBalance = flEarned - flSpent;
+                            const isSplApp = app.leaveType === 'leave_spl' || (app.leaveType || '').toLowerCase().includes('special privilege');
+                            const splLessThisApp = isSplApp ? (parseFloat(app.numDays) || 0) : 0;
+                            const isFlApp = app.leaveType === 'leave_mfl' || (app.leaveType || '').toLowerCase().includes('force');
+                            const flLessThisApp = isFlApp ? (parseFloat(app.numDays) || 0) : 0;
                             const splCells = document.querySelectorAll('.spl-credit-cell');
                             if (splCells.length >= 3) {
                                 splCells[0].textContent = splEarned.toFixed(3);
-                                splCells[1].textContent = splSpent.toFixed(3);
+                                splCells[1].textContent = splLessThisApp.toFixed(3);
                                 splCells[2].innerHTML = '<strong>' + splBalance.toFixed(3) + '</strong>';
                             }
                             const flCells = document.querySelectorAll('.fl-credit-cell');
                             if (flCells.length >= 3) {
                                 flCells[0].textContent = flEarned.toFixed(3);
-                                flCells[1].textContent = flSpent.toFixed(3);
+                                flCells[1].textContent = flLessThisApp.toFixed(3);
                                 flCells[2].innerHTML = '<strong>' + flBalance.toFixed(3) + '</strong>';
                             }
                         }
