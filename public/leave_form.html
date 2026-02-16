@@ -1610,28 +1610,34 @@
             return parts[1] + '/' + parts[2] + '/' + parts[0];
         }
 
-        // Add date picker popups to From/To fields
+        // Add date picker to text inputs using a hidden date input + showPicker()
         function setupDatePicker(displayInput, hiddenInput) {
-            // Wrap the display input in a position:relative container
-            // so the overlay is scoped exactly to the input area
-            const wrapper = document.createElement('div');
-            wrapper.style.position = 'relative';
-            wrapper.style.display = 'inline-block';
-            wrapper.style.width = displayInput.offsetWidth ? displayInput.offsetWidth + 'px' : '100%';
-            displayInput.parentElement.insertBefore(wrapper, displayInput);
-            wrapper.appendChild(displayInput);
-
-            // Create a real date input overlay covering exactly this input
+            // Create a hidden date input (not in the layout at all)
             const realDateInput = document.createElement('input');
             realDateInput.type = 'date';
-            realDateInput.setAttribute('style', 'all:unset; position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10; box-sizing:border-box;');
+            realDateInput.style.position = 'absolute';
+            realDateInput.style.visibility = 'hidden';
+            realDateInput.style.width = '0';
+            realDateInput.style.height = '0';
+            realDateInput.style.overflow = 'hidden';
             if (hiddenInput.value) realDateInput.value = hiddenInput.value;
-            wrapper.appendChild(realDateInput);
-            
+            displayInput.parentElement.appendChild(realDateInput);
+
+            // When user clicks the text input, open the native date picker
+            displayInput.addEventListener('click', function() {
+                try {
+                    realDateInput.showPicker();
+                } catch(e) {
+                    // Fallback: focus the date input (opens picker in most browsers)
+                    realDateInput.focus();
+                    realDateInput.click();
+                }
+            });
+
+            // When a date is selected, update the display and hidden inputs
             realDateInput.addEventListener('change', function() {
                 hiddenInput.value = realDateInput.value;
                 displayInput.value = isoToDisplay(realDateInput.value);
-                // Trigger change event on display input for working days calc
                 displayInput.dispatchEvent(new Event('change'));
             });
         }
