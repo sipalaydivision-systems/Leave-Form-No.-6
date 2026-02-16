@@ -36,3 +36,8 @@
 - **Pattern**: `.others-field input` styled ALL inputs including file inputs
 - **Rule**: Use specific selectors like `.others-field input[type="text"]` to avoid style leaks
 - **Mistake**: Broad CSS selector could affect hidden file inputs or future inputs added to the container
+
+### Lesson 8: Don't use invisible overlay inputs for date pickers
+- **Pattern**: Creating an `<input type="date">` with `opacity: 0` positioned over a text input fails because parent CSS rules (`.info-cell input { width: calc(100% - 80px) }`, `.field-input { margin-bottom }`) resize/reposition the overlay unpredictably
+- **Rule**: Use `showPicker()` API instead — create a fully hidden date input (`visibility: hidden; width: 0; height: 0`) and call `realDateInput.showPicker()` from the display input's click handler. No overlay = no CSS interference.
+- **Mistake**: Tried the invisible overlay approach twice (z-index fix, then wrapper div with `all:unset`) — both failed because the overlay was still a visible DOM element subject to inherited CSS rules
