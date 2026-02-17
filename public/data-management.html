@@ -214,6 +214,7 @@
             const el = document.getElementById('statusMsg');
             el.textContent = message;
             el.className = 'status-msg ' + type;
+            el.style.display = '';  // Always reset visibility
             window.scrollTo({ top: 0, behavior: 'smooth' });
             if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 8000);
         }
@@ -346,14 +347,20 @@
             try {
                 showStatus('Exporting data...', 'info');
                 const resp = await fetch('/api/data/export', { headers: getAuthHeaders() });
-                if (!resp.ok) throw new Error('Export failed');
+                if (!resp.ok) {
+                    const errData = await resp.json().catch(() => ({}));
+                    throw new Error(errData.error || `Export failed (HTTP ${resp.status})`);
+                }
                 const blob = await resp.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
+                a.style.display = 'none';
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
                 a.download = `data-export-${timestamp}.json`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 showStatus('✅ Data exported and downloaded successfully!', 'success');
             } catch (err) {
