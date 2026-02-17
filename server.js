@@ -326,7 +326,7 @@ function getClientIp(req) {
            'unknown';
 }
 
-// Ensure all data files exist â€” seeds from bundled defaults on first deploy
+// Ensure all data files exist — seeds from bundled defaults on first deploy
 const defaultsDir = path.join(__dirname, 'data', 'defaults');
 
 function ensureFile(filepath, defaultContent = '[]') {
@@ -334,7 +334,7 @@ function ensureFile(filepath, defaultContent = '[]') {
     const defaultFile = path.join(defaultsDir, filename);
     
     if (!fs.existsSync(filepath)) {
-        // File doesn't exist â€” seed from bundled defaults (useful for Railway Volume first deploy)
+        // File doesn't exist — seed from bundled defaults (useful for Railway Volume first deploy)
         if (fs.existsSync(defaultFile)) {
             const content = fs.readFileSync(defaultFile, 'utf8');
             fs.writeFileSync(filepath, content);
@@ -344,7 +344,7 @@ function ensureFile(filepath, defaultContent = '[]') {
             console.log(`[DATA] Created empty ${filename}`);
         }
     } else {
-        // File exists â€” but if it's empty/just "[]" and defaults have real data, reseed
+        // File exists — but if it's empty/just "[]" and defaults have real data, reseed
         try {
             const existing = fs.readFileSync(filepath, 'utf8').trim();
             const existingData = JSON.parse(existing);
@@ -721,7 +721,7 @@ function generateLoginFormEmail(userEmail, userName, portal, temporaryPassword =
                     
                     <div class="credentials">
                         <p><strong>Email:</strong> ${userEmail}</p>
-                        ${temporaryPassword ? `<p><strong>Temporary Password:</strong> ${temporaryPassword}</p><p style="color: #d9534f; margin-top: 10px;"><em>âš ï¸ Please change this password on your first login for security reasons.</em></p>` : '<p><strong>Password:</strong> Use the password you registered with</p>'}
+                        ${temporaryPassword ? `<p><strong>Temporary Password:</strong> ${temporaryPassword}</p><p style="color: #d9534f; margin-top: 10px;"><em>⚠️ Please change this password on your first login for security reasons.</em></p>` : '<p><strong>Password:</strong> Use the password you registered with</p>'}
                     </div>
                     
                     <p>To access the system, click the button below:</p>
@@ -2422,7 +2422,7 @@ app.post('/api/submit-leave', (req, res) => {
         const applicationId = generateApplicationId(applications);
         
         // ALL applications go to AO first, regardless of whether they're school-based or not
-        // Unified workflow: AO â†’ HR â†’ ASDS â†’ SDS
+        // Unified workflow: AO → HR → ASDS → SDS
         const newApplication = {
             id: applicationId,
             ...applicationData,
@@ -3948,36 +3948,34 @@ app.get('/api/data/backups', requireAuth('it'), (req, res) => {
     }
 });
 
+
 // DELETE /api/data/backup/:backupId - Delete a specific backup
 app.delete('/api/data/backup/:backupId', requireAuth('it'), (req, res) => {
     try {
-        const safeName = path.basename(req.params.backupId);
-        if (!safeName.startsWith('backup-') && !safeName.startsWith('auto-startup-') && !safeName.startsWith('pre-restore-') && !safeName.startsWith('pre-import-')) {
-            return res.status(400).json({ success: false, error: 'Invalid backup ID' });
+        const { backupId } = req.params;
+        // Validate backup ID format (must start with backup-, auto-startup-, pre-restore-, or pre-import-)
+        const validPrefixes = ['backup-', 'auto-startup-', 'pre-restore-', 'pre-import-'];
+        if (!validPrefixes.some(p => backupId.startsWith(p))) {
+            return res.status(400).json({ success: false, error: 'Invalid backup ID format' });
         }
-
-        const backupFolder = path.join(backupDir, safeName);
-        if (!fs.existsSync(backupFolder)) {
+        const backupPath = path.join(backupDir, backupId);
+        if (!fs.existsSync(backupPath)) {
             return res.status(404).json({ success: false, error: 'Backup not found' });
         }
-
-        fs.rmSync(backupFolder, { recursive: true, force: true });
-
+        // Delete the backup directory and all its contents
+        fs.rmSync(backupPath, { recursive: true, force: true });
         logActivity('data_backup_delete', 'it', {
             userEmail: req.session.email,
             userId: req.session.userId,
             ip: getClientIp(req),
-            details: { deletedBackup: safeName }
+            details: { backupId, deletedAt: new Date().toISOString() }
         });
-
-        console.log('[BACKUP] Deleted backup: ' + safeName);
-        res.json({ success: true, message: 'Backup "' + safeName + '" deleted successfully' });
+        res.json({ success: true, message: 'Backup deleted successfully' });
     } catch (error) {
         console.error('Delete backup error:', error);
         res.status(500).json({ success: false, error: 'Failed to delete backup: ' + error.message });
     }
 });
-
 // POST /api/data/restore - Restore data from a specific backup
 app.post('/api/data/restore', requireAuth('it'), (req, res) => {
     try {
@@ -4239,9 +4237,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('  PID: ' + process.pid);
     console.log('  Data Dir: ' + dataDir);
     if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-        console.log('  Storage: âœ… Railway Volume (data persists across deploys)');
+        console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
     } else {
-        console.log('  Storage: âš ï¸  Local filesystem (data lost on redeploy!)');
+        console.log('  Storage: ⚠️  Local filesystem (data lost on redeploy!)');
     }
     console.log('==========================================================');
     console.log('');
@@ -4262,7 +4260,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
                     fixedCount++;
                 }
             });
-            // Always check if file needs format normalization (object â†’ array)
+            // Always check if file needs format normalization (object → array)
             const needsNormalize = !Array.isArray(appsData);
             if (fixedCount > 0 || needsNormalize) {
                 fs.writeFileSync(appsPath, JSON.stringify(apps, null, 2));
@@ -4299,5 +4297,5 @@ server.setTimeout(0);
 
 // Periodic heartbeat
 setInterval(() => {
-    console.log('âœ“ Server still running - ' + new Date().toISOString());
+    console.log('✓ Server still running - ' + new Date().toISOString());
 }, 60000);
