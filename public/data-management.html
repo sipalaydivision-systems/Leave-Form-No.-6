@@ -166,6 +166,18 @@
         </div>
     </div>
 
+    <!-- Confirm Delete Modal -->
+    <div class="confirm-modal" id="confirmDeleteModal">
+        <div class="modal-content">
+            <h3>🗑️ Delete Backup</h3>
+            <p>Are you sure you want to permanently delete <strong id="deleteBackupName"></strong>? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-danger btn-lg" id="confirmDeleteBtn">Yes, Delete</button>
+                <button class="btn btn-warning btn-lg" onclick="closeDeleteModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirm Restore Modal -->
     <div class="confirm-modal" id="confirmRestoreModal">
         <div class="modal-content">
@@ -255,6 +267,7 @@
                             </div>
                             <div class="backup-actions">
                                 <button class="btn btn-primary" onclick="confirmRestore('${backup.id}')">🔄 Restore</button>
+                                <button class="btn btn-danger" onclick="confirmDelete('${backup.id}')">🗑️ Delete</button>
                             </div>
                         </li>
                     `;
@@ -293,6 +306,35 @@
                     loadBackups();
                 } else {
                     showStatus('❌ ' + (data.error || 'Restore failed'), 'error');
+                }
+            } catch (err) {
+                showStatus('❌ Network error: ' + err.message, 'error');
+            }
+        }
+
+        // Confirm + Delete
+        function confirmDelete(backupId) {
+            document.getElementById('deleteBackupName').textContent = backupId;
+            document.getElementById('confirmDeleteModal').classList.add('show');
+            document.getElementById('confirmDeleteBtn').onclick = () => doDelete(backupId);
+        }
+        function closeDeleteModal() {
+            document.getElementById('confirmDeleteModal').classList.remove('show');
+        }
+        async function doDelete(backupId) {
+            closeDeleteModal();
+            try {
+                showStatus('Deleting backup...', 'info');
+                const resp = await fetch(`/api/data/backup/${encodeURIComponent(backupId)}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showStatus(`✅ ${data.message}`, 'success');
+                    loadBackups();
+                } else {
+                    showStatus('❌ ' + (data.error || 'Delete failed'), 'error');
                 }
             } catch (err) {
                 showStatus('❌ Network error: ' + err.message, 'error');
