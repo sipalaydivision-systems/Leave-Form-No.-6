@@ -1285,7 +1285,7 @@
             </div>
             <div class="modal-footer">
                 <button class="modal-btn cancel" onclick="closeModal('addStaffModal')">Cancel</button>
-                <button class="modal-btn approve" onclick="document.getElementById('addStaffForm').dispatchEvent(new Event('submit', {cancelable: true}))">Add IT Staff</button>
+                <button class="modal-btn approve" onclick="document.getElementById('addStaffForm').requestSubmit()">Add IT Staff</button>
             </div>
         </div>
     </div>
@@ -1974,9 +1974,17 @@
                         email, 
                         pin: password,
                         position,
-                        addedBy: itUser.fullName || itUser.email
+                        addedBy: itUser ? (itUser.fullName || itUser.email) : 'Unknown'
                     })
                 });
+                
+                if (response.status === 401) {
+                    alert('Session expired. Please log in again.');
+                    localStorage.removeItem('itToken');
+                    localStorage.removeItem('itUser');
+                    window.location.href = '/it-login.html';
+                    return;
+                }
                 
                 const data = await response.json();
                 
