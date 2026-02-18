@@ -636,9 +636,9 @@
                 const card = data.credits;
                 const today = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
                 
-                // Get earned values (default to 100 if not set)
-                const vlEarned = parseFloat(card.vacationLeaveEarned) || 100;
-                const slEarned = parseFloat(card.sickLeaveEarned) || 100;
+                // Get earned values
+                const vlEarned = parseFloat(card.vacationLeaveEarned) || parseFloat(card.vl) || 0;
+                const slEarned = parseFloat(card.sickLeaveEarned) || parseFloat(card.sl) || 0;
                 
                 // Track running balance - if transactions exist, they carry their own running balance
                 const hasTransactions = card.transactions && card.transactions.length > 0;

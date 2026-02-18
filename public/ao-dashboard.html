@@ -2045,8 +2045,8 @@
                     
                     // Render Excel-migrated transactions - if transactions exist, they carry their own running balance
                     let hasTransactions = credits.transactions && credits.transactions.length > 0;
-                    let vlBalance = hasTransactions ? 0 : (credits.vl || 100);
-                    let slBalance = hasTransactions ? 0 : (credits.sl || 100);
+                    let vlBalance = hasTransactions ? 0 : (credits.vl || 0);
+                    let slBalance = hasTransactions ? 0 : (credits.sl || 0);
                     
                     if (hasTransactions) {
                         credits.transactions.forEach((txn, idx) => {

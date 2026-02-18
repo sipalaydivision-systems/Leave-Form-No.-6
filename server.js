@@ -416,6 +416,153 @@ function writeJSON(filepath, data) {
 }
 
 // ========== MONTHLY LEAVE CREDIT ACCRUAL (1.25/month) ==========
+
+/**
+ * Catch-up accrual for cards created AFTER the global monthly accrual already ran.
+ * Compares each card's lastAccrualDate (or absence thereof) against the global
+ * lastAccruedMonth and adds any missing months of credits.
+ */
+function catchUpNewCards(globalLastAccruedMonth, now) {
+    try {
+        ensureFile(leavecardsFile);
+        const leavecards = readJSON(leavecardsFile);
+        if (leavecards.length === 0) return;
+
+        const accrualPerMonth = 1.25;
+        let updatedCount = 0;
+
+        leavecards.forEach(lc => {
+            const cardLastAccrual = lc.lastAccrualDate || null;
+
+            // If card already has accrual up to the global month, skip
+            if (cardLastAccrual && cardLastAccrual >= globalLastAccruedMonth) return;
+
+            // Determine how many months this card missed
+            let monthsToAccrue = 0;
+            if (!cardLastAccrual) {
+                // Card has never been accrued — figure out months from card creation
+                // to the global lastAccruedMonth
+                const createdAt = lc.createdAt ? new Date(lc.createdAt) : null;
+                if (!createdAt) {
+                    // No creation date — just give 1 month catch-up
+                    monthsToAccrue = 1;
+                } else {
+                    // Calculate months from the month the card was created
+                    // to the global lastAccruedMonth
+                    const globalParts = globalLastAccruedMonth.split('-').map(Number);
+                    const globalYear = globalParts[0];
+                    const globalMonth = globalParts[1];
+
+                    // The card should receive accrual starting from the month it was created
+                    const createdYear = createdAt.getFullYear();
+                    const createdMonth = createdAt.getMonth() + 1; // 1-based
+
+                    monthsToAccrue = (globalYear - createdYear) * 12 + (globalMonth - createdMonth) + 1;
+                    if (monthsToAccrue <= 0) return; // Created after the last accrued month
+                }
+            } else {
+                // Card has a lastAccrualDate but it's behind the global
+                const cardParts = cardLastAccrual.split('-').map(Number);
+                const globalParts = globalLastAccruedMonth.split('-').map(Number);
+                monthsToAccrue = (globalParts[0] - cardParts[0]) * 12 + (globalParts[1] - cardParts[1]);
+                if (monthsToAccrue <= 0) return;
+            }
+
+            const totalAccrual = accrualPerMonth * monthsToAccrue;
+
+            // Update earned values
+            const prevVL = parseFloat(lc.vacationLeaveEarned) || parseFloat(lc.vl) || 0;
+            const prevSL = parseFloat(lc.sickLeaveEarned) || parseFloat(lc.sl) || 0;
+            lc.vacationLeaveEarned = +(prevVL + totalAccrual).toFixed(3);
+            lc.sickLeaveEarned = +(prevSL + totalAccrual).toFixed(3);
+            lc.vl = lc.vacationLeaveEarned;
+            lc.sl = lc.sickLeaveEarned;
+
+            // Add transaction entries
+            if (!lc.transactions) lc.transactions = [];
+            let runningVL = prevVL;
+            let runningSL = prevSL;
+            if (lc.transactions.length > 0) {
+                const lastTx = lc.transactions[lc.transactions.length - 1];
+                runningVL = parseFloat(lastTx.vlBalance) || prevVL;
+                runningSL = parseFloat(lastTx.slBalance) || prevSL;
+            }
+
+            // Determine the starting month for transaction entries
+            let startYear, startMonth;
+            if (!cardLastAccrual) {
+                const createdAt = lc.createdAt ? new Date(lc.createdAt) : now;
+                startYear = createdAt.getFullYear();
+                startMonth = createdAt.getMonth() + 1;
+            } else {
+                const parts = cardLastAccrual.split('-').map(Number);
+                startYear = parts[0];
+                startMonth = parts[1] + 1;
+                if (startMonth > 12) { startMonth = 1; startYear++; }
+            }
+
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+
+            for (let m = 0; m < monthsToAccrue; m++) {
+                let entryMonth = startMonth + m;
+                let entryYear = startYear;
+                while (entryMonth > 12) { entryMonth -= 12; entryYear++; }
+
+                runningVL = +(runningVL + accrualPerMonth).toFixed(3);
+                runningSL = +(runningSL + accrualPerMonth).toFixed(3);
+
+                lc.transactions.push({
+                    type: 'ADD',
+                    periodCovered: `${monthNames[entryMonth]} ${entryYear} (Monthly Accrual)`,
+                    vlEarned: accrualPerMonth,
+                    slEarned: accrualPerMonth,
+                    vlSpent: 0,
+                    slSpent: 0,
+                    forcedLeave: 0,
+                    splUsed: 0,
+                    vlBalance: runningVL,
+                    slBalance: runningSL,
+                    total: +(runningVL + runningSL).toFixed(3),
+                    source: 'system-accrual-catchup',
+                    date: now.toISOString()
+                });
+            }
+
+            lc.lastAccrualDate = globalLastAccruedMonth;
+            lc.updatedAt = now.toISOString();
+            updatedCount++;
+            console.log(`[ACCRUAL CATCH-UP] ${lc.email || lc.name}: +${totalAccrual.toFixed(3)} VL/SL (${monthsToAccrue} month(s))`);
+        });
+
+        if (updatedCount > 0) {
+            writeJSON(leavecardsFile, leavecards);
+            console.log(`[ACCRUAL CATCH-UP] Updated ${updatedCount} card(s) that missed previous accrual.`);
+
+            // Log activity
+            try {
+                ensureFile(activityLogsFile);
+                const logs = readJSON(activityLogsFile);
+                logs.push({
+                    type: 'ACCRUAL_CATCHUP',
+                    timestamp: now.toISOString(),
+                    details: {
+                        employeesUpdated: updatedCount,
+                        globalLastAccruedMonth: globalLastAccruedMonth
+                    }
+                });
+                writeJSON(activityLogsFile, logs);
+            } catch (logErr) {
+                console.error('[ACCRUAL CATCH-UP] Could not log activity:', logErr.message);
+            }
+        } else {
+            console.log('[ACCRUAL CATCH-UP] All cards are up to date.');
+        }
+    } catch (error) {
+        console.error('[ACCRUAL CATCH-UP] Error:', error.message);
+    }
+}
+
 /**
  * At the end of every month, each employee earns 1.25 days of Vacation Leave
  * and 1.25 days of Sick Leave (per CSC rules). This function checks on server
@@ -446,8 +593,10 @@ function runMonthlyAccrual() {
         const lastCompletedKey = `${lastCompletedYear}-${String(lastCompletedMonth).padStart(2, '0')}`;
 
         if (lastAccruedMonth && lastAccruedMonth >= lastCompletedKey) {
-            // Already up to date
-            console.log(`[ACCRUAL] Already accrued through ${lastAccruedMonth}. Current completed month: ${lastCompletedKey}. No action needed.`);
+            // Global accrual is up to date, but check for newly created cards
+            // that missed accrual because they were created after it ran
+            console.log(`[ACCRUAL] Already accrued through ${lastAccruedMonth}. Checking for new cards needing catch-up...`);
+            catchUpNewCards(lastAccruedMonth, now);
             return;
         }
 

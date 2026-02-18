@@ -686,9 +686,9 @@
                 if (data.success && data.credits) {
                     const credits = data.credits;
                     
-                    // Get earned values (default to 100 if not set)
-                    const vlEarned = parseFloat(credits.vacationLeaveEarned) || parseFloat(credits.vl) || 100;
-                    const slEarned = parseFloat(credits.sickLeaveEarned) || parseFloat(credits.sl) || 100;
+                    // Get earned values
+                    const vlEarned = parseFloat(credits.vacationLeaveEarned) || parseFloat(credits.vl) || 0;
+                    const slEarned = parseFloat(credits.sickLeaveEarned) || parseFloat(credits.sl) || 0;
                     
                     // Track running balance - if transactions exist, they carry their own running balance
                     const hasTransactions = credits.transactions && credits.transactions.length > 0;
