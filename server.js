@@ -2835,9 +2835,10 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 // Bulk delete multiple users
 app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
     try {
-        const { users, deletedBy } = req.body;
+        const { users, registrations, deletedBy } = req.body;
+        const deleteList = users || registrations;
 
-        if (!users || !Array.isArray(users) || users.length === 0) {
+        if (!deleteList || !Array.isArray(deleteList) || deleteList.length === 0) {
             return res.status(400).json({ success: false, error: 'No users specified for deletion' });
         }
 
@@ -2853,7 +2854,7 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
         let deletedCount = 0;
         const errors = [];
 
-        for (const user of users) {
+        for (const user of deleteList) {
             try {
                 const { email, portal } = user;
                 if (!email || !portal) {
@@ -2909,7 +2910,7 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
         logActivity('BULK_USER_DELETE', 'it', {
             userEmail: deletedBy || 'IT Admin',
             action: 'bulk-delete-users',
-            requestedCount: users.length,
+            requestedCount: deleteList.length,
             deletedCount,
             errors: errors.length > 0 ? errors : undefined,
             ip: getClientIp(req),
@@ -2918,7 +2919,7 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
 
         res.json({
             success: true,
-            message: `Successfully deleted ${deletedCount} of ${users.length} users`,
+            message: `Successfully deleted ${deletedCount} of ${deleteList.length} users`,
             deletedCount,
             errors: errors.length > 0 ? errors : undefined
         });
