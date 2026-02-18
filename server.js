@@ -6,6 +6,8 @@ const path = require('path');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const https = require('https');
+const multer = require('multer');
+const xlsx = require('xlsx');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -4762,6 +4764,422 @@ app.post('/api/data/import', requireAuth('it'), (req, res) => {
         });
     } catch (error) {
         console.error('Import error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ========== EXCEL LEAVE CARD MIGRATION ==========
+// Multer config: store uploaded files in memory (max 10MB per file, max 200 files)
+const migrationUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024, files: 200 },
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (['.xlsx', '.xls'].includes(ext)) cb(null, true);
+        else cb(new Error('Only .xlsx and .xls files are allowed'));
+    }
+});
+
+/**
+ * Extract VL/SL balance from a single Excel leave card buffer.
+ * Mirrors the logic from scripts/extract_initial_credits.js.
+ *
+ * Excel leave-card layout (DepEd standard):
+ *  - Filename = "LASTNAME, FIRSTNAME.xlsx"
+ *  - First sheet = the leave card
+ *  - Row 7, Col 9 (0-indexed: [6][8]) = employee number
+ *  - Data rows contain periodic entries; the LAST row with numeric
+ *    values in columns 8 & 9 (0-indexed 7 & 8) = latest VL & SL balance.
+ *  - Teaching personnel may use VSC format where a single balance is
+ *    in column 8 (index 7).
+ */
+function extractCreditsFromBuffer(buffer, fileName) {
+    try {
+        const wb = xlsx.read(buffer, { type: 'buffer' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = xlsx.utils.sheet_to_json(ws, { header: 1 });
+
+        const baseName = path.basename(fileName, path.extname(fileName));
+
+        let vacationBalance = null;
+        let sickBalance = null;
+        let lastDataRow = null;
+
+        // Scan bottom-up for last row with numeric VL & SL in columns 7,8
+        for (let i = data.length - 1; i >= 0; i--) {
+            const row = data[i];
+            if (row && row.length >= 9) {
+                const vac = row[7];
+                const sick = row[8];
+                if (typeof vac === 'number' && typeof sick === 'number') {
+                    vacationBalance = vac;
+                    sickBalance = sick;
+                    lastDataRow = i;
+                    break;
+                }
+            }
+        }
+
+        // Fallback: check for VSC (teaching) format
+        if (lastDataRow === null) {
+            let isVSC = false;
+            for (let i = 0; i < Math.min(20, data.length); i++) {
+                if (data[i] && data[i][0] && String(data[i][0]).toUpperCase().includes('VSC')) {
+                    isVSC = true;
+                    break;
+                }
+            }
+            if (isVSC) {
+                for (let i = data.length - 1; i >= 0; i--) {
+                    const row = data[i];
+                    if (row && row.length >= 8 && typeof row[7] === 'number') {
+                        vacationBalance = row[7];
+                        sickBalance = row[7];
+                        lastDataRow = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (lastDataRow === null) return null;
+
+        let empNo = '';
+        if (data[6] && data[6][8]) empNo = String(data[6][8]);
+
+        // Try to extract transaction rows (periodCovered, earned, spent, balance)
+        // Data rows typically start around row 12 (index 11) and go until lastDataRow
+        const transactions = [];
+        const headerRowIdx = findHeaderRow(data);
+        const startRow = headerRowIdx !== null ? headerRowIdx + 1 : 11;
+
+        for (let i = startRow; i <= lastDataRow; i++) {
+            const row = data[i];
+            if (!row || row.length < 9) continue;
+
+            const period = row[0] ? String(row[0]).trim() : '';
+            const vlEarned = typeof row[1] === 'number' ? row[1] : (typeof row[2] === 'number' ? row[2] : 0);
+            const slEarned = typeof row[3] === 'number' ? row[3] : (typeof row[4] === 'number' ? row[4] : 0);
+            const vlSpent = typeof row[3] === 'number' && typeof row[1] === 'number' ? row[3] : 0;
+            const slSpent = typeof row[5] === 'number' ? row[5] : 0;
+            const vlBal = typeof row[7] === 'number' ? row[7] : null;
+            const slBal = typeof row[8] === 'number' ? row[8] : null;
+
+            if (period || vlBal !== null || slBal !== null) {
+                transactions.push({
+                    type: 'ADD',
+                    periodCovered: period || `Row ${i + 1}`,
+                    vlEarned: +(vlEarned || 0).toFixed ? parseFloat((vlEarned || 0).toFixed(3)) : 0,
+                    slEarned: +(slEarned || 0).toFixed ? parseFloat((slEarned || 0).toFixed(3)) : 0,
+                    vlSpent: parseFloat((vlSpent || 0).toFixed ? (vlSpent || 0).toFixed(3) : '0'),
+                    slSpent: parseFloat((slSpent || 0).toFixed ? (slSpent || 0).toFixed(3) : '0'),
+                    forcedLeave: 0,
+                    splUsed: 0,
+                    vlBalance: vlBal !== null ? parseFloat(vlBal.toFixed(3)) : null,
+                    slBalance: slBal !== null ? parseFloat(slBal.toFixed(3)) : null,
+                    total: vlBal !== null && slBal !== null ? parseFloat((vlBal + slBal).toFixed(3)) : null,
+                    source: 'excel-migration',
+                    date: new Date().toISOString()
+                });
+            }
+        }
+
+        return {
+            name: baseName,
+            employeeNo: empNo,
+            vacationLeave: Math.round(vacationBalance * 1000) / 1000,
+            sickLeave: Math.round(sickBalance * 1000) / 1000,
+            transactions
+        };
+    } catch (err) {
+        console.error(`  Error parsing ${fileName}: ${err.message}`);
+        return null;
+    }
+}
+
+function findHeaderRow(data) {
+    for (let i = 0; i < Math.min(20, data.length); i++) {
+        const row = data[i];
+        if (!row) continue;
+        const joined = row.map(c => String(c || '').toUpperCase()).join(' ');
+        if (joined.includes('PERIOD') && (joined.includes('EARNED') || joined.includes('BALANCE'))) {
+            return i;
+        }
+    }
+    return null;
+}
+
+/**
+ * POST /api/migrate-leave-cards
+ * Accepts multipart upload of Excel leave-card files.
+ * Each file becomes a leave card entry in leavecards.json.
+ *
+ * Query params:
+ *   mode=preview  — parse & return results without writing (dry run)
+ *   mode=import   — parse & write to leavecards.json
+ *   overwrite=true — if a card with same name already exists, overwrite it
+ */
+app.post('/api/migrate-leave-cards', requireAuth('it'), migrationUpload.array('files', 200), (req, res) => {
+    try {
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ success: false, error: 'No Excel files uploaded' });
+        }
+
+        const mode = req.query.mode || 'preview';
+        const allowOverwrite = req.query.overwrite === 'true';
+        const results = [];
+        const errors = [];
+
+        for (const file of req.files) {
+            const extracted = extractCreditsFromBuffer(file.buffer, file.originalname);
+            if (extracted) {
+                results.push(extracted);
+            } else {
+                errors.push({ file: file.originalname, error: 'Could not parse VL/SL balance from file' });
+            }
+        }
+
+        if (mode === 'preview') {
+            return res.json({
+                success: true,
+                mode: 'preview',
+                message: `Parsed ${results.length} leave cards from ${req.files.length} files`,
+                parsed: results,
+                errors,
+                totalFiles: req.files.length,
+                successCount: results.length,
+                errorCount: errors.length
+            });
+        }
+
+        // Import mode — write to leavecards.json
+        // Create safety backup first
+        const safetyTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safetyFolder = path.join(backupDir, `pre-migration-${safetyTimestamp}`);
+        fs.mkdirSync(safetyFolder, { recursive: true });
+        if (fs.existsSync(leavecardsFile)) {
+            fs.copyFileSync(leavecardsFile, path.join(safetyFolder, 'leavecards.json'));
+        }
+
+        let leavecards = readJSON(leavecardsFile);
+        let created = 0, updated = 0, skipped = 0;
+        const importDetails = [];
+
+        for (const entry of results) {
+            const normalizedName = entry.name.toUpperCase().replace(/\s+/g, ' ').trim();
+
+            // Check if a card with this name already exists
+            const existingIdx = leavecards.findIndex(lc => {
+                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                return lcName === normalizedName;
+            });
+
+            if (existingIdx !== -1 && !allowOverwrite) {
+                skipped++;
+                importDetails.push({ name: entry.name, action: 'skipped', reason: 'Already exists (use overwrite to replace)' });
+                continue;
+            }
+
+            // Parse name into parts
+            const nameParts = parseFullNameIntoParts(entry.name);
+
+            const newCard = {
+                employeeId: '', // Will be linked when employee registers
+                email: '',
+                name: entry.name,
+                firstName: nameParts.firstName || '',
+                lastName: nameParts.lastName || '',
+                middleName: nameParts.middleName || '',
+                suffix: nameParts.suffix || '',
+                employeeNo: entry.employeeNo || '',
+                vacationLeaveEarned: entry.vacationLeave,
+                sickLeaveEarned: entry.sickLeave,
+                forceLeaveEarned: 5,
+                splEarned: 3,
+                vacationLeaveSpent: 0,
+                sickLeaveSpent: 0,
+                forceLeaveSpent: 0,
+                splSpent: 0,
+                vl: entry.vacationLeave,
+                sl: entry.sickLeave,
+                spl: 3,
+                others: 0,
+                forceLeaveYear: new Date().getFullYear(),
+                splYear: new Date().getFullYear(),
+                leaveUsageHistory: [],
+                transactions: entry.transactions || [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                initialCreditsSource: 'excel-migration'
+            };
+
+            if (existingIdx !== -1) {
+                // Overwrite existing
+                const existing = leavecards[existingIdx];
+                newCard.employeeId = existing.employeeId || '';
+                newCard.email = existing.email || '';
+                leavecards[existingIdx] = newCard;
+                updated++;
+                importDetails.push({ name: entry.name, action: 'updated', vl: entry.vacationLeave, sl: entry.sickLeave });
+            } else {
+                leavecards.push(newCard);
+                created++;
+                importDetails.push({ name: entry.name, action: 'created', vl: entry.vacationLeave, sl: entry.sickLeave });
+            }
+        }
+
+        writeJSON(leavecardsFile, leavecards);
+
+        logActivity('EXCEL_MIGRATION', 'it', {
+            userEmail: req.session.email,
+            userId: req.session.userId,
+            ip: getClientIp(req),
+            details: { totalFiles: req.files.length, created, updated, skipped, errors: errors.length }
+        });
+
+        console.log(`[MIGRATION] Excel leave card import complete: ${created} created, ${updated} updated, ${skipped} skipped, ${errors.length} errors`);
+
+        res.json({
+            success: true,
+            mode: 'import',
+            message: `Migration complete: ${created} created, ${updated} updated, ${skipped} skipped`,
+            safetyBackup: `pre-migration-${safetyTimestamp}`,
+            created,
+            updated,
+            skipped,
+            errors,
+            details: importDetails,
+            totalCards: leavecards.length
+        });
+    } catch (error) {
+        console.error('[MIGRATION] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/migrate-leave-card-json
+ * Manual JSON migration for when you have pre-processed data (e.g., from a spreadsheet
+ * you've manually read). Accepts an array of { name, vacationLeave, sickLeave, employeeNo }.
+ */
+app.post('/api/migrate-leave-card-json', requireAuth('it'), (req, res) => {
+    try {
+        const { records, overwrite } = req.body;
+        if (!Array.isArray(records) || records.length === 0) {
+            return res.status(400).json({ success: false, error: 'Expected { records: [{ name, vacationLeave, sickLeave }] }' });
+        }
+
+        // Safety backup
+        const safetyTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safetyFolder = path.join(backupDir, `pre-json-migration-${safetyTimestamp}`);
+        fs.mkdirSync(safetyFolder, { recursive: true });
+        if (fs.existsSync(leavecardsFile)) {
+            fs.copyFileSync(leavecardsFile, path.join(safetyFolder, 'leavecards.json'));
+        }
+
+        let leavecards = readJSON(leavecardsFile);
+        let created = 0, updated = 0, skipped = 0;
+        const details = [];
+
+        for (const rec of records) {
+            if (!rec.name) {
+                details.push({ name: '(empty)', action: 'skipped', reason: 'No name provided' });
+                skipped++;
+                continue;
+            }
+
+            const normalizedName = rec.name.toUpperCase().replace(/\s+/g, ' ').trim();
+            const existingIdx = leavecards.findIndex(lc => {
+                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                return lcName === normalizedName;
+            });
+
+            if (existingIdx !== -1 && !overwrite) {
+                skipped++;
+                details.push({ name: rec.name, action: 'skipped', reason: 'Already exists' });
+                continue;
+            }
+
+            const nameParts = parseFullNameIntoParts(rec.name);
+            const vlCredits = parseFloat(rec.vacationLeave) || 0;
+            const slCredits = parseFloat(rec.sickLeave) || 0;
+
+            const newCard = {
+                employeeId: rec.email || '',
+                email: rec.email || '',
+                name: rec.name,
+                firstName: nameParts.firstName || '',
+                lastName: nameParts.lastName || '',
+                middleName: nameParts.middleName || '',
+                suffix: nameParts.suffix || '',
+                employeeNo: rec.employeeNo || '',
+                vacationLeaveEarned: vlCredits,
+                sickLeaveEarned: slCredits,
+                forceLeaveEarned: 5,
+                splEarned: 3,
+                vacationLeaveSpent: 0,
+                sickLeaveSpent: 0,
+                forceLeaveSpent: 0,
+                splSpent: 0,
+                vl: vlCredits,
+                sl: slCredits,
+                spl: 3,
+                others: 0,
+                forceLeaveYear: new Date().getFullYear(),
+                splYear: new Date().getFullYear(),
+                leaveUsageHistory: [],
+                transactions: [{
+                    type: 'ADD',
+                    periodCovered: 'Initial Balance (Manual Migration)',
+                    vlEarned: vlCredits,
+                    slEarned: slCredits,
+                    vlSpent: 0,
+                    slSpent: 0,
+                    forcedLeave: 0,
+                    splUsed: 0,
+                    vlBalance: vlCredits,
+                    slBalance: slCredits,
+                    total: +(vlCredits + slCredits).toFixed(3),
+                    source: 'manual-migration',
+                    date: new Date().toISOString()
+                }],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                initialCreditsSource: 'manual-migration'
+            };
+
+            if (existingIdx !== -1) {
+                const existing = leavecards[existingIdx];
+                newCard.employeeId = existing.employeeId || newCard.employeeId;
+                newCard.email = existing.email || newCard.email;
+                leavecards[existingIdx] = newCard;
+                updated++;
+                details.push({ name: rec.name, action: 'updated', vl: vlCredits, sl: slCredits });
+            } else {
+                leavecards.push(newCard);
+                created++;
+                details.push({ name: rec.name, action: 'created', vl: vlCredits, sl: slCredits });
+            }
+        }
+
+        writeJSON(leavecardsFile, leavecards);
+
+        logActivity('MANUAL_MIGRATION', 'it', {
+            userEmail: req.session.email,
+            userId: req.session.userId,
+            ip: getClientIp(req),
+            details: { totalRecords: records.length, created, updated, skipped }
+        });
+
+        res.json({
+            success: true,
+            message: `Migration complete: ${created} created, ${updated} updated, ${skipped} skipped`,
+            safetyBackup: `pre-json-migration-${safetyTimestamp}`,
+            created, updated, skipped, details,
+            totalCards: leavecards.length
+        });
+    } catch (error) {
+        console.error('[JSON MIGRATION] Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
