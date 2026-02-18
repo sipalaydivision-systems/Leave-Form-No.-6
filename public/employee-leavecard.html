@@ -585,7 +585,7 @@
                 if (empNo) empNo.textContent = currentUser.employeeNo || 'N/A';
                 if (empStation) empStation.textContent = '-';
 
-                const response = await fetch(`/api/leave-credits?employeeId=${currentUser.email}`);
+                const response = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(currentUser.email)}`);
                 const data = await response.json();
 
                 if (data.success && data.credits) {
@@ -604,9 +604,20 @@
         async function loadLeaveCardTable() {
             try {
                 // Fetch leave card data for the current employee using email as identifier
-                const response = await fetch(`/api/leave-credits?employeeId=${currentUser.email}`);
+                const url = `/api/leave-credits?employeeId=${encodeURIComponent(currentUser.email)}`;
+                console.log('[LEAVE CARD] Fetching leave credits from:', url);
+                const response = await fetch(url);
                 const data = await response.json();
                 const tbody = document.getElementById('leaveCardBody');
+                
+                console.log('[LEAVE CARD] API response:', JSON.stringify({
+                    success: data.success,
+                    hasCredits: !!data.credits,
+                    txCount: data.credits?.transactions?.length || 0,
+                    historyCount: data.credits?.leaveUsageHistory?.length || 0,
+                    vlBalance: data.credits?.currentVlBalance,
+                    slBalance: data.credits?.currentSlBalance
+                }));
                 
                 if (!data.success || !data.credits) {
                     tbody.innerHTML = `
@@ -614,7 +625,7 @@
                             <td colspan="10" style="text-align: center; padding: 40px; color: #999;">
                                 <div class="empty-state">
                                     <div class="empty-state-icon">📋</div>
-                                    <p>No leave card data available. Contact HR to update your leave records.</p>
+                                    <p>No leave card data available. Contact your Administrative Officer to update your leave records.</p>
                                 </div>
                             </td>
                         </tr>
@@ -763,8 +774,15 @@
 
         async function loadCTOCardData() {
             try {
-                const response = await fetch(`/api/cto-records?employeeId=${currentUser.email}`);
+                const url = `/api/cto-records?employeeId=${encodeURIComponent(currentUser.email)}`;
+                console.log('[CTO CARD] Fetching CTO records from:', url);
+                const response = await fetch(url);
                 const data = await response.json();
+                
+                console.log('[CTO CARD] API response:', JSON.stringify({
+                    success: data.success,
+                    recordCount: data.records?.length || 0
+                }));
 
                 if (data.success && data.records) {
                     ctoRecords = data.records;

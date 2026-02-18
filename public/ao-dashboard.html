@@ -1789,21 +1789,23 @@
                 if (data.success && data.credits) {
                     const credits = data.credits;
                     
-                    // Calculate balances the same way as employee dashboard
-                    const vlEarned = credits.vacationLeaveEarned || 0;
-                    const slEarned = credits.sickLeaveEarned || 0;
-                    const vlSpent = credits.vacationLeaveSpent || 0;
-                    const slSpent = credits.sickLeaveSpent || 0;
-                    const forceSpent = credits.forceLeaveSpent || 0;
-                    const splSpent = credits.splSpent || 0;
+                    // Use server-computed balances for consistency with employee dashboard
+                    const vlBalance = credits.currentVlBalance !== undefined 
+                        ? credits.currentVlBalance 
+                        : Math.max(0, (credits.vacationLeaveEarned || 0) - (credits.vacationLeaveSpent || 0));
+                    const slBalance = credits.currentSlBalance !== undefined 
+                        ? credits.currentSlBalance 
+                        : Math.max(0, (credits.sickLeaveEarned || 0) - (credits.sickLeaveSpent || 0));
                     
-                    // Calculate current balances exactly like employee dashboard
-                    const vlBalance = Math.max(0, vlEarned - vlSpent);
-                    const slBalance = Math.max(0, slEarned - slSpent);
-                    const FORCE_LEAVE_YEARLY = 5;
-                    const forceBalance = Math.max(0, FORCE_LEAVE_YEARLY - forceSpent);
-                    const SPL_YEARLY = 3;
-                    const splBalance = Math.max(0, SPL_YEARLY - splSpent);
+                    // Force Leave: use AO-set balance, default 5 per year
+                    const forceLeaveAllocation = credits.forceLeaveEarned || credits.mandatoryForced || credits.others || 5;
+                    const forceSpent = credits.forceLeaveSpent || 0;
+                    const forceBalance = Math.max(0, forceLeaveAllocation - forceSpent);
+                    
+                    // Special Privilege Leave: use AO-set balance, default 3 per year
+                    const splAllocation = credits.splEarned || credits.spl || 3;
+                    const splSpent = credits.splSpent || 0;
+                    const splBalance = Math.max(0, splAllocation - splSpent);
                     
                     // Get last day of previous month for "As of" date
                     const now = new Date();
@@ -1964,11 +1966,11 @@
                 const response = await fetch(`/api/leave-credits?employeeId=${currentApplicantEmail}`);
                 const data = await response.json();
                 
-                // Get employee info from current applicant data
-                const empName = currentApplicantName || 'N/A';
-                const empPosition = 'N/A';
-                const empNo = 'N/A';
-                const empSchool = 'N/A';
+                // Get employee info from credits data or current applicant data
+                const empName = credits.employeeName || currentApplicantName || 'N/A';
+                const empPosition = credits.employeePosition || 'N/A';
+                const empNo = credits.employeeNo || 'N/A';
+                const empSchool = credits.employeeOffice || 'N/A';
                 
                 // Get leave card data
                 let credits = { vl: 0, sl: 0, spl: 0, others: 0 };

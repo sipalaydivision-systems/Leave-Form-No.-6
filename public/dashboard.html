@@ -1498,7 +1498,7 @@
         async function loadLeaveCredits() {
             try {
                 // Get leave credits from the leave card data (latest balance from AO section)
-                const response = await fetch(`/api/leave-credits?employeeId=${currentUser.email}`);
+                const response = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(currentUser.email)}`);
                 const result = await response.json();
 
                 // Calculate last day of previous month

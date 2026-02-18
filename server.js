@@ -369,6 +369,7 @@ ensureFile(asdsUsersFile);
 ensureFile(sdsUsersFile);
 ensureFile(itUsersFile);
 ensureFile(pendingRegistrationsFile);
+ensureFile(ctoRecordsFile);
 
 // Helper functions
 function readJSON(filepath) {
@@ -3212,7 +3213,22 @@ app.get('/api/leave-credits', (req, res) => {
             currentSlBalance: slBalance
         };
         
-        console.log('[LEAVE-CREDITS API] Returning:', JSON.stringify({
+        // Enrich with employee info from users/employees data (for AO card display)
+        try {
+            const users = readJSON(usersFile);
+            const employees = readJSON(employeesFile);
+            const empUser = users.find(u => u.email === employeeId) || employees.find(e => e.email === employeeId);
+            if (empUser) {
+                enrichedCredits.employeeName = empUser.name || empUser.fullName || '';
+                enrichedCredits.employeePosition = empUser.position || '';
+                enrichedCredits.employeeNo = empUser.employeeNo || empUser.employeeNumber || '';
+                enrichedCredits.employeeOffice = empUser.office || empUser.school || empUser.district || '';
+            }
+        } catch (empErr) {
+            console.log('[LEAVE-CREDITS API] Could not enrich employee info:', empErr.message);
+        }
+        
+        console.log('[LEAVE-CREDITS API] Returning for', employeeId, ':', JSON.stringify({
             vlBalance, slBalance,
             vacationLeaveEarned: enrichedCredits.vacationLeaveEarned,
             vacationLeaveSpent: enrichedCredits.vacationLeaveSpent,
@@ -3220,7 +3236,8 @@ app.get('/api/leave-credits', (req, res) => {
             sickLeaveSpent: enrichedCredits.sickLeaveSpent,
             forceLeaveSpent: enrichedCredits.forceLeaveSpent,
             splSpent: enrichedCredits.splSpent,
-            txCount: (latestRecord.transactions || []).length
+            txCount: (latestRecord.transactions || []).length,
+            historyCount: (latestRecord.leaveUsageHistory || []).length
         }));
         
         res.json({ success: true, credits: enrichedCredits });
@@ -3467,11 +3484,18 @@ app.post('/api/update-leave-credits', (req, res) => {
         
         let leavecards = readJSON(leavecardsFile);
         
-        // Use email as primary lookup key since that's what we have from applications
-        console.log(`[UPDATE LEAVE] Received: email=${employeeEmail}, applicationId=${applicationId}`);
+        // Determine the email to use as the lookup key
+        const lookupEmail = employeeEmail || employeeId;
         
-        // Find existing leave card by email
-        let employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
+        if (!lookupEmail) {
+            return res.status(400).json({ success: false, error: 'Employee email is required' });
+        }
+        
+        // Use email as primary lookup key since that's what we have from applications
+        console.log(`[UPDATE LEAVE] Received: email=${lookupEmail}, applicationId=${applicationId}, hasTx=${!!(transactions && transactions.length)}`);
+        
+        // Find existing leave card by email OR employeeId (check both fields for robustness)
+        let employeeLeave = leavecards.find(lc => lc.email === lookupEmail || lc.employeeId === lookupEmail);
         
         console.log(`[UPDATE LEAVE] Found existing record: ${!!employeeLeave}`);
         
@@ -3479,8 +3503,8 @@ app.post('/api/update-leave-credits', (req, res) => {
             // Create new leave card record with transaction history
             employeeLeave = {
                 applicationId: applicationId,
-                employeeId: employeeEmail, // Use email as ID since we don't have explicit ID from application
-                email: employeeEmail,
+                employeeId: lookupEmail, // Use email as ID for consistent lookups
+                email: lookupEmail,
                 transactions: transactions || [],
                 // Legacy fields for backward compatibility
                 vacationLeaveEarned: vacationLeaveEarned || 0,
@@ -3500,8 +3524,12 @@ app.post('/api/update-leave-credits', (req, res) => {
                 updatedAt: new Date().toISOString()
             };
             leavecards.push(employeeLeave);
-            console.log('[UPDATE LEAVE] Created new leave card record for:', employeeEmail);
+            console.log('[UPDATE LEAVE] Created new leave card record for:', lookupEmail);
         } else {
+            // Ensure both email and employeeId are set for cross-reference
+            if (!employeeLeave.email) employeeLeave.email = lookupEmail;
+            if (!employeeLeave.employeeId) employeeLeave.employeeId = lookupEmail;
+            
             // Update with new transactions
             if (transactions && Array.isArray(transactions)) {
                 // Add new transactions to history
@@ -4013,7 +4041,9 @@ app.get('/api/cto-records', (req, res) => {
         let ctoRecords = readJSON(ctoRecordsFile);
 
         if (employeeId) {
-            ctoRecords = ctoRecords.filter(r => r.employeeId === employeeId);
+            // Match by both employeeId and email fields for robustness
+            ctoRecords = ctoRecords.filter(r => r.employeeId === employeeId || r.email === employeeId);
+            console.log(`[CTO-RECORDS API] Query for ${employeeId}: found ${ctoRecords.length} records`);
         }
 
         res.json({ success: true, records: ctoRecords });
