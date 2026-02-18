@@ -1384,6 +1384,7 @@
                     <div class="sidebar-username" id="sidebarUsername">username</div>
                     <div class="sidebar-name" id="sidebarEmail">email@deped.gov.ph</div>
                 </div>
+                <button class="switch-btn" style="margin-bottom:4px;" onclick="showProfileModal()">Edit Profile</button>
                 <button class="switch-btn" onclick="logout()">Logout</button>
             </div>
 
@@ -2143,15 +2144,6 @@
                 return;
             }
 
-            const token = sessionStorage.getItem('authToken');
-            if (!token) {
-                msgEl.textContent = 'Session expired. Please log in again.';
-                msgEl.style.display = 'block';
-                msgEl.style.background = '#ffebee';
-                msgEl.style.color = '#c62828';
-                return;
-            }
-
             try {
                 const body = { email, fullName, office, position, employeeNo, salaryGrade, step, salary };
                 if (newPassword) body.newPassword = newPassword;
@@ -2159,8 +2151,7 @@
                 const response = await fetch('/api/update-employee-profile', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(body)
                 });

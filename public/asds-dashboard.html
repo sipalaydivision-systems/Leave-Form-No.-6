@@ -3033,20 +3033,13 @@
                 return;
             }
 
-            const token = localStorage.getItem('asdsToken');
-            if (!token) {
-                msgEl.textContent = 'Session expired. Please log in again.';
-                msgEl.style.display = 'block'; msgEl.style.background = '#ffebee'; msgEl.style.color = '#c62828';
-                return;
-            }
-
             try {
                 const body = { email, fullName, office, position };
                 if (newPassword) body.newPassword = newPassword;
 
                 const response = await fetch('/api/update-asds-profile', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
 

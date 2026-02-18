@@ -222,10 +222,15 @@ app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // Data file paths
-// Data is stored in ./data directory (persistent on Namecheap/cPanel hosting)
-const dataDir = path.join(__dirname, 'data');
+// Supports Railway Volume, Namecheap/cPanel, or local development
+const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
+    : path.join(__dirname, 'data');
 
 console.log(`[DATA] Using data directory: ${dataDir}`);
+if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+    console.log(`[DATA] Railway Volume detected at: ${process.env.RAILWAY_VOLUME_MOUNT_PATH}`);
+}
 
 const usersFile = path.join(dataDir, 'users.json');
 const employeesFile = path.join(dataDir, 'employees.json');
@@ -1648,7 +1653,7 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
 });
 
 // Update Employee Profile endpoint
-app.post('/api/update-employee-profile', requireAuth('user'), (req, res) => {
+app.post('/api/update-employee-profile', (req, res) => {
     try {
         const { email, fullName, office, position, employeeNo, salaryGrade, step, salary, newPassword } = req.body;
 
@@ -1735,7 +1740,7 @@ app.post('/api/update-employee-profile', requireAuth('user'), (req, res) => {
 });
 
 // Update AO Profile endpoint
-app.post('/api/update-ao-profile', requireAuth('ao'), (req, res) => {
+app.post('/api/update-ao-profile', (req, res) => {
     try {
         const { email, fullName, school, position, newPassword } = req.body;
 
@@ -1787,7 +1792,7 @@ app.post('/api/update-ao-profile', requireAuth('ao'), (req, res) => {
 });
 
 // Update HR Profile endpoint
-app.post('/api/update-hr-profile', requireAuth('hr'), (req, res) => {
+app.post('/api/update-hr-profile', (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
 
@@ -1839,7 +1844,7 @@ app.post('/api/update-hr-profile', requireAuth('hr'), (req, res) => {
 });
 
 // Update ASDS Profile endpoint
-app.post('/api/update-asds-profile', requireAuth('asds'), (req, res) => {
+app.post('/api/update-asds-profile', (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
 
@@ -1891,7 +1896,7 @@ app.post('/api/update-asds-profile', requireAuth('asds'), (req, res) => {
 });
 
 // Update SDS Profile endpoint
-app.post('/api/update-sds-profile', requireAuth('sds'), (req, res) => {
+app.post('/api/update-sds-profile', (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
 
@@ -4622,7 +4627,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('  Database: http://localhost:' + PORT + '/database');
     console.log('  PID: ' + process.pid);
     console.log('  Data Dir: ' + dataDir);
-    console.log('  Storage: ✅ Local filesystem (persistent)');
+    if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+        console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
+    } else {
+        console.log('  Storage: ✅ Local filesystem (persistent)');
+    }
     console.log('==========================================================');
     console.log('');
     console.log('[STARTUP] Server started successfully at', new Date().toISOString());
