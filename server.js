@@ -222,18 +222,10 @@ app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // Data file paths
-// Railway Volume: When RAILWAY_VOLUME_MOUNT_PATH is set, data persists across deployments.
-// In development or without a volume, falls back to local ./data directory.
-const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH 
-    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
-    : path.join(__dirname, 'data');
+// Data is stored in ./data directory (persistent on Namecheap/cPanel hosting)
+const dataDir = path.join(__dirname, 'data');
 
 console.log(`[DATA] Using data directory: ${dataDir}`);
-if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-    console.log(`[DATA] Railway Volume detected at: ${process.env.RAILWAY_VOLUME_MOUNT_PATH}`);
-} else {
-    console.log('[DATA] No Railway Volume detected - using local filesystem (data will NOT persist on redeploy)');
-}
 
 const usersFile = path.join(dataDir, 'users.json');
 const employeesFile = path.join(dataDir, 'employees.json');
@@ -4630,11 +4622,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('  Database: http://localhost:' + PORT + '/database');
     console.log('  PID: ' + process.pid);
     console.log('  Data Dir: ' + dataDir);
-    if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-        console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
-    } else {
-        console.log('  Storage: ⚠️  Local filesystem (data lost on redeploy!)');
-    }
+    console.log('  Storage: ✅ Local filesystem (persistent)');
     console.log('==========================================================');
     console.log('');
     console.log('[STARTUP] Server started successfully at', new Date().toISOString());
