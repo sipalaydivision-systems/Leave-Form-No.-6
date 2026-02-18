@@ -1123,6 +1123,7 @@
                 if (response.ok && result.success) {
                     localStorage.setItem('asdsUser', JSON.stringify(result.user));
                     localStorage.setItem('userRole', 'asds');
+                    if (result.token) localStorage.setItem('asdsToken', result.token);
                     message.textContent = '✓ ASDS Login Successful! Redirecting...';
                     message.className = 'message success';
                     message.style.display = 'block';

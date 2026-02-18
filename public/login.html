@@ -1353,6 +1353,7 @@ async function handleLogin(e) {
         
         if (response.ok) {
             sessionStorage.setItem('user', JSON.stringify(result.user));
+            if (result.token) sessionStorage.setItem('authToken', result.token);
             if (result.employee) {
                 sessionStorage.setItem('employee', JSON.stringify(result.employee));
             }

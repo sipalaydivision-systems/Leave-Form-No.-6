@@ -785,6 +785,7 @@
             <div class="hr-user-info">
                 <small>Logged in as:</small>
                 <div id="hrUserDisplay" style="font-weight: bold; margin-bottom: 8px;">Loading...</div>
+                <button class="logout-btn" style="margin-right:6px;" onclick="showProfileModal()">⚙️ Profile</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -2622,6 +2623,78 @@
             document.getElementById('alertModal').style.display = 'none';
         }
         
+        // ========== PROFILE EDITING ==========
+        function showProfileModal() {
+            const user = JSON.parse(localStorage.getItem('hrUser') || '{}');
+            document.getElementById('profileName').value = user.name || '';
+            document.getElementById('profileEmail').value = user.email || '';
+            document.getElementById('profileOffice').value = user.office || '';
+            document.getElementById('profilePosition').value = user.position || '';
+            document.getElementById('profileNewPassword').value = '';
+            document.getElementById('profileConfirmPassword').value = '';
+            document.getElementById('profileMessage').style.display = 'none';
+            document.getElementById('profileModal').style.display = 'block';
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+
+        async function saveProfile() {
+            const fullName = document.getElementById('profileName').value.trim();
+            const email = document.getElementById('profileEmail').value.trim();
+            const office = document.getElementById('profileOffice').value.trim();
+            const position = document.getElementById('profilePosition').value.trim();
+            const newPassword = document.getElementById('profileNewPassword').value;
+            const confirmPassword = document.getElementById('profileConfirmPassword').value;
+            const msgEl = document.getElementById('profileMessage');
+
+            if (!fullName) {
+                msgEl.textContent = 'Full name is required.';
+                msgEl.style.display = 'block'; msgEl.style.background = '#ffebee'; msgEl.style.color = '#c62828';
+                return;
+            }
+            if (newPassword && newPassword !== confirmPassword) {
+                msgEl.textContent = 'Passwords do not match.';
+                msgEl.style.display = 'block'; msgEl.style.background = '#ffebee'; msgEl.style.color = '#c62828';
+                return;
+            }
+
+            const token = localStorage.getItem('hrToken');
+            if (!token) {
+                msgEl.textContent = 'Session expired. Please log in again.';
+                msgEl.style.display = 'block'; msgEl.style.background = '#ffebee'; msgEl.style.color = '#c62828';
+                return;
+            }
+
+            try {
+                const body = { email, fullName, office, position };
+                if (newPassword) body.newPassword = newPassword;
+
+                const response = await fetch('/api/update-hr-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify(body)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    localStorage.setItem('hrUser', JSON.stringify(result.user));
+                    document.getElementById('hrUserDisplay').textContent = result.user.name;
+                    msgEl.textContent = '✓ Profile updated successfully!';
+                    msgEl.style.display = 'block'; msgEl.style.background = '#e8f5e9'; msgEl.style.color = '#2e7d32';
+                    setTimeout(() => closeProfileModal(), 1500);
+                } else {
+                    msgEl.textContent = result.error || 'Failed to update profile.';
+                    msgEl.style.display = 'block'; msgEl.style.background = '#ffebee'; msgEl.style.color = '#c62828';
+                }
+            } catch (error) {
+                msgEl.textContent = 'Error updating profile. Please try again.';
+                msgEl.style.display = 'block'; msgEl.style.background = '#ffebee'; msgEl.style.color = '#c62828';
+            }
+        }
+        
         function logout() {
             document.getElementById('logoutModal').style.display = 'block';
         }
@@ -2633,6 +2706,7 @@
         function confirmLogout() {
             localStorage.removeItem('hrUser');
             localStorage.removeItem('userRole');
+            localStorage.removeItem('hrToken');
             window.location.href = '/';
         }
 
@@ -2641,9 +2715,13 @@
             const logoutModal = document.getElementById('logoutModal');
             const approvalModal = document.getElementById('approvalModal');
             const alertModal = document.getElementById('alertModal');
+            const profileMdl = document.getElementById('profileModal');
             
             if (event.target === logoutModal) {
                 logoutModal.style.display = 'none';
+            }
+            if (event.target === profileMdl) {
+                profileMdl.style.display = 'none';
             }
             
             if (event.target === approvalModal) {
@@ -2655,6 +2733,45 @@
             }
         });
     </script>
+
+    <!-- Edit Profile Modal -->
+    <div id="profileModal" class="logout-modal" style="display:none;">
+        <div class="logout-modal-content" style="max-width: 460px; text-align: left;">
+            <div class="logout-modal-header" style="text-align:center;">Edit Profile</div>
+            <div class="logout-modal-body" style="padding: 15px 20px;">
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; color:#333;">Full Name</label>
+                    <input type="text" id="profileName" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; color:#333;">Email (read-only)</label>
+                    <input type="email" id="profileEmail" readonly style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; background:#f5f5f5; color:#888; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; color:#333;">Office</label>
+                    <input type="text" id="profileOffice" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; color:#333;">Position</label>
+                    <input type="text" id="profilePosition" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <hr style="margin: 16px 0; border:0; border-top:1px solid #eee;">
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; color:#333;">New Password (leave blank to keep current)</label>
+                    <input type="password" id="profileNewPassword" placeholder="Enter new password" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; font-weight:600; margin-bottom:4px; color:#333;">Confirm New Password</label>
+                    <input type="password" id="profileConfirmPassword" placeholder="Confirm new password" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div id="profileMessage" style="display:none; padding:8px 12px; border-radius:6px; margin-bottom:10px; font-size:13px;"></div>
+            </div>
+            <div class="logout-modal-footer">
+                <button class="logout-modal-btn logout-cancel-btn" onclick="closeProfileModal()">Cancel</button>
+                <button class="logout-modal-btn logout-confirm-btn" onclick="saveProfile()" style="background:#4CAF50;">Save Changes</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Logout Confirmation Modal -->
     <div id="logoutModal" class="logout-modal">
