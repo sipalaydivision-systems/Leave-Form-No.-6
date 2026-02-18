@@ -1797,7 +1797,91 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 employees.push(employeeRecord);
                 writeJSON(employeesFile, employees);
                 
-                // Create initial leave card with credits from Excel data
+                // ========== AUTO-LINK EXISTING DATA BY NAME ==========
+                // When a user re-registers (possibly with a new/corrected email),
+                // find any existing leave cards, CTO records, and applications
+                // that belong to the same person (matched by name) and re-link them.
+                const regName = registration.fullName || registration.name;
+                const normalizedRegName = normalizeNameForMatching(regName);
+                const newEmail = registration.email;
+                let dataRelinked = false;
+                const currentUsers = readJSON(usersFile);
+                const currentEmployees = readJSON(employeesFile);
+
+                // Re-link leave cards
+                const allLeavecards = readJSON(leavecardsFile);
+                let leavecardRelinked = false;
+                allLeavecards.forEach(lc => {
+                    if (lc.email === newEmail || lc.employeeId === newEmail) return;
+                    const oldEmail = lc.email || lc.employeeId;
+                    // Only re-link if the old user account no longer exists (was deleted)
+                    if (!currentUsers.find(u => u.email === oldEmail)) {
+                        const oldEmployee = currentEmployees.find(e => e.email === oldEmail);
+                        if (oldEmployee) {
+                            const oldName = normalizeNameForMatching(oldEmployee.fullName || oldEmployee.name || '');
+                            if (oldName === normalizedRegName) {
+                                console.log(`[RE-LINK] Leave card re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName})`);
+                                lc.employeeId = newEmail;
+                                lc.email = newEmail;
+                                lc.updatedAt = new Date().toISOString();
+                                leavecardRelinked = true;
+                                dataRelinked = true;
+                                // Also update the old employee record's email
+                                oldEmployee.email = newEmail;
+                            }
+                        }
+                    }
+                });
+                if (leavecardRelinked) {
+                    writeJSON(leavecardsFile, allLeavecards);
+                    writeJSON(employeesFile, currentEmployees);
+                }
+
+                // Re-link CTO records
+                ensureFile(ctoRecordsFile);
+                const allCtoRecords = readJSON(ctoRecordsFile);
+                let ctoRelinked = false;
+                allCtoRecords.forEach(cto => {
+                    if (cto.employeeId === newEmail || cto.email === newEmail) return;
+                    const oldEmail = cto.employeeId || cto.email;
+                    if (!currentUsers.find(u => u.email === oldEmail)) {
+                        const oldEmp = currentEmployees.find(e => e.email === oldEmail);
+                        if (oldEmp) {
+                            const oldN = normalizeNameForMatching(oldEmp.fullName || oldEmp.name || '');
+                            if (oldN === normalizedRegName) {
+                                console.log(`[RE-LINK] CTO record re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName})`);
+                                cto.employeeId = newEmail;
+                                cto.email = newEmail;
+                                ctoRelinked = true;
+                                dataRelinked = true;
+                            }
+                        }
+                    }
+                });
+                if (ctoRelinked) writeJSON(ctoRecordsFile, allCtoRecords);
+
+                // Re-link leave applications (matched directly by employeeName)
+                const allApplications = readJSON(applicationsFile);
+                let appsRelinked = false;
+                allApplications.forEach(app => {
+                    if (app.employeeEmail === newEmail) return;
+                    const appName = normalizeNameForMatching(app.employeeName || '');
+                    if (appName === normalizedRegName) {
+                        if (!currentUsers.find(u => u.email === app.employeeEmail)) {
+                            console.log(`[RE-LINK] Application ${app.applicationId} re-linked: "${app.employeeEmail}" → "${newEmail}" (name: ${regName})`);
+                            app.employeeEmail = newEmail;
+                            appsRelinked = true;
+                            dataRelinked = true;
+                        }
+                    }
+                });
+                if (appsRelinked) writeJSON(applicationsFile, allApplications);
+
+                if (dataRelinked) {
+                    console.log(`[RE-LINK] Existing data successfully re-linked to new email ${newEmail} for "${regName}"`);
+                }
+
+                // Create initial leave card with credits from Excel data (only if no existing card was re-linked)
                 const initialCredits = lookupInitialCredits(registration.fullName || registration.name);
                 const defaultVL = 100;
                 const defaultSL = 100;
@@ -2275,15 +2359,18 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
         }
 
         let userDeleted = false;
+        let userName = null;
 
         if (fs.existsSync(userFile)) {
             let users = readJSON(userFile);
             const userIndex = users.findIndex(u => u.email === email);
             if (userIndex !== -1) {
+                userName = users[userIndex].name || users[userIndex].fullName;
                 users.splice(userIndex, 1);
                 writeJSON(userFile, users);
                 userDeleted = true;
-                console.log(`User ${email} deleted from ${userFile} by ${deletedBy}`);
+                console.log(`[DELETE] User account ${email} deleted from ${portal} by ${deletedBy}`);
+                console.log(`[DELETE] Leave cards, CTO records, and applications for "${userName}" are PRESERVED for re-linking`);
             }
         }
 
@@ -2299,22 +2386,24 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
             pendingRegs.splice(regIndex, 1);
             writeJSON(pendingRegistrationsFile, pendingRegs);
             regDeleted = true;
-            console.log(`Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
+            console.log(`[DELETE] Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
         }
 
         if (userDeleted || regDeleted) {
             // Log user deletion
             logActivity('DATA_DELETION', 'it', {
                 userEmail: email,
+                userName: userName,
                 action: 'delete-user',
                 portal: portal,
                 deletedBy: deletedBy,
                 userAccountDeleted: userDeleted,
                 registrationDeleted: regDeleted,
+                dataPreserved: true,
                 ip: getClientIp(req),
                 userAgent: req.get('user-agent')
             });
-            res.json({ success: true, message: 'User deleted successfully' });
+            res.json({ success: true, message: 'User account deleted. Leave data is preserved and will be re-linked when the user re-registers with the same name.' });
         } else {
             res.status(404).json({ success: false, error: 'User not found in database' });
         }
