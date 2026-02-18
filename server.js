@@ -463,7 +463,7 @@ function validatePortalPassword(password) {
     return { valid: true };
 }
 
-function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district) {
+function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district, employeeNo) {
     let lastName = '', firstName = '', middleName = '';
     if (fullName && fullName.includes(',')) {
         const parts = fullName.split(',');
@@ -486,6 +486,7 @@ function buildEmployeeRecord(office, fullName, email, position, salaryGrade, ste
         firstName,
         middleName,
         fullName: fullName || '',
+        employeeNo: employeeNo || '',
         position: position || '',
         salaryGrade: salaryGrade ? parseInt(salaryGrade) : null,
         step: step ? parseInt(step) : null,
@@ -1792,21 +1793,33 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     registration.salaryGrade,
                     registration.step,
                     registration.salary,
-                    registration.district
+                    registration.district,
+                    registration.employeeNo
                 );
                 employees.push(employeeRecord);
                 writeJSON(employeesFile, employees);
                 
-                // ========== AUTO-LINK EXISTING DATA BY NAME ==========
+                // ========== AUTO-LINK EXISTING DATA BY NAME + EMPLOYEE NO ==========
                 // When a user re-registers (possibly with a new/corrected email),
                 // find any existing leave cards, CTO records, and applications
-                // that belong to the same person (matched by name) and re-link them.
+                // that belong to the same person (matched by name AND employee number) and re-link them.
                 const regName = registration.fullName || registration.name;
                 const normalizedRegName = normalizeNameForMatching(regName);
+                const regEmployeeNo = (registration.employeeNo || '').trim();
                 const newEmail = registration.email;
                 let dataRelinked = false;
                 const currentUsers = readJSON(usersFile);
                 const currentEmployees = readJSON(employeesFile);
+
+                // Helper: check if old employee matches by name AND employee number
+                function isMatchingEmployee(oldEmp) {
+                    const oldName = normalizeNameForMatching(oldEmp.fullName || oldEmp.name || '');
+                    if (oldName !== normalizedRegName) return false;
+                    // If both have employee numbers, they must match
+                    const oldEmpNo = (oldEmp.employeeNo || '').trim();
+                    if (regEmployeeNo && oldEmpNo && regEmployeeNo !== oldEmpNo) return false;
+                    return true;
+                }
 
                 // Re-link leave cards
                 const allLeavecards = readJSON(leavecardsFile);
@@ -1817,18 +1830,14 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     // Only re-link if the old user account no longer exists (was deleted)
                     if (!currentUsers.find(u => u.email === oldEmail)) {
                         const oldEmployee = currentEmployees.find(e => e.email === oldEmail);
-                        if (oldEmployee) {
-                            const oldName = normalizeNameForMatching(oldEmployee.fullName || oldEmployee.name || '');
-                            if (oldName === normalizedRegName) {
-                                console.log(`[RE-LINK] Leave card re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName})`);
-                                lc.employeeId = newEmail;
-                                lc.email = newEmail;
-                                lc.updatedAt = new Date().toISOString();
-                                leavecardRelinked = true;
-                                dataRelinked = true;
-                                // Also update the old employee record's email
-                                oldEmployee.email = newEmail;
-                            }
+                        if (oldEmployee && isMatchingEmployee(oldEmployee)) {
+                            console.log(`[RE-LINK] Leave card re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName}, empNo: ${regEmployeeNo})`);
+                            lc.employeeId = newEmail;
+                            lc.email = newEmail;
+                            lc.updatedAt = new Date().toISOString();
+                            leavecardRelinked = true;
+                            dataRelinked = true;
+                            oldEmployee.email = newEmail;
                         }
                     }
                 });
@@ -1846,21 +1855,18 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     const oldEmail = cto.employeeId || cto.email;
                     if (!currentUsers.find(u => u.email === oldEmail)) {
                         const oldEmp = currentEmployees.find(e => e.email === oldEmail);
-                        if (oldEmp) {
-                            const oldN = normalizeNameForMatching(oldEmp.fullName || oldEmp.name || '');
-                            if (oldN === normalizedRegName) {
-                                console.log(`[RE-LINK] CTO record re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName})`);
-                                cto.employeeId = newEmail;
-                                cto.email = newEmail;
-                                ctoRelinked = true;
-                                dataRelinked = true;
-                            }
+                        if (oldEmp && isMatchingEmployee(oldEmp)) {
+                            console.log(`[RE-LINK] CTO record re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName}, empNo: ${regEmployeeNo})`);
+                            cto.employeeId = newEmail;
+                            cto.email = newEmail;
+                            ctoRelinked = true;
+                            dataRelinked = true;
                         }
                     }
                 });
                 if (ctoRelinked) writeJSON(ctoRecordsFile, allCtoRecords);
 
-                // Re-link leave applications (matched directly by employeeName)
+                // Re-link leave applications (matched by employeeName + employeeNo validation)
                 const allApplications = readJSON(applicationsFile);
                 let appsRelinked = false;
                 allApplications.forEach(app => {
@@ -1868,10 +1874,14 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     const appName = normalizeNameForMatching(app.employeeName || '');
                     if (appName === normalizedRegName) {
                         if (!currentUsers.find(u => u.email === app.employeeEmail)) {
-                            console.log(`[RE-LINK] Application ${app.applicationId} re-linked: "${app.employeeEmail}" → "${newEmail}" (name: ${regName})`);
-                            app.employeeEmail = newEmail;
-                            appsRelinked = true;
-                            dataRelinked = true;
+                            // Also verify employeeNo if available via old employee record
+                            const oldEmpForApp = currentEmployees.find(e => e.email === app.employeeEmail);
+                            if (!oldEmpForApp || isMatchingEmployee(oldEmpForApp)) {
+                                console.log(`[RE-LINK] Application ${app.applicationId} re-linked: "${app.employeeEmail}" → "${newEmail}" (name: ${regName}, empNo: ${regEmployeeNo})`);
+                                app.employeeEmail = newEmail;
+                                appsRelinked = true;
+                                dataRelinked = true;
+                            }
                         }
                     }
                 });
