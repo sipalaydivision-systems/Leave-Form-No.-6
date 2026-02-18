@@ -54,3 +54,30 @@ Thumbs.db
 # BACKUPS (created by backup system)
 # ==============================
 data/backups/
+
+# ==============================
+# LOGS
+# ==============================
+*.log
+
+# ==============================
+# SOURCE DATA / EXCEL FILES
+# ==============================
+OneDrive_*/
+*.zip
+*.xlsx
+
+# ==============================
+# MIGRATION / ANALYSIS SCRIPTS
+# ==============================
+*.py
+*.ps1
+*.bat
+*.sh
+
+# ==============================
+# MISC
+# ==============================
+.env.example
+.htaccess
+server-json-backup.js

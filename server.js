@@ -222,7 +222,8 @@ app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // Data file paths
-// Supports Railway Volume, Namecheap/cPanel, or local development
+// Railway Volume: When RAILWAY_VOLUME_MOUNT_PATH is set, data persists across deployments.
+// In development or without a volume, falls back to local ./data directory.
 const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH 
     ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
     : path.join(__dirname, 'data');
@@ -230,6 +231,8 @@ const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH
 console.log(`[DATA] Using data directory: ${dataDir}`);
 if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
     console.log(`[DATA] Railway Volume detected at: ${process.env.RAILWAY_VOLUME_MOUNT_PATH}`);
+} else {
+    console.log('[DATA] No Railway Volume detected - using local filesystem (data will NOT persist on redeploy)');
 }
 
 const usersFile = path.join(dataDir, 'users.json');
@@ -369,7 +372,6 @@ ensureFile(asdsUsersFile);
 ensureFile(sdsUsersFile);
 ensureFile(itUsersFile);
 ensureFile(pendingRegistrationsFile);
-ensureFile(ctoRecordsFile);
 
 // Helper functions
 function readJSON(filepath) {
@@ -461,7 +463,7 @@ function validatePortalPassword(password) {
     return { valid: true };
 }
 
-function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district, employeeNo) {
+function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district) {
     let lastName = '', firstName = '', middleName = '';
     if (fullName && fullName.includes(',')) {
         const parts = fullName.split(',');
@@ -484,7 +486,6 @@ function buildEmployeeRecord(office, fullName, email, position, salaryGrade, ste
         firstName,
         middleName,
         fullName: fullName || '',
-        employeeNo: employeeNo || '',
         position: position || '',
         salaryGrade: salaryGrade ? parseInt(salaryGrade) : null,
         step: step ? parseInt(step) : null,
@@ -1653,7 +1654,10 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
     }
 });
 
-// Update Employee Profile endpoint
+
+// ========== SELF-SERVICE PROFILE EDITING ==========
+
+// Update Employee Profile
 app.post('/api/update-employee-profile', (req, res) => {
     try {
         const { email, fullName, office, position, employeeNo, salaryGrade, step, salary, newPassword } = req.body;
@@ -1706,14 +1710,13 @@ app.post('/api/update-employee-profile', (req, res) => {
 
         // Update leave cards if name changed
         if (oldName !== fullName) {
-            const leaveCardsFile = path.join(dataDir, 'leavecards.json');
-            let leaveCards = readJSON(leaveCardsFile);
+            let leaveCards = readJSON(leavecardsFile);
             leaveCards.forEach(card => {
                 if (card.email === email) {
                     card.name = fullName;
                 }
             });
-            writeJSON(leaveCardsFile, leaveCards);
+            writeJSON(leavecardsFile, leaveCards);
         }
 
         logActivity('PROFILE_UPDATED', 'employee', { userEmail: email, userName: fullName });
@@ -1740,7 +1743,7 @@ app.post('/api/update-employee-profile', (req, res) => {
     }
 });
 
-// Update AO Profile endpoint
+// Update AO Profile
 app.post('/api/update-ao-profile', (req, res) => {
     try {
         const { email, fullName, school, position, newPassword } = req.body;
@@ -1792,7 +1795,7 @@ app.post('/api/update-ao-profile', (req, res) => {
     }
 });
 
-// Update HR Profile endpoint
+// Update HR Profile
 app.post('/api/update-hr-profile', (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
@@ -1844,7 +1847,7 @@ app.post('/api/update-hr-profile', (req, res) => {
     }
 });
 
-// Update ASDS Profile endpoint
+// Update ASDS Profile
 app.post('/api/update-asds-profile', (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
@@ -1896,7 +1899,7 @@ app.post('/api/update-asds-profile', (req, res) => {
     }
 });
 
-// Update SDS Profile endpoint
+// Update SDS Profile
 app.post('/api/update-sds-profile', (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
@@ -2086,105 +2089,12 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     registration.salaryGrade,
                     registration.step,
                     registration.salary,
-                    registration.district,
-                    registration.employeeNo
+                    registration.district
                 );
                 employees.push(employeeRecord);
                 writeJSON(employeesFile, employees);
                 
-                // ========== AUTO-LINK EXISTING DATA BY NAME + EMPLOYEE NO ==========
-                // When a user re-registers (possibly with a new/corrected email),
-                // find any existing leave cards, CTO records, and applications
-                // that belong to the same person (matched by name AND employee number) and re-link them.
-                const regName = registration.fullName || registration.name;
-                const normalizedRegName = normalizeNameForMatching(regName);
-                const regEmployeeNo = (registration.employeeNo || '').trim();
-                const newEmail = registration.email;
-                let dataRelinked = false;
-                const currentUsers = readJSON(usersFile);
-                const currentEmployees = readJSON(employeesFile);
-
-                // Helper: check if old employee matches by name AND employee number
-                function isMatchingEmployee(oldEmp) {
-                    const oldName = normalizeNameForMatching(oldEmp.fullName || oldEmp.name || '');
-                    if (oldName !== normalizedRegName) return false;
-                    // If both have employee numbers, they must match
-                    const oldEmpNo = (oldEmp.employeeNo || '').trim();
-                    if (regEmployeeNo && oldEmpNo && regEmployeeNo !== oldEmpNo) return false;
-                    return true;
-                }
-
-                // Re-link leave cards
-                const allLeavecards = readJSON(leavecardsFile);
-                let leavecardRelinked = false;
-                allLeavecards.forEach(lc => {
-                    if (lc.email === newEmail || lc.employeeId === newEmail) return;
-                    const oldEmail = lc.email || lc.employeeId;
-                    // Only re-link if the old user account no longer exists (was deleted)
-                    if (!currentUsers.find(u => u.email === oldEmail)) {
-                        const oldEmployee = currentEmployees.find(e => e.email === oldEmail);
-                        if (oldEmployee && isMatchingEmployee(oldEmployee)) {
-                            console.log(`[RE-LINK] Leave card re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName}, empNo: ${regEmployeeNo})`);
-                            lc.employeeId = newEmail;
-                            lc.email = newEmail;
-                            lc.updatedAt = new Date().toISOString();
-                            leavecardRelinked = true;
-                            dataRelinked = true;
-                            oldEmployee.email = newEmail;
-                        }
-                    }
-                });
-                if (leavecardRelinked) {
-                    writeJSON(leavecardsFile, allLeavecards);
-                    writeJSON(employeesFile, currentEmployees);
-                }
-
-                // Re-link CTO records
-                ensureFile(ctoRecordsFile);
-                const allCtoRecords = readJSON(ctoRecordsFile);
-                let ctoRelinked = false;
-                allCtoRecords.forEach(cto => {
-                    if (cto.employeeId === newEmail || cto.email === newEmail) return;
-                    const oldEmail = cto.employeeId || cto.email;
-                    if (!currentUsers.find(u => u.email === oldEmail)) {
-                        const oldEmp = currentEmployees.find(e => e.email === oldEmail);
-                        if (oldEmp && isMatchingEmployee(oldEmp)) {
-                            console.log(`[RE-LINK] CTO record re-linked: "${oldEmail}" → "${newEmail}" (name: ${regName}, empNo: ${regEmployeeNo})`);
-                            cto.employeeId = newEmail;
-                            cto.email = newEmail;
-                            ctoRelinked = true;
-                            dataRelinked = true;
-                        }
-                    }
-                });
-                if (ctoRelinked) writeJSON(ctoRecordsFile, allCtoRecords);
-
-                // Re-link leave applications (matched by employeeName + employeeNo validation)
-                const allApplications = readJSON(applicationsFile);
-                let appsRelinked = false;
-                allApplications.forEach(app => {
-                    if (app.employeeEmail === newEmail) return;
-                    const appName = normalizeNameForMatching(app.employeeName || '');
-                    if (appName === normalizedRegName) {
-                        if (!currentUsers.find(u => u.email === app.employeeEmail)) {
-                            // Also verify employeeNo if available via old employee record
-                            const oldEmpForApp = currentEmployees.find(e => e.email === app.employeeEmail);
-                            if (!oldEmpForApp || isMatchingEmployee(oldEmpForApp)) {
-                                console.log(`[RE-LINK] Application ${app.applicationId} re-linked: "${app.employeeEmail}" → "${newEmail}" (name: ${regName}, empNo: ${regEmployeeNo})`);
-                                app.employeeEmail = newEmail;
-                                appsRelinked = true;
-                                dataRelinked = true;
-                            }
-                        }
-                    }
-                });
-                if (appsRelinked) writeJSON(applicationsFile, allApplications);
-
-                if (dataRelinked) {
-                    console.log(`[RE-LINK] Existing data successfully re-linked to new email ${newEmail} for "${regName}"`);
-                }
-
-                // Create initial leave card with credits from Excel data (only if no existing card was re-linked)
+                // Create initial leave card with credits from Excel data
                 const initialCredits = lookupInitialCredits(registration.fullName || registration.name);
                 const defaultVL = 100;
                 const defaultSL = 100;
@@ -2662,18 +2572,15 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
         }
 
         let userDeleted = false;
-        let userName = null;
 
         if (fs.existsSync(userFile)) {
             let users = readJSON(userFile);
             const userIndex = users.findIndex(u => u.email === email);
             if (userIndex !== -1) {
-                userName = users[userIndex].name || users[userIndex].fullName;
                 users.splice(userIndex, 1);
                 writeJSON(userFile, users);
                 userDeleted = true;
-                console.log(`[DELETE] User account ${email} deleted from ${portal} by ${deletedBy}`);
-                console.log(`[DELETE] Leave cards, CTO records, and applications for "${userName}" are PRESERVED for re-linking`);
+                console.log(`User ${email} deleted from ${userFile} by ${deletedBy}`);
             }
         }
 
@@ -2689,24 +2596,22 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
             pendingRegs.splice(regIndex, 1);
             writeJSON(pendingRegistrationsFile, pendingRegs);
             regDeleted = true;
-            console.log(`[DELETE] Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
+            console.log(`Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
         }
 
         if (userDeleted || regDeleted) {
             // Log user deletion
             logActivity('DATA_DELETION', 'it', {
                 userEmail: email,
-                userName: userName,
                 action: 'delete-user',
                 portal: portal,
                 deletedBy: deletedBy,
                 userAccountDeleted: userDeleted,
                 registrationDeleted: regDeleted,
-                dataPreserved: true,
                 ip: getClientIp(req),
                 userAgent: req.get('user-agent')
             });
-            res.json({ success: true, message: 'User account deleted. Leave data is preserved and will be re-linked when the user re-registers with the same name.' });
+            res.json({ success: true, message: 'User deleted successfully' });
         } else {
             res.status(404).json({ success: false, error: 'User not found in database' });
         }
@@ -2997,7 +2902,6 @@ app.get('/api/all-employees', (req, res) => {
             office: user.office || user.school || 'N/A',
             employeeNo: user.employeeNo || 'N/A'
         }));
-        
         res.json({ success: true, employees: employees });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -3214,22 +3118,7 @@ app.get('/api/leave-credits', (req, res) => {
             currentSlBalance: slBalance
         };
         
-        // Enrich with employee info from users/employees data (for AO card display)
-        try {
-            const users = readJSON(usersFile);
-            const employees = readJSON(employeesFile);
-            const empUser = users.find(u => u.email === employeeId) || employees.find(e => e.email === employeeId);
-            if (empUser) {
-                enrichedCredits.employeeName = empUser.name || empUser.fullName || '';
-                enrichedCredits.employeePosition = empUser.position || '';
-                enrichedCredits.employeeNo = empUser.employeeNo || empUser.employeeNumber || '';
-                enrichedCredits.employeeOffice = empUser.office || empUser.school || empUser.district || '';
-            }
-        } catch (empErr) {
-            console.log('[LEAVE-CREDITS API] Could not enrich employee info:', empErr.message);
-        }
-        
-        console.log('[LEAVE-CREDITS API] Returning for', employeeId, ':', JSON.stringify({
+        console.log('[LEAVE-CREDITS API] Returning:', JSON.stringify({
             vlBalance, slBalance,
             vacationLeaveEarned: enrichedCredits.vacationLeaveEarned,
             vacationLeaveSpent: enrichedCredits.vacationLeaveSpent,
@@ -3237,8 +3126,7 @@ app.get('/api/leave-credits', (req, res) => {
             sickLeaveSpent: enrichedCredits.sickLeaveSpent,
             forceLeaveSpent: enrichedCredits.forceLeaveSpent,
             splSpent: enrichedCredits.splSpent,
-            txCount: (latestRecord.transactions || []).length,
-            historyCount: (latestRecord.leaveUsageHistory || []).length
+            txCount: (latestRecord.transactions || []).length
         }));
         
         res.json({ success: true, credits: enrichedCredits });
@@ -3485,18 +3373,11 @@ app.post('/api/update-leave-credits', (req, res) => {
         
         let leavecards = readJSON(leavecardsFile);
         
-        // Determine the email to use as the lookup key
-        const lookupEmail = employeeEmail || employeeId;
-        
-        if (!lookupEmail) {
-            return res.status(400).json({ success: false, error: 'Employee email is required' });
-        }
-        
         // Use email as primary lookup key since that's what we have from applications
-        console.log(`[UPDATE LEAVE] Received: email=${lookupEmail}, applicationId=${applicationId}, hasTx=${!!(transactions && transactions.length)}`);
+        console.log(`[UPDATE LEAVE] Received: email=${employeeEmail}, applicationId=${applicationId}`);
         
-        // Find existing leave card by email OR employeeId (check both fields for robustness)
-        let employeeLeave = leavecards.find(lc => lc.email === lookupEmail || lc.employeeId === lookupEmail);
+        // Find existing leave card by email
+        let employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
         
         console.log(`[UPDATE LEAVE] Found existing record: ${!!employeeLeave}`);
         
@@ -3504,8 +3385,8 @@ app.post('/api/update-leave-credits', (req, res) => {
             // Create new leave card record with transaction history
             employeeLeave = {
                 applicationId: applicationId,
-                employeeId: lookupEmail, // Use email as ID for consistent lookups
-                email: lookupEmail,
+                employeeId: employeeEmail, // Use email as ID since we don't have explicit ID from application
+                email: employeeEmail,
                 transactions: transactions || [],
                 // Legacy fields for backward compatibility
                 vacationLeaveEarned: vacationLeaveEarned || 0,
@@ -3525,12 +3406,8 @@ app.post('/api/update-leave-credits', (req, res) => {
                 updatedAt: new Date().toISOString()
             };
             leavecards.push(employeeLeave);
-            console.log('[UPDATE LEAVE] Created new leave card record for:', lookupEmail);
+            console.log('[UPDATE LEAVE] Created new leave card record for:', employeeEmail);
         } else {
-            // Ensure both email and employeeId are set for cross-reference
-            if (!employeeLeave.email) employeeLeave.email = lookupEmail;
-            if (!employeeLeave.employeeId) employeeLeave.employeeId = lookupEmail;
-            
             // Update with new transactions
             if (transactions && Array.isArray(transactions)) {
                 // Add new transactions to history
@@ -4042,9 +3919,7 @@ app.get('/api/cto-records', (req, res) => {
         let ctoRecords = readJSON(ctoRecordsFile);
 
         if (employeeId) {
-            // Match by both employeeId and email fields for robustness
             ctoRecords = ctoRecords.filter(r => r.employeeId === employeeId || r.email === employeeId);
-            console.log(`[CTO-RECORDS API] Query for ${employeeId}: found ${ctoRecords.length} records`);
         }
 
         res.json({ success: true, records: ctoRecords });
@@ -4375,7 +4250,6 @@ app.get('/api/data/backups', requireAuth('it'), (req, res) => {
 app.delete('/api/data/backup/:backupId', requireAuth('it'), (req, res) => {
     try {
         const { backupId } = req.params;
-        // Validate backup ID format (must start with backup-, auto-startup-, pre-restore-, or pre-import-)
         const validPrefixes = ['backup-', 'auto-startup-', 'pre-restore-', 'pre-import-'];
         if (!validPrefixes.some(p => backupId.startsWith(p))) {
             return res.status(400).json({ success: false, error: 'Invalid backup ID format' });
@@ -4384,7 +4258,6 @@ app.delete('/api/data/backup/:backupId', requireAuth('it'), (req, res) => {
         if (!fs.existsSync(backupPath)) {
             return res.status(404).json({ success: false, error: 'Backup not found' });
         }
-        // Delete the backup directory and all its contents
         fs.rmSync(backupPath, { recursive: true, force: true });
         logActivity('data_backup_delete', 'it', {
             userEmail: req.session.email,
@@ -4661,7 +4534,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
         console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
     } else {
-        console.log('  Storage: ✅ Local filesystem (persistent)');
+        console.log('  Storage: ⚠️  Local filesystem (data lost on redeploy!)');
     }
     console.log('==========================================================');
     console.log('');

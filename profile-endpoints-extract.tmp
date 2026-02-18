@@ -1,0 +1,300 @@
+﻿app.post('/api/update-employee-profile', (req, res) => {
+    try {
+        const { email, fullName, office, position, employeeNo, salaryGrade, step, salary, newPassword } = req.body;
+
+        if (!email || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        let users = readJSON(usersFile);
+        const userIndex = users.findIndex(u => u.email === email);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        const oldName = users[userIndex].name;
+        users[userIndex].name = fullName;
+        users[userIndex].fullName = fullName;
+        if (office) users[userIndex].office = office;
+        if (position) users[userIndex].position = position;
+        if (employeeNo) users[userIndex].employeeNo = employeeNo;
+        if (salaryGrade) users[userIndex].salaryGrade = salaryGrade;
+        if (step) users[userIndex].step = step;
+        if (salary) users[userIndex].salary = salary;
+
+        if (newPassword) {
+            if (newPassword.length < 8) {
+                return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+            }
+            users[userIndex].password = hashPasswordWithSalt(newPassword);
+        }
+
+        users[userIndex].updatedAt = new Date().toISOString();
+        writeJSON(usersFile, users);
+
+        // Also update employees.json for consistency
+        let employees = readJSON(employeesFile);
+        const empIndex = employees.findIndex(e => e.email === email);
+        if (empIndex !== -1) {
+            employees[empIndex].name = fullName;
+            if (office) employees[empIndex].office = office;
+            if (position) employees[empIndex].position = position;
+            if (employeeNo) employees[empIndex].employeeNo = employeeNo;
+            if (salaryGrade) employees[empIndex].salaryGrade = salaryGrade;
+            if (step) employees[empIndex].step = step;
+            if (salary) employees[empIndex].salary = salary;
+            employees[empIndex].updatedAt = new Date().toISOString();
+            writeJSON(employeesFile, employees);
+        }
+
+        // Update leave cards if name changed
+        if (oldName !== fullName) {
+            const leaveCardsFile = path.join(dataDir, 'leavecards.json');
+            let leaveCards = readJSON(leaveCardsFile);
+            leaveCards.forEach(card => {
+                if (card.email === email) {
+                    card.name = fullName;
+                }
+            });
+            writeJSON(leaveCardsFile, leaveCards);
+        }
+
+        logActivity('PROFILE_UPDATED', 'employee', { userEmail: email, userName: fullName });
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: users[userIndex].id,
+                email: users[userIndex].email,
+                name: users[userIndex].name,
+                office: users[userIndex].office,
+                position: users[userIndex].position,
+                employeeNo: users[userIndex].employeeNo,
+                salaryGrade: users[userIndex].salaryGrade,
+                step: users[userIndex].step,
+                salary: users[userIndex].salary,
+                role: 'user'
+            }
+        });
+    } catch (error) {
+        console.error('Error updating employee profile:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update AO Profile endpoint
+app.post('/api/update-ao-profile', (req, res) => {
+    try {
+        const { email, fullName, school, position, newPassword } = req.body;
+
+        if (!email || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        let aoUsers = readJSON(aoUsersFile);
+        const userIndex = aoUsers.findIndex(u => u.email === email);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ success: false, error: 'AO user not found' });
+        }
+
+        aoUsers[userIndex].name = fullName;
+        aoUsers[userIndex].fullName = fullName;
+        if (school) aoUsers[userIndex].school = school;
+        if (position) aoUsers[userIndex].position = position;
+
+        if (newPassword) {
+            const passwordValidation = validatePortalPassword(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ success: false, error: passwordValidation.error });
+            }
+            aoUsers[userIndex].password = hashPasswordWithSalt(newPassword);
+        }
+
+        aoUsers[userIndex].updatedAt = new Date().toISOString();
+        writeJSON(aoUsersFile, aoUsers);
+
+        logActivity('PROFILE_UPDATED', 'ao', { userEmail: email, userName: fullName });
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: aoUsers[userIndex].id,
+                email: aoUsers[userIndex].email,
+                name: aoUsers[userIndex].name,
+                school: aoUsers[userIndex].school,
+                position: aoUsers[userIndex].position,
+                role: 'ao'
+            }
+        });
+    } catch (error) {
+        console.error('Error updating AO profile:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update HR Profile endpoint
+app.post('/api/update-hr-profile', (req, res) => {
+    try {
+        const { email, fullName, office, position, newPassword } = req.body;
+
+        if (!email || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        let hrUsers = readJSON(hrUsersFile);
+        const userIndex = hrUsers.findIndex(u => u.email === email);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ success: false, error: 'HR user not found' });
+        }
+
+        hrUsers[userIndex].name = fullName;
+        hrUsers[userIndex].fullName = fullName;
+        if (office) hrUsers[userIndex].office = office;
+        if (position) hrUsers[userIndex].position = position;
+
+        if (newPassword) {
+            const passwordValidation = validatePortalPassword(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ success: false, error: passwordValidation.error });
+            }
+            hrUsers[userIndex].password = hashPasswordWithSalt(newPassword);
+        }
+
+        hrUsers[userIndex].updatedAt = new Date().toISOString();
+        writeJSON(hrUsersFile, hrUsers);
+
+        logActivity('PROFILE_UPDATED', 'hr', { userEmail: email, userName: fullName });
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: hrUsers[userIndex].id,
+                email: hrUsers[userIndex].email,
+                name: hrUsers[userIndex].name,
+                office: hrUsers[userIndex].office,
+                position: hrUsers[userIndex].position,
+                role: 'hr'
+            }
+        });
+    } catch (error) {
+        console.error('Error updating HR profile:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update ASDS Profile endpoint
+app.post('/api/update-asds-profile', (req, res) => {
+    try {
+        const { email, fullName, office, position, newPassword } = req.body;
+
+        if (!email || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        let asdsUsers = readJSON(asdsUsersFile);
+        const userIndex = asdsUsers.findIndex(u => u.email === email);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ success: false, error: 'ASDS user not found' });
+        }
+
+        asdsUsers[userIndex].name = fullName;
+        asdsUsers[userIndex].fullName = fullName;
+        if (office) asdsUsers[userIndex].office = office;
+        if (position) asdsUsers[userIndex].position = position;
+
+        if (newPassword) {
+            const passwordValidation = validatePortalPassword(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ success: false, error: passwordValidation.error });
+            }
+            asdsUsers[userIndex].password = hashPasswordWithSalt(newPassword);
+        }
+
+        asdsUsers[userIndex].updatedAt = new Date().toISOString();
+        writeJSON(asdsUsersFile, asdsUsers);
+
+        logActivity('PROFILE_UPDATED', 'asds', { userEmail: email, userName: fullName });
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: asdsUsers[userIndex].id,
+                email: asdsUsers[userIndex].email,
+                name: asdsUsers[userIndex].name,
+                office: asdsUsers[userIndex].office,
+                position: asdsUsers[userIndex].position,
+                role: 'asds'
+            }
+        });
+    } catch (error) {
+        console.error('Error updating ASDS profile:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update SDS Profile endpoint
+app.post('/api/update-sds-profile', (req, res) => {
+    try {
+        const { email, fullName, office, position, newPassword } = req.body;
+
+        if (!email || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        let sdsUsers = readJSON(sdsUsersFile);
+        const userIndex = sdsUsers.findIndex(u => u.email === email);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ success: false, error: 'SDS user not found' });
+        }
+
+        sdsUsers[userIndex].name = fullName;
+        sdsUsers[userIndex].fullName = fullName;
+        if (office) sdsUsers[userIndex].office = office;
+        if (position) sdsUsers[userIndex].position = position;
+
+        if (newPassword) {
+            const passwordValidation = validatePortalPassword(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ success: false, error: passwordValidation.error });
+            }
+            sdsUsers[userIndex].password = hashPasswordWithSalt(newPassword);
+        }
+
+        sdsUsers[userIndex].updatedAt = new Date().toISOString();
+        writeJSON(sdsUsersFile, sdsUsers);
+
+        logActivity('PROFILE_UPDATED', 'sds', { userEmail: email, userName: fullName });
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: sdsUsers[userIndex].id,
+                email: sdsUsers[userIndex].email,
+                name: sdsUsers[userIndex].name,
+                office: sdsUsers[userIndex].office,
+                position: sdsUsers[userIndex].position,
+                role: 'sds'
+            }
+        });
+    } catch (error) {
+        console.error('Error updating SDS profile:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ========== PENDING REGISTRATIONS ==========
+app.get('/api/pending-registrations', requireAuth('it'), (req, res) => {
+    try {
+        const pendingRegs = readJSON(pendingRegistrationsFile);
+        const pending = pendingRegs.filter(r => r.status === 'pending');
+        res.json(pending);
