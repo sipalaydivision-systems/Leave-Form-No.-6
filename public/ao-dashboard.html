@@ -948,7 +948,6 @@
                     <thead style="background: #f5f5f5; border-bottom: 2px solid #667eea;">
                         <tr>
                             <th style="padding: 10px; text-align: left;">Employee Name</th>
-                            <th style="padding: 10px; text-align: left;">Email</th>
                             <th style="padding: 10px; text-align: left;">Position</th>
                             <th style="padding: 10px; text-align: center;">Actions</th>
                         </tr>
@@ -963,7 +962,6 @@
                 html += `
                     <tr style="border-bottom: 1px solid #ddd;">
                         <td style="padding: 10px; color: #333;">${name}</td>
-                        <td style="padding: 10px; color: #666;">${email}</td>
                         <td style="padding: 10px; color: #666;">${position}</td>
                         <td style="padding: 10px; text-align: center;">
                             <button onclick="openEmployeeCards('${email}', '${name.replace(/'/g, "\\'")}')" 
