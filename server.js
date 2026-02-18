@@ -2332,11 +2332,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 employees.push(employeeRecord);
                 writeJSON(employeesFile, employees);
                 
-                // Create initial leave card with credits from Excel data
-                const initialCredits = lookupInitialCredits(registration.fullName || registration.name);
-                const defaultVL = 100;
-                const defaultSL = 100;
-                
+                // Create initial leave card (VL/SL start at 0, earned via monthly accrual)
                 const leavecards = readJSON(leavecardsFile);
                 const existingLeavecard = leavecards.find(lc => lc.email === registration.email);
                 
@@ -2360,7 +2356,9 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                         writeJSON(leavecardsFile, leavecards);
                         console.log(`[REGISTRATION] Assigned existing leave card to ${registration.email} (matched by name: ${normalizedRegName})`);
                     } else {
-                        // Create new leave card if no matching name found
+                        // Create new leave card — VL and SL start at 0
+                        // Credits are earned through monthly accrual (1.25/month)
+                        // Force Leave (5/year) and SPL (3/year) are fixed yearly allocations
                         const newLeavecard = {
                             employeeId: registration.email,
                             email: registration.email,
@@ -2369,16 +2367,16 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                             lastName: registration.lastName || '',
                             middleName: registration.middleName || '',
                             suffix: registration.suffix || '',
-                            vacationLeaveEarned: initialCredits ? initialCredits.vacationLeave : defaultVL,
-                            sickLeaveEarned: initialCredits ? initialCredits.sickLeave : defaultSL,
+                            vacationLeaveEarned: 0,
+                            sickLeaveEarned: 0,
                             forceLeaveEarned: 5,
                             splEarned: 3,
                             vacationLeaveSpent: 0,
                             sickLeaveSpent: 0,
                             forceLeaveSpent: 0,
                             splSpent: 0,
-                            vl: initialCredits ? initialCredits.vacationLeave : defaultVL,
-                            sl: initialCredits ? initialCredits.sickLeave : defaultSL,
+                            vl: 0,
+                            sl: 0,
                             spl: 3,
                             others: 0,
                             forceLeaveYear: new Date().getFullYear(),
@@ -2386,7 +2384,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                             leaveUsageHistory: [],
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString(),
-                            initialCreditsSource: initialCredits ? 'excel' : 'default'
+                            initialCreditsSource: 'accrual'
                         };
                         leavecards.push(newLeavecard);
                         writeJSON(leavecardsFile, leavecards);
@@ -3318,20 +3316,20 @@ app.get('/api/leave-credits', (req, res) => {
         const employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
         
         if (employeeRecords.length === 0) {
-            // Return default leave credits with proper earned values
+            // Return default leave credits (0 until monthly accrual adds credits)
             return res.json({ 
                 success: true, 
                 credits: {
                     employeeId: employeeId,
                     email: employeeId,
-                    vl: 100,
-                    sl: 100,
+                    vl: 0,
+                    sl: 0,
                     spl: 3,
                     forceLeaveSpent: 0,
                     splSpent: 0,
                     others: 0,
-                    vacationLeaveEarned: 100,
-                    sickLeaveEarned: 100,
+                    vacationLeaveEarned: 0,
+                    sickLeaveEarned: 0,
                     vacationLeaveSpent: 0,
                     sickLeaveSpent: 0,
                     leaveUsageHistory: []
@@ -3404,8 +3402,8 @@ app.get('/api/leave-credits', (req, res) => {
         }
         
         // Fall back to earned - spent calculation
-        const vacationLeaveEarned = latestRecord.vacationLeaveEarned || latestRecord.vl || 100;
-        const sickLeaveEarned = latestRecord.sickLeaveEarned || latestRecord.sl || 100;
+        const vacationLeaveEarned = latestRecord.vacationLeaveEarned || latestRecord.vl || 0;
+        const sickLeaveEarned = latestRecord.sickLeaveEarned || latestRecord.sl || 0;
         
         if (vlBalance === null) {
             vlBalance = Math.max(0, vacationLeaveEarned - (latestRecord.vacationLeaveSpent || 0));
@@ -3525,14 +3523,14 @@ app.get('/api/leave-card', (req, res) => {
         const employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
         
         if (employeeRecords.length === 0) {
-            // Return default leave card allocation
+            // Return default leave card allocation (0 until monthly accrual)
             return res.json({ 
                 success: true, 
                 credits: {
                     employeeId: employeeId,
                     email: employeeId,
-                    vl: 100,
-                    sl: 100,
+                    vl: 0,
+                    sl: 0,
                     spl: 3,
                     forceLeave: 5
                 }
@@ -3555,8 +3553,8 @@ app.get('/api/leave-card', (req, res) => {
             credits: {
                 employeeId: latestRecord.employeeId,
                 email: latestRecord.email,
-                vl: latestRecord.vacationLeaveEarned || latestRecord.vl || 100,
-                sl: latestRecord.sickLeaveEarned || latestRecord.sl || 100,
+                vl: latestRecord.vacationLeaveEarned || latestRecord.vl || 0,
+                sl: latestRecord.sickLeaveEarned || latestRecord.sl || 0,
                 spl: latestRecord.splEarned || latestRecord.spl || 3,
                 forceLeave: latestRecord.forceLeaveEarned || latestRecord.others || 5
             }
@@ -4118,13 +4116,13 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         const currentYear = new Date().getFullYear();
         
         if (!leavecard) {
-            // Create new leave card if not found with proper initial values
+            // Create new leave card if not found (VL/SL start at 0, earned via monthly accrual)
             leavecard = {
                 email: application.employeeEmail,
                 employeeId: application.employeeEmail,
-                vacationLeaveEarned: 100,
-                sickLeaveEarned: 100,
-                forceLeaveEarned: 0,
+                vacationLeaveEarned: 0,
+                sickLeaveEarned: 0,
+                forceLeaveEarned: 5,
                 splEarned: 3,
                 vacationLeaveSpent: 0,
                 sickLeaveSpent: 0,
@@ -4132,8 +4130,8 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 splSpent: 0,
                 forceLeaveYear: currentYear,
                 splYear: currentYear,
-                vl: 100,  // Start with full balance
-                sl: 100,  // Start with full balance
+                vl: 0,
+                sl: 0,
                 spl: 3,
                 others: 0,
                 leaveUsageHistory: [],
@@ -4142,9 +4140,9 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
             leavecards.push(leavecard);
         }
         
-        // Initialize earned values if not present (for existing cards)
-        if (!leavecard.vacationLeaveEarned) leavecard.vacationLeaveEarned = 100;
-        if (!leavecard.sickLeaveEarned) leavecard.sickLeaveEarned = 100;
+        // Initialize earned values if not present (for existing cards without these fields)
+        if (leavecard.vacationLeaveEarned === undefined) leavecard.vacationLeaveEarned = 0;
+        if (leavecard.sickLeaveEarned === undefined) leavecard.sickLeaveEarned = 0;
         
         // Initialize year tracking if not present
         if (!leavecard.forceLeaveYear) leavecard.forceLeaveYear = currentYear;
@@ -4241,8 +4239,8 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 console.error('Error deducting CTO:', ctoErr);
             }
         } else {
-            leavecard.vl = Math.max(0, (leavecard.vl || 100) - vlUsed);
-            leavecard.sl = Math.max(0, (leavecard.sl || 100) - slUsed);
+            leavecard.vl = Math.max(0, (leavecard.vl || 0) - vlUsed);
+            leavecard.sl = Math.max(0, (leavecard.sl || 0) - slUsed);
             leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlUsed;
             leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slUsed;
         }
