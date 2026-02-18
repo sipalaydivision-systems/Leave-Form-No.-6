@@ -108,4 +108,49 @@
 
 ---
 
+## Session 5 — Pending Registrations Cleanup & Leave Card Auto-Assignment
+
+**Date**: 2026-02-18  
+**Commits**: `4507f9f`
+
+### Accomplished
+1. **Removed All Temporary Registrations**: Cleared `data/pending-registrations.json`, resetting to empty array `[]`. Any registrations pending IT approval have been cleared.
+2. **Removed Email Column from Employee Database UI**: Modified `public/ao-dashboard.html` `displayEmployeeResults()` function to remove the email address display column from the employee search results table in the AO dashboard. Email is still used internally for the "Edit Leave Cards" button but is no longer visible in the UI.
+3. **Implemented Name-Based Leave Card Auto-Assignment**: Enhanced the employee registration approval flow in `server.js`:
+   - When a new employee registers and is approved by IT, before creating a new leave card, the system now checks if an existing leave card exists with a matching employee name
+   - If a match is found (case-insensitive, trimmed comparison), the existing leave card is automatically assigned to the new user by updating its `email` and `employeeId` fields
+   - If no match is found, a new leave card is created as before
+   - This feature eliminates manual assignment steps and ensures that pre-imported leave card data is automatically linked to newly registered employees with matching names
+   - The search functionality (`searchEmployees()`) still searches by both name and email, but email is not displayed in results
+
+### Technical Implementation Details
+- **File**: `server.js` lines ~1675-1728 in `/api/approve-registration` endpoint
+- **Logic**:
+  ```javascript
+  // Check if there's a leave card with matching name
+  const normalizedRegName = (registration.fullName || registration.name || '').toLowerCase().trim();
+  const matchingNameCard = leavecards.find(lc => {
+      const cardName = (lc.name || lc.fullName || '').toLowerCase().trim();
+      return cardName === normalizedRegName;
+  });
+  
+  if (matchingNameCard) {
+      // Assign existing card to new user
+      matchingNameCard.email = registration.email;
+      matchingNameCard.employeeId = registration.email;
+      matchingNameCard.updatedAt = new Date().toISOString();
+      await writeJSON(leavecardsFile, leavecards);
+      console.log(`[REGISTRATION] Assigned existing leave card to ${registration.email} (matched by name: ${normalizedRegName})`);
+  } else {
+      // Create new leave card if no match
+      // ... existing logic ...
+  }
+  ```
+
+### Pushed to Production
+- Commit `4507f9f` pushed to `origin/main`
+- Railway will auto-deploy within ~10-30seconds
+
+---
+
 *Last updated: 2026-02-18*
