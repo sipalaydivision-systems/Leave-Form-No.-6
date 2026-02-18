@@ -2255,7 +2255,7 @@
                     .leave-option input[type="checkbox"] { margin-right: 5px; margin-top: 2px; flex-shrink: 0; }
                     .leave-option span { line-height: 1.3; }
                     .leave-option small { color: #666; font-size: 8px; }
-                    .sub-section { border: 1px solid #ccc; padding: 5px; margin-bottom: 5px; background: #fafafa; }
+                    .sub-section { padding: 2px 0; margin-bottom: 5px; }
                     .sub-section-title { font-weight: bold; font-size: 8px; margin-bottom: 4px; font-style: italic; }
                     .sub-option { display: flex; align-items: center; margin-bottom: 2px; font-size: 9px; }
                     .sub-option input[type="checkbox"] { margin-right: 5px; }
@@ -2280,22 +2280,22 @@
                     .credits-table td:first-child { text-align: left; font-style: italic; }
                     .officer-signature { text-align: center; margin-top: auto; padding-bottom: 3px; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
                     .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; object-fit: contain; }
-                    .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
-                    .officer-title { font-size: 9px; color: #003366; }
+                    .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #000; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
+                    .officer-title { font-size: 9px; color: #000; }
                     .recommendation-options label { display: flex; align-items: flex-start; margin-bottom: 5px; font-size: 9px; }
                     .recommendation-options input[type="checkbox"] { margin-right: 5px; margin-top: 2px; }
                     .recommendation-input { border: none; border-bottom: 1px solid #000; width: 40px; text-align: center; font-size: 9px; }
                     .disapproval-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 4px; font-size: 9px; background: transparent; margin-bottom: 2px; }
-                    .disapproval-input:disabled { background-color: #f5f5f5; border-bottom-color: #ccc; cursor: not-allowed; }
+                    .disapproval-input:disabled { background-color: transparent; border-bottom-color: #000; cursor: default; }
                     .approval-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; border-bottom: none; }
                     .approval-column { padding: 8px; font-size: 9px; }
-                    .approval-column:first-child { border-right: none; }
+                    .approval-column:first-child { border-right: 1px solid #000; }
                     .approval-field { display: flex; align-items: center; margin-bottom: 4px; font-size: 9px; }
                     .approval-field input { width: 50px; border: none; border-bottom: 1px solid #000; margin-right: 5px; text-align: center; font-size: 9px; background: transparent; }
-                    .approval-field input:disabled { background-color: #f5f5f5; border-bottom-color: #ccc; cursor: not-allowed; }
+                    .approval-field input:disabled { background-color: transparent; border-bottom-color: #000; cursor: default; }
                     .final-signature { text-align: center; padding: 6px 8px; border: 1px solid #000; border-top: none; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
                     .final-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; object-fit: contain; }
-                    .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; border-top: none; }
+                    .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #000; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; border-top: none; }
                     .final-officer-title { font-size: 9px; line-height: 1.1; }
                     @media print { .final-form-container { box-shadow: none; border: none; padding: 2mm 3mm; width: 100%; max-width: 100%; } }
                 </style>
@@ -2526,10 +2526,8 @@
                             </div>
                             <div class="signature-area" style="margin-top: 0; text-align: center; min-height: 50px; display: flex; flex-direction: column; justify-content: flex-end;">
                                 ${app.employeeSignature && app.employeeSignature.startsWith('data:image') ? `<img src="${app.employeeSignature}" alt="Applicant Signature" style="max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; border: none; background: transparent;">` : '<div style="height: 30px;"></div>'}
-                                <div style="width: 220px; margin: 0 auto; padding-top: 2px;">
-                                    <span style="font-size: 11px; font-weight: bold; text-decoration: underline;">${app.employeeName || ''}</span>
-                                </div>
-                                <div style="font-size: 9px; font-style: italic; margin-top: 1px;">(Signature of Applicant)</div>
+                                <div style="font-size: 9px; font-style: italic; margin-top: 2px;">(Signature of Applicant)</div>
+                                <div style="font-size: 10px; margin-top: 2px;">${app.employeeName || ''}</div>
                             </div>
                         </div>
                     </div>
@@ -2609,7 +2607,7 @@
 
                             <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
                                 ${app.asdsOfficerSignature && app.asdsOfficerSignature.startsWith('data:image') ? `<img src="${app.asdsOfficerSignature}" alt="ASDS Signature">` : '<div style="height: 30px;"></div>'}
-                                <div class="officer-name" style="color: #003366;">${asdsApproval ? asdsApproval.approverName : asdsSignatoryName}</div>
+                                <div class="officer-name">${asdsApproval ? asdsApproval.approverName : asdsSignatoryName}</div>
                                 <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
                                 ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
