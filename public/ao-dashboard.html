@@ -900,6 +900,7 @@
 
         // Employee Database Functions
         let allEmployees = [];
+        let duplicateGroups = [];
         
         async function loadAllEmployees() {
             try {
@@ -907,6 +908,11 @@
                 const result = await response.json();
                 if (result.success) {
                     allEmployees = result.employees || [];
+                    duplicateGroups = result.duplicateGroups || [];
+                    // Show duplicate alert if any
+                    if (duplicateGroups.length > 0) {
+                        showDuplicateAlert(duplicateGroups);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading employees:', error);
@@ -943,7 +949,34 @@
                 return;
             }
             
-            let html = `
+            let html = '';
+            
+            // Check if any displayed employees are in duplicate groups
+            const displayedDupGroups = [];
+            const seenGroups = new Set();
+            employees.forEach(emp => {
+                if (emp.duplicateGroup && emp.duplicateGroup.length > 1) {
+                    const groupKey = emp.duplicateGroup.sort().join('|');
+                    if (!seenGroups.has(groupKey)) {
+                        seenGroups.add(groupKey);
+                        // Only show if both emails are in the displayed results
+                        const allInResults = emp.duplicateGroup.every(e => employees.find(x => x.email === e));
+                        if (allInResults) displayedDupGroups.push(emp.duplicateGroup);
+                    }
+                }
+            });
+            
+            if (displayedDupGroups.length > 0) {
+                html += `<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 18px;">⚠️</span>
+                        <strong style="color: #856404;">Duplicate Employees Detected</strong>
+                    </div>
+                    <p style="color: #856404; font-size: 13px; margin: 0 0 10px 0;">The following employees appear to be the same person with different email addresses. Click "Merge" to combine them into one record.</p>
+                </div>`;
+            }
+            
+            html += `
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <thead style="background: #f5f5f5; border-bottom: 2px solid #667eea;">
                         <tr>
@@ -960,16 +993,34 @@
                 const name = emp.name || emp.fullName || 'N/A';
                 const email = emp.email || 'N/A';
                 const position = emp.position || 'N/A';
+                const isDuplicate = emp.duplicateGroup && emp.duplicateGroup.length > 1;
+                const rowBg = isDuplicate ? 'background: #fff8e1;' : '';
+                const dupBadge = isDuplicate ? ' <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 600;">DUPLICATE</span>' : '';
+                
+                let mergeBtn = '';
+                if (isDuplicate) {
+                    const otherEmails = emp.duplicateGroup.filter(e => e !== email);
+                    if (otherEmails.length > 0) {
+                        const safeEmail = email.replace(/'/g, "\\'");
+                        const safeOther = otherEmails[0].replace(/'/g, "\\'");
+                        mergeBtn = `<button onclick="showMergeDialog('${safeEmail}', '${safeOther}')" 
+                            style="padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                            🔗 Merge
+                        </button>`;
+                    }
+                }
+                
                 html += `
-                    <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 10px; color: #333;">${name}</td>
+                    <tr style="border-bottom: 1px solid #ddd; ${rowBg}">
+                        <td style="padding: 10px; color: #333;">${name}${dupBadge}</td>
                         <td style="padding: 10px; color: #666;">${email}</td>
                         <td style="padding: 10px; color: #666;">${position}</td>
-                        <td style="padding: 10px; text-align: center;">
+                        <td style="padding: 10px; text-align: center; white-space: nowrap;">
                             <button onclick="openEmployeeCards('${email}', '${name.replace(/'/g, "\\'")}')" 
                                 style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                 📋 Edit Leave Cards
                             </button>
+                            ${mergeBtn}
                         </td>
                     </tr>
                 `;
@@ -983,6 +1034,76 @@
         function openEmployeeCards(email, name) {
             // Navigate to the dedicated employee cards page
             window.location.href = '/edit-employee-cards.html?email=' + encodeURIComponent(email);
+        }
+        
+        function showDuplicateAlert(groups) {
+            if (!groups || groups.length === 0) return;
+            console.log('[AO] Duplicate employee groups detected:', groups);
+        }
+        
+        async function showMergeDialog(emailA, emailB) {
+            const empA = allEmployees.find(e => e.email === emailA) || { name: emailA, email: emailA };
+            const empB = allEmployees.find(e => e.email === emailB) || { name: emailB, email: emailB };
+            
+            const choice = prompt(
+                `🔗 MERGE DUPLICATE EMPLOYEES\n\n` +
+                `These two accounts appear to be the same person:\n\n` +
+                `1) ${empA.name} (${empA.email})\n` +
+                `2) ${empB.name} (${empB.email})\n\n` +
+                `Which email should be KEPT as the primary account?\n` +
+                `Type 1 or 2:`
+            );
+            
+            if (!choice) return;
+            
+            let primaryEmail, duplicateEmail;
+            if (choice.trim() === '1') {
+                primaryEmail = empA.email;
+                duplicateEmail = empB.email;
+            } else if (choice.trim() === '2') {
+                primaryEmail = empB.email;
+                duplicateEmail = empA.email;
+            } else {
+                showError('Invalid choice. Please type 1 or 2.');
+                return;
+            }
+            
+            const primaryEmp = allEmployees.find(e => e.email === primaryEmail) || { name: primaryEmail };
+            const dupEmp = allEmployees.find(e => e.email === duplicateEmail) || { name: duplicateEmail };
+            
+            if (!confirm(
+                `⚠️ CONFIRM MERGE\n\n` +
+                `PRIMARY (keep): ${primaryEmp.name} (${primaryEmail})\n` +
+                `DUPLICATE (remove): ${dupEmp.name} (${duplicateEmail})\n\n` +
+                `All leave cards, CTO records, and applications from the duplicate will be transferred to the primary account.\n` +
+                `The duplicate user account will be removed.\n\n` +
+                `This action cannot be undone. Continue?`
+            )) return;
+            
+            try {
+                const aoUser = JSON.parse(sessionStorage.getItem('user'));
+                const response = await fetch('/api/merge-employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        primaryEmail,
+                        duplicateEmail,
+                        mergedBy: aoUser ? aoUser.email : 'AO'
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showSuccess(result.message + '\n\nActions: ' + (result.actions || []).join(', '));
+                    // Reload employees list
+                    await loadAllEmployees();
+                    showAllEmployees();
+                } else {
+                    showError(result.error || 'Failed to merge employees');
+                }
+            } catch (error) {
+                showError('Error merging employees: ' + error.message);
+            }
         }
 
         async function loadApplications() {
