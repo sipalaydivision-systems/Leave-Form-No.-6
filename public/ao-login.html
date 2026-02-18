@@ -760,10 +760,33 @@
                 </div>
                 
                 <form onsubmit="handleAORegister(event)">
-                    <div class="form-group">
-                        <label>Full Name <span class="required">*</span></label>
-                        <input type="text" id="regFullName" placeholder="Last Name, First Name Middle Name" required>
-                        <p class="hint">Format: DELA CRUZ, JUAN SANTOS</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label>Last Name <span class="required">*</span></label>
+                            <input type="text" id="regLastName" placeholder="e.g., DELA CRUZ" required>
+                        </div>
+                        <div class="form-group">
+                            <label>First Name <span class="required">*</span></label>
+                            <input type="text" id="regFirstName" placeholder="e.g., JUAN" required>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label>Middle Name</label>
+                            <input type="text" id="regMiddleName" placeholder="e.g., SANTOS">
+                        </div>
+                        <div class="form-group">
+                            <label>Suffix (if applicable)</label>
+                            <select id="regSuffix">
+                                <option value="">None</option>
+                                <option value="Jr.">Jr.</option>
+                                <option value="Sr.">Sr.</option>
+                                <option value="II">II</option>
+                                <option value="III">III</option>
+                                <option value="IV">IV</option>
+                                <option value="V">V</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -1200,7 +1223,11 @@
 
         async function handleAORegister(event) {
             event.preventDefault();
-            const fullName = document.getElementById('regFullName').value.trim();
+            const lastName = (document.getElementById('regLastName')?.value || '').trim();
+            const firstName = (document.getElementById('regFirstName')?.value || '').trim();
+            const middleName = (document.getElementById('regMiddleName')?.value || '').trim();
+            const suffix = (document.getElementById('regSuffix')?.value || '').trim();
+            const fullName = suffix ? `${lastName}, ${firstName} ${middleName} ${suffix}`.replace(/\s+/g, ' ').trim() : `${lastName}, ${firstName} ${middleName}`.replace(/\s+/g, ' ').trim();
             const email = document.getElementById('regEmail').value.trim();
             const password = document.getElementById('regPassword').value;
             const confirmPassword = document.getElementById('regConfirmPassword').value;
@@ -1214,12 +1241,10 @@
             
             messageDiv.style.display = 'none';
             
-            // Debug: Log all field values
-            console.log('Registration values:', { fullName, email, password, confirmPassword, office, position, salaryGrade, step, employeeNo });
-            
             // Check for missing required fields with specific error
             const missingFields = [];
-            if (!fullName) missingFields.push('Full Name');
+            if (!lastName) missingFields.push('Last Name');
+            if (!firstName) missingFields.push('First Name');
             if (!email) missingFields.push('Email');
             if (!password) missingFields.push('Password');
             if (!confirmPassword) missingFields.push('Confirm Password');
@@ -1301,6 +1326,10 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        lastName,
+                        firstName,
+                        middleName,
+                        suffix,
                         fullName,
                         email,
                         password,

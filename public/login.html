@@ -1280,7 +1280,11 @@ function updateSalaryAmount() {
 
 function updateRegistrationSummary() {
     const office = document.getElementById('regOffice').value.trim();
-    const fullName = document.getElementById('regFullName').value.trim();
+    const lastName = (document.getElementById('regLastName')?.value || '').trim();
+    const firstName = (document.getElementById('regFirstName')?.value || '').trim();
+    const middleName = (document.getElementById('regMiddleName')?.value || '').trim();
+    const suffix = (document.getElementById('regSuffix')?.value || '').trim();
+    const fullName = suffix ? `${lastName}, ${firstName} ${middleName} ${suffix}`.replace(/\s+/g, ' ').trim() : `${lastName}, ${firstName} ${middleName}`.replace(/\s+/g, ' ').trim();
     const email = document.getElementById('regEmail').value.trim();
     const positionSelect = document.getElementById('regPosition');
     const position = positionSelect.value;
@@ -1288,7 +1292,7 @@ function updateRegistrationSummary() {
     const step = document.getElementById('regStep').value;
     const employeeNo = document.getElementById('regEmployeeNumber').value.trim();
     
-    if (office && fullName && email && position && step && employeeNo) {
+    if (office && lastName && firstName && email && position && step && employeeNo) {
         const salary = salaryTable[parseInt(salaryGrade)]?.[parseInt(step) - 1] || 0;
         
         document.getElementById('summaryOffice').textContent = office;
@@ -1434,7 +1438,7 @@ async function handleRegister(e) {
     const btn = document.getElementById('registerBtn');
     const message = document.getElementById('registerMessage');
     
-    console.log('All elements found:', {office: !!document.getElementById('regOffice'), fullName: !!document.getElementById('regFullName'), email: !!document.getElementById('regEmail'), password: !!document.getElementById('regPassword'), confirmPassword: !!document.getElementById('regConfirmPassword'), position: !!document.getElementById('regPosition'), step: !!document.getElementById('regStep'), employeeNumber: !!document.getElementById('regEmployeeNumber'), btn: !!btn, message: !!message});
+    console.log('All elements found:', {office: !!document.getElementById('regOffice'), lastName: !!document.getElementById('regLastName'), firstName: !!document.getElementById('regFirstName'), email: !!document.getElementById('regEmail'), password: !!document.getElementById('regPassword'), confirmPassword: !!document.getElementById('regConfirmPassword'), position: !!document.getElementById('regPosition'), step: !!document.getElementById('regStep'), employeeNumber: !!document.getElementById('regEmployeeNumber'), btn: !!btn, message: !!message});
     console.log('Form data:', { lastName, firstName, middleName, suffix, fullName, email, password, confirmPassword, position, salaryGrade, step, employeeNumber });
     
     // Check all required fields

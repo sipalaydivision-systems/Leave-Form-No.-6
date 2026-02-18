@@ -589,6 +589,25 @@ setInterval(() => {
     runMonthlyAccrual();
 }, 24 * 60 * 60 * 1000);
 
+// Parse fullName ("LASTNAME, FIRSTNAME MIDDLENAME SUFFIX") into segregated parts
+function parseFullNameIntoParts(fullName) {
+    if (!fullName) return {};
+    const suffixes = ['Jr.', 'Sr.', 'III', 'IV', 'V', 'II'];
+    const parts = fullName.split(',');
+    const lastName = (parts[0] || '').trim();
+    const rest = (parts.slice(1).join(',') || '').trim();
+    let suffix = '', firstName = '', middleName = '';
+    if (rest) {
+        const words = rest.split(/\s+/);
+        if (words.length > 0 && suffixes.includes(words[words.length - 1])) {
+            suffix = words.pop();
+        }
+        firstName = words[0] || '';
+        middleName = words.slice(1).join(' ');
+    }
+    return { firstName, lastName, middleName, suffix };
+}
+
 // Hash password with salt for new registrations
 function hashPasswordWithSalt(password) {
     const salt = crypto.randomBytes(16).toString('hex');
@@ -1224,7 +1243,7 @@ app.get('/api/user-details', (req, res) => {
 // ========== HR REGISTRATION & LOGIN ==========
 app.post('/api/hr-register', apiRateLimiter, (req, res) => {
     try {
-        const { email, password, fullName, name, office, position, salaryGrade, step, salary, employeeNo } = req.body;
+        const { email, password, fullName, firstName, lastName, middleName, suffix, name, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
         const userName = fullName || name;
 
@@ -1261,6 +1280,10 @@ app.post('/api/hr-register', apiRateLimiter, (req, res) => {
             portal: 'hr',
             fullName: userName,
             name: userName,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            middleName: middleName || '',
+            suffix: suffix || '',
             email,
             password: hashPasswordWithSalt(password),
             office: office || 'Schools Division',
@@ -1351,7 +1374,7 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
 // ========== ASDS REGISTRATION & LOGIN ==========
 app.post('/api/asds-register', apiRateLimiter, (req, res) => {
     try {
-        const { email, password, fullName, office, position, salaryGrade, step, salary, employeeNo } = req.body;
+        const { email, password, fullName, firstName, lastName, middleName, suffix, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
         if (!email || !password || !fullName) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -1386,6 +1409,10 @@ app.post('/api/asds-register', apiRateLimiter, (req, res) => {
             portal: 'asds',
             fullName,
             name: fullName,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            middleName: middleName || '',
+            suffix: suffix || '',
             email,
             password: hashPasswordWithSalt(password),
             office,
@@ -1466,7 +1493,7 @@ app.post('/api/asds-login', loginRateLimiter, (req, res) => {
 // ========== SDS REGISTRATION & LOGIN ==========
 app.post('/api/sds-register', apiRateLimiter, (req, res) => {
     try {
-        const { email, fullName, office, position, salaryGrade, step, salary, password, employeeNo } = req.body;
+        const { email, fullName, firstName, lastName, middleName, suffix, office, position, salaryGrade, step, salary, password, employeeNo } = req.body;
 
         if (!email || !fullName || !office || !position || !salaryGrade || !step || !password) {
             return res.status(400).json({ success: false, message: 'All fields are required' });
@@ -1496,29 +1523,15 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, message: 'Registration already pending IT approval' });
         }
 
-        let lastName = '', firstName = '', middleName = '';
-        if (fullName && fullName.includes(',')) {
-            const parts = fullName.split(',');
-            lastName = parts[0].trim();
-            const rem = (parts[1] || '').trim();
-            const nameParts = rem.split(/\s+/);
-            firstName = nameParts.shift() || '';
-            middleName = nameParts.join(' ');
-        } else if (fullName) {
-            const nameParts = fullName.split(/\s+/);
-            firstName = nameParts.shift() || '';
-            lastName = nameParts.pop() || '';
-            middleName = nameParts.join(' ');
-        }
-
         const pendingRegistration = {
             id: Date.now(),
             portal: 'sds',
             email,
             password: hashPasswordWithSalt(password),
-            firstName,
-            lastName,
-            middleName,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            middleName: middleName || '',
+            suffix: suffix || '',
             fullName: fullName || '',
             name: fullName || '',
             position,
@@ -1599,7 +1612,7 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
 // ========== AO REGISTRATION & LOGIN ==========
 app.post('/api/ao-register', apiRateLimiter, (req, res) => {
     try {
-        const { fullName, email, password, office, position, salaryGrade, step, employeeNo } = req.body;
+        const { fullName, firstName, lastName, middleName, suffix, email, password, office, position, salaryGrade, step, employeeNo } = req.body;
 
         if (!fullName || !email || !password || !office || !position || !step) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -1630,6 +1643,10 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
             portal: 'ao',
             fullName,
             name: fullName,
+            firstName: firstName || '',
+            lastName: lastName || '',
+            middleName: middleName || '',
+            suffix: suffix || '',
             email,
             password: hashPasswordWithSalt(password),
             office,
@@ -1811,6 +1828,12 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
 
         itUsers[userIndex].fullName = fullName;
         itUsers[userIndex].name = fullName;
+        // Keep segregated name fields in sync
+        const itNameParts = parseFullNameIntoParts(fullName);
+        itUsers[userIndex].firstName = itNameParts.firstName || '';
+        itUsers[userIndex].lastName = itNameParts.lastName || '';
+        itUsers[userIndex].middleName = itNameParts.middleName || '';
+        itUsers[userIndex].suffix = itNameParts.suffix || '';
         
         if (newPin) {
             itUsers[userIndex].password = hashPasswordWithSalt(newPin);
@@ -1857,6 +1880,12 @@ app.post('/api/update-employee-profile', (req, res) => {
         const oldName = users[userIndex].name;
         users[userIndex].name = fullName;
         users[userIndex].fullName = fullName;
+        // Keep segregated name fields in sync
+        const empNameParts = parseFullNameIntoParts(fullName);
+        users[userIndex].firstName = empNameParts.firstName || '';
+        users[userIndex].lastName = empNameParts.lastName || '';
+        users[userIndex].middleName = empNameParts.middleName || '';
+        users[userIndex].suffix = empNameParts.suffix || '';
         if (office) users[userIndex].office = office;
         if (position) users[userIndex].position = position;
         if (employeeNo) users[userIndex].employeeNo = employeeNo;
@@ -1942,6 +1971,12 @@ app.post('/api/update-ao-profile', (req, res) => {
 
         aoUsers[userIndex].name = fullName;
         aoUsers[userIndex].fullName = fullName;
+        // Keep segregated name fields in sync
+        const aoNameParts = parseFullNameIntoParts(fullName);
+        aoUsers[userIndex].firstName = aoNameParts.firstName || '';
+        aoUsers[userIndex].lastName = aoNameParts.lastName || '';
+        aoUsers[userIndex].middleName = aoNameParts.middleName || '';
+        aoUsers[userIndex].suffix = aoNameParts.suffix || '';
         if (school) aoUsers[userIndex].school = school;
         if (position) aoUsers[userIndex].position = position;
 
@@ -1994,6 +2029,12 @@ app.post('/api/update-hr-profile', (req, res) => {
 
         hrUsers[userIndex].name = fullName;
         hrUsers[userIndex].fullName = fullName;
+        // Keep segregated name fields in sync
+        const hrNameParts = parseFullNameIntoParts(fullName);
+        hrUsers[userIndex].firstName = hrNameParts.firstName || '';
+        hrUsers[userIndex].lastName = hrNameParts.lastName || '';
+        hrUsers[userIndex].middleName = hrNameParts.middleName || '';
+        hrUsers[userIndex].suffix = hrNameParts.suffix || '';
         if (office) hrUsers[userIndex].office = office;
         if (position) hrUsers[userIndex].position = position;
 
@@ -2046,6 +2087,12 @@ app.post('/api/update-asds-profile', (req, res) => {
 
         asdsUsers[userIndex].name = fullName;
         asdsUsers[userIndex].fullName = fullName;
+        // Keep segregated name fields in sync
+        const asdsNameParts = parseFullNameIntoParts(fullName);
+        asdsUsers[userIndex].firstName = asdsNameParts.firstName || '';
+        asdsUsers[userIndex].lastName = asdsNameParts.lastName || '';
+        asdsUsers[userIndex].middleName = asdsNameParts.middleName || '';
+        asdsUsers[userIndex].suffix = asdsNameParts.suffix || '';
         if (office) asdsUsers[userIndex].office = office;
         if (position) asdsUsers[userIndex].position = position;
 
@@ -2098,6 +2145,12 @@ app.post('/api/update-sds-profile', (req, res) => {
 
         sdsUsers[userIndex].name = fullName;
         sdsUsers[userIndex].fullName = fullName;
+        // Keep segregated name fields in sync
+        const sdsNameParts = parseFullNameIntoParts(fullName);
+        sdsUsers[userIndex].firstName = sdsNameParts.firstName || '';
+        sdsUsers[userIndex].lastName = sdsNameParts.lastName || '';
+        sdsUsers[userIndex].middleName = sdsNameParts.middleName || '';
+        sdsUsers[userIndex].suffix = sdsNameParts.suffix || '';
         if (office) sdsUsers[userIndex].office = office;
         if (position) sdsUsers[userIndex].position = position;
 
@@ -2350,6 +2403,10 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     password: registration.password,
                     fullName: registration.fullName,
                     name: registration.fullName,
+                    firstName: registration.firstName || '',
+                    lastName: registration.lastName || '',
+                    middleName: registration.middleName || '',
+                    suffix: registration.suffix || '',
                     office: registration.office,
                     position: registration.position,
                     salaryGrade: registration.salaryGrade,
@@ -2366,6 +2423,11 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     email: registration.email,
                     password: registration.password,
                     name: registration.name || registration.fullName,
+                    fullName: registration.fullName || registration.name,
+                    firstName: registration.firstName || '',
+                    lastName: registration.lastName || '',
+                    middleName: registration.middleName || '',
+                    suffix: registration.suffix || '',
                     office: registration.office,
                     position: registration.position,
                     salaryGrade: registration.salaryGrade,
@@ -2384,6 +2446,10 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     password: registration.password,
                     fullName: registration.fullName,
                     name: registration.fullName,
+                    firstName: registration.firstName || '',
+                    lastName: registration.lastName || '',
+                    middleName: registration.middleName || '',
+                    suffix: registration.suffix || '',
                     office: registration.office,
                     position: registration.position,
                     salaryGrade: registration.salaryGrade,
@@ -2403,6 +2469,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     firstName: registration.firstName || '',
                     lastName: registration.lastName || '',
                     middleName: registration.middleName || '',
+                    suffix: registration.suffix || '',
                     fullName: registration.fullName,
                     name: registration.name || registration.fullName,
                     position: registration.position,
