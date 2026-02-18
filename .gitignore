@@ -19,6 +19,7 @@ data/pending-registrations.json
 data/initial-credits.json
 data/activity-logs.json
 data/schools.json
+data/system-state.json
 data/register_requests.log
 
 # Root-level data file duplicate
