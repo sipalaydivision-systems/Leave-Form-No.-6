@@ -2137,6 +2137,58 @@
                     contentDiv.innerHTML = formHTML;
                     console.log('Opening modal');
                     openModal('finalLeaveFormModal');
+
+                    // Auto-populate SPL, FL, and CTO columns from API (matching SDS view)
+                    const empEmail = app.employeeEmail || app.email || '';
+                    if (empEmail) {
+                        // Fetch CTO records
+                        fetch('/api/cto-records?employeeId=' + encodeURIComponent(empEmail))
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success && data.records && data.records.length > 0) {
+                                    const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
+                                    const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
+                                    const balance = totalGranted - totalUsed;
+                                    const ctoCells = document.querySelectorAll('.cto-credit-cell');
+                                    if (ctoCells.length >= 3) {
+                                        const isCtoApp = app.leaveType === 'leave_others' || (app.leaveType || '').toLowerCase().includes('cto');
+                                        const ctoLessThisApp = isCtoApp ? (parseFloat(app.numDays) || 0) : 0;
+                                        ctoCells[0].textContent = totalGranted.toFixed(3);
+                                        ctoCells[1].textContent = ctoLessThisApp.toFixed(3);
+                                        ctoCells[2].textContent = (balance - ctoLessThisApp).toFixed(3);
+                                    }
+                                }
+                            }).catch(err => console.error('Error fetching CTO records:', err));
+
+                        // Fetch SPL and Force Leave credits
+                        fetch('/api/leave-credits?employeeId=' + encodeURIComponent(empEmail))
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success && data.credits) {
+                                    const c = data.credits;
+                                    const splEarned = c.splEarned || 3;
+                                    const splSpent = c.splSpent || 0;
+                                    const flEarned = c.forceLeaveEarned || 5;
+                                    const flSpent = c.forceLeaveSpent || 0;
+                                    const isSplApp = app.leaveType === 'leave_spl' || (app.leaveType || '').toLowerCase().includes('special privilege');
+                                    const splLessThisApp = isSplApp ? (parseFloat(app.numDays) || 0) : 0;
+                                    const isFlApp = app.leaveType === 'leave_mfl' || (app.leaveType || '').toLowerCase().includes('force');
+                                    const flLessThisApp = isFlApp ? (parseFloat(app.numDays) || 0) : 0;
+                                    const splCells = document.querySelectorAll('.spl-credit-cell');
+                                    if (splCells.length >= 3) {
+                                        splCells[0].textContent = splEarned.toFixed(3);
+                                        splCells[1].textContent = splLessThisApp.toFixed(3);
+                                        splCells[2].textContent = (splEarned - splSpent - splLessThisApp).toFixed(3);
+                                    }
+                                    const flCells = document.querySelectorAll('.fl-credit-cell');
+                                    if (flCells.length >= 3) {
+                                        flCells[0].textContent = flEarned.toFixed(3);
+                                        flCells[1].textContent = flLessThisApp.toFixed(3);
+                                        flCells[2].textContent = (flEarned - flSpent - flLessThisApp).toFixed(3);
+                                    }
+                                }
+                            }).catch(err => console.error('Error fetching leave credits:', err));
+                    }
                 } else {
                     contentDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #d32f2f;"><p>❌ Error loading application details: ' + result.error + '</p></div>';
                 }
@@ -2161,6 +2213,11 @@
             const hrApproval = getApprovalInfo('hr');
             const asdsApproval = getApprovalInfo('asds');
             const sdsApproval = getApprovalInfo('sds');
+
+            // Default signatory names (matching SDS portal view)
+            const aoSignatoryName = app.authorizedOfficerName || 'MA. LUISA B. CATIGAN';
+            const asdsSignatoryName = app.asdsOfficerName || 'DONDY A. DEPOSITARIO, PhD';
+            const sdsSignatoryName = app.sdsOfficerName || 'BERNIE L. LIBO-ON, PhD';
 
             // Calculate as of date (last day of previous month)
             const now = new Date();
@@ -2261,7 +2318,7 @@
                         <div style="text-align: center; margin-bottom: 0;">
                             <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
                                 <div style="flex-shrink: 0; margin-left: -70px;">
-                                    <img src="/sipalay_logo.png" alt="Division Logo" style="width: 60px; height: 60px;">
+                                    <img src="/deped logo.png" alt="DepEd Logo" style="width: 60px; height: 60px;">
                                 </div>
                                 <div style="font-size: 11px;">
                                     <p style="margin: 1px 0; font-style: italic;">Republic of the Philippines</p>
@@ -2492,6 +2549,9 @@
                                         <th></th>
                                         <th>Vacation Leave</th>
                                         <th>Sick Leave</th>
+                                        <th>Special Privilege Leave</th>
+                                        <th>Force Leave</th>
+                                        <th>CTO</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2499,23 +2559,32 @@
                                         <td>Total Earned</td>
                                         <td>${app.vlEarned || '0.000'}</td>
                                         <td>${app.slEarned || '0.000'}</td>
+                                        <td class="spl-credit-cell">${app.splEarned || '0.000'}</td>
+                                        <td class="fl-credit-cell">${app.flEarned || '0.000'}</td>
+                                        <td class="cto-credit-cell">${app.ctoEarned || '0.000'}</td>
                                     </tr>
                                     <tr>
                                         <td>Less this application</td>
                                         <td>${app.vlLess || '0'}</td>
                                         <td>${app.slLess || '0'}</td>
+                                        <td class="spl-credit-cell">${app.splLess || '0'}</td>
+                                        <td class="fl-credit-cell">${app.flLess || '0'}</td>
+                                        <td class="cto-credit-cell">${app.ctoLess || '0'}</td>
                                     </tr>
                                     <tr>
                                         <td>Balance</td>
                                         <td>${app.vlBalance || '0.000'}</td>
                                         <td>${app.slBalance || '0.000'}</td>
+                                        <td class="spl-credit-cell">${app.splBalance || '0.000'}</td>
+                                        <td class="fl-credit-cell">${app.flBalance || '0.000'}</td>
+                                        <td class="cto-credit-cell">${app.ctoBalance || '0.000'}</td>
                                     </tr>
                                 </tbody>
                             </table>
 
                             <div class="officer-signature">
                                 ${app.authorizedOfficerSignature && app.authorizedOfficerSignature.startsWith('data:image') ? `<img src="${app.authorizedOfficerSignature}" alt="AO Signature">` : '<div style="height: 30px;"></div>'}
-                                <div class="officer-name">${hrApproval ? hrApproval.approverName : ''}</div>
+                                <div class="officer-name">${hrApproval ? hrApproval.approverName : aoSignatoryName}</div>
                                 <div class="officer-title">Administrative Officer IV-Personnel Section</div>
                                 ${hrApproval ? `<div style="font-size: 8px; margin-top: 5px;">Certified: ${new Date(hrApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
@@ -2538,7 +2607,7 @@
 
                             <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
                                 ${app.asdsOfficerSignature && app.asdsOfficerSignature.startsWith('data:image') ? `<img src="${app.asdsOfficerSignature}" alt="ASDS Signature">` : '<div style="height: 30px;"></div>'}
-                                <div class="officer-name" style="color: #003366;">${asdsApproval ? asdsApproval.approverName : ''}</div>
+                                <div class="officer-name" style="color: #003366;">${asdsApproval ? asdsApproval.approverName : asdsSignatoryName}</div>
                                 <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
                                 ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
@@ -2570,7 +2639,8 @@
                     <!-- Final Signature -->
                     <div class="final-signature">
                         ${app.sdsOfficerSignature && app.sdsOfficerSignature.startsWith('data:image') ? `<img src="${app.sdsOfficerSignature}" alt="SDS Signature">` : '<div style="height: 40px;"></div>'}
-                        <div class="final-officer-name">${sdsApproval ? sdsApproval.approverName : ''}</div>
+                        <div class="final-officer-name">${sdsApproval ? sdsApproval.approverName : sdsSignatoryName}</div>
+                        <div class="final-officer-title">Assistant Schools Division Superintendent</div>
                         <div class="final-officer-title">Officer-In-Charge</div>
                         <div class="final-officer-title">Office of the Schools Division Superintendent</div>
                         ${sdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Approved: ${new Date(sdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}

@@ -808,7 +808,7 @@
                         const used = parseFloat(cto.daysUsed) || 0;
                         
                         if (type === 'ADD') {
-                            runningBalance += granted;
+                            runningBalance += (granted - used);
                         } else {
                             runningBalance -= used;
                         }
@@ -825,7 +825,7 @@
                                 <td style="color: ${type === 'ADD' ? '#2e7d32' : '#c62828'}; font-weight: 600; text-align: left;">${periodDisplay}</td>
                                 <td style="text-align: left; font-size: 11px;">${soDetails}</td>
                                 <td style="text-align: center; font-weight: 600;">${type === 'ADD' ? granted : ''}</td>
-                                <td style="text-align: center; font-weight: 600; color: #c62828;">${type === 'LESS' ? used : ''}</td>
+                                <td style="text-align: center; font-weight: 600; color: #c62828;">${(type === 'LESS' || (type === 'ADD' && used > 0)) ? used : ''}</td>
                                 <td style="text-align: center; font-weight: 600;">${runningBalance}</td>
                                 <td style="text-align: center;">${viewBtn}</td>
                             </tr>
