@@ -1,4 +1,4 @@
-// CS Form No. 6 - Application for Leave Server
+﻿// CS Form No. 6 - Application for Leave Server
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -249,6 +249,7 @@ const ctoRecordsFile = path.join(dataDir, 'cto-records.json');
 const schoolsFile = path.join(dataDir, 'schools.json');
 const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
 const activityLogsFile = path.join(dataDir, 'activity-logs.json');
+const systemStateFile = path.join(dataDir, 'system-state.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
@@ -326,7 +327,7 @@ function getClientIp(req) {
            'unknown';
 }
 
-// Ensure all data files exist — seeds from bundled defaults on first deploy
+// Ensure all data files exist â€” seeds from bundled defaults on first deploy
 const defaultsDir = path.join(__dirname, 'data', 'defaults');
 
 function ensureFile(filepath, defaultContent = '[]') {
@@ -334,7 +335,7 @@ function ensureFile(filepath, defaultContent = '[]') {
     const defaultFile = path.join(defaultsDir, filename);
     
     if (!fs.existsSync(filepath)) {
-        // File doesn't exist — seed from bundled defaults (useful for Railway Volume first deploy)
+        // File doesn't exist â€” seed from bundled defaults (useful for Railway Volume first deploy)
         if (fs.existsSync(defaultFile)) {
             const content = fs.readFileSync(defaultFile, 'utf8');
             fs.writeFileSync(filepath, content);
@@ -344,7 +345,7 @@ function ensureFile(filepath, defaultContent = '[]') {
             console.log(`[DATA] Created empty ${filename}`);
         }
     } else {
-        // File exists — but if it's empty/just "[]" and defaults have real data, reseed
+        // File exists â€” but if it's empty/just "[]" and defaults have real data, reseed
         try {
             const existing = fs.readFileSync(filepath, 'utf8').trim();
             const existingData = JSON.parse(existing);
@@ -411,6 +412,182 @@ function readJSONArray(filepath) {
 function writeJSON(filepath, data) {
     fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
 }
+
+// ========== MONTHLY LEAVE CREDIT ACCRUAL (1.25/month) ==========
+/**
+ * At the end of every month, each employee earns 1.25 days of Vacation Leave
+ * and 1.25 days of Sick Leave (per CSC rules). This function checks on server
+ * startup and every 24 hours whether any months have elapsed since the last
+ * accrual, then adds the appropriate credits to every employee's leave card.
+ */
+function runMonthlyAccrual() {
+    try {
+        // Read or initialize system state
+        let systemState = {};
+        if (fs.existsSync(systemStateFile)) {
+            try {
+                systemState = JSON.parse(fs.readFileSync(systemStateFile, 'utf8'));
+            } catch (e) {
+                systemState = {};
+            }
+        }
+
+        const now = new Date();
+        // We accrue for fully completed months. The "last accrued" month
+        // tracks the most recent month-end we have already credited.
+        // Format: "YYYY-MM" (e.g. "2026-01" means Jan 2026 was already accrued)
+        const lastAccruedMonth = systemState.lastAccruedMonth || null;
+
+        // Determine the last fully completed month (previous month)
+        const lastCompletedYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        const lastCompletedMonth = now.getMonth() === 0 ? 12 : now.getMonth(); // 1-based
+        const lastCompletedKey = `${lastCompletedYear}-${String(lastCompletedMonth).padStart(2, '0')}`;
+
+        if (lastAccruedMonth && lastAccruedMonth >= lastCompletedKey) {
+            // Already up to date
+            console.log(`[ACCRUAL] Already accrued through ${lastAccruedMonth}. Current completed month: ${lastCompletedKey}. No action needed.`);
+            return;
+        }
+
+        // Calculate how many months to accrue
+        let monthsToAccrue = 0;
+        if (!lastAccruedMonth) {
+            // First time running - only accrue 1 month (the last completed month)
+            // to avoid retroactively adding credits for unknown past months
+            monthsToAccrue = 1;
+            console.log(`[ACCRUAL] First-time accrual. Will credit 1 month (${lastCompletedKey}).`);
+        } else {
+            // Parse last accrued month
+            const parts = lastAccruedMonth.split('-').map(Number);
+            const lastYear = parts[0];
+            const lastMonth = parts[1];
+            monthsToAccrue = (lastCompletedYear - lastYear) * 12 + (lastCompletedMonth - lastMonth);
+            if (monthsToAccrue <= 0) return;
+            console.log(`[ACCRUAL] ${monthsToAccrue} month(s) to accrue (${lastAccruedMonth} -> ${lastCompletedKey}).`);
+        }
+
+        const accrualPerMonth = 1.25;
+        const totalAccrual = accrualPerMonth * monthsToAccrue;
+
+        // Read all leave cards and add credits
+        ensureFile(leavecardsFile);
+        const leavecards = readJSON(leavecardsFile);
+        if (leavecards.length === 0) {
+            console.log('[ACCRUAL] No leave cards found. Skipping accrual but saving state.');
+            systemState.lastAccruedMonth = lastCompletedKey;
+            systemState.lastAccrualRun = now.toISOString();
+            fs.writeFileSync(systemStateFile, JSON.stringify(systemState, null, 2));
+            return;
+        }
+
+        let updatedCount = 0;
+        leavecards.forEach(lc => {
+            // Add to vacationLeaveEarned and sickLeaveEarned
+            const prevVL = parseFloat(lc.vacationLeaveEarned) || parseFloat(lc.vl) || 0;
+            const prevSL = parseFloat(lc.sickLeaveEarned) || parseFloat(lc.sl) || 0;
+
+            lc.vacationLeaveEarned = +(prevVL + totalAccrual).toFixed(3);
+            lc.sickLeaveEarned = +(prevSL + totalAccrual).toFixed(3);
+
+            // Also update the shorthand fields for consistency
+            lc.vl = lc.vacationLeaveEarned;
+            lc.sl = lc.sickLeaveEarned;
+
+            // Add transaction entries so accrual shows as "ADD" rows in leave card tables
+            if (!lc.transactions) lc.transactions = [];
+
+            // Get the current running balance from last transaction, or use earned values
+            let runningVL = prevVL;
+            let runningSL = prevSL;
+            if (lc.transactions.length > 0) {
+                const lastTx = lc.transactions[lc.transactions.length - 1];
+                runningVL = parseFloat(lastTx.vlBalance) || prevVL;
+                runningSL = parseFloat(lastTx.slBalance) || prevSL;
+            }
+
+            // Add one transaction per accrued month
+            for (let m = 1; m <= monthsToAccrue; m++) {
+                // Calculate which month this entry is for
+                const parts = (lastAccruedMonth || lastCompletedKey).split('-').map(Number);
+                let entryYear = parts[0];
+                let entryMonth = parts[1] + (lastAccruedMonth ? m : m - 1);
+                while (entryMonth > 12) { entryMonth -= 12; entryYear++; }
+
+                // Running balance after this month's accrual
+                runningVL = +(runningVL + accrualPerMonth).toFixed(3);
+                runningSL = +(runningSL + accrualPerMonth).toFixed(3);
+
+                const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+                const periodLabel = `${monthNames[entryMonth]} ${entryYear} (Monthly Accrual)`;
+
+                lc.transactions.push({
+                    type: 'ADD',
+                    periodCovered: periodLabel,
+                    vlEarned: accrualPerMonth,
+                    slEarned: accrualPerMonth,
+                    vlSpent: 0,
+                    slSpent: 0,
+                    forcedLeave: 0,
+                    splUsed: 0,
+                    vlBalance: runningVL,
+                    slBalance: runningSL,
+                    total: +(runningVL + runningSL).toFixed(3),
+                    source: 'system-accrual',
+                    date: now.toISOString()
+                });
+            }
+
+            lc.updatedAt = now.toISOString();
+            lc.lastAccrualDate = lastCompletedKey;
+            updatedCount++;
+        });
+
+        writeJSON(leavecardsFile, leavecards);
+
+        // Save state
+        systemState.lastAccruedMonth = lastCompletedKey;
+        systemState.lastAccrualRun = now.toISOString();
+        systemState.lastAccrualMonths = monthsToAccrue;
+        systemState.lastAccrualEmployees = updatedCount;
+        fs.writeFileSync(systemStateFile, JSON.stringify(systemState, null, 2));
+
+        console.log(`[ACCRUAL] Added ${totalAccrual.toFixed(3)} days (${monthsToAccrue} month(s) x 1.25) to VL and SL for ${updatedCount} employee(s).`);
+
+        // Log activity
+        try {
+            ensureFile(activityLogsFile);
+            const logs = readJSON(activityLogsFile);
+            logs.push({
+                type: 'MONTHLY_ACCRUAL',
+                timestamp: now.toISOString(),
+                details: {
+                    monthsAccrued: monthsToAccrue,
+                    totalAccrual: totalAccrual,
+                    employeesUpdated: updatedCount,
+                    period: (lastAccruedMonth || 'initial') + ' -> ' + lastCompletedKey
+                }
+            });
+            writeJSON(activityLogsFile, logs);
+        } catch (logErr) {
+            console.error('[ACCRUAL] Could not log activity:', logErr.message);
+        }
+
+    } catch (error) {
+        console.error('[ACCRUAL] Error running monthly accrual:', error.message);
+    }
+}
+
+// Run accrual on startup (after a short delay to let files initialize)
+setTimeout(() => {
+    runMonthlyAccrual();
+}, 5000);
+
+// Run accrual check every 24 hours
+setInterval(() => {
+    console.log('[ACCRUAL] Running daily accrual check...');
+    runMonthlyAccrual();
+}, 24 * 60 * 60 * 1000);
 
 // Hash password with salt for new registrations
 function hashPasswordWithSalt(password) {
@@ -721,7 +898,7 @@ function generateLoginFormEmail(userEmail, userName, portal, temporaryPassword =
                     
                     <div class="credentials">
                         <p><strong>Email:</strong> ${userEmail}</p>
-                        ${temporaryPassword ? `<p><strong>Temporary Password:</strong> ${temporaryPassword}</p><p style="color: #d9534f; margin-top: 10px;"><em>⚠️ Please change this password on your first login for security reasons.</em></p>` : '<p><strong>Password:</strong> Use the password you registered with</p>'}
+                        ${temporaryPassword ? `<p><strong>Temporary Password:</strong> ${temporaryPassword}</p><p style="color: #d9534f; margin-top: 10px;"><em>âš ï¸ Please change this password on your first login for security reasons.</em></p>` : '<p><strong>Password:</strong> Use the password you registered with</p>'}
                     </div>
                     
                     <p>To access the system, click the button below:</p>
@@ -2719,7 +2896,7 @@ app.post('/api/submit-leave', (req, res) => {
         const applicationId = generateApplicationId(applications);
         
         // ALL applications go to AO first, regardless of whether they're school-based or not
-        // Unified workflow: AO → HR → ASDS → SDS
+        // Unified workflow: AO â†’ HR â†’ ASDS â†’ SDS
         const newApplication = {
             id: applicationId,
             ...applicationData,
@@ -4532,9 +4709,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('  PID: ' + process.pid);
     console.log('  Data Dir: ' + dataDir);
     if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-        console.log('  Storage: ✅ Railway Volume (data persists across deploys)');
+        console.log('  Storage: âœ… Railway Volume (data persists across deploys)');
     } else {
-        console.log('  Storage: ⚠️  Local filesystem (data lost on redeploy!)');
+        console.log('  Storage: âš ï¸  Local filesystem (data lost on redeploy!)');
     }
     console.log('==========================================================');
     console.log('');
@@ -4555,7 +4732,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
                     fixedCount++;
                 }
             });
-            // Always check if file needs format normalization (object → array)
+            // Always check if file needs format normalization (object â†’ array)
             const needsNormalize = !Array.isArray(appsData);
             if (fixedCount > 0 || needsNormalize) {
                 fs.writeFileSync(appsPath, JSON.stringify(apps, null, 2));
@@ -4592,5 +4769,5 @@ server.setTimeout(0);
 
 // Periodic heartbeat
 setInterval(() => {
-    console.log('✓ Server still running - ' + new Date().toISOString());
+    console.log('âœ“ Server still running - ' + new Date().toISOString());
 }, 60000);
