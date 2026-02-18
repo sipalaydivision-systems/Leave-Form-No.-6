@@ -4931,11 +4931,13 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), migrationUpload.array('f
         const errors = [];
 
         for (const file of req.files) {
-            const extracted = extractCreditsFromBuffer(file.buffer, file.originalname);
+            // Multer decodes filenames as latin1; re-decode as UTF-8 to handle Ñ, accents, etc.
+            const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+            const extracted = extractCreditsFromBuffer(file.buffer, originalName);
             if (extracted) {
                 results.push(extracted);
             } else {
-                errors.push({ file: file.originalname, error: 'Could not parse VL/SL balance from file' });
+                errors.push({ file: originalName, error: 'Could not parse VL/SL balance from file' });
             }
         }
 
