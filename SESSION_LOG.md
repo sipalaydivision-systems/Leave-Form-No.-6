@@ -153,4 +153,52 @@
 
 ---
 
+## Session 6 — SDO Sipalay Account Reset & Segregated Name Fields
+
+**Date**: 2026-02-18  
+**Commits**: `efa328f`
+
+### Accomplished
+1. **Cleared All User Accounts**: Deleted all existing accounts by resetting `data/users.json` to empty array `[]`. This allows SDO Sipalay employees to start fresh with new registrations.
+
+2. **Segregated Name Fields in Registration Form**: Replaced the single "Full Name" field with individual fields:
+   - **Last Name** (required) — e.g., "DELA CRUZ"
+   - **First Name** (required) — e.g., "JUAN"
+   - **Middle Name** (optional) — e.g., "SANTOS"
+   - **Suffix** (optional dropdown) — Options: Jr., Sr., II, III, IV, V, or None
+   - Form is now 2-column grid layout for better UX
+   - Users don't need to manually format "LastName, FirstName MiddleName"
+
+3. **Updated Registration Backend to Store Individual Fields**:
+   - Modified `/api/register` endpoint in server.js to accept and validate `firstName` and `lastName` (required)
+   - All four name fields (`firstName`, `lastName`, `middleName`, `suffix`) are now stored in pending registrations
+   - When approved, these fields are stored in the user record
+
+4. **Enhanced Leave Card Auto-Assignment with Suffix Support**:
+   - Leave card matching now considers the complete name including suffix
+   - When a leave card matches by name, the system updates it with individual name fields from the registration
+   - If a user registers with suffix "Jr.", the leave card is updated with `suffix: "Jr."`
+   - Leave card structure now includes: `firstName`, `lastName`, `middleName`, `suffix` (in addition to the full `name` field)
+   - Prevents duplicate assignments and ensures suffix information is captured
+
+### Technical Implementation
+- **File**: `public/login.html` — registration form with segregated name inputs
+- **File**: `server.js` — `/api/register` endpoint validates firstName/lastName, stores all four name fields
+- **File**: `server.js` — leave card auto-assignment logic updated to store and match suffix
+- **Form Layout**: 2x2 grid with lastName+firstName row and middleName+suffix row
+- **Data Flow**: HTML form collects 4 fields → constructs fullName → sends all 4 fields + fullName to `/api/register`
+
+### User Experience Improvements
+- Clearer form by separating name components
+- Automatic handling of name formatting (no manual "LastName, FirstName" format needed)
+- Suffix properly captured and stored for leave card integrity
+- When registering "Juan Dela Cruz Jr.", the form automatically generates "DELA CRUZ, JUAN  Jr." for the fullName field
+
+### Deployed to Production
+- Commit `efa328f` pushed to `origin/main`
+- Railway will auto-deploy within ~10-30 seconds
+- Users can now register fresh with segregated name fields and proper suffix support
+
+---
+
 *Last updated: 2026-02-18*
