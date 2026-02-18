@@ -1966,17 +1966,17 @@
                 const response = await fetch(`/api/leave-credits?employeeId=${currentApplicantEmail}`);
                 const data = await response.json();
                 
-                // Get employee info from credits data or current applicant data
-                const empName = credits.employeeName || currentApplicantName || 'N/A';
-                const empPosition = credits.employeePosition || 'N/A';
-                const empNo = credits.employeeNo || 'N/A';
-                const empSchool = credits.employeeOffice || 'N/A';
-                
                 // Get leave card data
                 let credits = { vl: 0, sl: 0, spl: 0, others: 0 };
                 if (data.success && data.credits) {
                     credits = data.credits;
                 }
+                
+                // Get employee info from credits data or current applicant data
+                const empName = credits.employeeName || currentApplicantName || 'N/A';
+                const empPosition = credits.employeePosition || 'N/A';
+                const empNo = credits.employeeNo || 'N/A';
+                const empSchool = credits.employeeOffice || 'N/A';
                 
                 const today = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
                 
