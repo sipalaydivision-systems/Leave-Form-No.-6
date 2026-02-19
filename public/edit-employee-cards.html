@@ -609,6 +609,7 @@
         // Get employee email from URL params
         const urlParams = new URLSearchParams(window.location.search);
         employeeEmail = urlParams.get('email') || '';
+        const employeeName = urlParams.get('name') || '';
 
         // Set current date
         document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
@@ -646,7 +647,10 @@
                 const result = await response.json();
                 
                 if (result.success && result.employees) {
-                    employeeData = result.employees.find(e => e.email === employeeEmail);
+                    // Try matching by email first, then by name (for unlinked Excel-migrated cards)
+                    employeeData = result.employees.find(e => e.email === employeeEmail)
+                        || result.employees.find(e => (e.name || '').toUpperCase() === employeeEmail.toUpperCase())
+                        || (employeeName ? result.employees.find(e => (e.name || '').toUpperCase() === employeeName.toUpperCase()) : null);
                     if (employeeData) {
                         const name = employeeData.name || employeeData.fullName || 'N/A';
                         const position = employeeData.position || 'N/A';
@@ -678,7 +682,7 @@
 
         async function loadLeaveCardData() {
             try {
-                const response = await fetch(`/api/leave-credits?employeeId=${employeeEmail}`);
+                const response = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(employeeEmail)}`);
                 const data = await response.json();
 
                 const tbody = document.getElementById('leaveHistoryBody');
@@ -837,7 +841,7 @@
 
         async function loadCTOCardData() {
             try {
-                const response = await fetch(`/api/cto-records?employeeId=${employeeEmail}`);
+                const response = await fetch(`/api/cto-records?employeeId=${encodeURIComponent(employeeEmail)}`);
                 const data = await response.json();
 
                 const tbody = document.getElementById('ctoHistoryBody');

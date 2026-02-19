@@ -905,12 +905,28 @@
         async function loadAllEmployees() {
             try {
                 const response = await fetch('/api/all-employees');
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    console.error('Failed to load employees:', response.status, errData.error || '');
+                    allEmployees = [];
+                    // Show error in the search results area
+                    const resultsDiv = document.getElementById('employeeSearchResults');
+                    resultsDiv.innerHTML = `<p style="color: #c62828; text-align: center; padding: 20px;">⚠️ Failed to load employees (${errData.error || 'Error ' + response.status}). Try refreshing the page.</p>`;
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
                 const result = await response.json();
                 if (result.success) {
                     allEmployees = result.employees || [];
+                    console.log('Loaded', allEmployees.length, 'employees');
+                } else {
+                    console.error('Load employees failed:', result.error);
                 }
             } catch (error) {
                 console.error('Error loading employees:', error);
+                const resultsDiv = document.getElementById('employeeSearchResults');
+                resultsDiv.innerHTML = '<p style="color: #c62828; text-align: center; padding: 20px;">⚠️ Network error loading employees. Check your connection.</p>';
+                resultsDiv.style.display = 'block';
             }
         }
         
@@ -958,14 +974,21 @@
             
             employees.forEach(emp => {
                 const name = emp.name || emp.fullName || 'N/A';
-                const email = emp.email || 'N/A';
+                const email = emp.email || '';
                 const position = emp.position || 'N/A';
+                // For unlinked leave cards (no email), use the name as the identifier
+                const identifier = email || name;
+                const sourceBadge = emp.source === 'leavecard-unlinked' 
+                    ? ' <span style="font-size:10px; background:#ff9800; color:#fff; padding:2px 6px; border-radius:3px;">Excel Import</span>'
+                    : emp.source === 'leavecard'
+                    ? ' <span style="font-size:10px; background:#2196f3; color:#fff; padding:2px 6px; border-radius:3px;">Leave Card</span>'
+                    : '';
                 html += `
                     <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 10px; color: #333;">${name}</td>
+                        <td style="padding: 10px; color: #333;">${name}${sourceBadge}</td>
                         <td style="padding: 10px; color: #666;">${position}</td>
                         <td style="padding: 10px; text-align: center;">
-                            <button onclick="openEmployeeCards('${email}', '${name.replace(/'/g, "\\'")}')" 
+                            <button onclick="openEmployeeCards('${identifier.replace(/'/g, "\\'")}', '${name.replace(/'/g, "\\'")}')" 
                                 style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                 📋 Edit Leave Cards
                             </button>
@@ -980,8 +1003,8 @@
         }
         
         function openEmployeeCards(email, name) {
-            // Navigate to the dedicated employee cards page
-            window.location.href = '/edit-employee-cards.html?email=' + encodeURIComponent(email);
+            // Navigate to the dedicated employee cards page — pass both email and name
+            window.location.href = '/edit-employee-cards.html?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name);
         }
 
         async function loadApplications() {

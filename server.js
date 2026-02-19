@@ -3819,19 +3819,49 @@ app.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (
 });
 
 // Get all registered employees (for AO to manage their cards)
+// Merges registered user accounts with leave card holders so that
+// employees from Excel migration also appear even if they haven't
+// registered an account yet.
 app.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
-        // Return only necessary fields for privacy
-        const employees = users.map(user => ({
-            id: user.id,
-            email: user.email,
-            name: user.name || user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            fullName: user.fullName || user.name,
-            position: user.position || 'N/A',
-            office: user.office || user.school || 'N/A',
-            employeeNo: user.employeeNo || 'N/A'
-        }));
+        const leavecards = readJSON(leavecardsFile);
+
+        // Start with registered users
+        const employeeMap = new Map();
+        users.forEach(user => {
+            const email = (user.email || '').toLowerCase();
+            employeeMap.set(email, {
+                id: user.id,
+                email: user.email,
+                name: user.name || user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                fullName: user.fullName || user.name,
+                position: user.position || 'N/A',
+                office: user.office || user.school || 'N/A',
+                employeeNo: user.employeeNo || 'N/A',
+                source: 'registered'
+            });
+        });
+
+        // Add leave card holders that aren't already in the map
+        leavecards.forEach(lc => {
+            const email = (lc.email || '').toLowerCase();
+            const key = email || `leavecard-${lc.name}`;
+            if (!employeeMap.has(key)) {
+                employeeMap.set(key, {
+                    id: lc.employeeId || lc.email || lc.name,
+                    email: lc.email || '',
+                    name: lc.name || `${lc.firstName || ''} ${lc.lastName || ''}`.trim() || 'Unknown',
+                    fullName: lc.name || `${lc.firstName || ''} ${lc.lastName || ''}`.trim(),
+                    position: 'N/A',
+                    office: 'N/A',
+                    employeeNo: lc.employeeNo || 'N/A',
+                    source: lc.email ? 'leavecard' : 'leavecard-unlinked'
+                });
+            }
+        });
+
+        const employees = Array.from(employeeMap.values());
         res.json({ success: true, employees: employees });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -3875,8 +3905,17 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         }
         
         const leavecards = readJSON(leavecardsFile);
-        // Find all records for this employee to get the latest one
-        const employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
+        // Find all records for this employee — by email, employeeId, or name
+        let employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
+        
+        // Fallback: if not found by email, try matching by name (for unlinked Excel-migrated cards)
+        if (employeeRecords.length === 0) {
+            const normalizedId = employeeId.toUpperCase().replace(/\s+/g, ' ').trim();
+            employeeRecords = leavecards.filter(lc => {
+                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                return lcName === normalizedId;
+            });
+        }
         
         if (employeeRecords.length === 0) {
             // Return default leave credits (0 until monthly accrual adds credits)
@@ -4332,8 +4371,17 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
         // Use email as primary lookup key since that's what we have from applications
         console.log(`[UPDATE LEAVE] Received: email=${employeeEmail}, applicationId=${applicationId}`);
         
-        // Find existing leave card by email
+        // Find existing leave card by email or name
         let employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
+        
+        // Fallback: match by name if no email match (for unlinked Excel-migrated cards)
+        if (!employeeLeave && employeeEmail) {
+            const normalizedId = employeeEmail.toUpperCase().replace(/\s+/g, ' ').trim();
+            employeeLeave = leavecards.find(lc => {
+                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                return lcName === normalizedId;
+            });
+        }
         
         console.log(`[UPDATE LEAVE] Found existing record: ${!!employeeLeave}`);
         
