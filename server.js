@@ -1486,7 +1486,6 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
         res.json({ 
             success: true,
             token,
-            mustChangePassword: user.mustChangePassword || false,
             user: { 
                 id: user.id, 
                 email: user.email, 
@@ -1505,47 +1504,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
     }
 });
 
-// Change password endpoint (for temp password users)
-app.post('/api/change-password', requireAuth(), (req, res) => {
-    try {
-        const { currentPassword, newPassword } = req.body;
-        // SECURITY: Use session email instead of trusting client-provided email
-        const email = req.session.email;
-        
-        if (!email || !currentPassword || !newPassword) {
-            return res.status(400).json({ success: false, error: 'All fields are required' });
-        }
-        
-        const passwordValidation = validatePortalPassword(newPassword);
-        if (!passwordValidation.valid) {
-            return res.status(400).json({ success: false, error: passwordValidation.error });
-        }
-        
-        let users = readJSON(usersFile);
-        const userIdx = users.findIndex(u => u.email === email && verifyPassword(currentPassword, u.password));
-        
-        if (userIdx === -1) {
-            return res.status(401).json({ success: false, error: 'Current password is incorrect' });
-        }
-        
-        users[userIdx].password = hashPasswordWithSalt(newPassword);
-        users[userIdx].mustChangePassword = false;
-        users[userIdx].passwordChangedAt = new Date().toISOString();
-        writeJSON(usersFile, users);
-        
-        logActivity('PASSWORD_CHANGED', 'employee', {
-            userEmail: email,
-            ip: getClientIp(req),
-            userAgent: req.get('user-agent')
-        });
-        
-        res.json({ success: true, message: 'Password changed successfully!' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
-    }
-});
-
-// IT Admin: Reset any user's password (without knowing the old one)
+// IT Admin: Reset any user's password (forgot password - user asks IT staff for help)
 app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
     try {
         const { email, newPassword, portal } = req.body;
@@ -1585,7 +1544,6 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
             const userIdx = users.findIndex(u => (u.email || '').toLowerCase() === email.toLowerCase());
             if (userIdx !== -1) {
                 users[userIdx].password = hashedPassword;
-                users[userIdx].mustChangePassword = true;
                 users[userIdx].passwordResetAt = new Date().toISOString();
                 users[userIdx].passwordResetBy = resetBy;
                 writeJSON(file, users);
