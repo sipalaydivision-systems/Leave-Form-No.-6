@@ -125,7 +125,11 @@ function isValidEmail(email) {
 }
 
 // SECURITY: Check if email is already registered in ANY portal (prevents cross-portal abuse)
-function isEmailRegisteredInAnyPortal(email, excludePortal) {
+// excludePortals can be a string (single portal) or array of portal names to skip.
+// Policy: Employee and admin portals can share the same email (all admins ARE employees).
+//         Admin-to-admin cross-registration is still blocked (can't be both AO and HR).
+function isEmailRegisteredInAnyPortal(email, excludePortals) {
+    const skipSet = new Set(Array.isArray(excludePortals) ? excludePortals : [excludePortals]);
     const portalFiles = [
         { name: 'user', file: usersFile },
         { name: 'ao', file: aoUsersFile },
@@ -135,7 +139,7 @@ function isEmailRegisteredInAnyPortal(email, excludePortal) {
         { name: 'it', file: itUsersFile }
     ];
     for (const portal of portalFiles) {
-        if (portal.name === excludePortal) continue;
+        if (skipSet.has(portal.name)) continue;
         const users = readJSON(portal.file);
         if (users.find(u => (u.email || '').toLowerCase() === email.toLowerCase())) {
             return portal.name.toUpperCase();
@@ -1385,7 +1389,9 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
         }
 
         // SECURITY: Check cross-portal uniqueness
-        const existingPortal = isEmailRegisteredInAnyPortal(email, 'user');
+        // Employee registration allows emails that exist in admin portals (all admins are employees)
+        // Only block if already registered as employee
+        const existingPortal = isEmailRegisteredInAnyPortal(email, ['user', 'ao', 'hr', 'asds', 'sds', 'it']);
         if (existingPortal) {
             return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
         }
@@ -1610,8 +1616,8 @@ app.post('/api/hr-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'HR account already exists' });
         }
 
-        // SECURITY: Check cross-portal uniqueness
-        const existingPortal = isEmailRegisteredInAnyPortal(email, 'hr');
+        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
+        const existingPortal = isEmailRegisteredInAnyPortal(email, ['hr', 'user']);
         if (existingPortal) {
             return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
         }
@@ -1739,8 +1745,8 @@ app.post('/api/asds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'ASDS account already exists' });
         }
 
-        // SECURITY: Check cross-portal uniqueness
-        const existingPortal = isEmailRegisteredInAnyPortal(email, 'asds');
+        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
+        const existingPortal = isEmailRegisteredInAnyPortal(email, ['asds', 'user']);
         if (existingPortal) {
             return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
         }
@@ -1859,8 +1865,8 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }
 
-        // SECURITY: Check cross-portal uniqueness
-        const existingPortal = isEmailRegisteredInAnyPortal(email, 'sds');
+        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
+        const existingPortal = isEmailRegisteredInAnyPortal(email, ['sds', 'user']);
         if (existingPortal) {
             return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
         }
@@ -1979,8 +1985,8 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Email already registered' });
         }
 
-        // SECURITY: Check cross-portal uniqueness
-        const existingPortal = isEmailRegisteredInAnyPortal(email, 'ao');
+        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
+        const existingPortal = isEmailRegisteredInAnyPortal(email, ['ao', 'user']);
         if (existingPortal) {
             return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
         }
