@@ -177,7 +177,7 @@
 
             <div class="file-input-wrapper">
                 <input type="file" id="migrationFiles" accept=".xlsx,.xls" multiple />
-                <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 4px;">Select multiple files at once (up to 200)</p>
+                <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 4px;">Select multiple files at once (up to 500)</p>
             </div>
 
             <div style="margin: 12px 0; display: flex; align-items: center; gap: 12px;">
@@ -507,6 +507,10 @@
                 showStatus('⚠️ Please select Excel files first', 'error');
                 return;
             }
+            if (fileInput.files.length > 500) {
+                showStatus(`⚠️ Too many files selected (${fileInput.files.length}). Maximum is 500 per upload. Please split into batches.`, 'error');
+                return;
+            }
 
             const formData = new FormData();
             for (const file of fileInput.files) {
@@ -584,6 +588,10 @@
             const fileInput = document.getElementById('migrationFiles');
             if (!fileInput.files || fileInput.files.length === 0) {
                 showStatus('⚠️ Please select Excel files and preview first', 'error');
+                return;
+            }
+            if (fileInput.files.length > 500) {
+                showStatus(`⚠️ Too many files (${fileInput.files.length}). Maximum is 500 per upload.`, 'error');
                 return;
             }
 

@@ -5418,7 +5418,7 @@ app.post('/api/data/import', requireAuth('it'), (req, res) => {
 // Multer config: store uploaded files in memory (max 10MB per file, max 200 files)
 const migrationUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024, files: 200 },
+    limits: { fileSize: 10 * 1024 * 1024, files: 500 },
     fileFilter: (req, file, cb) => {
         const ext = path.extname(file.originalname).toLowerCase();
         if (['.xlsx', '.xls'].includes(ext)) cb(null, true);
@@ -5565,7 +5565,20 @@ function findHeaderRow(data) {
  *   mode=import   — parse & write to leavecards.json
  *   overwrite=true — if a card with same name already exists, overwrite it
  */
-app.post('/api/migrate-leave-cards', requireAuth('it'), migrationUpload.array('files', 200), (req, res) => {
+app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
+    migrationUpload.array('files', 500)(req, res, (err) => {
+        if (err) {
+            if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+                return res.status(400).json({ success: false, error: `Too many files. Maximum is 500 per upload. You sent ${req.headers['x-file-count'] || 'more than 500'}.` });
+            }
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ success: false, error: 'One or more files exceed the 10MB size limit.' });
+            }
+            return res.status(400).json({ success: false, error: err.message || 'File upload error' });
+        }
+        next();
+    });
+}, (req, res) => {
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ success: false, error: 'No Excel files uploaded' });
