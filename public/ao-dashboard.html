@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administrative Officer Dashboard - Leave Management</title>
+    <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <style>
         * {
@@ -2188,6 +2189,13 @@
                     <label>No. of Days Used</label>
                     <input type="number" id="edit_cto_used" placeholder="Days" step="0.5" min="0" value="0">
                 </div>
+                <div class="form-group">
+                    <label>Special Order Image (optional)</label>
+                    <input type="file" id="edit_cto_so_image" accept="image/*" onchange="previewCTOSOImage(this)" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;">
+                    <div id="edit_cto_so_image_preview" style="margin-top: 8px; display: none;">
+                        <img id="edit_cto_so_image_img" style="max-width: 100%; max-height: 200px; border-radius: 5px; border: 1px solid #ddd;">
+                    </div>
+                </div>
             `;
             document.getElementById('ctoEditContent').innerHTML = html;
         }
@@ -2376,13 +2384,21 @@
         async function saveCTOCard() {
             if (!currentApplicantEmail) return;
             
+            // Get soImage data if uploaded
+            let soImageData = '';
+            const imgEl = document.getElementById('edit_cto_so_image_img');
+            if (imgEl && imgEl.src && imgEl.src.startsWith('data:')) {
+                soImageData = imgEl.src;
+            }
+
             const ctoData = {
                 employeeId: currentApplicantEmail,
                 type: document.getElementById('edit_cto_type').value,
                 periodCovered: document.getElementById('edit_cto_period').value,
                 soDetails: document.getElementById('edit_cto_so_details').value,
                 daysGranted: parseFloat(document.getElementById('edit_cto_granted').value) || 0,
-                daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0
+                daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0,
+                soImage: soImageData
             };
 
             try {
@@ -2465,6 +2481,28 @@
             loadApplications();
             loadAllEmployees();
         });
+
+        // ========== SO Image Upload Preview ==========
+        function previewCTOSOImage(input) {
+            const preview = document.getElementById('edit_cto_so_image_preview');
+            const img = document.getElementById('edit_cto_so_image_img');
+            if (input.files && input.files[0]) {
+                if (input.files[0].size > 5 * 1024 * 1024) {
+                    alert('Image too large. Maximum 5MB allowed.');
+                    input.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    img.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                preview.style.display = 'none';
+                img.src = '';
+            }
+        }
 
         // ========== SO Image Viewer ==========
         function viewSOImage(index) {

@@ -55,16 +55,28 @@ const loginRateLimiter = createRateLimiter(5, 15 * 60 * 1000);
 // General API rate limiter: 100 requests per minute
 const apiRateLimiter = createRateLimiter(100, 60 * 1000);
 
-// Input sanitization function - prevents XSS and injection
+// Input sanitization function - prevents XSS and injection (idempotent)
 function sanitizeInput(input) {
     if (typeof input !== 'string') return input;
-    return input
+    // Skip base64 data URLs (signatures, images) — they must not be modified
+    if (input.startsWith('data:')) return input;
+    // Decode any previously-encoded entities first to prevent double-encoding
+    // Also decode &#x2F; and &#x5C; which were previously over-encoded
+    let s = input
+        .replace(/&#x2F;/g, '/')
+        .replace(/&#x5C;/g, '\\')
+        .replace(/&#x60;/g, '`')
+        .replace(/&#x27;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&gt;/g, '>')
+        .replace(/&lt;/g, '<');
+    // Re-encode XSS-dangerous characters only
+    // Note: / and \ are NOT encoded — they are not XSS vectors and break base64 data & file paths
+    return s
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#x27;')
-        .replace(/\//g, '&#x2F;')
-        .replace(/\\/g, '&#x5C;')
         .replace(/`/g, '&#x60;');
 }
 
@@ -1321,7 +1333,7 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
 });
 
 // Change password endpoint (for temp password users)
-app.post('/api/change-password', (req, res) => {
+app.post('/api/change-password', requireAuth(), (req, res) => {
     try {
         const { email, currentPassword, newPassword } = req.body;
         
@@ -1358,7 +1370,7 @@ app.post('/api/change-password', (req, res) => {
 });
 
 // Get user details by email
-app.get('/api/user-details', (req, res) => {
+app.get('/api/user-details', requireAuth(), (req, res) => {
     try {
         const email = req.query.email;
         if (!email) {
@@ -2013,7 +2025,7 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
 // ========== SELF-SERVICE PROFILE EDITING ==========
 
 // Update Employee Profile
-app.post('/api/update-employee-profile', (req, res) => {
+app.post('/api/update-employee-profile', requireAuth('user'), (req, res) => {
     try {
         const { email, fullName, office, position, employeeNo, salaryGrade, step, salary, newPassword } = req.body;
 
@@ -2105,7 +2117,7 @@ app.post('/api/update-employee-profile', (req, res) => {
 });
 
 // Update AO Profile
-app.post('/api/update-ao-profile', (req, res) => {
+app.post('/api/update-ao-profile', requireAuth('ao'), (req, res) => {
     try {
         const { email, fullName, school, position, newPassword } = req.body;
 
@@ -2163,7 +2175,7 @@ app.post('/api/update-ao-profile', (req, res) => {
 });
 
 // Update HR Profile
-app.post('/api/update-hr-profile', (req, res) => {
+app.post('/api/update-hr-profile', requireAuth('hr'), (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
 
@@ -2221,7 +2233,7 @@ app.post('/api/update-hr-profile', (req, res) => {
 });
 
 // Update ASDS Profile
-app.post('/api/update-asds-profile', (req, res) => {
+app.post('/api/update-asds-profile', requireAuth('asds'), (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
 
@@ -2279,7 +2291,7 @@ app.post('/api/update-asds-profile', (req, res) => {
 });
 
 // Update SDS Profile
-app.post('/api/update-sds-profile', (req, res) => {
+app.post('/api/update-sds-profile', requireAuth('sds'), (req, res) => {
     try {
         const { email, fullName, office, position, newPassword } = req.body;
 
@@ -2921,7 +2933,7 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
 });
 
 // DANGEROUS: Delete all data - requires confirmation key
-app.post('/api/delete-all-data', loginRateLimiter, (req, res) => {
+app.post('/api/delete-all-data', requireAuth('it'), loginRateLimiter, (req, res) => {
     try {
         // Require confirmation key to prevent accidental deletion
         const { confirmationKey } = req.body || {};
@@ -3184,7 +3196,7 @@ function generateApplicationId(applications) {
 }
 
 // Submit leave application
-app.post('/api/submit-leave', (req, res) => {
+app.post('/api/submit-leave', requireAuth(), (req, res) => {
     try {
         const applicationData = req.body;
         const applications = readJSONArray(applicationsFile);
@@ -3285,7 +3297,7 @@ app.post('/api/submit-leave', (req, res) => {
 });
 
 // Get application status for tracker
-app.get('/api/application-status/:id', (req, res) => {
+app.get('/api/application-status/:id', requireAuth(), (req, res) => {
     try {
         const idParam = req.params.id;
         let appId = parseInt(idParam);
@@ -3309,7 +3321,7 @@ app.get('/api/application-status/:id', (req, res) => {
 });
 
 // Get applications by email (for employee to track their own)
-app.get('/api/my-applications/:email', (req, res) => {
+app.get('/api/my-applications/:email', requireAuth(), (req, res) => {
     try {
         const email = req.params.email;
         const applications = readJSONArray(applicationsFile);
@@ -3322,7 +3334,7 @@ app.get('/api/my-applications/:email', (req, res) => {
 });
 
 // Get application details by ID
-app.get('/api/application-details/:id', (req, res) => {
+app.get('/api/application-details/:id', requireAuth(), (req, res) => {
     try {
         const idParam = req.params.id;
         const applications = readJSONArray(applicationsFile);
@@ -3339,7 +3351,7 @@ app.get('/api/application-details/:id', (req, res) => {
 });
 
 // Get applications pending for a specific portal (includes returned applications)
-app.get('/api/pending-applications/:portal', (req, res) => {
+app.get('/api/pending-applications/:portal', requireAuth(), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -3355,7 +3367,7 @@ app.get('/api/pending-applications/:portal', (req, res) => {
 });
 
 // Get approved applications for a specific portal (SDS or ASDS)
-app.get('/api/approved-applications/:portal', (req, res) => {
+app.get('/api/approved-applications/:portal', requireAuth(), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -3377,7 +3389,7 @@ app.get('/api/approved-applications/:portal', (req, res) => {
 });
 
 // Get HR-approved applications (applications that HR has processed and forwarded to next level)
-app.get('/api/hr-approved-applications', (req, res) => {
+app.get('/api/hr-approved-applications', requireAuth(), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
         
@@ -3393,7 +3405,7 @@ app.get('/api/hr-approved-applications', (req, res) => {
 });
 
 // Get all users for demographics
-app.get('/api/all-users', (req, res) => {
+app.get('/api/all-users', requireAuth(), (req, res) => {
     try {
         const users = readJSON(usersFile);
         res.json({ success: true, users: users });
@@ -3403,7 +3415,7 @@ app.get('/api/all-users', (req, res) => {
 });
 
 // Get all applications for demographics
-app.get('/api/all-applications', (req, res) => {
+app.get('/api/all-applications', requireAuth(), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
         res.json({ success: true, applications: applications });
@@ -3413,7 +3425,7 @@ app.get('/api/all-applications', (req, res) => {
 });
 
 // Get all registered employees (for AO to manage their cards)
-app.get('/api/all-employees', (req, res) => {
+app.get('/api/all-employees', requireAuth(), (req, res) => {
     try {
         const users = readJSON(usersFile);
         // Return only necessary fields for privacy
@@ -3433,7 +3445,7 @@ app.get('/api/all-employees', (req, res) => {
 });
 
 // Get all applications for a portal (pending, approved, and rejected by this portal)
-app.get('/api/portal-applications/:portal', (req, res) => {
+app.get('/api/portal-applications/:portal', requireAuth(), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -3455,7 +3467,7 @@ app.get('/api/portal-applications/:portal', (req, res) => {
 });
 
 // Get leave credits for an employee
-app.get('/api/leave-credits', (req, res) => {
+app.get('/api/leave-credits', requireAuth(), (req, res) => {
     try {
         const employeeId = req.query.employeeId;
         if (!employeeId) {
@@ -3660,7 +3672,7 @@ app.get('/api/leave-credits', (req, res) => {
 });
 
 // Get actual leave card allocation (for return/compliance preview)
-app.get('/api/leave-card', (req, res) => {
+app.get('/api/leave-card', requireAuth(), (req, res) => {
     try {
         const employeeId = req.query.employeeId;
         
@@ -3717,7 +3729,7 @@ app.get('/api/leave-card', (req, res) => {
 });
 
 // Get employee leave card with earned and spent data
-app.get('/api/employee-leavecard', (req, res) => {
+app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
     try {
         const employeeId = req.query.employeeId;
         if (!employeeId) {
@@ -3757,7 +3769,7 @@ app.get('/api/employee-leavecard', (req, res) => {
 });
 
 // Get returned applications for employee to resubmit
-app.get('/api/returned-applications/:email', (req, res) => {
+app.get('/api/returned-applications/:email', requireAuth(), (req, res) => {
     try {
         const email = req.params.email;
         const applications = readJSONArray(applicationsFile);
@@ -3775,7 +3787,7 @@ app.get('/api/returned-applications/:email', (req, res) => {
 });
 
 // Resubmit application after compliance
-app.post('/api/resubmit-leave', (req, res) => {
+app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
     try {
         const { applicationId, updatedData, employeeEmail } = req.body;
         const applications = readJSONArray(applicationsFile);
@@ -3877,7 +3889,7 @@ app.post('/api/resubmit-leave', (req, res) => {
 });
 
 // Update leave credits for an employee
-app.post('/api/update-leave-credits', (req, res) => {
+app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
     try {
         const { 
             applicationId, 
@@ -4006,7 +4018,7 @@ app.post('/api/update-leave-credits', (req, res) => {
 });
 
 // Approve, return, or reject application
-app.post('/api/approve-leave', (req, res) => {
+app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res) => {
     try {
         const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
         const ip = getClientIp(req);
@@ -4436,7 +4448,7 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
 
 // ========== CTO RECORDS API ==========
 // Get CTO records for an employee
-app.get('/api/cto-records', (req, res) => {
+app.get('/api/cto-records', requireAuth(), (req, res) => {
     try {
         const { employeeId } = req.query;
         ensureFile(ctoRecordsFile);
@@ -4454,12 +4466,17 @@ app.get('/api/cto-records', (req, res) => {
 });
 
 // Add/Update CTO record
-app.post('/api/update-cto-records', (req, res) => {
+app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
     try {
         const { employeeId, type, soDetails, daysGranted, daysUsed, periodCovered, soImage } = req.body;
         
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
+        }
+
+        // Validate soImage size (max 5MB base64 ≈ ~6.7MB string length)
+        if (soImage && soImage.length > 7 * 1024 * 1024) {
+            return res.status(400).json({ success: false, error: 'SO image too large. Maximum 5MB allowed.' });
         }
 
         ensureFile(ctoRecordsFile);
@@ -4497,7 +4514,7 @@ app.post('/api/update-cto-records', (req, res) => {
 });
 
 // Update CTO record (deduct days used)
-app.put('/api/cto-records/:recordId', (req, res) => {
+app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
     try {
         const recordId = req.params.recordId;
         const { daysUsed } = req.body;
@@ -4527,7 +4544,7 @@ app.put('/api/cto-records/:recordId', (req, res) => {
 // ========== ACTIVITY LOG ENDPOINTS ==========
 
 // Get all activity logs with pagination and filtering
-app.get('/api/activity-logs', (req, res) => {
+app.get('/api/activity-logs', requireAuth('it'), (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
@@ -4594,7 +4611,7 @@ app.get('/api/activity-logs', (req, res) => {
 });
 
 // Get activity log summary (stats)
-app.get('/api/activity-logs-summary', (req, res) => {
+app.get('/api/activity-logs-summary', requireAuth('it'), (req, res) => {
     try {
         let logs = [];
         if (fs.existsSync(activityLogsFile)) {
@@ -4655,7 +4672,7 @@ app.get('/api/activity-logs-summary', (req, res) => {
 });
 
 // Export activity logs as CSV
-app.get('/api/export-activity-logs', (req, res) => {
+app.get('/api/export-activity-logs', requireAuth('it'), (req, res) => {
     try {
         let logs = [];
         if (fs.existsSync(activityLogsFile)) {
@@ -5385,7 +5402,7 @@ app.post('/api/migrate-leave-card-json', requireAuth('it'), (req, res) => {
 
 // ========== ERROR HANDLERS (Must be last before server start) ==========
 // Diagnostic endpoint to check data persistence status
-app.get('/api/system-status', (req, res) => {
+app.get('/api/system-status', requireAuth('it'), (req, res) => {
     try {
         const itUsers = readJSON(itUsersFile);
         const users = readJSON(usersFile);

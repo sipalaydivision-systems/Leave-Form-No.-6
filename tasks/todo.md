@@ -1,16 +1,20 @@
 # Current Task — 4 Issues Fix (Feb 16, 2026)
 
 ## Issue 1: Signatures & Logo Not Appearing
-- [ ] Fix logo and signature rendering
+- [x] Fix logo and signature rendering
+> **VERIFIED FIXED** (Feb 19 audit): Logo files exist (`deped logo.png`, `sipalay_logo.png`), paths correct in all HTML files. All 4 signing roles (Employee, HR, ASDS, SDS) have fully functional canvas-based signature pads with draw/upload/clear. Signatures saved/loaded correctly via server endpoints.
 
 ## Issue 2: HR No View/Sign for Returned Applications  
-- [ ] Add view + signature pad matching ASDS/SDS flow
+- [x] Add view + signature pad matching ASDS/SDS flow
+> **VERIFIED FIXED** (Feb 19 audit): HR has full view for returned apps with status badges, two separate signature pads (regular approval + returned app flow), approve/return/reject actions. Fully equivalent to ASDS/SDS flow.
 
 ## Issue 3: Remove Position Categories in Registration
-- [ ] Flatten optgroups in login.html and ao-register.html
+- [x] Flatten optgroups in login.html and ao-register.html
+> **VERIFIED FIXED** (Feb 19 audit): All 6 position dropdowns are flat `<option>` lists with no `<optgroup>` tags (login.html, ao-register.html, ao-login.html, hr-login.html, asds-login.html, sds-login.html).
 
 ## Issue 4: Rename "Division Office Proper" → "ASDS - Assistant Schools Division Superintendent"
-- [ ] Update across all 6 registration files
+- [x] Update across all 6 registration files
+> **VERIFIED FIXED** (Feb 19 audit): "Division Office Proper" no longer appears anywhere. "ASDS - Assistant Schools Division Superintendent" present in all 6 files.
 
 ---
 
@@ -54,7 +58,7 @@ Comprehensive audit of the Leave Management System for known bugs across:
 
 ## Audit Results: 48 bugs found (30 server, 18 frontend)
 
-### ✅ FIXED — 6 Critical/High Bugs
+### ✅ FIXED — 7 Critical/High Bugs
 
 | # | Severity | File | Bug | Fix |
 |---|----------|------|-----|-----|
@@ -64,17 +68,15 @@ Comprehensive audit of the Leave Management System for known bugs across:
 | 4 | Critical | leave_form.html | Women illness field never submitted | Added id + included in applicationData |
 | 5 | High | employee-leavecard.html, edit-employee-cards.html | switchTab() used implicit `event` (Firefox crash) | Added event parameter |
 | 6 | Critical | leave_form.html | SO image upload data never sent to server | Documented — needs FileReader integration |
+| 7 | High | server.js | Force Leave (MFL) incorrectly deducted from VL balance | Fixed — `isForceLeave` guard excludes FL from VL/SL deductions |
 
 ### ⏳ REMAINING — High Priority (not yet fixed)
 
-- **No auth on 20+ API endpoints** — all data readable/writable without login
-- **Race conditions** on JSON file read/write under concurrent requests
-- **CTO soImage base64** could bloat cto-records.json to hundreds of MB
-- **Force Leave (MFL)** incorrectly deducts from VL balance in form calculation
-- **AO saveCTOCard()** doesn't preserve soImage on edit
-- **Sanitize double-encodes** on re-save (`&lt;` → `&amp;lt;`)
+| # | Severity | Bug | Details |
+|---|----------|-----|---------|
+| 1 | **High** | Race conditions on JSON read/write | `readJSON`/`writeJSON` use synchronous `fs.readFileSync`/`fs.writeFileSync` with no file locking, mutexes, or write queue. Concurrent requests can cause data loss (second write overwrites first). |
 
-### ⏳ REMAINING — Medium/Low Priority (not yet fixed)
+### ⏳ REMAINING — Low Priority (not yet fixed)
 
 - Date.now() ID collisions under concurrent requests
 - Negative leave balance clamped to 0.000 (hides over-usage)
@@ -91,3 +93,20 @@ All 6 critical/high bugs were verified by subagent before applying fixes.
 Post-fix validation: `get_errors` returned 0 errors across all 5 modified files.
 Manual code review confirmed sanitization middleware now executes after bodyParser.
 Remaining bugs documented above for future sessions.
+
+---
+
+## Re-Audit: February 19, 2026
+
+Full system re-audit performed. Results:
+- **All 4 original issues (signatures, HR view/sign, optgroups, rename) are VERIFIED FIXED**
+- **Force Leave VL deduction bug is VERIFIED FIXED** (moved from remaining → fixed)
+
+### Fixes Applied (Feb 19):
+1. **Sanitize double-encode** — Made `sanitizeInput()` idempotent (decode first, then encode). Removed `/` and `\` encoding that broke base64 data. Skip sanitization for `data:` URLs entirely.
+2. **saveCTOCard soImage** — Added SO image upload field to AO edit CTO form + included `soImage` in save payload. Added 5MB client-side + 5MB server-side size limits.
+3. **Auth on ALL API endpoints** — Created `auth-interceptor.js` that auto-injects Bearer tokens into fetch calls. Added to all 11 frontend pages. Added `requireAuth()` to 34 previously unprotected endpoints with appropriate role restrictions. Only `/api/health` (monitoring) and `/api/data/seed` (secret key auth) remain public.
+
+### Remaining:
+- **1 high-priority bug**: Race conditions on JSON read/write (needs file locking)
+- **8 low-priority bugs**: ID collisions, negative balance, re-seeding, rounding, memory leak, holidays, corruption handling, password validation
