@@ -104,3 +104,8 @@
 - **Pattern**: Data export stripped passwords, but /api/all-users returned raw records with hashes
 - **Rule**: Any endpoint that returns user records must strip password fields. Audit ALL endpoints that read user files.
 - **Mistake**: Focused only on the export endpoint; missed the demographics/admin view
+
+### Lesson 19: SHA-256 is not sufficient for password hashing — use bcrypt
+- **Pattern**: SHA-256 (even salted) is fast by design, making it vulnerable to GPU/ASIC brute-force attacks
+- **Rule**: Use bcrypt (or scrypt/argon2) with a work factor of 12+ rounds for password storage. These are intentionally slow, costing ~250ms per hash.
+- **Solution**: Upgraded to `bcryptjs` (pure JS, no native deps) with 12 rounds. Implemented transparent migration: existing SHA-256 passwords auto-upgrade to bcrypt on next successful login via `rehashIfNeeded()`. Three legacy formats detected: bcrypt (`$2a$`/`$2b$`), salted SHA-256 (`salt:hash`), unsalted SHA-256 (plain hex).

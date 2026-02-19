@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const https = require('https');
 const multer = require('multer');
 const xlsx = require('xlsx');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -853,32 +854,64 @@ function parseFullNameIntoParts(fullName) {
     return { firstName, lastName, middleName, suffix };
 }
 
-// Hash password with salt for new registrations
+// ===== PASSWORD HASHING — bcrypt (GPU/ASIC resistant) =====
+const BCRYPT_ROUNDS = 12; // ~250ms per hash — good balance of security vs speed
+
+// Hash password with bcrypt for new registrations and password changes
 function hashPasswordWithSalt(password) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.createHash('sha256').update(salt + password).digest('hex');
-    return `${salt}:${hash}`;
+    return bcrypt.hashSync(password, BCRYPT_ROUNDS);
 }
 
-// Legacy hash for backward compatibility with existing accounts
-function hashPassword(password) {
+// Legacy hash functions for backward compatibility during migration
+function legacyHashSalted(password, salt) {
+    return crypto.createHash('sha256').update(salt + password).digest('hex');
+}
+function legacyHashUnsalted(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// Verify password - supports both salted and legacy formats
-function verifyPassword(password, storedHash) {
-    if (storedHash.includes(':')) {
-        // New salted format: salt:hash
-        const [salt, hash] = storedHash.split(':');
-        const computed = crypto.createHash('sha256').update(salt + password).digest('hex');
-        return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+// Verify password — supports bcrypt, salted SHA-256, and legacy unsalted SHA-256
+// Returns { valid: boolean, needsRehash: boolean }
+function verifyPasswordDetailed(password, storedHash) {
+    // Format 1: bcrypt hash (starts with $2a$ or $2b$)
+    if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$')) {
+        return { valid: bcrypt.compareSync(password, storedHash), needsRehash: false };
     }
-    // Legacy unsalted format
-    const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+    // Format 2: salted SHA-256 (salt:hash)
+    if (storedHash.includes(':')) {
+        const [salt, hash] = storedHash.split(':');
+        const computed = legacyHashSalted(password, salt);
+        try {
+            const valid = crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+            return { valid, needsRehash: valid }; // If valid, needs upgrade to bcrypt
+        } catch {
+            return { valid: false, needsRehash: false };
+        }
+    }
+    // Format 3: legacy unsalted SHA-256
+    const legacyHash = legacyHashUnsalted(password);
     try {
-        return crypto.timingSafeEqual(Buffer.from(legacyHash, 'hex'), Buffer.from(storedHash, 'hex'));
+        const valid = crypto.timingSafeEqual(Buffer.from(legacyHash, 'hex'), Buffer.from(storedHash, 'hex'));
+        return { valid, needsRehash: valid }; // If valid, needs upgrade to bcrypt
     } catch {
-        return false;
+        return { valid: false, needsRehash: false };
+    }
+}
+
+// Simple boolean verify (backward compatible drop-in)
+function verifyPassword(password, storedHash) {
+    return verifyPasswordDetailed(password, storedHash).valid;
+}
+
+// Transparently rehash a user's password to bcrypt if still on SHA-256
+// Call after successful login when needsRehash is true
+function rehashIfNeeded(password, storedHash, userRecord, usersArray, usersFile) {
+    const { needsRehash } = verifyPasswordDetailed(password, storedHash);
+    if (needsRehash) {
+        userRecord.password = hashPasswordWithSalt(password);
+        userRecord.passwordUpgradedAt = new Date().toISOString();
+        writeJSON(usersFile, usersArray);
+        console.log(`[SECURITY] Password rehashed to bcrypt for ${userRecord.email}`);
     }
 }
 
@@ -1377,14 +1410,8 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
 
-        // Upgrade legacy password hash to salted hash on successful login
-        if (!user.password.includes(':')) {
-            const idx = users.findIndex(u => u.email === email);
-            if (idx !== -1) {
-                users[idx].password = hashPasswordWithSalt(password);
-                writeJSON(usersFile, users);
-            }
-        }
+        // Transparently upgrade password hash to bcrypt on successful login
+        rehashIfNeeded(password, user.password, user, users, usersFile);
 
         // Create session token
         const token = createSession(user, 'user');
@@ -1608,14 +1635,8 @@ app.post('/api/hr-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid email or password' });
         }
 
-        // Upgrade legacy hash
-        if (!hrUser.password.includes(':')) {
-            const idx = hrUsers.findIndex(u => u.email === email);
-            if (idx !== -1) {
-                hrUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(hrUsersFile, hrUsers);
-            }
-        }
+        // Transparently upgrade password hash to bcrypt on successful login
+        rehashIfNeeded(password, hrUser.password, hrUser, hrUsers, hrUsersFile);
 
         const token = createSession(hrUser, 'hr');
 
@@ -1742,13 +1763,8 @@ app.post('/api/asds-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
-        if (!asdsUser.password.includes(':')) {
-            const idx = asdsUsers.findIndex(u => u.email === email);
-            if (idx !== -1) {
-                asdsUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(asdsUsersFile, asdsUsers);
-            }
-        }
+        // Transparently upgrade password hash to bcrypt on successful login
+        rehashIfNeeded(password, asdsUser.password, asdsUser, asdsUsers, asdsUsersFile);
 
         const token = createSession(asdsUser, 'asds');
 
@@ -1867,13 +1883,8 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
-        if (!sdsUser.password.includes(':')) {
-            const idx = sdsUsers.findIndex(u => u.email === email);
-            if (idx !== -1) {
-                sdsUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(sdsUsersFile, sdsUsers);
-            }
-        }
+        // Transparently upgrade password hash to bcrypt on successful login
+        rehashIfNeeded(password, sdsUser.password, sdsUser, sdsUsers, sdsUsersFile);
 
         const token = createSession(sdsUser, 'sds');
 
@@ -1991,13 +2002,8 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid AO email or password' });
         }
 
-        if (!aoUser.password.includes(':')) {
-            const idx = aoUsers.findIndex(u => u.email === email);
-            if (idx !== -1) {
-                aoUsers[idx].password = hashPasswordWithSalt(password);
-                writeJSON(aoUsersFile, aoUsers);
-            }
-        }
+        // Transparently upgrade password hash to bcrypt on successful login
+        rehashIfNeeded(password, aoUser.password, aoUser, aoUsers, aoUsersFile);
 
         const token = createSession(aoUser, 'ao');
 
@@ -2034,13 +2040,8 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
             return res.status(401).json({ success: false, error: 'Invalid IT email or PIN' });
         }
 
-        if (!itUser.password.includes(':')) {
-            const idx = itUsers.findIndex(u => (u.email || '').toLowerCase() === email);
-            if (idx !== -1) {
-                itUsers[idx].password = hashPasswordWithSalt(pin);
-                writeJSON(itUsersFile, itUsers);
-            }
-        }
+        // Transparently upgrade password hash to bcrypt on successful login
+        rehashIfNeeded(pin, itUser.password, itUser, itUsers, itUsersFile);
 
         const token = createSession(itUser, 'it');
 

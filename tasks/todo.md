@@ -160,7 +160,7 @@ Full system re-audit performed. Results:
 | 4 | SL-to-VL fallback (CSC Rule XVI Sec. 15) | Exhausted SL charges remainder against VL |
 
 ### Remaining Known Limitations:
-- SHA-256 password hashing (bcrypt preferred but would break existing passwords)
+- ~~SHA-256 password hashing~~ → **RESOLVED**: Upgraded to bcrypt (12 rounds) with transparent migration — existing SHA-256 passwords auto-upgrade on next login
 - No per-account lockout (IP-based rate limiter only)
 - fileLocks defined but not called from endpoints (sync I/O mitigates most race conditions)
 - Working days calculation ignores Philippine holidays
