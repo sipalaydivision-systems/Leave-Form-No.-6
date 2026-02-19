@@ -1529,13 +1529,13 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
         }
 
         // Search all portal files for this email
+        // NOTE: IT portal uses numeric PINs (not passwords), so exclude it from password resets
         const allPortalFiles = [
             { name: 'employee', file: usersFile },
             { name: 'ao', file: aoUsersFile },
             { name: 'hr', file: hrUsersFile },
             { name: 'asds', file: asdsUsersFile },
-            { name: 'sds', file: sdsUsersFile },
-            { name: 'it', file: itUsersFile }
+            { name: 'sds', file: sdsUsersFile }
         ];
 
         // If portal specified, search only that file; otherwise search all
@@ -1587,11 +1587,66 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
 
         res.json({ 
             success: true, 
-            message: `Password reset for ${email} in ${resetPortals.join(', ')} portal(s). User must change password on next login.`,
+            message: `Password reset for ${email} in ${resetPortals.join(', ')} portal(s).`,
             portalsReset: resetPortals
         });
     } catch (error) {
         console.error('Error resetting password:', error);
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
+    }
+});
+
+// Reset IT staff PIN (separate from password reset because IT uses numeric PINs)
+app.post('/api/it/reset-pin', requireAuth('it'), (req, res) => {
+    try {
+        const { email, newPin } = req.body;
+        const resetBy = req.session.email || 'IT Admin';
+
+        if (!email || !newPin) {
+            return res.status(400).json({ success: false, error: 'Email and new PIN are required' });
+        }
+
+        if (!/^\d{6}$/.test(newPin)) {
+            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
+        }
+
+        let itUsers = readJSON(itUsersFile);
+        const userIdx = itUsers.findIndex(u => (u.email || '').toLowerCase() === email.toLowerCase());
+
+        if (userIdx === -1) {
+            return res.status(404).json({ success: false, error: 'IT staff not found' });
+        }
+
+        itUsers[userIdx].password = hashPasswordWithSalt(newPin);
+        itUsers[userIdx].pinResetAt = new Date().toISOString();
+        itUsers[userIdx].pinResetBy = resetBy;
+        writeJSON(itUsersFile, itUsers);
+
+        // Destroy existing sessions for this IT user
+        let sessionsDestroyed = 0;
+        for (const [token, session] of activeSessions) {
+            if (session.email && session.email.toLowerCase() === email.toLowerCase() && session.role === 'it') {
+                activeSessions.delete(token);
+                sessionsDestroyed++;
+            }
+        }
+        if (sessionsDestroyed > 0) persistSessions();
+
+        console.log(`[IT] PIN reset for ${email} by ${resetBy}`);
+        logActivity('PIN_RESET_BY_IT', 'it', {
+            userEmail: email,
+            resetBy: resetBy,
+            sessionsDestroyed,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
+        res.json({ 
+            success: true, 
+            message: `PIN reset successfully for ${email}.`
+        });
+    } catch (error) {
+        console.error('Error resetting IT PIN:', error);
         res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
     }
 });
