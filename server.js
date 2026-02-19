@@ -340,6 +340,15 @@ app.use('/sipalay_logo.png', (req, res, next) => {
     next();
 });
 
+// Prevent caching of HTML pages — ensures clients get latest code after deploys
+app.use((req, res, next) => {
+    if (req.path.endsWith('.html') || (!req.path.includes('.') && req.path !== '/')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
 app.use(express.static('public', { index: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 

@@ -1474,14 +1474,39 @@
         let currentUser = null;
 
         // Initialize Dashboard
-        function initializeDashboard() {
+        async function initializeDashboard() {
             const userString = sessionStorage.getItem('user');
-            if (!userString) {
+            const authToken = sessionStorage.getItem('authToken');
+            
+            if (!userString || !authToken) {
+                console.warn('[DASHBOARD] Missing session data, redirecting to login', { hasUser: !!userString, hasToken: !!authToken });
+                sessionStorage.clear();
                 window.location.href = '/login';
                 return;
             }
 
-            currentUser = JSON.parse(userString);
+            try {
+                currentUser = JSON.parse(userString);
+            } catch (e) {
+                console.error('[DASHBOARD] Invalid user data in sessionStorage');
+                sessionStorage.clear();
+                window.location.href = '/login';
+                return;
+            }
+
+            // Validate session is still alive on the server before loading data
+            try {
+                const validateResp = await fetch('/api/validate-session');
+                if (!validateResp.ok) {
+                    console.warn('[DASHBOARD] Session invalid on server, redirecting to login');
+                    sessionStorage.clear();
+                    window.location.href = '/login';
+                    return;
+                }
+            } catch (e) {
+                console.warn('[DASHBOARD] Could not reach server for session validation, continuing with cached data');
+            }
+
             const userName = currentUser.name || currentUser.email.split('@')[0];
             const initial = userName.charAt(0).toUpperCase();
 

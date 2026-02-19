@@ -74,10 +74,12 @@
             // Wrap the response to handle 401 (session expired / server restarted)
             return _originalFetch.apply(this, arguments).then(function(response) {
                 if (response.status === 401 && !_isRedirecting) {
-                    // Skip redirect for login endpoints (they return 401 for bad credentials)
-                    if (!url.includes('/api/login') && !url.includes('/api/register')) {
+                    // Skip redirect for login/register/validate-session endpoints
+                    if (!url.includes('/api/login') && !url.includes('/api/register') && !url.includes('/api/validate-session')) {
                         _isRedirecting = true;
                         clearAllTokens();
+                        sessionStorage.removeItem('user');
+                        sessionStorage.removeItem('employee');
                         console.warn('[AUTH] Session expired or invalid. Redirecting to login...');
                         window.location.href = getLoginRedirect();
                     }
