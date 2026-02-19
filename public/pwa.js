@@ -4,7 +4,11 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('[PWA] Service worker registered, scope:', reg.scope))
+        .then(reg => {
+          console.log('[PWA] Service worker registered, scope:', reg.scope);
+          // Force immediate check for SW updates on every page load
+          reg.update().catch(() => {});
+        })
         .catch(err => console.warn('[PWA] SW registration failed:', err));
     });
   }

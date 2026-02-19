@@ -1387,6 +1387,23 @@ async function handleLogin(e) {
             
             message.textContent = 'Login successful! Redirecting...';
             message.className = 'message success';
+            
+            // Force service worker update + clear stale caches before redirect
+            if ('serviceWorker' in navigator) {
+                try {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of regs) {
+                        await reg.update();
+                    }
+                } catch (e) { /* ignore SW errors */ }
+                try {
+                    const keys = await caches.keys();
+                    for (const key of keys) {
+                        await caches.delete(key);
+                    }
+                } catch (e) { /* ignore cache errors */ }
+            }
+            
             setTimeout(() => {
                 window.location.href = '/dashboard';
             }, 1000);

@@ -1,5 +1,5 @@
 // Service Worker for SDO Sipalay Leave Management System
-const CACHE_NAME = 'leave-form-v2';
+const CACHE_NAME = 'leave-form-v3';
 
 // Core assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -14,16 +14,22 @@ const PRECACHE_URLS = [
   '/css/mobile.css'
 ];
 
-// Install — cache core assets
+// Install — cache core assets (bypass HTTP cache to ensure fresh copies)
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRECACHE_URLS))
+      .then(cache => {
+        // Fetch with cache:'reload' to bypass HTTP cache for precaching
+        const requests = PRECACHE_URLS.map(url =>
+          fetch(url, { cache: 'reload' }).then(resp => cache.put(url, resp))
+        );
+        return Promise.all(requests);
+      })
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate — clean old caches
+// Activate — clean ALL old caches and claim clients immediately
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -32,7 +38,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch — network-first for API/POST, cache-first for static assets
+// Fetch — network-first, always bypass HTTP cache
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
@@ -42,9 +48,10 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    fetch(event.request)
+    // cache: 'no-store' bypasses browser's HTTP cache — always goes to server
+    fetch(event.request, { cache: 'no-store' })
       .then(response => {
-        // Cache successful responses
+        // Cache successful responses in SW cache (for offline fallback only)
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
