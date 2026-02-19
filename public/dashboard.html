@@ -1475,12 +1475,27 @@
 
         // Initialize Dashboard
         async function initializeDashboard() {
-            const userString = sessionStorage.getItem('user');
-            const authToken = sessionStorage.getItem('authToken');
+            let userString = sessionStorage.getItem('user');
+            let authToken = sessionStorage.getItem('authToken');
+            
+            // Restore from localStorage backup if sessionStorage lost data (SW update, etc.)
+            if (!userString && localStorage.getItem('user_backup')) {
+                userString = localStorage.getItem('user_backup');
+                sessionStorage.setItem('user', userString);
+                console.log('[DASHBOARD] Restored user from localStorage backup');
+            }
+            if (!authToken && localStorage.getItem('authToken_backup')) {
+                authToken = localStorage.getItem('authToken_backup');
+                sessionStorage.setItem('authToken', authToken);
+                console.log('[DASHBOARD] Restored authToken from localStorage backup');
+            }
             
             if (!userString || !authToken) {
                 console.warn('[DASHBOARD] Missing session data, redirecting to login', { hasUser: !!userString, hasToken: !!authToken });
                 sessionStorage.clear();
+                localStorage.removeItem('user_backup');
+                localStorage.removeItem('authToken_backup');
+                localStorage.removeItem('employee_backup');
                 window.location.href = '/login';
                 return;
             }
@@ -1490,6 +1505,9 @@
             } catch (e) {
                 console.error('[DASHBOARD] Invalid user data in sessionStorage');
                 sessionStorage.clear();
+                localStorage.removeItem('user_backup');
+                localStorage.removeItem('authToken_backup');
+                localStorage.removeItem('employee_backup');
                 window.location.href = '/login';
                 return;
             }
@@ -1500,6 +1518,9 @@
                 if (!validateResp.ok) {
                     console.warn('[DASHBOARD] Session invalid on server, redirecting to login');
                     sessionStorage.clear();
+                    localStorage.removeItem('user_backup');
+                    localStorage.removeItem('authToken_backup');
+                    localStorage.removeItem('employee_backup');
                     window.location.href = '/login';
                     return;
                 }
@@ -2227,6 +2248,9 @@
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('employee');
             sessionStorage.removeItem('authToken');
+            localStorage.removeItem('user_backup');
+            localStorage.removeItem('authToken_backup');
+            localStorage.removeItem('employee_backup');
             window.location.href = '/';
         }
 

@@ -22,7 +22,8 @@
             || localStorage.getItem('hrToken')
             || localStorage.getItem('asdsToken')
             || localStorage.getItem('sdsToken')
-            || localStorage.getItem('itToken');
+            || localStorage.getItem('itToken')
+            || localStorage.getItem('authToken_backup');
     }
 
     // Detect which portal we're on and return the appropriate login URL
@@ -44,6 +45,9 @@
         localStorage.removeItem('asdsToken');
         localStorage.removeItem('sdsToken');
         localStorage.removeItem('itToken');
+        localStorage.removeItem('authToken_backup');
+        localStorage.removeItem('user_backup');
+        localStorage.removeItem('employee_backup');
     }
 
     // Track if we're already redirecting (prevent multiple redirects)

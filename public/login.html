@@ -1379,34 +1379,23 @@ async function handleLogin(e) {
         const result = await response.json();
         
         if (response.ok) {
+            // Store auth data in sessionStorage (primary) AND localStorage (backup)
             sessionStorage.setItem('user', JSON.stringify(result.user));
-            if (result.token) sessionStorage.setItem('authToken', result.token);
+            localStorage.setItem('user_backup', JSON.stringify(result.user));
+            if (result.token) {
+                sessionStorage.setItem('authToken', result.token);
+                localStorage.setItem('authToken_backup', result.token);
+            }
             if (result.employee) {
                 sessionStorage.setItem('employee', JSON.stringify(result.employee));
+                localStorage.setItem('employee_backup', JSON.stringify(result.employee));
             }
             
             message.textContent = 'Login successful! Redirecting...';
             message.className = 'message success';
             
-            // Force service worker update + clear stale caches before redirect
-            if ('serviceWorker' in navigator) {
-                try {
-                    const regs = await navigator.serviceWorker.getRegistrations();
-                    for (const reg of regs) {
-                        await reg.update();
-                    }
-                } catch (e) { /* ignore SW errors */ }
-                try {
-                    const keys = await caches.keys();
-                    for (const key of keys) {
-                        await caches.delete(key);
-                    }
-                } catch (e) { /* ignore cache errors */ }
-            }
-            
-            setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 1000);
+            // Redirect immediately — SW update handled by pwa.js on dashboard load
+            window.location.replace('/dashboard');
         } else {
             message.textContent = result.error || 'Invalid email or password';
             message.className = 'message error';
