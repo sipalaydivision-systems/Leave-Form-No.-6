@@ -107,6 +107,61 @@ Full system re-audit performed. Results:
 2. **saveCTOCard soImage** — Added SO image upload field to AO edit CTO form + included `soImage` in save payload. Added 5MB client-side + 5MB server-side size limits.
 3. **Auth on ALL API endpoints** — Created `auth-interceptor.js` that auto-injects Bearer tokens into fetch calls. Added to all 11 frontend pages. Added `requireAuth()` to 34 previously unprotected endpoints with appropriate role restrictions. Only `/api/health` (monitoring) and `/api/data/seed` (secret key auth) remain public.
 
-### Remaining:
-- **1 high-priority bug**: Race conditions on JSON read/write (needs file locking)
-- **8 low-priority bugs**: ID collisions, negative balance, re-seeding, rounding, memory leak, holidays, corruption handling, password validation
+### Security Hardening Session (Feb 19):
+
+#### Bug Fixes Applied:
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | Rate limiter memory leak | Added cleanup interval every 5 minutes |
+| 2 | JSON file corruption risk | Atomic writeJSON (tmp→validate→bak→rename) |
+| 3 | readJSON silent failures | Backup recovery from .bak file |
+| 4 | Date.now() ID collisions | crypto.randomUUID() for all 8 ID generation sites |
+| 5 | ensureFile re-seeding | Removed — only seeds on first deploy |
+| 6 | Dashboard rounding VL/SL | .toFixed(3) for VL/SL credits display |
+| 7 | Inconsistent password validation | Standardized to validatePortalPassword() everywhere |
+| 8 | No leave balance enforcement | Full server-side VL/SL/FL/SPL validation with pending app deduction |
+| 9 | Client-side balance check | Added VL/SL pre-check in leave_form.html before submission |
+
+#### Security Vulnerabilities Patched (3 audit cycles):
+| # | Severity | Vulnerability | Fix |
+|---|----------|--------------|-----|
+| 1 | CRITICAL | Mass assignment in submit-leave | Explicit 35-field whitelist |
+| 2 | CRITICAL | Object.assign in resubmit-leave | 5-field allowlist |
+| 3 | CRITICAL | Approval portal spoofing | Session role via roleToPortal mapping |
+| 4 | CRITICAL | IDOR profile takeover (6 endpoints) | Session email verification |
+| 5 | CRITICAL | IDOR submit-leave (any-employee-as-me) | req.session.email enforced |
+| 6 | CRITICAL | IDOR resubmit-leave | req.session.email enforced |
+| 7 | CRITICAL | /api/all-users exposes password hashes | Strip passwords before response |
+| 8 | CRITICAL | Hardcoded seed key | Env var only + IT auth + timing-safe compare |
+| 9 | HIGH | Admin endpoints accessible to employees | Role restrictions on 7 endpoints |
+| 10 | HIGH | IDOR on GET endpoints (9 endpoints) | Session email check unless admin role |
+| 11 | HIGH | IDOR on change-password | req.session.email enforced |
+| 12 | HIGH | FL/SPL double-counting approved apps | reflectedAppIds filtering |
+| 13 | HIGH | Data export leaks passwords | Strip password field from 6 files |
+| 14 | HIGH | Audit trail spoofing (approve/reject/return) | Session-derived currentApprover + email |
+| 15 | HIGH | Path traversal in backup delete | path.basename() sanitization |
+| 16 | MEDIUM | Cross-portal re-registration | isEmailRegisteredInAnyPortal() on 5 endpoints |
+| 17 | MEDIUM | processedBy/deletedBy spoofing | Session email for all audit trails |
+| 18 | MEDIUM | Error detail exposure | Generic error messages |
+| 19 | MEDIUM | Input length limits | 100KB truncation in sanitizeObject() |
+| 20 | MEDIUM | data: URI sanitization bypass | Strict format validation |
+| 21 | MEDIUM | Stale FL rules in resubmit-leave | Removed consecutive-day restriction |
+| 22 | MEDIUM | Seed endpoint bypasses atomic write | Uses writeJSON() now |
+| 23 | LOW | AO registration missing email validation | Added validateDepEdEmail() |
+| 24 | LOW | Loose equality (==) in 4 locations | Strict equality (===) via String() |
+| 25 | LOW | logActivity bypasses atomic write | Uses writeJSON() now |
+
+#### DepEd Leave Rules Corrections (CSC Compliance):
+| # | Rule | Fix |
+|---|------|-----|
+| 1 | FL is charged against VL (CSC MC No. 6, s.1996) | FL now deducts from VL balance + tracks forceLeaveSpent |
+| 2 | FL requires 10+ accumulated VL days | Added threshold check before FL application |
+| 3 | FL consecutive-day restriction was backwards | Removed the restriction (FL should be taken consecutively) |
+| 4 | SL-to-VL fallback (CSC Rule XVI Sec. 15) | Exhausted SL charges remainder against VL |
+
+### Remaining Known Limitations:
+- SHA-256 password hashing (bcrypt preferred but would break existing passwords)
+- No per-account lockout (IP-based rate limiter only)
+- fileLocks defined but not called from endpoints (sync I/O mitigates most race conditions)
+- Working days calculation ignores Philippine holidays
+- CSP allows unsafe-inline for scripts (needed for inline event handlers)

@@ -1533,8 +1533,8 @@
                     const splSpent = credits.splSpent || 0;
                     const splBalance = Math.max(0, splAllocation - splSpent);
                     
-                    document.getElementById('vacationCredits').textContent = vlBalance.toFixed(0);
-                    document.getElementById('sickCredits').textContent = slBalance.toFixed(0);
+                    document.getElementById('vacationCredits').textContent = vlBalance.toFixed(3);
+                    document.getElementById('sickCredits').textContent = slBalance.toFixed(3);
                     document.getElementById('forceCredits').textContent = forceBalance.toFixed(0);
                     document.getElementById('splCredits').textContent = splBalance.toFixed(0);
                     document.getElementById('creditsAsOf').textContent = `As of ${asOfDate}`;

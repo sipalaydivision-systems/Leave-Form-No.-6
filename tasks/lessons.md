@@ -63,3 +63,44 @@
 - **Pattern**: When a returned application goes back to an approver, the re-approval flow must include the same fields as the original flow
 - **Rule**: When building a "returned" or "re-process" view, always cross-reference the original view to ensure all required fields (signatures, officer names) are included
 - **Mistake**: HR returned flow was missing signature pad and officer name fields that the regular approval flow had
+
+## 2026-02-19 — Security Hardening & DepEd Compliance
+
+### Lesson 12: Never trust client-provided identity in authenticated endpoints
+- **Pattern**: `req.body.employeeEmail` can be spoofed even by authenticated users
+- **Rule**: Always use `req.session.email` for identity — never accept email/userId from request body when the action affects the requesting user's own data
+- **Mistake**: submit-leave, resubmit-leave, and change-password all trusted client-provided email, allowing IDOR attacks
+
+### Lesson 13: Mass assignment is dangerous even in internal tools
+- **Pattern**: Using `...req.body` or `Object.assign(record, req.body)` allows attackers to inject arbitrary fields
+- **Rule**: Always use explicit field whitelists when creating or updating records from user input
+- **Mistake**: submit-leave spread entire applicationData object into the record; resubmit used Object.assign
+
+### Lesson 14: Audit trails must use server-verified data
+- **Pattern**: `approverPortal` and `approverName` from request body were stored in approval history, returnedBy, rejectedBy
+- **Rule**: Audit trail fields (who did what) must come from the server session, not from the request
+- **Mistake**: An approver could forge the audit trail to attribute actions to a different person/portal
+
+### Lesson 15: GET endpoints need ownership checks too
+- **Pattern**: Any authenticated user could query any other user's applications, leave card, CTO records via URL parameters
+- **Rule**: For employee-facing GET endpoints, verify `req.session.email === requestedEmail` unless the caller has an admin role
+- **Mistake**: 9 GET endpoints were open to any authenticated user, enabling data enumeration
+
+### Lesson 16: Philippine government leave rules are more nuanced than they appear
+- **Pattern**: Force Leave APPEARS to be a separate 5-day allocation, but is actually a mandatory deduction FROM vacation leave
+- **Rule**: When implementing government rules, reference the exact CSC MC/Rule section. Key gotchas:
+  - FL is VL (charged against VL balance, not a separate pool)
+  - FL requires 10+ accumulated VL days
+  - Exhausted SL can be charged against VL (Rule XVI Sec. 15)
+  - FL should be taken as consecutive days (not restricted TO non-consecutive)
+- **Mistake**: FL was a separate pool with an inverted consecutive-day restriction
+
+### Lesson 17: Atomic writes prevent data corruption
+- **Pattern**: `fs.writeFileSync(file, data)` can corrupt data if the process crashes mid-write
+- **Rule**: Write to temp file → validate → backup current → atomic rename
+- **Implementation**: writeJSON() now: validates JSON.parse → writes .tmp → reads .tmp back → moves current to .bak → renames .tmp to target
+
+### Lesson 18: Password stripping must be consistent across all endpoints
+- **Pattern**: Data export stripped passwords, but /api/all-users returned raw records with hashes
+- **Rule**: Any endpoint that returns user records must strip password fields. Audit ALL endpoints that read user files.
+- **Mistake**: Focused only on the export endpoint; missed the demographics/admin view

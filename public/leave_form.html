@@ -2478,6 +2478,33 @@
         // Commutation checkboxes are available but not mandatory for submission
         
         // ===== VALIDATION: Prevent Force/SPL submission if exhausted =====
+        // ===== VALIDATION: Check VL/SL balance before submission =====
+        if (selectedLeaveType === 'leave_vl' || selectedLeaveType === 'leave_sl') {
+            const numDaysValue = parseFloat(document.getElementById('num_days').value) || 0;
+            const leaveCreditsStr = sessionStorage.getItem('leaveCredits');
+            if (leaveCreditsStr) {
+                try {
+                    const credits = JSON.parse(leaveCreditsStr);
+                    if (selectedLeaveType === 'leave_vl') {
+                        const vlBalance = credits.vacationLeave || 0;
+                        if (numDaysValue > vlBalance) {
+                            alert('❌ Insufficient Vacation Leave Balance\n\nYou are applying for ' + numDaysValue + ' day(s) but your current Vacation Leave balance is only ' + vlBalance.toFixed(3) + ' day(s).\n\nThe leave card balance cannot go negative. Please reduce the number of days or choose a different leave type.');
+                            return;
+                        }
+                    }
+                    if (selectedLeaveType === 'leave_sl') {
+                        const slBalance = credits.sickLeave || 0;
+                        if (numDaysValue > slBalance) {
+                            alert('❌ Insufficient Sick Leave Balance\n\nYou are applying for ' + numDaysValue + ' day(s) but your current Sick Leave balance is only ' + slBalance.toFixed(3) + ' day(s).\n\nThe leave card balance cannot go negative. Please reduce the number of days or choose a different leave type.');
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error checking VL/SL balance:', e);
+                }
+            }
+        }
+        
         if (selectedLeaveType === 'leave_mfl' || selectedLeaveType === 'leave_spl') {
             const leaveCardStr = sessionStorage.getItem('leaveCardData');
             if (leaveCardStr) {

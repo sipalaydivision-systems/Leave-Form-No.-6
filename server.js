@@ -55,11 +55,27 @@ const loginRateLimiter = createRateLimiter(5, 15 * 60 * 1000);
 // General API rate limiter: 100 requests per minute
 const apiRateLimiter = createRateLimiter(100, 60 * 1000);
 
+// Cleanup expired rate limit entries every 5 minutes to prevent memory leak
+setInterval(() => {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [key, record] of rateLimitStore.entries()) {
+        if (now > record.resetTime) {
+            rateLimitStore.delete(key);
+            cleaned++;
+        }
+    }
+    if (cleaned > 0) {
+        console.log(`[RATE-LIMIT] Cleaned ${cleaned} expired entries, ${rateLimitStore.size} remaining`);
+    }
+}, 5 * 60 * 1000);
+
 // Input sanitization function - prevents XSS and injection (idempotent)
 function sanitizeInput(input) {
     if (typeof input !== 'string') return input;
-    // Skip base64 data URLs (signatures, images) — they must not be modified
-    if (input.startsWith('data:')) return input;
+    // Skip valid base64 data URLs (signatures, images) — they must not be modified
+    // SECURITY: Only skip specifically valid data URI formats to prevent XSS via data: prefix
+    if (/^data:(image|application)\/(png|jpeg|jpg|gif|pdf|octet-stream);base64,/.test(input)) return input;
     // Decode any previously-encoded entities first to prevent double-encoding
     // Also decode &#x2F; and &#x5C; which were previously over-encoded
     let s = input
@@ -83,7 +99,13 @@ function sanitizeInput(input) {
 // Deep sanitize object
 function sanitizeObject(obj) {
     if (obj === null || obj === undefined) return obj;
-    if (typeof obj === 'string') return sanitizeInput(obj);
+    if (typeof obj === 'string') {
+        // SECURITY: Truncate excessively long non-data-URI strings to prevent storage abuse
+        if (obj.length > 100000 && !/^data:(image|application)\//.test(obj)) {
+            obj = obj.substring(0, 100000);
+        }
+        return sanitizeInput(obj);
+    }
     if (Array.isArray(obj)) return obj.map(sanitizeObject);
     if (typeof obj === 'object') {
         const sanitized = {};
@@ -99,6 +121,26 @@ function sanitizeObject(obj) {
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+}
+
+// SECURITY: Check if email is already registered in ANY portal (prevents cross-portal abuse)
+function isEmailRegisteredInAnyPortal(email, excludePortal) {
+    const portalFiles = [
+        { name: 'user', file: usersFile },
+        { name: 'ao', file: aoUsersFile },
+        { name: 'hr', file: hrUsersFile },
+        { name: 'asds', file: asdsUsersFile },
+        { name: 'sds', file: sdsUsersFile },
+        { name: 'it', file: itUsersFile }
+    ];
+    for (const portal of portalFiles) {
+        if (portal.name === excludePortal) continue;
+        const users = readJSON(portal.file);
+        if (users.find(u => (u.email || '').toLowerCase() === email.toLowerCase())) {
+            return portal.name.toUpperCase();
+        }
+    }
+    return null;
 }
 
 // Validate date format (YYYY-MM-DD)
@@ -323,7 +365,7 @@ function logActivity(action, portalType, details = {}) {
             logs = logs.slice(-10000);
         }
         
-        fs.writeFileSync(activityLogsFile, JSON.stringify(logs, null, 2));
+        writeJSON(activityLogsFile, logs);
         console.log(`Activity logged: ${action} by ${userEmail} (${portalType})`);
     } catch (error) {
         console.error('Error logging activity:', error);
@@ -358,23 +400,9 @@ function ensureFile(filepath, defaultContent = '[]') {
             fs.writeFileSync(filepath, defaultContent);
             console.log(`[DATA] Created empty ${filename}`);
         }
-    } else {
-        // File exists â€” but if it's empty/just "[]" and defaults have real data, reseed
-        try {
-            const existing = fs.readFileSync(filepath, 'utf8').trim();
-            const existingData = JSON.parse(existing);
-            if (Array.isArray(existingData) && existingData.length === 0 && fs.existsSync(defaultFile)) {
-                const defaultContent = fs.readFileSync(defaultFile, 'utf8').trim();
-                const defaultData = JSON.parse(defaultContent);
-                if (Array.isArray(defaultData) && defaultData.length > 0) {
-                    fs.writeFileSync(filepath, defaultContent);
-                    console.log(`[DATA] Re-seeded empty ${filename} from defaults (${defaultData.length} records)`);
-                }
-            }
-        } catch (e) {
-            console.log(`[DATA] ${filename} exists, keeping as-is`);
-        }
     }
+    // NOTE: Do NOT re-seed existing empty files from defaults.
+    // If data was intentionally cleared (e.g., bulk delete), it should stay empty.
 }
 
 ensureFile(usersFile);
@@ -389,6 +417,21 @@ ensureFile(itUsersFile);
 ensureFile(pendingRegistrationsFile);
 
 // Helper functions
+
+// File-level write locks to prevent race conditions on concurrent writes
+const fileLocks = new Map();
+
+async function acquireLock(filepath) {
+    while (fileLocks.get(filepath)) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    fileLocks.set(filepath, true);
+}
+
+function releaseLock(filepath) {
+    fileLocks.delete(filepath);
+}
+
 function readJSON(filepath) {
     try {
         if (!fs.existsSync(filepath)) {
@@ -399,9 +442,28 @@ function readJSON(filepath) {
         if (content.charCodeAt(0) === 0xFEFF) {
             content = content.slice(1);
         }
-        return JSON.parse(content);
+        const parsed = JSON.parse(content);
+        return parsed;
     } catch (error) {
         console.error(`Error reading JSON file ${filepath}:`, error.message);
+        // Try to recover from backup
+        const backupPath = filepath + '.bak';
+        if (fs.existsSync(backupPath)) {
+            try {
+                console.log(`[DATA-RECOVERY] Attempting to recover ${path.basename(filepath)} from backup...`);
+                let backupContent = fs.readFileSync(backupPath, 'utf8');
+                if (backupContent.charCodeAt(0) === 0xFEFF) {
+                    backupContent = backupContent.slice(1);
+                }
+                const recovered = JSON.parse(backupContent);
+                // Restore the main file from backup
+                fs.writeFileSync(filepath, JSON.stringify(recovered, null, 2));
+                console.log(`[DATA-RECOVERY] Successfully recovered ${path.basename(filepath)} from backup`);
+                return recovered;
+            } catch (backupError) {
+                console.error(`[DATA-RECOVERY] Backup also corrupted for ${filepath}:`, backupError.message);
+            }
+        }
         return [];
     }
 }
@@ -416,7 +478,7 @@ function readJSONArray(filepath) {
         if (keys.length === 1 && Array.isArray(data[keys[0]])) {
             console.log(`[readJSONArray] Unwrapping "${keys[0]}" from ${path.basename(filepath)}, fixing file format...`);
             // Also fix the file to plain array for future reads
-            fs.writeFileSync(filepath, JSON.stringify(data[keys[0]], null, 2));
+            writeJSON(filepath, data[keys[0]]);
             return data[keys[0]];
         }
     }
@@ -424,7 +486,27 @@ function readJSONArray(filepath) {
 }
 
 function writeJSON(filepath, data) {
-    fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+    // Atomic write: write to temp file, then rename to prevent corruption
+    const tempPath = filepath + '.tmp';
+    const backupPath = filepath + '.bak';
+    try {
+        const jsonStr = JSON.stringify(data, null, 2);
+        // Validate JSON before writing (catch serialization issues)
+        JSON.parse(jsonStr);
+        // Create backup of current file if it exists
+        if (fs.existsSync(filepath)) {
+            try { fs.copyFileSync(filepath, backupPath); } catch (e) { /* best effort */ }
+        }
+        // Write to temp file first
+        fs.writeFileSync(tempPath, jsonStr);
+        // Atomic rename
+        fs.renameSync(tempPath, filepath);
+    } catch (error) {
+        console.error(`[WRITE-ERROR] Failed to write ${filepath}:`, error.message);
+        // Clean up temp file if it exists
+        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (e) { /* ignore */ }
+        throw error;
+    }
 }
 
 // ========== MONTHLY LEAVE CREDIT ACCRUAL (1.25/month) ==========
@@ -838,7 +920,7 @@ function buildEmployeeRecord(office, fullName, email, position, salaryGrade, ste
         middleName = nameParts.join(' ');
     }
     return {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         office: office || '',
         district: district || '',
         lastName,
@@ -1217,12 +1299,18 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Email already registered' });
         }
 
+        // SECURITY: Check cross-portal uniqueness
+        const existingPortal = isEmailRegisteredInAnyPortal(email, 'user');
+        if (existingPortal) {
+            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+        }
+
         if (pendingRegs.find(r => r.email === email && r.status === 'pending')) {
             return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
         }
 
         const pendingRegistration = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             portal: 'employee',
             fullName: fullName || '',
             name: fullName || '',
@@ -1335,14 +1423,17 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
 // Change password endpoint (for temp password users)
 app.post('/api/change-password', requireAuth(), (req, res) => {
     try {
-        const { email, currentPassword, newPassword } = req.body;
+        const { currentPassword, newPassword } = req.body;
+        // SECURITY: Use session email instead of trusting client-provided email
+        const email = req.session.email;
         
         if (!email || !currentPassword || !newPassword) {
             return res.status(400).json({ success: false, error: 'All fields are required' });
         }
         
-        if (newPassword.length < 8) {
-            return res.status(400).json({ success: false, error: 'New password must be at least 8 characters' });
+        const passwordValidation = validatePortalPassword(newPassword);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ success: false, error: passwordValidation.error });
         }
         
         let users = readJSON(usersFile);
@@ -1375,6 +1466,12 @@ app.get('/api/user-details', requireAuth(), (req, res) => {
         const email = req.query.email;
         if (!email) {
             return res.status(400).json({ success: false, error: 'Email is required' });
+        }
+        
+        // SECURITY: Only allow access to own data unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
         let users = readJSON(usersFile);
@@ -1434,12 +1531,18 @@ app.post('/api/hr-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'HR account already exists' });
         }
 
+        // SECURITY: Check cross-portal uniqueness
+        const existingPortal = isEmailRegisteredInAnyPortal(email, 'hr');
+        if (existingPortal) {
+            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+        }
+
         if (pendingRegs.find(r => r.email === email && r.portal === 'hr' && r.status === 'pending')) {
             return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
         }
 
         const pendingRegistration = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             portal: 'hr',
             fullName: userName,
             name: userName,
@@ -1563,12 +1666,18 @@ app.post('/api/asds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'ASDS account already exists' });
         }
 
+        // SECURITY: Check cross-portal uniqueness
+        const existingPortal = isEmailRegisteredInAnyPortal(email, 'asds');
+        if (existingPortal) {
+            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+        }
+
         if (pendingRegs.find(r => r.email === email && r.portal === 'asds' && r.status === 'pending')) {
             return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
         }
 
         const pendingRegistration = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             portal: 'asds',
             fullName,
             name: fullName,
@@ -1682,12 +1791,18 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }
 
+        // SECURITY: Check cross-portal uniqueness
+        const existingPortal = isEmailRegisteredInAnyPortal(email, 'sds');
+        if (existingPortal) {
+            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+        }
+
         if (pendingRegs.find(r => r.email === email && r.portal === 'sds' && r.status === 'pending')) {
             return res.status(400).json({ success: false, message: 'Registration already pending IT approval' });
         }
 
         const pendingRegistration = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             portal: 'sds',
             email,
             password: hashPasswordWithSalt(password),
@@ -1785,6 +1900,10 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee Number is required' });
         }
 
+        if (!validateDepEdEmail(email)) {
+            return res.status(400).json({ success: false, error: 'Please use a valid DepEd email address (@deped.gov.ph)' });
+        }
+
         const passwordValidation = validatePortalPassword(password);
         if (!passwordValidation.valid) {
             return res.status(400).json({ success: false, error: passwordValidation.error });
@@ -1797,12 +1916,18 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Email already registered' });
         }
 
+        // SECURITY: Check cross-portal uniqueness
+        const existingPortal = isEmailRegisteredInAnyPortal(email, 'ao');
+        if (existingPortal) {
+            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+        }
+
         if (pendingRegs.find(r => r.email === email && r.portal === 'ao' && r.status === 'pending')) {
             return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
         }
 
         const pendingRegistration = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             portal: 'ao',
             fullName,
             name: fullName,
@@ -1956,7 +2081,7 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
         }
 
         const newITStaff = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             email,
             password: hashPasswordWithSalt(pin),
             name: fullName,
@@ -1982,6 +2107,11 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
         }
 
+        // SECURITY: Verify the authenticated user is updating their own profile
+        if (req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
+        }
+
         let itUsers = readJSON(itUsersFile);
         const userIndex = itUsers.findIndex(u => u.email === email);
 
@@ -1999,6 +2129,9 @@ app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
         itUsers[userIndex].suffix = itNameParts.suffix || '';
         
         if (newPin) {
+            if (!/^\d{6}$/.test(newPin)) {
+                return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
+            }
             itUsers[userIndex].password = hashPasswordWithSalt(newPin);
         }
 
@@ -2033,6 +2166,11 @@ app.post('/api/update-employee-profile', requireAuth('user'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
         }
 
+        // SECURITY: Verify the authenticated user is updating their own profile
+        if (req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
+        }
+
         let users = readJSON(usersFile);
         const userIndex = users.findIndex(u => u.email === email);
 
@@ -2057,8 +2195,9 @@ app.post('/api/update-employee-profile', requireAuth('user'), (req, res) => {
         if (salary) users[userIndex].salary = salary;
 
         if (newPassword) {
-            if (newPassword.length < 8) {
-                return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+            const passwordValidation = validatePortalPassword(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ success: false, error: passwordValidation.error });
             }
             users[userIndex].password = hashPasswordWithSalt(newPassword);
         }
@@ -2125,6 +2264,11 @@ app.post('/api/update-ao-profile', requireAuth('ao'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
         }
 
+        // SECURITY: Verify the authenticated user is updating their own profile
+        if (req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
+        }
+
         let aoUsers = readJSON(aoUsersFile);
         const userIndex = aoUsers.findIndex(u => u.email === email);
 
@@ -2181,6 +2325,11 @@ app.post('/api/update-hr-profile', requireAuth('hr'), (req, res) => {
 
         if (!email || !fullName) {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        // SECURITY: Verify the authenticated user is updating their own profile
+        if (req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
         }
 
         let hrUsers = readJSON(hrUsersFile);
@@ -2241,6 +2390,11 @@ app.post('/api/update-asds-profile', requireAuth('asds'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
         }
 
+        // SECURITY: Verify the authenticated user is updating their own profile
+        if (req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
+        }
+
         let asdsUsers = readJSON(asdsUsersFile);
         const userIndex = asdsUsers.findIndex(u => u.email === email);
 
@@ -2297,6 +2451,11 @@ app.post('/api/update-sds-profile', requireAuth('sds'), (req, res) => {
 
         if (!email || !fullName) {
             return res.status(400).json({ success: false, error: 'Email and full name are required' });
+        }
+
+        // SECURITY: Verify the authenticated user is updating their own profile
+        if (req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
         }
 
         let sdsUsers = readJSON(sdsUsersFile);
@@ -2443,9 +2602,11 @@ app.get('/api/registration-stats', requireAuth('it'), (req, res) => {
 app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
     try {
         const { id, processedBy } = req.body;
+        // SECURITY: Use session email for audit trail instead of trusting client
+        const actualProcessedBy = req.session.email || processedBy;
 
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => r.id == id);
+        const regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
 
         if (regIndex === -1) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
@@ -2652,7 +2813,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
 
         registration.status = 'approved';
         registration.processedAt = new Date().toISOString();
-        registration.processedBy = processedBy;
+        registration.processedBy = actualProcessedBy;
 
         pendingRegs[regIndex] = registration;
         writeJSON(pendingRegistrationsFile, pendingRegs);
@@ -2662,7 +2823,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
             userEmail: registration.email,
             fullName: registration.fullName || registration.name,
             portal: registration.portal,
-            processedBy: processedBy,
+            processedBy: actualProcessedBy,
             ip: getClientIp(req),
             userAgent: req.get('user-agent')
         });
@@ -2701,9 +2862,11 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
 app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
     try {
         const { id, reason, processedBy } = req.body;
+        // SECURITY: Use session email for audit trail instead of trusting client
+        const actualProcessedBy = req.session.email || processedBy;
 
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => r.id == id);
+        const regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
 
         if (regIndex === -1) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
@@ -2716,7 +2879,7 @@ app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
         pendingRegs[regIndex].status = 'rejected';
         pendingRegs[regIndex].rejectionReason = reason || 'No reason provided';
         pendingRegs[regIndex].processedAt = new Date().toISOString();
-        pendingRegs[regIndex].processedBy = processedBy;
+        pendingRegs[regIndex].processedBy = actualProcessedBy;
         writeJSON(pendingRegistrationsFile, pendingRegs);
 
         // Log registration rejection
@@ -2725,7 +2888,7 @@ app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
             fullName: pendingRegs[regIndex].fullName || pendingRegs[regIndex].name,
             portal: pendingRegs[regIndex].portal,
             reason: reason || 'No reason provided',
-            processedBy: processedBy,
+            processedBy: actualProcessedBy,
             ip: getClientIp(req),
             userAgent: req.get('user-agent')
         });
@@ -2991,7 +3154,9 @@ app.post('/api/delete-all-data', requireAuth('it'), loginRateLimiter, (req, res)
 
 app.post('/api/delete-user', requireAuth('it'), (req, res) => {
     try {
-        const { id, email, portal, deletedBy } = req.body;
+        const { id, email, portal } = req.body;
+        // SECURITY: Use session email for audit trail
+        const deletedBy = req.session.email || 'IT Admin';
 
         if (!email || !portal) {
             return res.status(400).json({ success: false, error: 'Email and portal are required' });
@@ -3029,7 +3194,7 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
         // Try to find by email+portal first, then fallback to id
         let regIndex = pendingRegs.findIndex(r => r.email === email && r.portal === portal);
         if (regIndex === -1 && id) {
-            regIndex = pendingRegs.findIndex(r => r.id == id);
+            regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
         }
         if (regIndex !== -1) {
             pendingRegs.splice(regIndex, 1);
@@ -3063,7 +3228,9 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 // Bulk delete multiple users
 app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
     try {
-        const { users, registrations, deletedBy } = req.body;
+        const { users, registrations } = req.body;
+        // SECURITY: Use session email for audit trail
+        const deletedBy = req.session.email || 'IT Admin';
         const deleteList = users || registrations;
 
         if (!deleteList || !Array.isArray(deleteList) || deleteList.length === 0) {
@@ -3202,49 +3369,225 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         const applications = readJSONArray(applicationsFile);
         const ip = getClientIp(req);
         
+        // SECURITY: Use session email instead of trusting client-provided employeeEmail
+        const employeeEmail = req.session.email;
+        if (!employeeEmail) {
+            return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
+        }
+        // Override client-provided email with session email
+        applicationData.employeeEmail = employeeEmail;
+        
         // ===== VALIDATION: Check Force/SPL leave balance =====
         const leaveType = applicationData.leaveType;
-        const employeeEmail = applicationData.employeeEmail;
         const numDays = parseFloat(applicationData.numDays) || 0;
         
+        if (numDays <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid number of days',
+                message: 'Number of leave days must be greater than zero.'
+            });
+        }
+        
+        // ===== COMPREHENSIVE LEAVE BALANCE VALIDATION =====
+        // Read leave card to check balance for ALL leave types
+        const leavecards = readJSON(leavecardsFile);
+        const employeeLeave = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
+        
+        if (leaveType === 'leave_vl' || leaveType === 'leave_sl') {
+            // Calculate current VL/SL balance from leave card
+            if (employeeLeave) {
+                const vacationLeaveEarned = employeeLeave.vacationLeaveEarned || employeeLeave.vl || 0;
+                const sickLeaveEarned = employeeLeave.sickLeaveEarned || employeeLeave.sl || 0;
+                
+                // Get balance from leaveUsageHistory if available (most accurate)
+                let vlBalance = null;
+                let slBalance = null;
+                
+                if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory) && employeeLeave.leaveUsageHistory.length > 0) {
+                    const latestUsage = employeeLeave.leaveUsageHistory[employeeLeave.leaveUsageHistory.length - 1];
+                    if (latestUsage.balanceAfterVL !== undefined) vlBalance = latestUsage.balanceAfterVL;
+                    if (latestUsage.balanceAfterSL !== undefined) slBalance = latestUsage.balanceAfterSL;
+                }
+                
+                // Fall back to earned - spent calculation
+                if (vlBalance === null) {
+                    vlBalance = Math.max(0, vacationLeaveEarned - (employeeLeave.vacationLeaveSpent || 0));
+                }
+                if (slBalance === null) {
+                    slBalance = Math.max(0, sickLeaveEarned - (employeeLeave.sickLeaveSpent || 0));
+                }
+                
+                // Also deduct pending/approved applications not yet reflected in leave card
+                const allApplications = readJSONArray(applicationsFile);
+                const reflectedAppIds = new Set();
+                if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
+                    employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
+                }
+                if (employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
+                    employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
+                }
+                
+                allApplications.forEach(app => {
+                    if (reflectedAppIds.has(app.id)) return;
+                    if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
+                    if (app.status !== 'pending' && app.status !== 'approved') return;
+                    const appDays = parseFloat(app.numDays) || 0;
+                    if (appDays <= 0) return;
+                    const appType = (app.leaveType || '').toLowerCase();
+                    if (appType.includes('vl') || appType.includes('vacation')) {
+                        vlBalance = Math.max(0, vlBalance - appDays);
+                    } else if (appType.includes('sl') || appType.includes('sick')) {
+                        slBalance = Math.max(0, slBalance - appDays);
+                    }
+                });
+                
+                // Check VL balance
+                if (leaveType === 'leave_vl' && numDays > vlBalance) {
+                    console.log(`[VALIDATION] VL rejected for ${employeeEmail}: Requested ${numDays} days but only ${vlBalance.toFixed(3)} available`);
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Insufficient Vacation Leave balance',
+                        message: `You cannot apply for ${numDays} day(s) of Vacation Leave. Your current balance is ${vlBalance.toFixed(3)} day(s). The leave card balance cannot go negative.`
+                    });
+                }
+                
+                // Check SL balance — per CSC Rule XVI Sec. 15, exhausted SL may be charged against VL
+                if (leaveType === 'leave_sl' && numDays > slBalance) {
+                    if (numDays <= (slBalance + vlBalance)) {
+                        // SL exhausted but VL can cover the remainder — allow with note
+                        console.log(`[VALIDATION] SL for ${employeeEmail}: ${numDays} days requested, SL balance ${slBalance.toFixed(3)}, remainder charged to VL`);
+                    } else {
+                        console.log(`[VALIDATION] SL rejected for ${employeeEmail}: Requested ${numDays} days but only ${slBalance.toFixed(3)} SL + ${vlBalance.toFixed(3)} VL available`);
+                        return res.status(400).json({
+                            success: false,
+                            error: 'Insufficient Sick Leave balance',
+                            message: `You cannot apply for ${numDays} day(s) of Sick Leave. Your SL balance is ${slBalance.toFixed(3)} and VL balance is ${vlBalance.toFixed(3)} day(s). Per CSC rules, SL may be charged against VL when exhausted, but your combined balance is insufficient.`
+                        });
+                    }
+                }
+            } else {
+                // No leave card found — reject VL/SL applications (no balance means 0)
+                console.log(`[VALIDATION] ${leaveType} rejected for ${employeeEmail}: No leave card found (balance is 0)`);
+                return res.status(400).json({
+                    success: false,
+                    error: 'No leave card found',
+                    message: 'You do not have a leave card on file. Please contact the Administrative Officer to create your leave card before applying for leave.'
+                });
+            }
+        }
+        
         if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            const leavecards = readJSON(leavecardsFile);
-            const employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
-            
             if (employeeLeave) {
                 const forceLeaveSpent = employeeLeave.forceLeaveSpent || 0;
                 const splSpent = employeeLeave.splSpent || 0;
                 
-                // Check if Force Leave is exhausted
-                if (leaveType === 'leave_mfl' && forceLeaveSpent >= 5) {
-                    console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Already spent ${forceLeaveSpent}/5 days`);
-                    return res.status(400).json({ 
-                        success: false, 
-                        error: 'Force Leave exhausted',
-                        message: 'You have already used all 5 days of your yearly Force Leave allocation.'
+                // Also count pending FL/SPL applications not yet reflected in leave card
+                const allApplications = readJSONArray(applicationsFile);
+                // Build set of application IDs already reflected in leave card to avoid double-counting
+                const reflectedAppIds = new Set();
+                if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
+                    employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
+                }
+                if (employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
+                    employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
+                }
+                let pendingForceSpent = 0;
+                let pendingSplSpent = 0;
+                allApplications.forEach(app => {
+                    if (reflectedAppIds.has(app.id)) return; // Already counted in forceLeaveSpent/splSpent
+                    if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
+                    if (app.status !== 'pending' && app.status !== 'approved') return;
+                    const appDays = parseFloat(app.numDays) || 0;
+                    const appType = (app.leaveType || '').toLowerCase();
+                    if (appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced')) {
+                        pendingForceSpent += appDays;
+                    } else if (appType.includes('spl') || appType.includes('special')) {
+                        pendingSplSpent += appDays;
+                    }
+                });
+                
+                const totalForceUsed = forceLeaveSpent + pendingForceSpent;
+                const totalSplUsed = splSpent + pendingSplSpent;
+                
+                if (leaveType === 'leave_mfl') {
+                    // ===== CSC MC No. 6 s.1996: Force Leave / Mandatory Leave Rules =====
+                    // 1. FL is mandatory only for employees with 10+ accumulated VL days
+                    // 2. FL is charged AGAINST VL balance (it IS vacation leave, just the mandatory portion)
+                    // 3. FL yearly cap is 5 days
+                    // 4. FL should ideally be taken as consecutive days (no restriction on consecutive days)
+                    
+                    // Compute effective VL balance for FL check
+                    let flVlBalance = null;
+                    if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory) && employeeLeave.leaveUsageHistory.length > 0) {
+                        const latestUsage = employeeLeave.leaveUsageHistory[employeeLeave.leaveUsageHistory.length - 1];
+                        if (latestUsage.balanceAfterVL !== undefined) flVlBalance = latestUsage.balanceAfterVL;
+                    }
+                    if (flVlBalance === null) {
+                        const vlEarned = parseFloat(employeeLeave.vacationLeaveEarned) || parseFloat(employeeLeave.vl) || 0;
+                        flVlBalance = Math.max(0, vlEarned - (employeeLeave.vacationLeaveSpent || 0));
+                    }
+                    // Deduct pending VL and FL applications not yet reflected
+                    allApplications.forEach(app => {
+                        if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
+                        if (app.status !== 'pending' && app.status !== 'approved') return;
+                        const appDays = parseFloat(app.numDays) || 0;
+                        if (appDays <= 0) return;
+                        const appType = (app.leaveType || '').toLowerCase();
+                        // Both VL and FL deduct from VL balance
+                        if (appType.includes('vl') || appType.includes('vacation') || appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced')) {
+                            // Skip FL apps already counted in pendingForceSpent to avoid double-counting
+                            if (!(appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced'))) {
+                                flVlBalance = Math.max(0, flVlBalance - appDays);
+                            }
+                        }
                     });
+                    // Deduct pending FL from VL balance
+                    flVlBalance = Math.max(0, flVlBalance - pendingForceSpent);
+                    
+                    // Check 10-day VL threshold (CSC MC No. 6, s. 1996)
+                    if (flVlBalance < 10) {
+                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: VL balance ${flVlBalance.toFixed(3)} is below 10-day threshold`);
+                        return res.status(400).json({
+                            success: false,
+                            error: 'Force Leave not applicable',
+                            message: `Mandatory/Forced Leave is only required for employees with 10 or more accumulated Vacation Leave days (CSC MC No. 6, s. 1996). Your current VL balance is ${flVlBalance.toFixed(3)} day(s).`
+                        });
+                    }
+                    
+                    // Check FL yearly cap (5 days)
+                    if ((totalForceUsed + numDays) > 5) {
+                        const remaining = Math.max(0, 5 - totalForceUsed);
+                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Already used ${totalForceUsed}/5 days, requested ${numDays}`);
+                        return res.status(400).json({ 
+                            success: false, 
+                            error: 'Insufficient Force Leave balance',
+                            message: `You cannot apply for ${numDays} day(s) of Force Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 5-day yearly allocation.`
+                        });
+                    }
+                    
+                    // Check VL balance can cover this FL application (FL deducts from VL)
+                    if (numDays > flVlBalance) {
+                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Requested ${numDays} FL days but only ${flVlBalance.toFixed(3)} VL available`);
+                        return res.status(400).json({
+                            success: false,
+                            error: 'Insufficient VL balance for Force Leave',
+                            message: `Force Leave is charged against your Vacation Leave balance. You cannot apply for ${numDays} day(s) of FL. Your current VL balance is ${flVlBalance.toFixed(3)} day(s).`
+                        });
+                    }
                 }
                 
-                // Check if SPL is exhausted
-                if (leaveType === 'leave_spl' && splSpent >= 3) {
-                    console.log(`[VALIDATION] SPL rejected for ${employeeEmail}: Already spent ${splSpent}/3 days`);
+                // Check if SPL is exhausted (including pending)
+                if (leaveType === 'leave_spl' && (totalSplUsed + numDays) > 3) {
+                    const remaining = Math.max(0, 3 - totalSplUsed);
+                    console.log(`[VALIDATION] SPL rejected for ${employeeEmail}: Already used ${totalSplUsed}/3 days, requested ${numDays}`);
                     return res.status(400).json({ 
                         success: false, 
-                        error: 'SPL exhausted',
-                        message: 'You have already used all 3 days of your yearly Special Privilege Leave allocation.'
+                        error: 'Insufficient Special Privilege Leave balance',
+                        message: `You cannot apply for ${numDays} day(s) of Special Privilege Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 3-day yearly allocation.`
                     });
                 }
             }
-        }
-        
-        // ===== VALIDATION: Prevent 5+ consecutive days of Force Leave =====
-        if (leaveType === 'leave_mfl' && numDays >= 5) {
-            console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Attempted ${numDays} consecutive days (max 4 allowed)`);
-            return res.status(400).json({
-                success: false,
-                error: 'Force Leave restriction',
-                message: `Force Leave cannot be taken for 5 or more consecutive working days. You submitted ${numDays} days. Maximum: 4 days per application.`
-            });
         }
         
         // Determine initial status and current approver based on office
@@ -3258,10 +3601,41 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         // Unified workflow: AO â†’ HR â†’ ASDS â†’ SDS
         const newApplication = {
             id: applicationId,
-            ...applicationData,
+            // SECURITY: Whitelist only expected fields (prevent mass assignment attack)
+            employeeEmail: applicationData.employeeEmail || '',
+            employeeName: applicationData.employeeName || '',
+            office: applicationData.office || '',
+            position: applicationData.position || '',
+            salary: applicationData.salary || '',
+            dateOfFiling: applicationData.dateOfFiling || '',
+            leaveType: applicationData.leaveType || '',
+            dateFrom: applicationData.dateFrom || '',
+            dateTo: applicationData.dateTo || '',
+            numDays: applicationData.numDays || '',
+            vlEarned: applicationData.vlEarned || '',
+            slEarned: applicationData.slEarned || '',
+            vlLess: applicationData.vlLess || '',
+            slLess: applicationData.slLess || '',
+            vlBalance: applicationData.vlBalance || '',
+            slBalance: applicationData.slBalance || '',
+            commutation: applicationData.commutation || '',
+            employeeSignature: applicationData.employeeSignature || '',
+            locationPH: applicationData.locationPH || false,
+            locationAbroad: applicationData.locationAbroad || false,
+            abroadSpecify: applicationData.abroadSpecify || '',
+            sickHospital: applicationData.sickHospital || false,
+            sickOutpatient: applicationData.sickOutpatient || false,
+            hospitalIllness: applicationData.hospitalIllness || '',
+            outpatientIllness: applicationData.outpatientIllness || '',
+            studyMasters: applicationData.studyMasters || false,
+            studyBar: applicationData.studyBar || false,
+            womenIllness: applicationData.womenIllness || '',
+            otherLeaveSpecify: applicationData.otherLeaveSpecify || '',
+            soFileData: applicationData.soFileData || null,
+            soFileName: applicationData.soFileName || '',
             isSchoolBased: schoolBased,
             status: 'pending',
-            currentApprover: 'AO', // All applications go to AO first
+            currentApprover: 'AO',
             approvalHistory: [],
             submittedAt: new Date().toISOString()
         };
@@ -3292,7 +3666,7 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         });
     } catch (error) {
         console.error('Error submitting leave application:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: 'An error occurred while submitting your leave application. Please try again.' });
     }
 });
 
@@ -3313,6 +3687,12 @@ app.get('/api/application-status/:id', requireAuth(), (req, res) => {
             return res.status(404).json({ success: false, error: 'Application not found' });
         }
         
+        // SECURITY: Only allow access to own application unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== app.employeeEmail) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
         res.json({ success: true, application: app });
     } catch (error) {
         console.error('Error in application-status:', error);
@@ -3324,6 +3704,11 @@ app.get('/api/application-status/:id', requireAuth(), (req, res) => {
 app.get('/api/my-applications/:email', requireAuth(), (req, res) => {
     try {
         const email = req.params.email;
+        // SECURITY: Only allow access to own applications unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
         const applications = readJSONArray(applicationsFile);
         const myApps = applications.filter(a => a.employeeEmail === email);
         
@@ -3344,6 +3729,12 @@ app.get('/api/application-details/:id', requireAuth(), (req, res) => {
             return res.status(404).json({ success: false, error: 'Application not found' });
         }
         
+        // SECURITY: Only allow access to own application unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== application.employeeEmail) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
         res.json({ success: true, application: application });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -3351,7 +3742,7 @@ app.get('/api/application-details/:id', requireAuth(), (req, res) => {
 });
 
 // Get applications pending for a specific portal (includes returned applications)
-app.get('/api/pending-applications/:portal', requireAuth(), (req, res) => {
+app.get('/api/pending-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -3367,7 +3758,7 @@ app.get('/api/pending-applications/:portal', requireAuth(), (req, res) => {
 });
 
 // Get approved applications for a specific portal (SDS or ASDS)
-app.get('/api/approved-applications/:portal', requireAuth(), (req, res) => {
+app.get('/api/approved-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -3389,7 +3780,7 @@ app.get('/api/approved-applications/:portal', requireAuth(), (req, res) => {
 });
 
 // Get HR-approved applications (applications that HR has processed and forwarded to next level)
-app.get('/api/hr-approved-applications', requireAuth(), (req, res) => {
+app.get('/api/hr-approved-applications', requireAuth('asds', 'sds', 'it'), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
         
@@ -3405,17 +3796,19 @@ app.get('/api/hr-approved-applications', requireAuth(), (req, res) => {
 });
 
 // Get all users for demographics
-app.get('/api/all-users', requireAuth(), (req, res) => {
+app.get('/api/all-users', requireAuth('ao', 'hr', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
-        res.json({ success: true, users: users });
+        // SECURITY: Strip password hashes before sending to client
+        const safeUsers = users.map(({ password, ...rest }) => rest);
+        res.json({ success: true, users: safeUsers });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
 // Get all applications for demographics
-app.get('/api/all-applications', requireAuth(), (req, res) => {
+app.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
         res.json({ success: true, applications: applications });
@@ -3425,7 +3818,7 @@ app.get('/api/all-applications', requireAuth(), (req, res) => {
 });
 
 // Get all registered employees (for AO to manage their cards)
-app.get('/api/all-employees', requireAuth(), (req, res) => {
+app.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         // Return only necessary fields for privacy
@@ -3445,7 +3838,7 @@ app.get('/api/all-employees', requireAuth(), (req, res) => {
 });
 
 // Get all applications for a portal (pending, approved, and rejected by this portal)
-app.get('/api/portal-applications/:portal', requireAuth(), (req, res) => {
+app.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -3472,6 +3865,12 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         const employeeId = req.query.employeeId;
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
+        }
+        
+        // SECURITY: Only allow access to own leave credits unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
         const leavecards = readJSON(leavecardsFile);
@@ -3680,6 +4079,12 @@ app.get('/api/leave-card', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
         
+        // SECURITY: Only allow access to own leave card unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
         const leavecards = readJSON(leavecardsFile);
         
         // Find all records for this employee to get the latest one
@@ -3736,6 +4141,12 @@ app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
         
+        // SECURITY: Only allow access to own leave card unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
         const leavecards = readJSON(leavecardsFile);
         
         // Try to find by employeeId first, then by email (since we use email as ID now)
@@ -3772,6 +4183,11 @@ app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
 app.get('/api/returned-applications/:email', requireAuth(), (req, res) => {
     try {
         const email = req.params.email;
+        // SECURITY: Only allow access to own returned applications unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (!adminRoles.includes(req.session.role) && req.session.email !== email) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
         const applications = readJSONArray(applicationsFile);
         
         let returnedApps = applications.filter(a => 
@@ -3789,7 +4205,12 @@ app.get('/api/returned-applications/:email', requireAuth(), (req, res) => {
 // Resubmit application after compliance
 app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
     try {
-        const { applicationId, updatedData, employeeEmail } = req.body;
+        const { applicationId, updatedData } = req.body;
+        // SECURITY: Use session email instead of trusting client-provided employeeEmail
+        const employeeEmail = req.session.email;
+        if (!employeeEmail) {
+            return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
+        }
         const applications = readJSONArray(applicationsFile);
         const appIndex = applications.findIndex(a => a.id === applicationId);
         
@@ -3799,7 +4220,7 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
         
         const app = applications[appIndex];
         
-        // Verify the employee owns this application
+        // Verify the employee owns this application (using session email)
         if (app.employeeEmail !== employeeEmail) {
             return res.status(403).json({ success: false, error: 'Unauthorized to resubmit this application' });
         }
@@ -3843,19 +4264,17 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             }
         }
         
-        // ===== VALIDATION: Prevent 5+ consecutive days of Force Leave on resubmit =====
-        if (leaveType === 'leave_mfl' && numDays >= 5) {
-            console.log(`[VALIDATION] Force Leave rejected for resubmit ${employeeEmail}: Attempted ${numDays} consecutive days (max 4 allowed)`);
-            return res.status(400).json({
-                success: false,
-                error: 'Force Leave restriction',
-                message: `Force Leave cannot be taken for 5 or more consecutive working days. You submitted ${numDays} days. Maximum: 4 days per application.`
-            });
-        }
+        // CSC MC No. 6 s.1996: FL consecutive-day restriction removed
+        // Force Leave should ideally be taken as consecutive days (not restricted)
         
-        // Update application with any new data (e.g., additional documents)
+        // Update application with only allowed fields from resubmission (prevent mass assignment)
         if (updatedData) {
-            Object.assign(app, updatedData);
+            const allowedResubmitFields = ['complianceDocuments', 'supportingDocuments', 'soFileData', 'soFileName', 'remarks'];
+            for (const field of allowedResubmitFields) {
+                if (updatedData[field] !== undefined) {
+                    app[field] = updatedData[field];
+                }
+            }
         }
         
         // Add to approval history
@@ -4035,7 +4454,21 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         
         const app = applications[appIndex];
         console.log('[APPROVE-LEAVE] Found application:', { id: app.id, employee: app.employeeName, currentApprover: app.currentApprover });
-        const currentApprover = approverPortal.toUpperCase();
+        
+        // SECURITY: Use session role instead of trusting client-provided portal
+        // Map session role to portal name (prevents portal spoofing attack)
+        const roleToPortal = { 'ao': 'AO', 'hr': 'HR', 'asds': 'ASDS', 'sds': 'SDS' };
+        const sessionRole = req.session?.role;
+        const currentApprover = roleToPortal[sessionRole] || (approverPortal || '').toUpperCase();
+        
+        // Validate that the session role matches what the application expects
+        if (currentApprover !== app.currentApprover) {
+            console.log(`[APPROVE-LEAVE] Portal mismatch: session role=${sessionRole} (${currentApprover}), app expects=${app.currentApprover}`);
+            return res.status(403).json({ 
+                success: false, 
+                error: `This application is currently waiting for ${app.currentApprover} approval. You cannot act on it as ${currentApprover}.`
+            });
+        }
         
         // Validate that reason is provided for return or reject actions
         if ((action === 'returned' || action === 'rejected') && (!remarks || !remarks.trim())) {
@@ -4045,11 +4478,11 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             });
         }
         
-        // Add to approval history
+        // Add to approval history — use session-derived portal for audit integrity
         app.approvalHistory.push({
-            portal: approverPortal,
+            portal: currentApprover,
             action: action,
-            approverName: approverName,
+            approverName: req.session.email || approverName,
             remarks: remarks || '',
             timestamp: new Date().toISOString()
         });
@@ -4097,7 +4530,7 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             }
             
             app.returnedAt = new Date().toISOString();
-            app.returnedBy = approverPortal;
+            app.returnedBy = currentApprover;
             app.returnRemarks = remarks;
             
             console.log(`[LEAVE] Application ${applicationId} returned by ${approverPortal} to ${returnedTo} - Reason: ${remarks}`);
@@ -4107,8 +4540,8 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             app.status = 'rejected';
             app.currentApprover = null;
             app.rejectedAt = new Date().toISOString();
-            app.rejectedBy = approverPortal;
-            app.rejectedByName = approverName;
+            app.rejectedBy = currentApprover;
+            app.rejectedByName = req.session.email || approverName;
             app.rejectionReason = remarks;
             
             console.log(`[LEAVE] Application ${applicationId} REJECTED by ${approverPortal} - Reason: ${remarks}`);
@@ -4205,9 +4638,9 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             application: app
         });
         
-        // Log activity after successful action
-        logActivity(`LEAVE_APPLICATION_${action.toUpperCase()}`, approverPortal.toLowerCase(), {
-            userEmail: approverName,
+        // Log activity after successful action — use session-derived values
+        logActivity(`LEAVE_APPLICATION_${action.toUpperCase()}`, currentApprover.toLowerCase(), {
+            userEmail: req.session.email || approverName,
             ip,
             userAgent: req.get('user-agent'),
             applicationId: app.id,
@@ -4248,15 +4681,20 @@ function updateEmployeeLeaveBalance(application) {
         const leaveType = application.typeOfLeave || application.leaveType || '';
         const leaveTypeLower = String(leaveType).toLowerCase();
         
-        // Only deduct VL/SL if it's not a Force or Special Privilege leave
         const isForceLeave = leaveTypeLower.includes('force') || leaveTypeLower.includes('mandatory') || leaveTypeLower.includes('leave_mfl');
         const isSpecialLeave = leaveTypeLower.includes('special') || leaveTypeLower.includes('leave_spl');
         
-        if (vlLess > 0 && !isForceLeave && !isSpecialLeave) {
-            employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - vlLess);
-        }
-        if (slLess > 0 && !isForceLeave && !isSpecialLeave) {
-            employee.leaveCredits.sickLeave = Math.max(0, (employee.leaveCredits.sickLeave || 0) - slLess);
+        if (isForceLeave) {
+            // CSC MC No. 6 s.1996: Force Leave is charged against VL balance
+            const flDays = parseFloat(application.numDays) || parseFloat(application.daysApplied) || vlLess || 1;
+            employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - flDays);
+        } else if (!isSpecialLeave) {
+            if (vlLess > 0) {
+                employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - vlLess);
+            }
+            if (slLess > 0) {
+                employee.leaveCredits.sickLeave = Math.max(0, (employee.leaveCredits.sickLeave || 0) - slLess);
+            }
         }
         
         employee.lastLeaveUpdate = new Date().toISOString();
@@ -4368,7 +4806,10 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         
         // Deduct from balance based on leave type
         if (forceLeaveUsed > 0) {
+            // CSC MC No. 6 s.1996: Force Leave is charged AGAINST VL balance
             leavecard.forceLeaveSpent = (leavecard.forceLeaveSpent || 0) + forceLeaveUsed;
+            leavecard.vl = Math.max(0, (leavecard.vl || 0) - forceLeaveUsed);
+            leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + forceLeaveUsed;
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
         } else if (application.leaveType === 'leave_others' || String(application.leaveType || '').toLowerCase().includes('others')) {
@@ -4402,10 +4843,27 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 console.error('Error deducting CTO:', ctoErr);
             }
         } else {
-            leavecard.vl = Math.max(0, (leavecard.vl || 0) - vlUsed);
-            leavecard.sl = Math.max(0, (leavecard.sl || 0) - slUsed);
-            leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlUsed;
-            leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slUsed;
+            // VL/SL deduction — with SL-to-VL fallback per CSC Rule XVI Sec. 15
+            if (slUsed > 0) {
+                const currentSl = leavecard.sl || 0;
+                if (slUsed > currentSl) {
+                    // SL exhausted — deduct what SL can cover, charge remainder to VL
+                    const slPortion = currentSl;
+                    const vlPortion = slUsed - slPortion;
+                    leavecard.sl = 0;
+                    leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slPortion;
+                    leavecard.vl = Math.max(0, (leavecard.vl || 0) - vlPortion);
+                    leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlPortion;
+                    console.log(`[LEAVECARD] SL-to-VL fallback: ${slPortion} from SL, ${vlPortion} from VL for ${application.employeeEmail}`);
+                } else {
+                    leavecard.sl = Math.max(0, currentSl - slUsed);
+                    leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slUsed;
+                }
+            }
+            if (vlUsed > 0) {
+                leavecard.vl = Math.max(0, (leavecard.vl || 0) - vlUsed);
+                leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlUsed;
+            }
         }
         
         // Record usage with period covered
@@ -4452,6 +4910,12 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
     try {
         const { employeeId } = req.query;
         ensureFile(ctoRecordsFile);
+        
+        // SECURITY: Only allow access to own CTO records unless admin role
+        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
+        if (employeeId && !adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
         let ctoRecords = readJSON(ctoRecordsFile);
 
         if (employeeId) {
@@ -4483,7 +4947,7 @@ app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
         let ctoRecords = readJSON(ctoRecordsFile);
 
         const newRecord = {
-            id: Date.now().toString(),
+            id: crypto.randomUUID(),
             employeeId,
             email: employeeId,
             type: type || 'ADD',
@@ -4521,7 +4985,7 @@ app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
 
         ensureFile(ctoRecordsFile);
         let ctoRecords = readJSON(ctoRecordsFile);
-        const index = ctoRecords.findIndex(r => r.id == recordId);
+        const index = ctoRecords.findIndex(r => String(r.id) === String(recordId));
 
         if (index === -1) {
             return res.status(404).json({ success: false, error: 'Record not found' });
@@ -4795,7 +5259,12 @@ app.delete('/api/data/backup/:backupId', requireAuth('it'), (req, res) => {
         if (!validPrefixes.some(p => backupId.startsWith(p))) {
             return res.status(400).json({ success: false, error: 'Invalid backup ID format' });
         }
-        const backupPath = path.join(backupDir, backupId);
+        // SECURITY: Sanitize backupId to prevent path traversal
+        const safeName = path.basename(backupId);
+        if (safeName !== backupId || /[\/\\]/.test(backupId)) {
+            return res.status(400).json({ success: false, error: 'Invalid backup ID' });
+        }
+        const backupPath = path.join(backupDir, safeName);
         if (!fs.existsSync(backupPath)) {
             return res.status(404).json({ success: false, error: 'Backup not found' });
         }
@@ -4871,10 +5340,20 @@ app.post('/api/data/restore', requireAuth('it'), (req, res) => {
 app.get('/api/data/export', requireAuth('it'), (req, res) => {
     try {
         const bundle = {};
+        // Files that contain user authentication data (passwords must be stripped)
+        const sensitiveFiles = ['users.json', 'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json', 'it-users.json'];
         for (const file of DATA_FILES) {
             const filePath = path.join(dataDir, file);
             if (fs.existsSync(filePath)) {
-                bundle[file] = readJSON(filePath);
+                let data = readJSON(filePath);
+                // SECURITY: Strip password hashes from exported user data
+                if (sensitiveFiles.includes(file) && Array.isArray(data)) {
+                    data = data.map(record => {
+                        const { password, ...safe } = record;
+                        return safe;
+                    });
+                }
+                bundle[file] = data;
             }
         }
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -5433,13 +5912,19 @@ app.get('/api/system-status', requireAuth('it'), (req, res) => {
 });
 
 // One-time data upload endpoint (protected by secret key)
-app.post('/api/data/seed', express.json({limit: '50mb'}), (req, res) => {
+app.post('/api/data/seed', requireAuth('it'), express.json({limit: '50mb'}), (req, res) => {
     try {
         const { secretKey, dataType, data } = req.body;
         
-        // Only allow with correct secret key
-        const SEED_KEY = process.env.DATA_SEED_KEY || 'sipalay-sdo-2026-seed';
-        if (secretKey !== SEED_KEY) {
+        // SECURITY: Require both IT auth AND secret key. No default fallback.
+        const SEED_KEY = process.env.DATA_SEED_KEY;
+        if (!SEED_KEY) {
+            return res.status(503).json({ success: false, error: 'Data seeding is disabled. Set DATA_SEED_KEY environment variable to enable.' });
+        }
+        // Use timing-safe comparison to prevent timing attacks
+        const keyBuffer = Buffer.from(secretKey || '');
+        const seedBuffer = Buffer.from(SEED_KEY);
+        if (keyBuffer.length !== seedBuffer.length || !crypto.timingSafeEqual(keyBuffer, seedBuffer)) {
             return res.status(403).json({ success: false, error: 'Invalid secret key' });
         }
         
@@ -5455,7 +5940,7 @@ app.post('/api/data/seed', express.json({limit: '50mb'}), (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid dataType. Use: ' + Object.keys(fileMap).join(', ') });
         }
         
-        fs.writeFileSync(targetFile, JSON.stringify(data, null, 2));
+        writeJSON(targetFile, data);
         console.log(`[SEED] Wrote ${Array.isArray(data) ? data.length : 'N/A'} records to ${dataType}`);
         
         res.json({ 
@@ -5517,7 +6002,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
             // Always check if file needs format normalization (object â†’ array)
             const needsNormalize = !Array.isArray(appsData);
             if (fixedCount > 0 || needsNormalize) {
-                fs.writeFileSync(appsPath, JSON.stringify(apps, null, 2));
+                writeJSON(appsPath, apps);
                 if (fixedCount > 0) console.log(`[MIGRATION] Fixed commutation on ${fixedCount} old applications`);
                 if (needsNormalize) console.log(`[MIGRATION] Normalized applications.json from object to array format`);
             }
