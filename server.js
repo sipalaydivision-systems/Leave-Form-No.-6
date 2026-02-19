@@ -3905,7 +3905,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         }
         
         const leavecards = readJSON(leavecardsFile);
-        // Find all records for this employee — by email, employeeId, or name
+        // Find all records for this employee — by email, employeeId, name, or employee number
         let employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
         
         // Fallback: if not found by email, try matching by name (for unlinked Excel-migrated cards)
@@ -3915,6 +3915,11 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                 return lcName === normalizedId;
             });
+        }
+        
+        // Fallback: try matching by employee number
+        if (employeeRecords.length === 0) {
+            employeeRecords = leavecards.filter(lc => lc.employeeNo && lc.employeeNo === employeeId);
         }
         
         if (employeeRecords.length === 0) {
@@ -4371,7 +4376,7 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
         // Use email as primary lookup key since that's what we have from applications
         console.log(`[UPDATE LEAVE] Received: email=${employeeEmail}, applicationId=${applicationId}`);
         
-        // Find existing leave card by email or name
+        // Find existing leave card by email, name, or employee number
         let employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
         
         // Fallback: match by name if no email match (for unlinked Excel-migrated cards)
@@ -4381,6 +4386,11 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                 return lcName === normalizedId;
             });
+        }
+        
+        // Fallback: match by employee number
+        if (!employeeLeave && employeeEmail) {
+            employeeLeave = leavecards.find(lc => lc.employeeNo && lc.employeeNo === employeeEmail);
         }
         
         console.log(`[UPDATE LEAVE] Found existing record: ${!!employeeLeave}`);
@@ -4968,7 +4978,15 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
         let ctoRecords = readJSON(ctoRecordsFile);
 
         if (employeeId) {
-            ctoRecords = ctoRecords.filter(r => r.employeeId === employeeId || r.email === employeeId);
+            ctoRecords = ctoRecords.filter(r => {
+                if (r.employeeId === employeeId || r.email === employeeId) return true;
+                // Fallback: match by name or employee number (for unlinked Excel-migrated cards)
+                const rName = (r.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                const normalizedId = employeeId.toUpperCase().replace(/\s+/g, ' ').trim();
+                if (rName && rName === normalizedId) return true;
+                if (r.employeeNo && r.employeeNo === employeeId) return true;
+                return false;
+            });
         }
 
         res.json({ success: true, records: ctoRecords });

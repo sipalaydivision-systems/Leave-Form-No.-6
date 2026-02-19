@@ -610,6 +610,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         employeeEmail = urlParams.get('email') || '';
         const employeeName = urlParams.get('name') || '';
+        const employeeNo = urlParams.get('empNo') || '';
 
         // Set current date
         document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
@@ -647,10 +648,11 @@
                 const result = await response.json();
                 
                 if (result.success && result.employees) {
-                    // Try matching by email first, then by name (for unlinked Excel-migrated cards)
-                    employeeData = result.employees.find(e => e.email === employeeEmail)
+                    // Try matching by email first, then by name, then by employee number
+                    employeeData = result.employees.find(e => e.email && e.email === employeeEmail)
                         || result.employees.find(e => (e.name || '').toUpperCase() === employeeEmail.toUpperCase())
-                        || (employeeName ? result.employees.find(e => (e.name || '').toUpperCase() === employeeName.toUpperCase()) : null);
+                        || (employeeName ? result.employees.find(e => (e.name || '').toUpperCase() === employeeName.toUpperCase()) : null)
+                        || (employeeNo ? result.employees.find(e => e.employeeNo === employeeNo) : null);
                     if (employeeData) {
                         const name = employeeData.name || employeeData.fullName || 'N/A';
                         const position = employeeData.position || 'N/A';

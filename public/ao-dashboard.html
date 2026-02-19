@@ -941,7 +941,9 @@
             const filtered = allEmployees.filter(emp => {
                 const name = (emp.name || emp.fullName || '').toLowerCase();
                 const email = (emp.email || '').toLowerCase();
-                return name.includes(query.toLowerCase()) || email.includes(query.toLowerCase());
+                const empNo = (emp.employeeNo || '').toLowerCase();
+                const q = query.toLowerCase();
+                return name.includes(q) || email.includes(q) || empNo.includes(q);
             });
             
             displayEmployeeResults(filtered);
@@ -1002,9 +1004,11 @@
             resultsDiv.style.display = 'block';
         }
         
-        function openEmployeeCards(email, name) {
-            // Navigate to the dedicated employee cards page — pass both email and name
-            window.location.href = '/edit-employee-cards.html?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name);
+        function openEmployeeCards(email, name, empNo) {
+            // Navigate to the dedicated employee cards page — pass email, name, and employee number
+            let url = '/edit-employee-cards.html?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name);
+            if (empNo && empNo !== 'N/A') url += '&empNo=' + encodeURIComponent(empNo);
+            window.location.href = url;
         }
 
         async function loadApplications() {
