@@ -9,6 +9,8 @@
  * - ASDS: localStorage.asdsToken
  * - SDS: localStorage.sdsToken
  * - IT: localStorage.itToken
+ * 
+ * Also handles 401 responses by clearing stale tokens and redirecting to login.
  */
 (function() {
     'use strict';
@@ -22,6 +24,30 @@
             || localStorage.getItem('sdsToken')
             || localStorage.getItem('itToken');
     }
+
+    // Detect which portal we're on and return the appropriate login URL
+    function getLoginRedirect() {
+        const path = window.location.pathname;
+        if (path.includes('ao-')) return '/ao-login.html';
+        if (path.includes('hr-')) return '/hr-login.html';
+        if (path.includes('asds-')) return '/asds-login.html';
+        if (path.includes('sds-')) return '/sds-login.html';
+        if (path.includes('it-')) return '/it-login.html';
+        return '/login.html'; // Employee default
+    }
+
+    // Clear all auth tokens
+    function clearAllTokens() {
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('aoToken');
+        localStorage.removeItem('hrToken');
+        localStorage.removeItem('asdsToken');
+        localStorage.removeItem('sdsToken');
+        localStorage.removeItem('itToken');
+    }
+
+    // Track if we're already redirecting (prevent multiple redirects)
+    let _isRedirecting = false;
 
     window.fetch = function(url, options) {
         // Only intercept API calls to our server
@@ -44,6 +70,20 @@
                     options.headers['Authorization'] = 'Bearer ' + token;
                 }
             }
+
+            // Wrap the response to handle 401 (session expired / server restarted)
+            return _originalFetch.apply(this, arguments).then(function(response) {
+                if (response.status === 401 && !_isRedirecting) {
+                    // Skip redirect for login endpoints (they return 401 for bad credentials)
+                    if (!url.includes('/api/login') && !url.includes('/api/register')) {
+                        _isRedirecting = true;
+                        clearAllTokens();
+                        console.warn('[AUTH] Session expired or invalid. Redirecting to login...');
+                        window.location.href = getLoginRedirect();
+                    }
+                }
+                return response;
+            });
         }
         return _originalFetch.apply(this, arguments);
     };

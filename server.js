@@ -180,6 +180,58 @@ if (!MAILERSEND_API_KEY) {
 const activeSessions = new Map(); // token -> { userId, email, role, portal, createdAt, expiresAt }
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
 
+// Persist sessions to file so they survive Railway redeploys
+// sessionsFile is defined later (needs dataDir), so we use a lazy getter
+let _sessionsFile = null;
+function getSessionsFile() {
+    if (!_sessionsFile) {
+        const sessDataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+            ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
+            : path.join(__dirname, 'data');
+        _sessionsFile = path.join(sessDataDir, 'sessions.json');
+    }
+    return _sessionsFile;
+}
+
+function persistSessions() {
+    try {
+        const sessFile = getSessionsFile();
+        const sessObj = {};
+        for (const [token, session] of activeSessions) {
+            sessObj[token] = session;
+        }
+        fs.writeFileSync(sessFile, JSON.stringify(sessObj, null, 2));
+    } catch (err) {
+        console.error('[SESSION] Failed to persist sessions:', err.message);
+    }
+}
+
+function loadPersistedSessions() {
+    try {
+        const sessFile = getSessionsFile();
+        if (!fs.existsSync(sessFile)) return;
+        const raw = fs.readFileSync(sessFile, 'utf8');
+        const sessObj = JSON.parse(raw);
+        const now = Date.now();
+        let loaded = 0, expired = 0;
+        for (const [token, session] of Object.entries(sessObj)) {
+            if (now > session.expiresAt) {
+                expired++;
+                continue;
+            }
+            activeSessions.set(token, session);
+            loaded++;
+        }
+        console.log(`[SESSION] Restored ${loaded} active sessions from disk (${expired} expired sessions discarded)`);
+        if (expired > 0) persistSessions(); // Clean out expired entries from file
+    } catch (err) {
+        console.error('[SESSION] Failed to load persisted sessions:', err.message);
+    }
+}
+
+// Load persisted sessions on startup
+loadPersistedSessions();
+
 function generateSessionToken() {
     return crypto.randomBytes(48).toString('hex');
 }
@@ -195,6 +247,7 @@ function createSession(user, portal) {
         createdAt: now,
         expiresAt: now + SESSION_DURATION_MS
     });
+    persistSessions();
     return token;
 }
 
@@ -204,6 +257,7 @@ function validateSession(token) {
     if (!session) return null;
     if (Date.now() > session.expiresAt) {
         activeSessions.delete(token);
+        persistSessions();
         return null;
     }
     return session;
@@ -211,15 +265,22 @@ function validateSession(token) {
 
 function destroySession(token) {
     activeSessions.delete(token);
+    persistSessions();
 }
 
 // Clean up expired sessions every 15 minutes
 setInterval(() => {
     const now = Date.now();
+    let cleaned = 0;
     for (const [token, session] of activeSessions) {
         if (now > session.expiresAt) {
             activeSessions.delete(token);
+            cleaned++;
         }
+    }
+    if (cleaned > 0) {
+        persistSessions();
+        console.log(`[SESSION] Cleaned ${cleaned} expired session(s)`);
     }
 }, 15 * 60 * 1000);
 
@@ -535,26 +596,16 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
             // Determine how many months this card missed
             let monthsToAccrue = 0;
             if (!cardLastAccrual) {
-                // Card has never been accrued — figure out months from card creation
-                // to the global lastAccruedMonth
-                const createdAt = lc.createdAt ? new Date(lc.createdAt) : null;
-                if (!createdAt) {
-                    // No creation date — just give 1 month catch-up
-                    monthsToAccrue = 1;
-                } else {
-                    // Calculate months from the month the card was created
-                    // to the global lastAccruedMonth
-                    const globalParts = globalLastAccruedMonth.split('-').map(Number);
-                    const globalYear = globalParts[0];
-                    const globalMonth = globalParts[1];
+                // Card has never been accrued — accrue from January of the accrual year
+                // (DepEd employees earn credits from start of calendar year regardless
+                //  of when their card was created in the system)
+                const globalParts = globalLastAccruedMonth.split('-').map(Number);
+                const globalYear = globalParts[0];
+                const globalMonth = globalParts[1];
 
-                    // The card should receive accrual starting from the month it was created
-                    const createdYear = createdAt.getFullYear();
-                    const createdMonth = createdAt.getMonth() + 1; // 1-based
-
-                    monthsToAccrue = (globalYear - createdYear) * 12 + (globalMonth - createdMonth) + 1;
-                    if (monthsToAccrue <= 0) return; // Created after the last accrued month
-                }
+                // Accrue from January of the globalYear to globalMonth (inclusive)
+                monthsToAccrue = globalMonth; // Jan=1 month, Feb=2 months, etc.
+                if (monthsToAccrue <= 0) return;
             } else {
                 // Card has a lastAccrualDate but it's behind the global
                 const cardParts = cardLastAccrual.split('-').map(Number);
@@ -586,9 +637,10 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
             // Determine the starting month for transaction entries
             let startYear, startMonth;
             if (!cardLastAccrual) {
-                const createdAt = lc.createdAt ? new Date(lc.createdAt) : now;
-                startYear = createdAt.getFullYear();
-                startMonth = createdAt.getMonth() + 1;
+                // Start from January of the global accrual year
+                const globalParts = globalLastAccruedMonth.split('-').map(Number);
+                startYear = globalParts[0];
+                startMonth = 1; // January
             } else {
                 const parts = cardLastAccrual.split('-').map(Number);
                 startYear = parts[0];
@@ -2714,6 +2766,57 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                         leavecards.push(newLeavecard);
                         writeJSON(leavecardsFile, leavecards);
                         console.log(`[REGISTRATION] Created leave card for ${registration.email}: VL=${newLeavecard.vl}, SL=${newLeavecard.sl}, Source=${newLeavecard.initialCreditsSource}`);
+                        
+                        // Immediately apply catch-up accrual for completed months this year
+                        // so the employee doesn't start with VL=0/SL=0
+                        try {
+                            ensureFile(systemStateFile);
+                            const sysState = readJSON(systemStateFile);
+                            const globalLastAccrued = sysState.lastAccruedMonth || null;
+                            if (globalLastAccrued) {
+                                const globalParts = globalLastAccrued.split('-').map(Number);
+                                const monthsToAccrue = globalParts[1]; // Jan=1, Feb=2, etc.
+                                if (monthsToAccrue > 0) {
+                                    const accrualPerMonth = 1.25;
+                                    const totalAccrual = accrualPerMonth * monthsToAccrue;
+                                    newLeavecard.vacationLeaveEarned = +totalAccrual.toFixed(3);
+                                    newLeavecard.sickLeaveEarned = +totalAccrual.toFixed(3);
+                                    newLeavecard.vl = newLeavecard.vacationLeaveEarned;
+                                    newLeavecard.sl = newLeavecard.sickLeaveEarned;
+                                    newLeavecard.lastAccrualDate = globalLastAccrued;
+                                    
+                                    // Add transaction entries for each month
+                                    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                                        'July', 'August', 'September', 'October', 'November', 'December'];
+                                    if (!newLeavecard.transactions) newLeavecard.transactions = [];
+                                    let runningVL = 0, runningSL = 0;
+                                    for (let m = 1; m <= monthsToAccrue; m++) {
+                                        runningVL = +(runningVL + accrualPerMonth).toFixed(3);
+                                        runningSL = +(runningSL + accrualPerMonth).toFixed(3);
+                                        newLeavecard.transactions.push({
+                                            type: 'ADD',
+                                            periodCovered: `${monthNames[m]} ${globalParts[0]} (Monthly Accrual)`,
+                                            vlEarned: accrualPerMonth,
+                                            slEarned: accrualPerMonth,
+                                            vlSpent: 0,
+                                            slSpent: 0,
+                                            forcedLeave: 0,
+                                            splUsed: 0,
+                                            vlBalance: runningVL,
+                                            slBalance: runningSL,
+                                            total: +(runningVL + runningSL).toFixed(3),
+                                            source: 'system-accrual-catchup',
+                                            date: new Date().toISOString()
+                                        });
+                                    }
+                                    newLeavecard.updatedAt = new Date().toISOString();
+                                    writeJSON(leavecardsFile, leavecards);
+                                    console.log(`[REGISTRATION] Applied catch-up accrual for ${registration.email}: +${totalAccrual.toFixed(3)} VL/SL (${monthsToAccrue} month(s))`);
+                                }
+                            }
+                        } catch (accrualErr) {
+                            console.error(`[REGISTRATION] Catch-up accrual failed for ${registration.email}:`, accrualErr.message);
+                        }
                     }
                 }
                 break;
