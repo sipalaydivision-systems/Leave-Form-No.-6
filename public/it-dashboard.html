@@ -1394,6 +1394,46 @@
         </div>
     </div>
 
+    <!-- Reset Password Modal -->
+    <div class="modal-overlay" id="resetPasswordModal">
+        <div class="modal" style="max-width: 480px;">
+            <div class="modal-header" style="background: #e3f2fd;">
+                <h3 style="color: #1565c0;">🔑 Reset User Password</h3>
+                <button class="modal-close" onclick="closeModal('resetPasswordModal')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 25px;">
+                <p style="color: #666; margin-bottom: 15px;">Set a new password for this user. You cannot see their current password.</p>
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="font-weight: 600; color: #333;" id="resetPasswordEmail">user@example.com</p>
+                    <p style="font-size: 12px; color: #666;" id="resetPasswordPortal">Portal: Employee</p>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">New Password <span style="color: red;">*</span></label>
+                    <div style="position: relative;">
+                        <input type="password" id="resetNewPassword" placeholder="Enter new password" 
+                            style="width: 100%; padding: 10px 40px 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+                        <button type="button" onclick="toggleResetPasswordVisibility()" 
+                            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px;" id="resetPwToggle">👁️</button>
+                    </div>
+                    <small style="color: #888;">8+ characters, uppercase, lowercase, number, special character</small>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">Confirm Password <span style="color: red;">*</span></label>
+                    <input type="password" id="resetConfirmPassword" placeholder="Confirm new password" 
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <p style="color: #1565c0; font-size: 13px; background: #e3f2fd; padding: 10px; border-radius: 6px;">
+                    ℹ️ The user will be required to change this password on their next login.
+                </p>
+                <input type="hidden" id="resetPasswordPortalValue">
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button class="modal-btn cancel" onclick="closeModal('resetPasswordModal')">Cancel</button>
+                <button class="modal-btn approve" onclick="confirmResetPassword()">Reset Password</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Selected Registrations Modal -->
     <div class="modal-overlay" id="deleteSelectedModal">
         <div class="modal" style="max-width: 500px;">
@@ -1750,6 +1790,7 @@
                             ` : ''}
                             ${reg.status === 'approved' ? `
                                 <button class="action-btn delete" onclick="showDeleteModal('${reg.id}', '${reg.email}', '${reg.portal}')">Delete</button>
+                                <button class="action-btn view" onclick="showResetPasswordModal('${reg.email}', '${reg.portal}')" title="Reset Password">🔑</button>
                             ` : ''}
                         </div>
                     </td>
@@ -2120,6 +2161,67 @@
                 }
             } catch (error) {
                 alert('Error deleting user. Please try again.');
+            }
+        }
+
+        // ========== PASSWORD RESET FUNCTIONS ==========
+        function showResetPasswordModal(email, portal) {
+            document.getElementById('resetPasswordEmail').textContent = email;
+            document.getElementById('resetPasswordPortal').textContent = 'Portal: ' + portal.toUpperCase();
+            document.getElementById('resetPasswordPortalValue').value = portal;
+            document.getElementById('resetNewPassword').value = '';
+            document.getElementById('resetConfirmPassword').value = '';
+            document.getElementById('resetPasswordModal').classList.add('active');
+        }
+
+        function toggleResetPasswordVisibility() {
+            const input = document.getElementById('resetNewPassword');
+            const btn = document.getElementById('resetPwToggle');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                btn.textContent = '👁️';
+            }
+        }
+
+        async function confirmResetPassword() {
+            const email = document.getElementById('resetPasswordEmail').textContent;
+            const portal = document.getElementById('resetPasswordPortalValue').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
+            const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+            if (!newPassword) {
+                alert('Please enter a new password');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+            if (newPassword.length < 8) {
+                alert('Password must be at least 8 characters');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/it/reset-password', {
+                    method: 'POST',
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify({ email, newPassword, portal })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message || 'Password reset successfully!');
+                    closeModal('resetPasswordModal');
+                } else {
+                    alert(data.error || 'Failed to reset password');
+                }
+            } catch (error) {
+                alert('Error resetting password. Please try again.');
             }
         }
 

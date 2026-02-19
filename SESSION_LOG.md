@@ -393,4 +393,52 @@
 
 ---
 
+## Session 13 — Full Delete Cleanup & IT Password Reset
+
+**Date**: 2026-02-19  
+**Commits**: (this session)
+
+### Issues Reported
+1. "Email already registered" when trying to register Jenel Tiad as employee, even though the user was deleted from the IT dashboard
+2. IT department needs the ability to reset a user's password without knowing the existing one
+
+### Root Causes
+1. **Incomplete delete cleanup**: `/api/delete-user` only removed from the specific portal's user file and pending registrations. It did NOT clean up: `employees.json`, `leavecards.json`, other portal user files (if email exists in multiple portals), or active sessions. If Tiad had entries in both `sds-users.json` AND `users.json`, deleting from one portal left the other intact → "Email already registered."
+2. **No password reset feature existed**: The only password change was `/api/change-password` which requires the user to know their current password.
+
+### Fixes Implemented
+
+**1. Full Delete Cleanup** (`/api/delete-user`):
+- Now removes user from ALL portal user files (not just the specified one)
+- Removes from `employees.json`
+- Removes from `leavecards.json`
+- Removes ALL pending registrations for that email (not just one)
+- Destroys all active sessions for that user
+- Persists session changes to disk
+- Detailed audit logging of all deletions performed
+- When IT deletes a user, the person is fully wiped from the system and can re-register
+
+**2. IT Password Reset** (`POST /api/it/reset-password`):
+- New endpoint allowing IT admins to set a new password for any user in any portal
+- Searches across all portal user files for the email
+- Updates password hash (bcrypt) in all portals where the email exists
+- Sets `mustChangePassword: true` flag — user must change on next login
+- Destroys active sessions to force re-login with new password
+- Password validation enforced (8+ chars, complexity requirements)
+- Activity logged as `PASSWORD_RESET_BY_IT`
+
+**3. IT Dashboard UI** (`public/it-dashboard.html`):
+- Added 🔑 "Reset Password" button next to "Delete" for approved users
+- New modal with password fields, visibility toggle, confirmation
+- Client-side validation (password match, minimum length)
+
+### Architecture Impact
+| What | Before | After |
+|------|--------|-------|
+| Delete user | Removes from 1 portal + pending regs | Removes from ALL portals + employees + leave cards + pending + sessions |
+| Password reset | Not available to IT | IT can set new password for any user, any portal |
+| Delete audit trail | Basic (user + reg deleted) | Full (all portals, employee, leave card, sessions counted) |
+
+---
+
 *Last updated: 2026-02-19*

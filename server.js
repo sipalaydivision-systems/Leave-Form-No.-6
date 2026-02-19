@@ -1545,6 +1545,90 @@ app.post('/api/change-password', requireAuth(), (req, res) => {
     }
 });
 
+// IT Admin: Reset any user's password (without knowing the old one)
+app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
+    try {
+        const { email, newPassword, portal } = req.body;
+        const resetBy = req.session.email || 'IT Admin';
+
+        if (!email || !newPassword) {
+            return res.status(400).json({ success: false, error: 'Email and new password are required' });
+        }
+
+        const passwordValidation = validatePortalPassword(newPassword);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ success: false, error: passwordValidation.error });
+        }
+
+        // Search all portal files for this email
+        const allPortalFiles = [
+            { name: 'employee', file: usersFile },
+            { name: 'ao', file: aoUsersFile },
+            { name: 'hr', file: hrUsersFile },
+            { name: 'asds', file: asdsUsersFile },
+            { name: 'sds', file: sdsUsersFile },
+            { name: 'it', file: itUsersFile }
+        ];
+
+        // If portal specified, search only that file; otherwise search all
+        const filesToSearch = portal 
+            ? allPortalFiles.filter(p => p.name === portal.toLowerCase())
+            : allPortalFiles;
+
+        let resetCount = 0;
+        const resetPortals = [];
+        const hashedPassword = hashPasswordWithSalt(newPassword);
+
+        for (const { name, file } of filesToSearch) {
+            if (!fs.existsSync(file)) continue;
+            let users = readJSON(file);
+            const userIdx = users.findIndex(u => (u.email || '').toLowerCase() === email.toLowerCase());
+            if (userIdx !== -1) {
+                users[userIdx].password = hashedPassword;
+                users[userIdx].mustChangePassword = true;
+                users[userIdx].passwordResetAt = new Date().toISOString();
+                users[userIdx].passwordResetBy = resetBy;
+                writeJSON(file, users);
+                resetCount++;
+                resetPortals.push(name);
+                console.log(`[IT] Password reset for ${email} in ${name} portal by ${resetBy}`);
+            }
+        }
+
+        if (resetCount === 0) {
+            return res.status(404).json({ success: false, error: 'User not found in any portal' });
+        }
+
+        // Destroy existing sessions for this user (force re-login with new password)
+        let sessionsDestroyed = 0;
+        for (const [token, session] of activeSessions) {
+            if (session.email && session.email.toLowerCase() === email.toLowerCase()) {
+                activeSessions.delete(token);
+                sessionsDestroyed++;
+            }
+        }
+        if (sessionsDestroyed > 0) persistSessions();
+
+        logActivity('PASSWORD_RESET_BY_IT', 'it', {
+            userEmail: email,
+            resetBy: resetBy,
+            portalsReset: resetPortals,
+            sessionsDestroyed,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+
+        res.json({ 
+            success: true, 
+            message: `Password reset for ${email} in ${resetPortals.join(', ')} portal(s). User must change password on next login.`,
+            portalsReset: resetPortals
+        });
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
+    }
+});
+
 // Get user details by email
 app.get('/api/user-details', requireAuth(), (req, res) => {
     try {
@@ -3298,22 +3382,80 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
             }
         }
 
-        // Permanently delete from pending registrations
-        let regDeleted = false;
-        let pendingRegs = readJSON(pendingRegistrationsFile);
-        // Try to find by email+portal first, then fallback to id
-        let regIndex = pendingRegs.findIndex(r => r.email === email && r.portal === portal);
-        if (regIndex === -1 && id) {
-            regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
-        }
-        if (regIndex !== -1) {
-            pendingRegs.splice(regIndex, 1);
-            writeJSON(pendingRegistrationsFile, pendingRegs);
-            regDeleted = true;
-            console.log(`Registration record for ${email} permanently deleted from pending-registrations by ${deletedBy}`);
+        // Also remove from ALL other portal user files (full cleanup)
+        // This ensures re-registration is possible without orphaned records
+        const allPortalFiles = {
+            'employee': usersFile,
+            'ao': aoUsersFile,
+            'hr': hrUsersFile,
+            'asds': asdsUsersFile,
+            'sds': sdsUsersFile,
+            'it': itUsersFile
+        };
+        const otherPortalsDeleted = [];
+        for (const [pName, pFile] of Object.entries(allPortalFiles)) {
+            if (pName === portal.toLowerCase()) continue; // Already handled above
+            if (fs.existsSync(pFile)) {
+                let pUsers = readJSON(pFile);
+                const pIdx = pUsers.findIndex(u => (u.email || '').toLowerCase() === email.toLowerCase());
+                if (pIdx !== -1) {
+                    pUsers.splice(pIdx, 1);
+                    writeJSON(pFile, pUsers);
+                    otherPortalsDeleted.push(pName);
+                    console.log(`[DELETE] Also removed ${email} from ${pName} portal by ${deletedBy}`);
+                }
+            }
         }
 
-        if (userDeleted || regDeleted) {
+        // Remove from employees.json
+        let empDeleted = false;
+        if (fs.existsSync(employeesFile)) {
+            let employees = readJSON(employeesFile);
+            const empLen = employees.length;
+            employees = employees.filter(emp => (emp.email || '').toLowerCase() !== email.toLowerCase());
+            if (employees.length < empLen) {
+                writeJSON(employeesFile, employees);
+                empDeleted = true;
+            }
+        }
+
+        // Remove leave card
+        let lcDeleted = false;
+        if (fs.existsSync(leavecardsFile)) {
+            let leavecards = readJSON(leavecardsFile);
+            const lcLen = leavecards.length;
+            leavecards = leavecards.filter(lc => (lc.email || '').toLowerCase() !== email.toLowerCase());
+            if (leavecards.length < lcLen) {
+                writeJSON(leavecardsFile, leavecards);
+                lcDeleted = true;
+            }
+        }
+
+        // Permanently delete ALL pending registrations for this email
+        let regDeleted = false;
+        let pendingRegs = readJSON(pendingRegistrationsFile);
+        const origRegLen = pendingRegs.length;
+        pendingRegs = pendingRegs.filter(r => (r.email || '').toLowerCase() !== email.toLowerCase());
+        if (pendingRegs.length < origRegLen) {
+            writeJSON(pendingRegistrationsFile, pendingRegs);
+            regDeleted = true;
+            console.log(`All pending registrations for ${email} permanently deleted by ${deletedBy}`);
+        }
+
+        // Destroy active sessions for this user
+        let sessionsDestroyed = 0;
+        for (const [token, session] of activeSessions) {
+            if (session.email && session.email.toLowerCase() === email.toLowerCase()) {
+                activeSessions.delete(token);
+                sessionsDestroyed++;
+            }
+        }
+        if (sessionsDestroyed > 0) {
+            persistSessions();
+            console.log(`[DELETE] Destroyed ${sessionsDestroyed} active session(s) for ${email}`);
+        }
+
+        if (userDeleted || regDeleted || otherPortalsDeleted.length > 0 || empDeleted || lcDeleted) {
             // Log user deletion
             logActivity('DATA_DELETION', 'it', {
                 userEmail: email,
@@ -3322,10 +3464,14 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
                 deletedBy: deletedBy,
                 userAccountDeleted: userDeleted,
                 registrationDeleted: regDeleted,
+                employeeRecordDeleted: empDeleted,
+                leaveCardDeleted: lcDeleted,
+                otherPortalsDeleted: otherPortalsDeleted.length > 0 ? otherPortalsDeleted : undefined,
+                sessionsDestroyed,
                 ip: getClientIp(req),
                 userAgent: req.get('user-agent')
             });
-            res.json({ success: true, message: 'User deleted successfully' });
+            res.json({ success: true, message: 'User and all associated records deleted successfully' });
         } else {
             res.status(404).json({ success: false, error: 'User not found in database' });
         }
