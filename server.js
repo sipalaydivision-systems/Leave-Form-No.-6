@@ -3406,13 +3406,15 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 
         // Also remove from ALL other portal user files (full cleanup)
         // This ensures re-registration is possible without orphaned records
+        // NOTE: IT portal is excluded — IT accounts use PINs and should only be
+        // managed via the dedicated IT staff management (add/remove IT staff).
+        // Deleting an employee should NOT delete their IT admin account.
         const allPortalFiles = {
             'employee': usersFile,
             'ao': aoUsersFile,
             'hr': hrUsersFile,
             'asds': asdsUsersFile,
-            'sds': sdsUsersFile,
-            'it': itUsersFile
+            'sds': sdsUsersFile
         };
         const otherPortalsDeleted = [];
         for (const [pName, pFile] of Object.entries(allPortalFiles)) {
@@ -3464,10 +3466,14 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
             console.log(`All pending registrations for ${email} permanently deleted by ${deletedBy}`);
         }
 
-        // Destroy active sessions for this user
+        // Destroy active sessions for the deleted user
+        // But NEVER destroy the requesting IT admin's own session
+        const requestToken = req.headers.authorization?.substring(7);
         let sessionsDestroyed = 0;
         for (const [token, session] of activeSessions) {
             if (session.email && session.email.toLowerCase() === email.toLowerCase()) {
+                // Skip the IT admin's own session token
+                if (token === requestToken) continue;
                 activeSessions.delete(token);
                 sessionsDestroyed++;
             }
