@@ -50,8 +50,8 @@ function createRateLimiter(maxRequests, windowMs) {
     };
 }
 
-// Login rate limiter: 5 attempts per 15 minutes
-const loginRateLimiter = createRateLimiter(5, 15 * 60 * 1000);
+// Login rate limiter: 10 attempts per 15 minutes
+const loginRateLimiter = createRateLimiter(10, 15 * 60 * 1000);
 
 // General API rate limiter: 100 requests per minute
 const apiRateLimiter = createRateLimiter(100, 60 * 1000);

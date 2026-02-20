@@ -76,7 +76,7 @@
             }
 
             // Wrap the response to handle 401 (session expired / server restarted)
-            return _originalFetch.apply(this, arguments).then(function(response) {
+            return _originalFetch.call(this, url, options).then(function(response) {
                 if (response.status === 401 && !_isRedirecting) {
                     // Skip redirect for login/register/validate-session endpoints
                     if (!url.includes('/api/login') && !url.includes('/api/register') && !url.includes('/api/validate-session')) {

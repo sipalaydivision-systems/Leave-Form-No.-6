@@ -1394,7 +1394,16 @@ async function handleLogin(e) {
             message.textContent = 'Login successful! Redirecting...';
             message.className = 'message success';
             
-            // Redirect immediately — SW update handled by pwa.js on dashboard load
+            // Clear stale service worker caches before redirecting
+            try {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                    console.log('[LOGIN] Cleared', keys.length, 'SW cache(s)');
+                }
+            } catch(e) { console.warn('[LOGIN] Cache clear failed:', e); }
+            
+            // Redirect immediately
             window.location.replace('/dashboard');
         } else {
             message.textContent = result.error || 'Invalid email or password';
