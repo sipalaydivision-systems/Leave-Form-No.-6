@@ -21,6 +21,8 @@ data/activity-logs.json
 data/schools.json
 data/system-state.json
 data/register_requests.log
+data/sessions.json
+data/*.bak
 
 # Root-level data file duplicate
 /users.json
