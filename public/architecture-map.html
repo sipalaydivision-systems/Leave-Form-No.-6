@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend Architecture Map — Interactive</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f1117; color: #e1e4e8; overflow: hidden; }
+
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; align-items: center; gap: 6px; padding: 5px 12px; flex-wrap: wrap;
+  }
+  #toolbar h1 { font-size: 13px; font-weight: 600; color: #58a6ff; margin-right: 8px; white-space: nowrap; }
+  .tb-btn {
+    background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  }
+  .tb-btn:hover { background: #30363d; }
+  .tb-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .tb-btn.danger { color: #f85149; }
+  #searchBox {
+    background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+    padding: 4px 8px; border-radius: 6px; font-size: 11px; width: 150px;
+  }
+  .tb-sep { width: 1px; height: 22px; background: #30363d; }
+  #modeLabel { font-size: 11px; color: #f0883e; margin-left: auto; }
+  canvas { display: block; }
+
+  #legend {
+    position: fixed; bottom: 10px; left: 10px; z-index: 80;
+    background: #161b22ee; border: 1px solid #30363d; border-radius: 8px;
+    padding: 8px 12px; font-size: 11px; max-width: 280px; user-select: none;
+  }
+  #legend h3 { font-size: 11px; margin-bottom: 4px; color: #58a6ff; }
+  .legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+  .legend-row:hover { background: #21262d; }
+  .legend-row.hidden { opacity: 0.3; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  #status {
+    position: fixed; bottom: 10px; right: 10px; z-index: 80;
+    background: #161b22ee; border: 1px solid #30363d; border-radius: 6px;
+    padding: 5px 10px; font-size: 11px; color: #8b949e;
+  }
+
+  #tooltip {
+    position: fixed; background: #1c2128; border: 1px solid #30363d;
+    border-radius: 6px; padding: 8px 12px; font-size: 11px; color: #c9d1d9;
+    pointer-events: none; z-index: 200; display: none; max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5);
+  }
+  .tt-title { font-weight: 600; color: #58a6ff; margin-bottom: 2px; }
+  .tt-cat { font-size: 10px; color: #8b949e; }
+  .tt-info { font-size: 10px; color: #adbac7; margin-top: 3px; }
+
+  #panel {
+    position: fixed; top: 38px; right: 0; width: 320px; height: calc(100vh - 38px);
+    background: #161b22; border-left: 1px solid #30363d;
+    transform: translateX(100%); transition: transform .2s ease; z-index: 90;
+    display: flex; flex-direction: column;
+  }
+  #panel.open { transform: translateX(0); }
+  .panel-header { padding: 10px 14px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
+  .panel-header h2 { font-size: 13px; font-weight: 600; }
+  .panel-close { background: none; border: none; color: #8b949e; cursor: pointer; font-size: 16px; }
+  .panel-body { padding: 14px; overflow-y: auto; flex: 1; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 10px; color: #8b949e; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+    padding: 5px 8px; border-radius: 6px; font-size: 12px;
+  }
+  .field textarea { resize: vertical; min-height: 50px; }
+  .panel-actions { padding: 10px 14px; border-top: 1px solid #30363d; display: flex; gap: 6px; }
+  .panel-actions .tb-btn { flex: 1; text-align: center; padding: 7px; }
+  .btn-primary { background: #238636 !important; border-color: #238636 !important; color: #fff !important; }
+
+  #ctxmenu {
+    position: fixed; z-index: 300; display: none;
+    background: #1c2128; border: 1px solid #30363d; border-radius: 8px;
+    padding: 4px 0; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .ctx-item { padding: 5px 12px; font-size: 11px; cursor: pointer; color: #c9d1d9; }
+  .ctx-item:hover { background: #30363d; }
+  .ctx-item.danger { color: #f85149; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <h1>&#9881; Backend Architecture Map</h1>
+  <input id="searchBox" type="text" placeholder="Search... (Ctrl+F)">
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="addNodePanel()">+ Add Node</button>
+  <button class="tb-btn" id="btnAddEdge" onclick="toggleAddEdge()">+ Add Edge</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="fitAll()">Fit All</button>
+  <button class="tb-btn" id="btnPhysics" class="active" onclick="togglePhysics()">Physics: ON</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="exportPNG()">PNG</button>
+  <button class="tb-btn" onclick="saveToStorage()">Save</button>
+  <button class="tb-btn danger" onclick="resetAll()">Reset</button>
+  <span id="modeLabel"></span>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<div id="legend"><h3>Legend - click to filter</h3><div id="legendItems"></div></div>
+<div id="status"></div>
+<div id="tooltip"><div class="tt-title" id="ttTitle"></div><div class="tt-cat" id="ttCat"></div><div class="tt-info" id="ttInfo"></div></div>
+<div id="ctxmenu"></div>
+
+<div id="panel">
+  <div class="panel-header"><h2 id="panelTitle">Add Node</h2><button class="panel-close" onclick="closePanel()">X</button></div>
+  <div class="panel-body" id="panelBody"></div>
+  <div class="panel-actions" id="panelActions"></div>
+</div>
+
+<script>
+// GROUPS
+var GROUPS = {
+  middleware: { label: 'Middleware',         color: '#3b82f6' },
+  auth:      { label: 'Auth / Session',     color: '#22c55e' },
+  empEP:     { label: 'Employee Endpoints', color: '#f97316' },
+  itEP:      { label: 'IT Endpoints',       color: '#ef4444' },
+  portalEP:  { label: 'Portal Endpoints',   color: '#a855f7' },
+  leaveEP:   { label: 'Leave Endpoints',    color: '#06b6d4' },
+  helper:    { label: 'Helper Functions',   color: '#eab308' },
+  dataFile:  { label: 'Data Files',         color: '#6b7280' },
+  scheduled: { label: 'Scheduled Tasks',    color: '#ec4899' },
+  custom:    { label: 'Custom',             color: '#8b5cf6' }
+};
+
+// NODES
+var INIT_NODES = [
+  { id:'mw-security',  label:'Security Headers\nL151',   group:'middleware', info:'X-Content-Type-Options, X-Frame-Options, CSP, HSTS' },
+  { id:'mw-cors',      label:'CORS\nL280',               group:'middleware', info:'Prod: restricted | Dev: allow all' },
+  { id:'mw-bodyparse', label:'bodyParser\nL284',          group:'middleware', info:'JSON + urlencoded 10MB' },
+  { id:'mw-sanitize',  label:'sanitizeObject\nL288',      group:'middleware', info:'Deep-walk body/query XSS encode' },
+  { id:'mw-nocache',   label:'No-Cache HTML\nL299',       group:'middleware', info:'Cache-Control: no-store for .html' },
+  { id:'mw-static',    label:'express.static\nL305',      group:'middleware', info:'Serves public/ directory' },
+  { id:'mw-loginRL',   label:'loginRateLimiter\n10/15min', group:'middleware', info:'Rate limit on login endpoints' },
+  { id:'mw-apiRL',     label:'apiRateLimiter\n100/min',   group:'middleware', info:'Rate limit on API endpoints' },
+  { id:'fn-genToken',    label:'generateSessionToken\nL219', group:'auth', info:'crypto.randomBytes(48) = 96-char hex' },
+  { id:'fn-createSess',  label:'createSession\nL243',        group:'auth', info:'Store in Map + persist. 8h expiry' },
+  { id:'fn-validateSess',label:'validateSession\nL258',      group:'auth', info:'Check Map + expiry' },
+  { id:'fn-destroySess', label:'destroySession\nL271',       group:'auth', info:'Remove from Map + persist' },
+  { id:'fn-requireAuth', label:'requireAuth\nL292',          group:'auth', info:'Middleware: Bearer token validate + role check' },
+  { id:'fn-persistSess', label:'persistSessions\nL202',      group:'auth', info:'Write Map to sessions.json' },
+  { id:'fn-loadSess',    label:'loadPersistedSessions\nL214',group:'auth', info:'Read sessions.json on startup' },
+  { id:'ep-health',      label:'GET /api/health\nL1323',     group:'auth', info:'Health check, no auth' },
+  { id:'ep-validate',    label:'GET /api/validate-session\nL1328', group:'auth', info:'Validate Bearer token' },
+  { id:'ep-logout',      label:'POST /api/logout\nL1340',    group:'auth', info:'Destroy session + log' },
+  { id:'ep-register',   label:'POST /api/register\nL1358',   group:'empEP', info:'Employee registration - pending queue' },
+  { id:'ep-login',      label:'POST /api/login\nL1453',      group:'empEP', info:'Employee login returns token' },
+  { id:'ep-empProfile', label:'POST update-employee-profile\nL2313', group:'empEP', info:'Update profile users+employees+cards' },
+  { id:'ep-userDetail', label:'GET /api/user-details\nL1638',group:'empEP', info:'Get user details by email' },
+  { id:'ep-itLogin',    label:'POST /api/it-login\nL2185',   group:'itEP', info:'IT PIN login 5+ digits' },
+  { id:'ep-addItStaff', label:'POST /api/add-it-staff\nL2218', group:'itEP', info:'Add IT staff 6-digit PIN' },
+  { id:'ep-resetPw',    label:'POST it/reset-password\nL1517', group:'itEP', info:'IT resets portal passwords' },
+  { id:'ep-resetPin',   label:'POST it/reset-pin\nL1598',    group:'itEP', info:'IT resets another IT PIN' },
+  { id:'ep-pendRegs',   label:'GET pending-registrations\nL2617', group:'itEP', info:'List pending registrations' },
+  { id:'ep-approveReg', label:'POST approve-registration\nL2707', group:'itEP', info:'Approve user+employee+card' },
+  { id:'ep-rejectReg',  label:'POST reject-registration\nL3086', group:'itEP', info:'Reject a registration' },
+  { id:'ep-deleteUser', label:'POST /api/delete-user\nL3337',group:'itEP', info:'Delete from all portals' },
+  { id:'ep-delMulti',   label:'POST delete-multiple-users\nL3515', group:'itEP', info:'Batch delete users' },
+  { id:'ep-delAll',     label:'POST delete-all-data\nL3289', group:'itEP', info:'Nuclear delete requires confirm' },
+  { id:'ep-sysStatus',  label:'GET system-status\nL6218',    group:'itEP', info:'System overview counts' },
+  { id:'ep-backup',     label:'POST /api/data/backup\nL5476',group:'itEP', info:'Backup all data files' },
+  { id:'ep-restore',    label:'POST /api/data/restore\nL5547',group:'itEP', info:'Restore from backup' },
+  { id:'ep-export',     label:'GET /api/data/export\nL5585', group:'itEP', info:'Export all data JSON' },
+  { id:'ep-import',     label:'POST /api/data/import\nL5614',group:'itEP', info:'Import data from JSON' },
+  { id:'ep-migrate',    label:'POST migrate-leave-cards\nL5680', group:'itEP', info:'Migrate Excel leave cards' },
+  { id:'ep-hrReg',     label:'POST hr-register\nL1672',     group:'portalEP', info:'HR registration' },
+  { id:'ep-hrLogin',   label:'POST hr-login\nL1740',        group:'portalEP', info:'HR login' },
+  { id:'ep-aoReg',     label:'POST ao-register\nL2071',     group:'portalEP', info:'AO registration' },
+  { id:'ep-aoLogin',   label:'POST ao-login\nL2141',        group:'portalEP', info:'AO login' },
+  { id:'ep-asdsReg',   label:'POST asds-register\nL1791',   group:'portalEP', info:'ASDS registration' },
+  { id:'ep-asdsLogin', label:'POST asds-login\nL1854',      group:'portalEP', info:'ASDS login' },
+  { id:'ep-sdsReg',    label:'POST sds-register\nL1896',    group:'portalEP', info:'SDS registration' },
+  { id:'ep-sdsLogin',  label:'POST sds-login\nL2026',       group:'portalEP', info:'SDS login' },
+  { id:'ep-submitLeave', label:'POST submit-leave\nL3621',  group:'leaveEP', info:'Submit leave validates balance' },
+  { id:'ep-approveLeave',label:'POST approve-leave\nL4745', group:'leaveEP', info:'AO-HR-ASDS-SDS chain' },
+  { id:'ep-leaveCredits',label:'GET leave-credits\nL4177',  group:'leaveEP', info:'Balance deducts pending' },
+  { id:'ep-leaveCard',   label:'GET leave-card\nL4367',     group:'leaveEP', info:'Full leave card data' },
+  { id:'ep-myApps',      label:'GET my-applications\nL3920',group:'leaveEP', info:'Employee own applications' },
+  { id:'ep-pendApps',    label:'GET pending-applications\nL4027', group:'leaveEP', info:'Pending for approver' },
+  { id:'ep-allApps',     label:'GET all-applications\nL4089',group:'leaveEP', info:'All applications admin' },
+  { id:'ep-resubmit',    label:'POST resubmit-leave\nL4528',group:'leaveEP', info:'Resubmit returned app' },
+  { id:'ep-updateCreds', label:'POST update-leave-credits\nL4639', group:'leaveEP', info:'AO/IT manual credit update' },
+  { id:'ep-ctoGet',      label:'GET cto-records\nL5221',    group:'leaveEP', info:'CTO records' },
+  { id:'ep-ctoUpdate',   label:'POST update-cto-records\nL5248', group:'leaveEP', info:'Update CTO AO/IT' },
+  { id:'ep-actLogs',     label:'GET activity-logs\nL5317',  group:'leaveEP', info:'Activity logs IT only' },
+  { id:'fn-sanitizeIn',  label:'sanitizeInput\nL76',        group:'helper', info:'XSS encode special chars' },
+  { id:'fn-emailAny',    label:'isEmailRegisteredInAnyPortal\nL120', group:'helper', info:'Cross-portal uniqueness' },
+  { id:'fn-logActivity', label:'logActivity\nL385',         group:'helper', info:'Append to activity-logs 10K cap' },
+  { id:'fn-readJSON',    label:'readJSON\nL508',            group:'helper', info:'Read JSON strip BOM .bak fallback' },
+  { id:'fn-writeJSON',   label:'writeJSON\nL564',           group:'helper', info:'Atomic write tmp rename + .bak' },
+  { id:'fn-hashPw',      label:'hashPasswordWithSalt\nL847',group:'helper', info:'bcrypt.hashSync(pw, 12)' },
+  { id:'fn-verifyPw',    label:'verifyPassword\nL885',      group:'helper', info:'bcrypt / SHA-256 compare' },
+  { id:'fn-rehash',      label:'rehashIfNeeded\nL890',      group:'helper', info:'Legacy to bcrypt upgrade' },
+  { id:'fn-valEmail',    label:'validateDepEdEmail\nL900',  group:'helper', info:'Check @deped.gov.ph' },
+  { id:'fn-valPw',       label:'validatePortalPassword\nL905', group:'helper', info:'6-24 chars mixed' },
+  { id:'fn-buildEmp',    label:'buildEmployeeRecord\nL1003',group:'helper', info:'Build employee with parsed name' },
+  { id:'fn-parseName',   label:'parseFullNameIntoParts\nL828', group:'helper', info:'LAST FIRST MID to parts' },
+  { id:'fn-sendEmail',   label:'sendEmail\nL1138',          group:'helper', info:'MailerSend HTTPS API' },
+  { id:'fn-genAppId',    label:'generateApplicationId\nL3619', group:'helper', info:'SDO Sipalay-XX-XXXX' },
+  { id:'fn-updateBal',   label:'updateEmployeeLeaveBalance\nL4994', group:'helper', info:'Deduct on SDS final approve' },
+  { id:'fn-updateCard',  label:'updateLeaveCardWithUsage\nL5051', group:'helper', info:'VL/SL/FL/SPL/CTO deduction' },
+  { id:'fn-ensureFile',  label:'ensureFile\nL434',          group:'helper', info:'Seed missing file from defaults/' },
+  { id:'df-users',       label:'users.json',              group:'dataFile', info:'Employee accounts' },
+  { id:'df-itUsers',     label:'it-users.json',           group:'dataFile', info:'IT staff PINs' },
+  { id:'df-aoUsers',     label:'ao-users.json',           group:'dataFile', info:'AO accounts' },
+  { id:'df-hrUsers',     label:'hr-users.json',           group:'dataFile', info:'HR accounts' },
+  { id:'df-asdsUsers',   label:'asds-users.json',         group:'dataFile', info:'ASDS accounts' },
+  { id:'df-sdsUsers',    label:'sds-users.json',          group:'dataFile', info:'SDS accounts' },
+  { id:'df-employees',   label:'employees.json',          group:'dataFile', info:'Full employee records' },
+  { id:'df-leavecards',  label:'leavecards.json',         group:'dataFile', info:'Credits transactions history' },
+  { id:'df-applications',label:'applications.json',       group:'dataFile', info:'Leave applications chain state' },
+  { id:'df-pending',     label:'pending-registrations.json', group:'dataFile', info:'Registration queue' },
+  { id:'df-cto',         label:'cto-records.json',        group:'dataFile', info:'CTO days granted/used' },
+  { id:'df-actLogs',     label:'activity-logs.json',      group:'dataFile', info:'Audit trail 10K cap' },
+  { id:'df-sysState',    label:'system-state.json',       group:'dataFile', info:'lastAccruedMonth' },
+  { id:'df-sessions',    label:'sessions.json',           group:'dataFile', info:'Active session tokens' },
+  { id:'sched-accrual',  label:'Monthly Accrual\nL686\n+1.25 VL/SL', group:'scheduled', info:'Startup 5s + every 24h' },
+  { id:'sched-catchup',  label:'catchUpNewCards\nL588',   group:'scheduled', info:'Retroactive accrual new cards' },
+  { id:'sched-sessClean',label:'Session Cleanup\nEvery 15min', group:'scheduled', info:'Prune expired + persist' },
+  { id:'sched-rlClean',  label:'Rate Limit Cleanup\nEvery 5min', group:'scheduled', info:'Prune expired entries' },
+  { id:'sched-autoback', label:'Auto-Backup\nStartup',    group:'scheduled', info:'Backup all data keep last 5' }
+];
+
+// EDGES [from, to, label]
+var INIT_EDGES = [
+  ['mw-security','mw-cors','next'],['mw-cors','mw-bodyparse','next'],['mw-bodyparse','mw-sanitize','next'],
+  ['mw-sanitize','mw-nocache','next'],['mw-nocache','mw-static','next'],
+  ['fn-genToken','fn-createSess','used by'],['fn-createSess','fn-persistSess','calls'],
+  ['fn-destroySess','fn-persistSess','calls'],['fn-requireAuth','fn-validateSess','calls'],
+  ['fn-loadSess','df-sessions','reads'],['fn-persistSess','df-sessions','writes'],
+  ['ep-validate','fn-validateSess','calls'],['ep-logout','fn-destroySess','calls'],['ep-logout','fn-logActivity','calls'],
+  ['ep-login','mw-loginRL','uses'],['ep-login','fn-verifyPw','calls'],['ep-login','fn-rehash','calls'],
+  ['ep-login','fn-createSess','calls'],['ep-login','fn-logActivity','calls'],
+  ['ep-login','df-users','reads'],['ep-login','df-pending','reads'],
+  ['ep-register','mw-apiRL','uses'],['ep-register','fn-valEmail','calls'],['ep-register','fn-valPw','calls'],
+  ['ep-register','fn-emailAny','calls'],['ep-register','fn-hashPw','calls'],
+  ['ep-register','df-pending','writes'],['ep-register','fn-logActivity','calls'],
+  ['ep-itLogin','mw-loginRL','uses'],['ep-itLogin','fn-verifyPw','calls'],
+  ['ep-itLogin','fn-createSess','calls'],['ep-itLogin','df-itUsers','reads'],
+  ['ep-hrLogin','fn-verifyPw',''],['ep-hrLogin','fn-createSess',''],['ep-hrLogin','df-hrUsers','reads'],
+  ['ep-aoLogin','fn-verifyPw',''],['ep-aoLogin','fn-createSess',''],['ep-aoLogin','df-aoUsers','reads'],
+  ['ep-asdsLogin','fn-verifyPw',''],['ep-asdsLogin','fn-createSess',''],['ep-asdsLogin','df-asdsUsers','reads'],
+  ['ep-sdsLogin','fn-verifyPw',''],['ep-sdsLogin','fn-createSess',''],['ep-sdsLogin','df-sdsUsers','reads'],
+  ['ep-hrReg','fn-emailAny',''],['ep-hrReg','fn-hashPw',''],['ep-hrReg','df-pending','writes'],
+  ['ep-aoReg','fn-emailAny',''],['ep-aoReg','fn-hashPw',''],['ep-aoReg','df-pending','writes'],
+  ['ep-asdsReg','fn-emailAny',''],['ep-asdsReg','fn-hashPw',''],['ep-asdsReg','df-pending','writes'],
+  ['ep-sdsReg','fn-emailAny',''],['ep-sdsReg','fn-hashPw',''],['ep-sdsReg','df-pending','writes'],
+  ['ep-approveReg','fn-requireAuth',''],['ep-approveReg','fn-buildEmp','calls'],
+  ['ep-approveReg','fn-sendEmail','calls'],['ep-approveReg','fn-logActivity','calls'],
+  ['ep-approveReg','df-pending','reads/writes'],['ep-approveReg','df-users','writes'],
+  ['ep-approveReg','df-employees','writes'],['ep-approveReg','df-leavecards','writes'],
+  ['ep-submitLeave','fn-requireAuth',''],['ep-submitLeave','fn-genAppId','calls'],
+  ['ep-submitLeave','fn-logActivity','calls'],['ep-submitLeave','df-applications','writes'],
+  ['ep-submitLeave','df-leavecards','reads'],
+  ['ep-approveLeave','fn-requireAuth',''],['ep-approveLeave','fn-updateBal','calls SDS'],
+  ['ep-approveLeave','fn-logActivity','calls'],['ep-approveLeave','df-applications','reads/writes'],
+  ['fn-updateBal','fn-updateCard','calls'],['fn-updateBal','df-employees','writes'],
+  ['fn-updateCard','df-leavecards','writes'],['fn-updateCard','df-cto','writes CTO'],
+  ['ep-leaveCredits','fn-requireAuth',''],['ep-leaveCredits','df-leavecards','reads'],
+  ['ep-leaveCredits','df-applications','reads'],
+  ['ep-deleteUser','fn-requireAuth',''],['ep-deleteUser','fn-logActivity','calls'],
+  ['ep-deleteUser','fn-destroySess','calls'],['ep-deleteUser','df-users','writes'],
+  ['ep-deleteUser','df-employees','writes'],['ep-deleteUser','df-leavecards','writes'],
+  ['ep-deleteUser','df-pending','writes'],
+  ['ep-resetPw','fn-requireAuth',''],['ep-resetPw','fn-hashPw','calls'],['ep-resetPw','fn-destroySess','calls'],
+  ['ep-resetPin','fn-requireAuth',''],['ep-resetPin','fn-hashPw','calls'],['ep-resetPin','df-itUsers','writes'],
+  ['fn-verifyPw','fn-hashPw','legacy compare'],['fn-rehash','fn-hashPw','calls'],
+  ['fn-emailAny','df-users','reads'],['fn-emailAny','df-itUsers','reads'],['fn-emailAny','df-aoUsers','reads'],
+  ['fn-emailAny','df-hrUsers','reads'],['fn-emailAny','df-asdsUsers','reads'],['fn-emailAny','df-sdsUsers','reads'],
+  ['fn-logActivity','df-actLogs','writes'],['fn-readJSON','fn-ensureFile','fallback'],
+  ['fn-buildEmp','fn-parseName','calls'],
+  ['mw-sanitize','fn-sanitizeIn','calls'],
+  ['sched-accrual','df-leavecards','reads/writes'],['sched-accrual','df-sysState','reads/writes'],
+  ['sched-accrual','sched-catchup','calls'],['sched-catchup','df-leavecards','writes'],
+  ['sched-sessClean','fn-persistSess','calls'],['sched-autoback','ep-backup','triggers'],
+  ['ep-empProfile','df-users','writes'],['ep-empProfile','df-employees','writes'],['ep-empProfile','df-leavecards','writes']
+];
+
+// STATE
+var allNodes = [], allEdges = [];
+var cam = { x: 0, y: 0, zoom: 1 };
+var dragInfo = null, panStart = null;
+var hoveredNode = null, selectedNode = null;
+var physicsOn = true, addEdgeMode = false, edgeFromNode = null;
+var hiddenGroups = {};
+var nextId = 2000;
+var canvasEl = document.getElementById('canvas');
+var cx = canvasEl.getContext('2d');
+
+function init() {
+  resize();
+  window.addEventListener('resize', resize);
+
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem('archmap2')); } catch(e) {}
+
+  var needSettle = false;
+  if (saved && saved.nodes && saved.nodes.length > 0 && saved.version === 3) {
+    allNodes = saved.nodes;
+    allEdges = saved.edges;
+    cam = saved.cam || cam;
+  } else {
+    localStorage.removeItem('archmap2');
+    buildFromScratch();
+    needSettle = true;
+  }
+
+  buildLegend();
+  bindEvents();
+  if (needSettle) {
+    // Run physics settling before first render so layout is stable
+    settlePhysics(400);
+    physicsOn = false;
+    document.getElementById('btnPhysics').textContent = 'Physics: OFF';
+    document.getElementById('btnPhysics').classList.remove('active');
+    fitAll();
+  }
+  requestAnimationFrame(loop);
+}
+
+function settlePhysics(iterations) {
+  // Run physics N times to let the graph settle
+  var origPhysics = physicsOn;
+  physicsOn = true;
+  for (var s = 0; s < iterations; s++) physics();
+  physicsOn = origPhysics;
+}
+
+function buildFromScratch() {
+  var groupKeys = Object.keys(GROUPS);
+  var buckets = {};
+  var i;
+  for (i = 0; i < INIT_NODES.length; i++) {
+    var n = INIT_NODES[i];
+    if (!buckets[n.group]) buckets[n.group] = [];
+    buckets[n.group].push(n);
+  }
+  allNodes = [];
+  // Lay groups out in a 2-row x 5-col grid
+  var gridCols = 5;
+  var cellW = 600, cellH = 500;
+  for (i = 0; i < groupKeys.length; i++) {
+    var gk = groupKeys[i];
+    var bucket = buckets[gk] || [];
+    var gCol = i % gridCols, gRow = Math.floor(i / gridCols);
+    var originX = gCol * cellW, originY = gRow * cellH;
+    // Arrange nodes inside group in a circle
+    var radius = Math.max(60, bucket.length * 18);
+    for (var j = 0; j < bucket.length; j++) {
+      var angle = (2 * Math.PI * j) / bucket.length - Math.PI / 2;
+      var nd = {};
+      for (var k in bucket[j]) nd[k] = bucket[j][k];
+      nd.x = originX + Math.cos(angle) * radius;
+      nd.y = originY + Math.sin(angle) * radius;
+      nd.vx = 0; nd.vy = 0; nd.w = 0; nd.h = 0;
+      nd.hidden = false; nd.dim = false; nd.pinned = false;
+      allNodes.push(nd);
+    }
+  }
+  allEdges = [];
+  for (i = 0; i < INIT_EDGES.length; i++) {
+    allEdges.push({ id: 'e' + i, from: INIT_EDGES[i][0], to: INIT_EDGES[i][1], label: INIT_EDGES[i][2] || '' });
+  }
+}
+
+function resize() {
+  canvasEl.width = window.innerWidth;
+  canvasEl.height = window.innerHeight;
+}
+
+function findNode(id) {
+  for (var i = 0; i < allNodes.length; i++) if (allNodes[i].id === id) return allNodes[i];
+  return null;
+}
+
+function screenToWorld(sx, sy) {
+  return { x: (sx - canvasEl.width / 2) / cam.zoom + cam.x, y: (sy - canvasEl.height / 2) / cam.zoom + cam.y };
+}
+
+function nodeAtScreen(sx, sy) {
+  var w = screenToWorld(sx, sy);
+  for (var i = allNodes.length - 1; i >= 0; i--) {
+    var n = allNodes[i];
+    if (n.hidden) continue;
+    var hw = (n.w || 80) / 2 + 6, hh = (n.h || 30) / 2 + 6;
+    if (w.x >= n.x - hw && w.x <= n.x + hw && w.y >= n.y - hh && w.y <= n.y + hh) return n;
+  }
+  return null;
+}
+
+// EVENTS
+function bindEvents() {
+  canvasEl.addEventListener('mousedown', onDown);
+  canvasEl.addEventListener('mousemove', onMove);
+  canvasEl.addEventListener('mouseup', onUp);
+  canvasEl.addEventListener('wheel', onWheel);
+  canvasEl.addEventListener('contextmenu', onCtx);
+  canvasEl.addEventListener('dblclick', onDbl);
+  document.addEventListener('keydown', onKey);
+  document.getElementById('searchBox').addEventListener('input', onSearch);
+  document.addEventListener('click', function(e) { if (!e.target.closest('#ctxmenu')) hideCtx(); });
+}
+
+function onDown(e) {
+  if (e.button === 2) return;
+  var n = nodeAtScreen(e.clientX, e.clientY);
+  if (n) {
+    if (addEdgeMode) {
+      if (!edgeFromNode) {
+        edgeFromNode = n; selectedNode = n;
+        document.getElementById('modeLabel').textContent = 'Edge from "' + n.label.split('\n')[0] + '" - click target...';
+      } else {
+        if (n !== edgeFromNode) {
+          allEdges.push({ id: 'e' + (nextId++), from: edgeFromNode.id, to: n.id, label: '' });
+        }
+        edgeFromNode = null; addEdgeMode = false;
+        document.getElementById('btnAddEdge').classList.remove('active');
+        document.getElementById('modeLabel').textContent = '';
+        selectedNode = null;
+      }
+      return;
+    }
+    var w = screenToWorld(e.clientX, e.clientY);
+    dragInfo = { node: n, offX: w.x - n.x, offY: w.y - n.y };
+    selectedNode = n;
+    n.vx = 0; n.vy = 0;
+  } else {
+    panStart = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };
+    selectedNode = null;
+  }
+}
+
+function onMove(e) {
+  if (dragInfo) {
+    var w = screenToWorld(e.clientX, e.clientY);
+    dragInfo.node.x = w.x - dragInfo.offX;
+    dragInfo.node.y = w.y - dragInfo.offY;
+    dragInfo.node.pinned = true;
+  } else if (panStart) {
+    cam.x = panStart.cx - (e.clientX - panStart.sx) / cam.zoom;
+    cam.y = panStart.cy - (e.clientY - panStart.sy) / cam.zoom;
+  }
+  var n = nodeAtScreen(e.clientX, e.clientY);
+  hoveredNode = n;
+  canvasEl.style.cursor = n ? 'pointer' : (panStart ? 'grabbing' : 'default');
+  var tt = document.getElementById('tooltip');
+  if (n) {
+    document.getElementById('ttTitle').textContent = n.label.replace(/\n/g, ' ');
+    document.getElementById('ttCat').textContent = (GROUPS[n.group] || {}).label || n.group;
+    document.getElementById('ttInfo').textContent = n.info || '';
+    tt.style.display = 'block';
+    tt.style.left = Math.min(e.clientX + 14, window.innerWidth - 310) + 'px';
+    tt.style.top = Math.min(e.clientY + 14, window.innerHeight - 80) + 'px';
+  } else {
+    tt.style.display = 'none';
+  }
+}
+
+function onUp() {
+  if (dragInfo) dragInfo.node.pinned = false;
+  dragInfo = null; panStart = null;
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  var factor = e.deltaY < 0 ? 1.12 : 0.89;
+  var nz = Math.max(0.06, Math.min(4, cam.zoom * factor));
+  var w1 = screenToWorld(e.clientX, e.clientY);
+  cam.zoom = nz;
+  var w2 = screenToWorld(e.clientX, e.clientY);
+  cam.x -= (w2.x - w1.x);
+  cam.y -= (w2.y - w1.y);
+}
+
+function onDbl(e) {
+  var n = nodeAtScreen(e.clientX, e.clientY);
+  if (n) editNodePanel(n.id);
+}
+
+function onKey(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNode) { removeNode(selectedNode.id); selectedNode = null; }
+  if (e.key === 'Escape') {
+    addEdgeMode = false; edgeFromNode = null; closePanel(); hideCtx();
+    document.getElementById('btnAddEdge').classList.remove('active');
+    document.getElementById('modeLabel').textContent = '';
+  }
+  if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('searchBox').focus(); }
+}
+
+function onCtx(e) {
+  e.preventDefault();
+  var n = nodeAtScreen(e.clientX, e.clientY);
+  var menu = document.getElementById('ctxmenu');
+  if (n) {
+    menu.innerHTML = '<div class="ctx-item" onclick="editNodePanel(\'' + n.id + '\')">Edit Node</div>' +
+      '<div class="ctx-item" onclick="highlightConnected(\'' + n.id + '\')">Highlight Connected</div>' +
+      '<div class="ctx-item" onclick="focusNode(\'' + n.id + '\')">Focus</div>' +
+      '<div class="ctx-item" onclick="duplicateNode(\'' + n.id + '\')">Duplicate</div>' +
+      '<div class="ctx-item danger" onclick="removeNode(\'' + n.id + '\')">Delete</div>';
+  } else {
+    var wp = screenToWorld(e.clientX, e.clientY);
+    menu.innerHTML = '<div class="ctx-item" onclick="addNodeAt(' + wp.x + ',' + wp.y + ')">+ Add Node Here</div>' +
+      '<div class="ctx-item" onclick="fitAll()">Fit All</div>' +
+      '<div class="ctx-item" onclick="saveToStorage()">Save Layout</div>';
+  }
+  menu.style.display = 'block';
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+}
+function hideCtx() { document.getElementById('ctxmenu').style.display = 'none'; }
+
+// PHYSICS
+function physics() {
+  if (!physicsOn) return;
+  var vis = [];
+  var nodeMap = {};
+  var i, j;
+  for (i = 0; i < allNodes.length; i++) {
+    var n = allNodes[i];
+    nodeMap[n.id] = n;
+    if (!n.hidden) vis.push(n);
+  }
+  // Same-group attraction: pull nodes toward their group centroid lightly
+  var groupCentroids = {};
+  for (i = 0; i < vis.length; i++) {
+    var g = vis[i].group;
+    if (!groupCentroids[g]) groupCentroids[g] = { sx: 0, sy: 0, c: 0 };
+    groupCentroids[g].sx += vis[i].x; groupCentroids[g].sy += vis[i].y; groupCentroids[g].c++;
+  }
+  for (i = 0; i < vis.length; i++) {
+    var gc = groupCentroids[vis[i].group];
+    if (!gc || gc.c < 2) continue;
+    var gcx = gc.sx / gc.c, gcy = gc.sy / gc.c;
+    if (!vis[i].pinned && !(dragInfo && dragInfo.node === vis[i])) {
+      vis[i].vx += (gcx - vis[i].x) * 0.003;
+      vis[i].vy += (gcy - vis[i].y) * 0.003;
+    }
+  }
+  // Repulsion — stronger between different groups to separate clusters
+  for (i = 0; i < vis.length; i++) {
+    for (j = i + 1; j < vis.length; j++) {
+      var a = vis[i], b = vis[j];
+      var dx = b.x - a.x, dy = b.y - a.y;
+      var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (dist > 1200) continue;
+      var sameGroup = a.group === b.group;
+      var repStr = sameGroup ? -15000 : -50000;
+      var force = repStr / (dist * dist);
+      var fx = (dx / dist) * force, fy = (dy / dist) * force;
+      if (!a.pinned && !(dragInfo && dragInfo.node === a)) { a.vx -= fx; a.vy -= fy; }
+      if (!b.pinned && !(dragInfo && dragInfo.node === b)) { b.vx += fx; b.vy += fy; }
+    }
+  }
+  // Springs — connected nodes pull together
+  for (i = 0; i < allEdges.length; i++) {
+    var e = allEdges[i];
+    var ea = nodeMap[e.from], eb = nodeMap[e.to];
+    if (!ea || !eb || ea.hidden || eb.hidden) continue;
+    var edx = eb.x - ea.x, edy = eb.y - ea.y;
+    var edist = Math.sqrt(edx * edx + edy * edy) || 1;
+    var eforce = (edist - 180) * 0.006;
+    var efx = (edx / edist) * eforce, efy = (edy / edist) * eforce;
+    if (!ea.pinned && !(dragInfo && dragInfo.node === ea)) { ea.vx += efx; ea.vy += efy; }
+    if (!eb.pinned && !(dragInfo && dragInfo.node === eb)) { eb.vx -= efx; eb.vy -= efy; }
+  }
+  // Center gravity + damping
+  for (i = 0; i < vis.length; i++) {
+    var nd = vis[i];
+    if (nd.pinned || (dragInfo && dragInfo.node === nd)) continue;
+    nd.vx -= nd.x * 0.00012;
+    nd.vy -= nd.y * 0.00012;
+    nd.vx *= 0.78; nd.vy *= 0.78;
+    nd.x += nd.vx; nd.y += nd.vy;
+  }
+}
+
+// RENDER
+function loop() {
+  physics();
+  render();
+  updateStatus();
+  requestAnimationFrame(loop);
+}
+
+function render() {
+  var W = canvasEl.width, H = canvasEl.height;
+  cx.fillStyle = '#0f1117';
+  cx.fillRect(0, 0, W, H);
+  cx.save();
+  cx.translate(W / 2, H / 2);
+  cx.scale(cam.zoom, cam.zoom);
+  cx.translate(-cam.x, -cam.y);
+
+  var nodeMap = {};
+  var i;
+  for (i = 0; i < allNodes.length; i++) nodeMap[allNodes[i].id] = allNodes[i];
+
+  // Group boundary boxes
+  drawGroupBoundaries();
+
+  // Edges
+  for (i = 0; i < allEdges.length; i++) {
+    var e = allEdges[i];
+    var a = nodeMap[e.from], b = nodeMap[e.to];
+    if (!a || !b || a.hidden || b.hidden) continue;
+    var isHL = hoveredNode && (hoveredNode.id === a.id || hoveredNode.id === b.id);
+    var isSel = selectedNode && (selectedNode.id === a.id || selectedNode.id === b.id);
+    var bright = isHL || isSel;
+
+    cx.beginPath();
+    cx.moveTo(a.x, a.y);
+    var emx = (a.x + b.x) / 2, emy = (a.y + b.y) / 2;
+    var edx = b.x - a.x, edy = b.y - a.y;
+    var ecx = emx - edy * 0.06, ecy = emy + edx * 0.06;
+    cx.quadraticCurveTo(ecx, ecy, b.x, b.y);
+    cx.strokeStyle = bright ? '#58a6ff' : (a.dim || b.dim ? 'rgba(48,54,61,0.15)' : 'rgba(88,100,115,0.55)');
+    cx.lineWidth = bright ? 3 : 1.5;
+    cx.stroke();
+
+    // Arrow
+    var t = 0.82;
+    var ax2 = (1-t)*(1-t)*a.x + 2*(1-t)*t*ecx + t*t*b.x;
+    var ay2 = (1-t)*(1-t)*a.y + 2*(1-t)*t*ecy + t*t*b.y;
+    var tx2 = 2*(1-t)*(ecx-a.x) + 2*t*(b.x-ecx);
+    var ty2 = 2*(1-t)*(ecy-a.y) + 2*t*(b.y-ecy);
+    var ang = Math.atan2(ty2, tx2);
+    var aSize = bright ? 10 : 7;
+    cx.beginPath();
+    cx.moveTo(ax2, ay2);
+    cx.lineTo(ax2 - aSize * Math.cos(ang - 0.4), ay2 - aSize * Math.sin(ang - 0.4));
+    cx.lineTo(ax2 - aSize * Math.cos(ang + 0.4), ay2 - aSize * Math.sin(ang + 0.4));
+    cx.closePath();
+    cx.fillStyle = bright ? '#58a6ff' : 'rgba(88,100,115,0.55)';
+    cx.fill();
+
+    // Label
+    if (e.label && cam.zoom > 0.18) {
+      cx.font = Math.round(10 / Math.max(cam.zoom, 0.3)) + 'px Segoe UI';
+      cx.fillStyle = bright ? '#8bb9fe' : 'rgba(72,79,88,0.5)';
+      cx.textAlign = 'center';
+      cx.fillText(e.label, (a.x + b.x) / 2, (a.y + b.y) / 2 - 8);
+    }
+  }
+
+  // Nodes
+  for (i = 0; i < allNodes.length; i++) {
+    var n = allNodes[i];
+    if (n.hidden) continue;
+    var grp = GROUPS[n.group] || GROUPS.custom;
+    var lines = (n.label || '').split('\n');
+    var fontSize = 13;
+    cx.font = '600 ' + fontSize + 'px Segoe UI';
+    var maxW = 0;
+    for (var li = 0; li < lines.length; li++) {
+      var mw = cx.measureText(lines[li]).width;
+      if (mw > maxW) maxW = mw;
+    }
+    var padX = 18, padY = 12;
+    n.w = maxW + padX * 2;
+    n.h = lines.length * (fontSize + 5) + padY * 2;
+
+    var nHL = hoveredNode === n || selectedNode === n;
+    var alpha = n.dim ? 0.12 : 1;
+    cx.globalAlpha = alpha;
+
+    var nx = n.x - n.w / 2, ny = n.y - n.h / 2;
+
+    if (n.group === 'dataFile') {
+      drawCylinder(n.x, n.y, n.w, n.h, grp.color, nHL);
+    } else if (n.group === 'scheduled') {
+      drawDiamond(n.x, n.y, n.w, n.h, grp.color, nHL);
+    } else {
+      drawRoundRect(nx, ny, n.w, n.h, 8, grp.color, nHL);
+    }
+
+    // Text
+    cx.fillStyle = n.dim ? 'rgba(225,228,232,0.2)' : '#e1e4e8';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    for (li = 0; li < lines.length; li++) {
+      var ly = n.y - ((lines.length - 1) * (fontSize + 5)) / 2 + li * (fontSize + 5);
+      cx.font = (li === 0 ? '600 ' : '') + (li === 0 ? fontSize : fontSize - 1) + 'px Segoe UI';
+      cx.fillText(lines[li], n.x, ly);
+    }
+    cx.globalAlpha = 1;
+  }
+
+  cx.restore();
+}
+
+function drawGroupBoundaries() {
+  var groupBounds = {};
+  var gk, i;
+  for (i = 0; i < allNodes.length; i++) {
+    var n = allNodes[i];
+    if (n.hidden || n.dim) continue;
+    gk = n.group;
+    var hw = (n.w || 120) / 2 + 10, hh = (n.h || 40) / 2 + 10;
+    if (!groupBounds[gk]) groupBounds[gk] = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, count: 0 };
+    var gb = groupBounds[gk];
+    gb.count++;
+    if (n.x - hw < gb.minX) gb.minX = n.x - hw;
+    if (n.x + hw > gb.maxX) gb.maxX = n.x + hw;
+    if (n.y - hh < gb.minY) gb.minY = n.y - hh;
+    if (n.y + hh > gb.maxY) gb.maxY = n.y + hh;
+  }
+  var keys = Object.keys(GROUPS);
+  for (i = 0; i < keys.length; i++) {
+    gk = keys[i];
+    var gb = groupBounds[gk];
+    if (!gb || gb.count < 1) continue;
+    var grp = GROUPS[gk];
+    var pad = 30;
+    var bx = gb.minX - pad, by = gb.minY - pad - 28;
+    var bw = gb.maxX - gb.minX + pad * 2, bh = gb.maxY - gb.minY + pad * 2 + 28;
+    var r = 14;
+    // Background fill
+    cx.beginPath();
+    cx.moveTo(bx + r, by);
+    cx.lineTo(bx + bw - r, by); cx.arcTo(bx + bw, by, bx + bw, by + r, r);
+    cx.lineTo(bx + bw, by + bh - r); cx.arcTo(bx + bw, by + bh, bx + bw - r, by + bh, r);
+    cx.lineTo(bx + r, by + bh); cx.arcTo(bx, by + bh, bx, by + bh - r, r);
+    cx.lineTo(bx, by + r); cx.arcTo(bx, by, bx + r, by, r);
+    cx.closePath();
+    cx.fillStyle = grp.color + '0a';
+    cx.fill();
+    cx.strokeStyle = grp.color + '30';
+    cx.lineWidth = 2;
+    cx.setLineDash([6, 4]);
+    cx.stroke();
+    cx.setLineDash([]);
+    // Group label at top-left inside the box
+    cx.font = '700 15px Segoe UI';
+    cx.fillStyle = grp.color + 'cc';
+    cx.textAlign = 'left';
+    cx.textBaseline = 'top';
+    cx.fillText(grp.label + ' (' + gb.count + ')', bx + 14, by + 8);
+  }
+}
+
+function drawRoundRect(x, y, w, h, r, color, hl) {
+  cx.beginPath();
+  cx.moveTo(x + r, y);
+  cx.lineTo(x + w - r, y); cx.arcTo(x + w, y, x + w, y + r, r);
+  cx.lineTo(x + w, y + h - r); cx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  cx.lineTo(x + r, y + h); cx.arcTo(x, y + h, x, y + h - r, r);
+  cx.lineTo(x, y + r); cx.arcTo(x, y, x + r, y, r);
+  cx.closePath();
+  cx.fillStyle = hl ? color + '55' : color + '20';
+  cx.fill();
+  cx.strokeStyle = hl ? color : color + '99';
+  cx.lineWidth = hl ? 2.5 : 1.5;
+  cx.stroke();
+}
+
+function drawCylinder(cxp, cy, w, h, color, hl) {
+  var x = cxp - w/2, y = cy - h/2, ry = Math.min(h * 0.2, 10);
+  cx.beginPath();
+  cx.ellipse(cxp, y + ry, w/2, ry, 0, Math.PI, 2 * Math.PI);
+  cx.lineTo(x + w, y + h - ry);
+  cx.ellipse(cxp, y + h - ry, w/2, ry, 0, 0, Math.PI);
+  cx.lineTo(x, y + ry);
+  cx.closePath();
+  cx.fillStyle = hl ? color + '55' : color + '20';
+  cx.fill();
+  cx.strokeStyle = hl ? color : color + '99';
+  cx.lineWidth = hl ? 2.5 : 1.5;
+  cx.stroke();
+  cx.beginPath();
+  cx.ellipse(cxp, y + ry, w/2, ry, 0, 0, 2 * Math.PI);
+  cx.fillStyle = hl ? color + '44' : color + '15';
+  cx.fill();
+  cx.stroke();
+}
+
+function drawDiamond(cxp, cy, w, h, color, hl) {
+  var hw = w/2 + 8, hh = h/2 + 8;
+  cx.beginPath();
+  cx.moveTo(cxp, cy - hh);
+  cx.lineTo(cxp + hw, cy);
+  cx.lineTo(cxp, cy + hh);
+  cx.lineTo(cxp - hw, cy);
+  cx.closePath();
+  cx.fillStyle = hl ? color + '55' : color + '20';
+  cx.fill();
+  cx.strokeStyle = hl ? color : color + '99';
+  cx.lineWidth = hl ? 2.5 : 1.5;
+  cx.stroke();
+}
+
+// LEGEND
+function buildLegend() {
+  var html = '';
+  var keys = Object.keys(GROUPS);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i], v = GROUPS[k];
+    var cnt = 0;
+    for (var j = 0; j < allNodes.length; j++) if (allNodes[j].group === k) cnt++;
+    html += '<div class="legend-row' + (hiddenGroups[k] ? ' hidden' : '') + '" data-g="' + k + '" onclick="toggleGroup(\'' + k + '\')">' +
+      '<div class="legend-dot" style="background:' + v.color + '"></div><span>' + v.label + ' (' + cnt + ')</span></div>';
+  }
+  document.getElementById('legendItems').innerHTML = html;
+}
+
+function toggleGroup(g) {
+  hiddenGroups[g] = !hiddenGroups[g];
+  for (var i = 0; i < allNodes.length; i++) {
+    if (allNodes[i].group === g) allNodes[i].hidden = !!hiddenGroups[g];
+  }
+  buildLegend();
+}
+
+// SEARCH
+function onSearch(e) {
+  var q = e.target.value.toLowerCase().trim();
+  for (var i = 0; i < allNodes.length; i++) {
+    var n = allNodes[i];
+    n.dim = q ? !((n.label||'').toLowerCase().indexOf(q)>=0 || (n.info||'').toLowerCase().indexOf(q)>=0 || (n.group||'').toLowerCase().indexOf(q)>=0) : false;
+  }
+}
+
+// TOOLBAR
+function fitAll() {
+  var vis = [];
+  for (var i = 0; i < allNodes.length; i++) if (!allNodes[i].hidden) vis.push(allNodes[i]);
+  if (!vis.length) return;
+  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (i = 0; i < vis.length; i++) {
+    var n = vis[i];
+    var nw = (n.w || 140) / 2 + 20, nh = (n.h || 50) / 2 + 20;
+    if (n.x - nw < minX) minX = n.x - nw;
+    if (n.x + nw > maxX) maxX = n.x + nw;
+    if (n.y - nh < minY) minY = n.y - nh;
+    if (n.y + nh > maxY) maxY = n.y + nh;
+  }
+  cam.x = (minX + maxX) / 2;
+  cam.y = (minY + maxY) / 2;
+  // Use only 85% of canvas for padding (toolbar + legend)
+  var usableW = canvasEl.width * 0.85;
+  var usableH = (canvasEl.height - 40) * 0.85;
+  var sx = usableW / (maxX - minX);
+  var sy = usableH / (maxY - minY);
+  cam.zoom = Math.max(0.15, Math.min(1.5, Math.min(sx, sy)));
+}
+
+function togglePhysics() {
+  physicsOn = !physicsOn;
+  var btn = document.getElementById('btnPhysics');
+  btn.textContent = 'Physics: ' + (physicsOn ? 'ON' : 'OFF');
+  if (physicsOn) btn.classList.add('active'); else btn.classList.remove('active');
+}
+
+function toggleAddEdge() {
+  addEdgeMode = !addEdgeMode; edgeFromNode = null;
+  if (addEdgeMode) document.getElementById('btnAddEdge').classList.add('active');
+  else document.getElementById('btnAddEdge').classList.remove('active');
+  document.getElementById('modeLabel').textContent = addEdgeMode ? 'Click source node...' : '';
+}
+
+function exportPNG() {
+  var link = document.createElement('a');
+  link.download = 'architecture-map.png';
+  link.href = canvasEl.toDataURL('image/png');
+  link.click();
+}
+
+function saveToStorage() {
+  localStorage.setItem('archmap2', JSON.stringify({ version: 3, nodes: allNodes, edges: allEdges, cam: cam }));
+  flashMsg('Saved to browser storage');
+}
+
+function resetAll() {
+  if (!confirm('Reset everything to default?')) return;
+  localStorage.removeItem('archmap2');
+  location.reload();
+}
+
+// NODE OPS
+function addNodePanel() {
+  var opts = '';
+  var keys = Object.keys(GROUPS);
+  for (var i = 0; i < keys.length; i++) opts += '<option value="' + keys[i] + '">' + GROUPS[keys[i]].label + '</option>';
+  openPanel('Add Node',
+    '<div class="field"><label>Name</label><input id="pName" placeholder="myFunction"></div>' +
+    '<div class="field"><label>Line / Subtitle</label><input id="pLine" placeholder="L1234"></div>' +
+    '<div class="field"><label>Group</label><select id="pGroup">' + opts + '</select></div>' +
+    '<div class="field"><label>Description</label><textarea id="pInfo" placeholder="What does this do?"></textarea></div>',
+    '<button class="tb-btn btn-primary" onclick="doAddNode()">Add</button><button class="tb-btn" onclick="closePanel()">Cancel</button>');
+}
+
+function addNodeAt(wx, wy) {
+  hideCtx();
+  addNodePanel();
+  window._pp = { x: wx, y: wy };
+}
+
+function doAddNode() {
+  var name = document.getElementById('pName').value.trim();
+  if (!name) return;
+  var line = document.getElementById('pLine').value.trim();
+  var group = document.getElementById('pGroup').value;
+  var info = document.getElementById('pInfo').value.trim();
+  var pos = window._pp || { x: cam.x + (Math.random()-0.5)*200, y: cam.y + (Math.random()-0.5)*200 };
+  delete window._pp;
+  allNodes.push({ id: 'c' + (nextId++), label: line ? name+'\n'+line : name, group: group, info: info, x: pos.x, y: pos.y, vx:0, vy:0, w:0, h:0, hidden:false, dim:false, pinned:false });
+  closePanel(); buildLegend();
+}
+
+function editNodePanel(nodeId) {
+  hideCtx();
+  var n = findNode(nodeId);
+  if (!n) return;
+  var parts = (n.label||'').split('\n');
+  var opts = '';
+  var keys = Object.keys(GROUPS);
+  for (var i = 0; i < keys.length; i++) opts += '<option value="' + keys[i] + '"' + (keys[i]===n.group?' selected':'') + '>' + GROUPS[keys[i]].label + '</option>';
+  openPanel('Edit Node',
+    '<div class="field"><label>Name</label><input id="pName" value="' + esc(parts[0]||'') + '"></div>' +
+    '<div class="field"><label>Line / Subtitle</label><input id="pLine" value="' + esc(parts.slice(1).join('\n')) + '"></div>' +
+    '<div class="field"><label>Group</label><select id="pGroup">' + opts + '</select></div>' +
+    '<div class="field"><label>Description</label><textarea id="pInfo">' + esc(n.info||'') + '</textarea></div>',
+    '<button class="tb-btn btn-primary" onclick="doEditNode(\'' + nodeId + '\')">Save</button><button class="tb-btn" onclick="closePanel()">Cancel</button>');
+}
+
+function doEditNode(nodeId) {
+  var n = findNode(nodeId);
+  if (!n) return;
+  var name = document.getElementById('pName').value.trim();
+  var line = document.getElementById('pLine').value.trim();
+  n.label = line ? name+'\n'+line : name;
+  n.group = document.getElementById('pGroup').value;
+  n.info = document.getElementById('pInfo').value.trim();
+  closePanel();
+}
+
+function removeNode(nodeId) {
+  hideCtx();
+  var newNodes = [], newEdges = [];
+  for (var i = 0; i < allNodes.length; i++) if (allNodes[i].id !== nodeId) newNodes.push(allNodes[i]);
+  for (i = 0; i < allEdges.length; i++) if (allEdges[i].from !== nodeId && allEdges[i].to !== nodeId) newEdges.push(allEdges[i]);
+  allNodes = newNodes; allEdges = newEdges;
+  buildLegend();
+}
+
+function duplicateNode(nodeId) {
+  hideCtx();
+  var n = findNode(nodeId);
+  if (!n) return;
+  var nd = {};
+  for (var k in n) nd[k] = n[k];
+  nd.id = 'c' + (nextId++);
+  nd.x = n.x + 60; nd.y = n.y + 60; nd.vx = 0; nd.vy = 0;
+  allNodes.push(nd);
+  buildLegend();
+}
+
+function highlightConnected(nodeId) {
+  hideCtx();
+  var conn = {};
+  conn[nodeId] = true;
+  for (var i = 0; i < allEdges.length; i++) {
+    if (allEdges[i].from === nodeId) conn[allEdges[i].to] = true;
+    if (allEdges[i].to === nodeId) conn[allEdges[i].from] = true;
+  }
+  for (i = 0; i < allNodes.length; i++) allNodes[i].dim = !conn[allNodes[i].id];
+  setTimeout(function() { for (var i = 0; i < allNodes.length; i++) allNodes[i].dim = false; }, 4000);
+}
+
+function focusNode(nodeId) {
+  hideCtx();
+  var n = findNode(nodeId);
+  if (!n) return;
+  cam.x = n.x; cam.y = n.y; cam.zoom = 1.2;
+  highlightConnected(nodeId);
+}
+
+// PANEL
+function openPanel(title, body, actions) {
+  document.getElementById('panelTitle').textContent = title;
+  document.getElementById('panelBody').innerHTML = body;
+  document.getElementById('panelActions').innerHTML = actions;
+  document.getElementById('panel').classList.add('open');
+}
+function closePanel() { document.getElementById('panel').classList.remove('open'); }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function updateStatus() {
+  var vis = 0;
+  for (var i = 0; i < allNodes.length; i++) if (!allNodes[i].hidden) vis++;
+  document.getElementById('status').textContent = vis + '/' + allNodes.length + ' nodes | ' + allEdges.length + ' edges | Scroll=zoom Drag=move DblClick=edit RightClick=menu';
+}
+
+function flashMsg(msg) {
+  var s = document.getElementById('status');
+  s.textContent = msg; s.style.color = '#3fb950';
+  setTimeout(function() { s.style.color = '#8b949e'; }, 2000);
+}
+
+// START
+init();
+</script>
+</body>
+</html>
