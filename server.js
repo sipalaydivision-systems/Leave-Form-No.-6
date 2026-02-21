@@ -249,6 +249,7 @@ function createSession(user, portal) {
         email: user.email,
         role: user.role || portal,
         portal: portal,
+        office: user.office || user.school || null,
         createdAt: now,
         expiresAt: now + SESSION_DURATION_MS
     });
@@ -307,6 +308,40 @@ function requireAuth(...allowedRoles) {
         req.session = session;
         next();
     };
+}
+
+// ========== AO SCHOOL-BASED ACCESS CONTROL ==========
+// Division office AOs (CID, OSDS, SGOD, ASDS) can see ALL employees.
+// School-level AOs can only see employees from their own school.
+const DIVISION_OFFICES = ['CID', 'OSDS', 'SGOD', 'ASDS', 'ASDS - Assistant Schools Division Superintendent'];
+
+function isAoDivisionLevel(aoOffice) {
+    if (!aoOffice) return false;
+    return DIVISION_OFFICES.some(d => aoOffice.toUpperCase().includes(d));
+}
+
+function isEmployeeInAoSchool(employeeOffice, aoOffice) {
+    if (!aoOffice || !employeeOffice) return false;
+    // Division-level AOs see everyone
+    if (isAoDivisionLevel(aoOffice)) return true;
+    // Exact match
+    if (employeeOffice === aoOffice) return true;
+    // Normalize for comparison (strip whitespace, case)
+    const normAo = aoOffice.toUpperCase().replace(/\s+/g, ' ').trim();
+    const normEmp = employeeOffice.toUpperCase().replace(/\s+/g, ' ').trim();
+    return normAo === normEmp;
+}
+
+// Look up an employee's office from users or employees data
+function getEmployeeOffice(email) {
+    if (!email) return null;
+    const users = readJSON(usersFile);
+    const user = users.find(u => u.email === email);
+    if (user && user.office) return user.office;
+    const employees = readJSON(employeesFile);
+    const emp = employees.find(e => e.email === email);
+    if (emp && emp.office) return emp.office;
+    return null;
 }
 
 // CORS Configuration - Restrict in production
@@ -2173,7 +2208,7 @@ app.post('/api/ao-login', loginRateLimiter, (req, res) => {
         res.json({
             success: true,
             token,
-            user: { id: aoUser.id, email: aoUser.email, name: aoUser.name, school: aoUser.school, position: aoUser.position, role: 'ao' }
+            user: { id: aoUser.id, email: aoUser.email, name: aoUser.name, office: aoUser.office, position: aoUser.position, role: 'ao' }
         });
     } catch (error) {
         res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
@@ -4100,7 +4135,13 @@ app.get('/api/all-users', requireAuth('ao', 'hr', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         // SECURITY: Strip password hashes before sending to client
-        const safeUsers = users.map(({ password, ...rest }) => rest);
+        let safeUsers = users.map(({ password, ...rest }) => rest);
+        
+        // AO school-based filtering: AO can only see users from their school
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            safeUsers = safeUsers.filter(u => isEmployeeInAoSchool(u.office || u.school, req.session.office));
+        }
+        
         res.json({ success: true, users: safeUsers });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -4110,7 +4151,17 @@ app.get('/api/all-users', requireAuth('ao', 'hr', 'it'), (req, res) => {
 // Get all applications for demographics
 app.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
-        const applications = readJSONArray(applicationsFile);
+        let applications = readJSONArray(applicationsFile);
+        
+        // AO school-based filtering: AO can only see applications from their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const aoOffice = req.session.office;
+            applications = applications.filter(app => {
+                const empOffice = getEmployeeOffice(app.employeeEmail || app.email);
+                return isEmployeeInAoSchool(empOffice, aoOffice);
+            });
+        }
+        
         res.json({ success: true, applications: applications });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -4160,7 +4211,17 @@ app.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
             }
         });
 
-        const employees = Array.from(employeeMap.values());
+        let employees = Array.from(employeeMap.values());
+        
+        // AO school-based filtering: AO can only see employees from their own school
+        if (req.session.role === 'ao' && req.session.office) {
+            const aoOffice = req.session.office;
+            if (!isAoDivisionLevel(aoOffice)) {
+                employees = employees.filter(emp => isEmployeeInAoSchool(emp.office, aoOffice));
+                console.log(`[AO FILTER] ${req.session.email} (${aoOffice}): showing ${employees.length} employees`);
+            }
+        }
+        
         res.json({ success: true, employees: employees });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -4183,6 +4244,16 @@ app.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds
             return isCurrentApprover || hasApprovedByPortal || isRejectedByPortal;
         });
         
+        // AO school-based filtering: AO can only see applications from their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const aoOffice = req.session.office;
+            portalApps = portalApps.filter(app => {
+                const empOffice = getEmployeeOffice(app.employeeEmail || app.email);
+                return isEmployeeInAoSchool(empOffice, aoOffice);
+            });
+            console.log(`[AO FILTER] ${req.session.email} (${aoOffice}): showing ${portalApps.length} applications`);
+        }
+        
         res.json({ success: true, applications: portalApps });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -4201,6 +4272,14 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
         if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
             return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
+        // AO school-based filtering: AO can only view leave credits of their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const empOffice = getEmployeeOffice(employeeId);
+            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
+                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+            }
         }
         
         const leavecards = readJSON(leavecardsFile);
@@ -4730,6 +4809,14 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'employeeEmail is required' });
         }
         
+        // AO school-based filtering: AO can only update leave credits of their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const empOffice = getEmployeeOffice(employeeEmail);
+            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
+                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+            }
+        }
+        
         // Verify employee exists in users or employees data
         const users = readJSON(usersFile);
         const employees = readJSON(employeesFile);
@@ -4885,6 +4972,14 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         
         const app = applications[appIndex];
         console.log('[APPROVE-LEAVE] Found application:', { id: app.id, employee: app.employeeName, currentApprover: app.currentApprover });
+        
+        // AO school-based filtering: AO can only approve/return/reject applications from their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const empOffice = getEmployeeOffice(app.employeeEmail || app.email);
+            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
+                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+            }
+        }
         
         // SECURITY: Use session role instead of trusting client-provided portal
         // Map session role to portal name (prevents portal spoofing attack)
@@ -5347,6 +5442,14 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
         if (employeeId && !adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
+        
+        // AO school-based filtering: AO can only view CTO records of their school's employees
+        if (employeeId && req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const empOffice = getEmployeeOffice(employeeId);
+            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
+                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+            }
+        }
         let ctoRecords = readJSON(ctoRecordsFile);
 
         if (employeeId) {
@@ -5375,6 +5478,14 @@ app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
         
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
+        }
+
+        // AO school-based filtering: AO can only update CTO records of their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const empOffice = getEmployeeOffice(employeeId);
+            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
+                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+            }
         }
 
         // Validate soImage size (max 5MB base64 ≈ ~6.7MB string length)
@@ -5428,6 +5539,14 @@ app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
 
         if (index === -1) {
             return res.status(404).json({ success: false, error: 'Record not found' });
+        }
+
+        // AO school-based filtering: AO can only update CTO records of their school's employees
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const empOffice = getEmployeeOffice(ctoRecords[index].employeeId || ctoRecords[index].email);
+            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
+                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+            }
         }
 
         ctoRecords[index].daysUsed = (ctoRecords[index].daysUsed || 0) + Number(daysUsed);

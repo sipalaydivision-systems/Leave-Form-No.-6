@@ -810,7 +810,7 @@
             const user = JSON.parse(sessionStorage.getItem('user') || '{}');
             document.getElementById('profileName').value = user.name || '';
             document.getElementById('profileEmail').value = user.email || '';
-            document.getElementById('profileSchool').value = user.school || '';
+            document.getElementById('profileSchool').value = user.office || user.school || '';
             document.getElementById('profilePosition').value = user.position || '';
             document.getElementById('profileNewPassword').value = '';
             document.getElementById('profileConfirmPassword').value = '';
