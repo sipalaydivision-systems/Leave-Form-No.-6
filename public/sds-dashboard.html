@@ -3342,6 +3342,10 @@
         }
 
         function confirmLogout() {
+            const token = localStorage.getItem('sdsToken');
+            if (token) {
+                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+            }
             sessionStorage.removeItem('user');
             localStorage.removeItem('sdsToken');
             window.location.href = '/sds-login';

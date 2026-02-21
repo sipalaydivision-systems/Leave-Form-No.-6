@@ -2308,8 +2308,13 @@
     }
 
     function confirmLogout() {
+        const token = sessionStorage.getItem('authToken');
+        if (token) {
+            fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+        }
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('employee');
+        sessionStorage.removeItem('authToken');
         window.location.href = '/';
     }
 

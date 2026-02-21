@@ -2126,7 +2126,7 @@
             content.innerHTML = '<div class="empty-state"><div class="loading-spinner"></div><p>Loading...</p></div>';
 
             try {
-                const response = await fetch('/api/employees');
+                const response = await fetch('/api/all-employees');
                 const result = await response.json();
 
                 if (response.ok && result.data && result.data.length > 0) {
@@ -2266,6 +2266,10 @@
         }
 
         function confirmLogout() {
+            const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken_backup');
+            if (token) {
+                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+            }
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('employee');
             sessionStorage.removeItem('authToken');

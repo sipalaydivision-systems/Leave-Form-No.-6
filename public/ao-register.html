@@ -785,6 +785,7 @@
                 
                 if (result.success) {
                     sessionStorage.setItem('user', JSON.stringify(result.user));
+                    if (result.token) sessionStorage.setItem('aoToken', result.token);
                     messageDiv.className = 'message success';
                     messageDiv.textContent = 'Login successful! Redirecting...';
                     messageDiv.style.display = 'block';

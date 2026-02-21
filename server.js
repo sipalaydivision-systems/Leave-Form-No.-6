@@ -156,6 +156,7 @@ function isValidDate(dateStr) {
     const date = new Date(dateStr);
     return date instanceof Date && !isNaN(date);
 }
+// Note: isValidDate used in submit-leave date validation below
 
 // NOTE: Body sanitization middleware moved below bodyParser (see after line ~213)
 
@@ -493,20 +494,6 @@ ensureFile(pendingRegistrationsFile);
 
 // Helper functions
 
-// File-level write locks to prevent race conditions on concurrent writes
-const fileLocks = new Map();
-
-async function acquireLock(filepath) {
-    while (fileLocks.get(filepath)) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-    }
-    fileLocks.set(filepath, true);
-}
-
-function releaseLock(filepath) {
-    fileLocks.delete(filepath);
-}
-
 function readJSON(filepath) {
     try {
         if (!fs.existsSync(filepath)) {
@@ -704,7 +691,13 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 ensureFile(activityLogsFile);
                 const logs = readJSON(activityLogsFile);
                 logs.push({
-                    type: 'ACCRUAL_CATCHUP',
+                    id: crypto.randomUUID(),
+                    action: 'ACCRUAL_CATCHUP',
+                    portalType: 'system',
+                    userEmail: 'system',
+                    userId: 'system',
+                    ip: '127.0.0.1',
+                    userAgent: 'server-accrual-catchup',
                     timestamp: now.toISOString(),
                     details: {
                         employeesUpdated: updatedCount,
@@ -870,7 +863,13 @@ function runMonthlyAccrual() {
             ensureFile(activityLogsFile);
             const logs = readJSON(activityLogsFile);
             logs.push({
-                type: 'MONTHLY_ACCRUAL',
+                id: crypto.randomUUID(),
+                action: 'MONTHLY_ACCRUAL',
+                portalType: 'system',
+                userEmail: 'system',
+                userId: 'system',
+                ip: '127.0.0.1',
+                userAgent: 'server-accrual',
                 timestamp: now.toISOString(),
                 details: {
                     monthsAccrued: monthsToAccrue,
@@ -1947,27 +1946,27 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
         const { email, fullName, firstName, lastName, middleName, suffix, office, position, salaryGrade, step, salary, password, employeeNo } = req.body;
 
         if (!email || !fullName || !office || !position || !salaryGrade || !step || !password) {
-            return res.status(400).json({ success: false, message: 'All fields are required' });
+            return res.status(400).json({ success: false, error: 'All fields are required' });
         }
         
         if (!employeeNo || !employeeNo.trim()) {
-            return res.status(400).json({ success: false, message: 'Employee Number is required' });
+            return res.status(400).json({ success: false, error: 'Employee Number is required' });
         }
 
         if (!validateDepEdEmail(email)) {
-            return res.status(400).json({ success: false, message: 'Please use a valid DepEd email (@deped.gov.ph)' });
+            return res.status(400).json({ success: false, error: 'Please use a valid DepEd email (@deped.gov.ph)' });
         }
 
         const passwordValidation = validatePortalPassword(password);
         if (!passwordValidation.valid) {
-            return res.status(400).json({ success: false, message: passwordValidation.error });
+            return res.status(400).json({ success: false, error: passwordValidation.error });
         }
 
         let sdsUsers = readJSON(sdsUsersFile);
         let pendingRegs = readJSON(pendingRegistrationsFile);
 
         if (sdsUsers.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, message: 'Email already registered' });
+            return res.status(400).json({ success: false, error: 'Email already registered' });
         }
 
         // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
@@ -1977,7 +1976,7 @@ app.post('/api/sds-register', apiRateLimiter, (req, res) => {
         }
 
         if (pendingRegs.find(r => r.email === email && r.portal === 'sds' && r.status === 'pending')) {
-            return res.status(400).json({ success: false, message: 'Registration already pending IT approval' });
+            return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
         }
 
         const pendingRegistration = {
@@ -2064,7 +2063,7 @@ app.post('/api/sds-login', loginRateLimiter, (req, res) => {
 // ========== AO REGISTRATION & LOGIN ==========
 app.post('/api/ao-register', apiRateLimiter, (req, res) => {
     try {
-        const { fullName, firstName, lastName, middleName, suffix, email, password, office, position, salaryGrade, step, employeeNo } = req.body;
+        const { fullName, firstName, lastName, middleName, suffix, email, password, office, position, salaryGrade, step, salary, employeeNo } = req.body;
 
         if (!fullName || !email || !password || !office || !position || !step) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -2113,8 +2112,9 @@ app.post('/api/ao-register', apiRateLimiter, (req, res) => {
             password: hashPasswordWithSalt(password),
             office,
             position,
-            salaryGrade,
-            step,
+            salaryGrade: salaryGrade ? parseInt(salaryGrade) : null,
+            step: step ? parseInt(step) : null,
+            salary: salary ? Number(salary) : null,
             employeeNo: employeeNo || '',
             role: 'ao',
             status: 'pending',
@@ -2192,8 +2192,8 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and PIN are required' });
         }
 
-        if (!/^\d{5,}$/.test(pin)) {
-            return res.status(400).json({ success: false, error: 'PIN must be at least 5 digits' });
+        if (!/^\d{6}$/.test(pin)) {
+            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
         }
 
         let itUsers = readJSON(itUsersFile);
@@ -4583,42 +4583,116 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Application is not awaiting resubmission' });
         }
         
-        // ===== VALIDATION: Check Force/SPL leave balance for resubmitted applications =====
+        // ===== VALIDATION: Check leave balance for resubmitted applications =====
         const leaveType = app.leaveType;
         const numDays = parseFloat(updatedData?.numDays || app.numDays) || 0;
         
-        if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            const leavecards = readJSON(leavecardsFile);
-            const employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
-            
+        // Read leave card for balance checks
+        const leavecards = readJSON(leavecardsFile);
+        const employeeLeave = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
+        
+        if (leaveType === 'leave_vl' || leaveType === 'leave_sl') {
             if (employeeLeave) {
-                const forceLeaveSpent = employeeLeave.forceLeaveSpent || 0;
-                const splSpent = employeeLeave.splSpent || 0;
-                
-                // Check if Force Leave is exhausted
-                if (leaveType === 'leave_mfl' && forceLeaveSpent >= 5) {
-                    console.log(`[VALIDATION] Force Leave rejected for resubmit ${employeeEmail}: Already spent ${forceLeaveSpent}/5 days`);
-                    return res.status(400).json({ 
-                        success: false, 
-                        error: 'Force Leave exhausted',
-                        message: 'You have already used all 5 days of your yearly Force Leave allocation. Cannot resubmit this application.'
-                    });
+                let vlBalance = null, slBalance = null;
+                if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory) && employeeLeave.leaveUsageHistory.length > 0) {
+                    const latestUsage = employeeLeave.leaveUsageHistory[employeeLeave.leaveUsageHistory.length - 1];
+                    if (latestUsage.balanceAfterVL !== undefined) vlBalance = latestUsage.balanceAfterVL;
+                    if (latestUsage.balanceAfterSL !== undefined) slBalance = latestUsage.balanceAfterSL;
                 }
+                if (vlBalance === null) vlBalance = Math.max(0, (employeeLeave.vacationLeaveEarned || employeeLeave.vl || 0) - (employeeLeave.vacationLeaveSpent || 0));
+                if (slBalance === null) slBalance = Math.max(0, (employeeLeave.sickLeaveEarned || employeeLeave.sl || 0) - (employeeLeave.sickLeaveSpent || 0));
                 
-                // Check if SPL is exhausted
-                if (leaveType === 'leave_spl' && splSpent >= 3) {
-                    console.log(`[VALIDATION] SPL rejected for resubmit ${employeeEmail}: Already spent ${splSpent}/3 days`);
-                    return res.status(400).json({ 
-                        success: false, 
-                        error: 'SPL exhausted',
-                        message: 'You have already used all 3 days of your yearly Special Privilege Leave allocation. Cannot resubmit this application.'
-                    });
+                // Deduct pending/approved apps not yet reflected (exclude THIS application since it's being resubmitted)
+                const allApplications = readJSONArray(applicationsFile);
+                const reflectedAppIds = new Set();
+                if (employeeLeave.leaveUsageHistory) employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
+                if (employeeLeave.transactions) employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
+                
+                allApplications.forEach(a => {
+                    if (a.id === applicationId) return; // Skip the app being resubmitted
+                    if (reflectedAppIds.has(a.id)) return;
+                    if (a.employeeEmail !== employeeEmail && a.email !== employeeEmail) return;
+                    if (a.status !== 'pending' && a.status !== 'approved') return;
+                    const aDays = parseFloat(a.numDays) || 0;
+                    const aType = (a.leaveType || '').toLowerCase();
+                    if (aType.includes('vl') || aType.includes('vacation')) vlBalance = Math.max(0, vlBalance - aDays);
+                    else if (aType.includes('sl') || aType.includes('sick')) slBalance = Math.max(0, slBalance - aDays);
+                });
+                
+                if (leaveType === 'leave_vl' && numDays > vlBalance) {
+                    return res.status(400).json({ success: false, error: 'Insufficient Vacation Leave balance', message: `Cannot resubmit: VL balance is ${vlBalance.toFixed(3)} day(s) but ${numDays} requested.` });
                 }
+                if (leaveType === 'leave_sl' && numDays > slBalance) {
+                    return res.status(400).json({ success: false, error: 'Insufficient Sick Leave balance', message: `Cannot resubmit: SL balance is ${slBalance.toFixed(3)} day(s) but ${numDays} requested.` });
+                }
+            } else {
+                return res.status(400).json({ success: false, error: 'No leave card found', message: 'Cannot resubmit: no leave card on file.' });
             }
         }
         
-        // CSC MC No. 6 s.1996: FL consecutive-day restriction removed
-        // Force Leave should ideally be taken as consecutive days (not restricted)
+        if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
+            const forceLeaveSpent = employeeLeave ? (employeeLeave.forceLeaveSpent || 0) : 0;
+            const splSpent = employeeLeave ? (employeeLeave.splSpent || 0) : 0;
+            
+            // Count pending FL/SPL (exclude THIS application)
+            const allApplications = readJSONArray(applicationsFile);
+            const reflectedAppIds = new Set();
+            if (employeeLeave && employeeLeave.leaveUsageHistory) employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
+            if (employeeLeave && employeeLeave.transactions) employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
+            let pendingForceSpent = 0, pendingSplSpent = 0;
+            allApplications.forEach(a => {
+                if (a.id === applicationId) return;
+                if (reflectedAppIds.has(a.id)) return;
+                if (a.employeeEmail !== employeeEmail && a.email !== employeeEmail) return;
+                if (a.status !== 'pending' && a.status !== 'approved') return;
+                const aDays = parseFloat(a.numDays) || 0;
+                const aType = (a.leaveType || '').toLowerCase();
+                if (aType.includes('mfl') || aType.includes('mandatory') || aType.includes('forced')) pendingForceSpent += aDays;
+                else if (aType.includes('spl') || aType.includes('special')) pendingSplSpent += aDays;
+            });
+            
+            if (leaveType === 'leave_mfl' && (forceLeaveSpent + pendingForceSpent + numDays) > 5) {
+                const remaining = Math.max(0, 5 - forceLeaveSpent - pendingForceSpent);
+                return res.status(400).json({ success: false, error: 'Insufficient Force Leave balance', message: `Cannot resubmit: ${remaining.toFixed(0)} FL day(s) remaining out of 5.` });
+            }
+            if (leaveType === 'leave_mfl' && numDays >= 5) {
+                return res.status(400).json({ success: false, error: 'Force Leave filing restriction', message: 'Force Leave should not be filed as 5 consecutive days.' });
+            }
+            if (leaveType === 'leave_spl' && (splSpent + pendingSplSpent + numDays) > 3) {
+                const remaining = Math.max(0, 3 - splSpent - pendingSplSpent);
+                return res.status(400).json({ success: false, error: 'Insufficient SPL balance', message: `Cannot resubmit: ${remaining.toFixed(0)} SPL day(s) remaining out of 3.` });
+            }
+        }
+        
+        if (leaveType === 'leave_others') {
+            try {
+                ensureFile(ctoRecordsFile);
+                const ctoRecords = readJSON(ctoRecordsFile);
+                const empCtoRecords = ctoRecords.filter(r => r.employeeId === employeeEmail);
+                let ctoBalance = 0;
+                empCtoRecords.forEach(rec => { ctoBalance += (parseFloat(rec.daysGranted) || 0) - (parseFloat(rec.daysUsed) || 0); });
+                ctoBalance = Math.max(0, ctoBalance);
+                
+                // Deduct pending CTO apps (exclude THIS application)
+                const allApplications = readJSONArray(applicationsFile);
+                allApplications.forEach(a => {
+                    if (a.id === applicationId) return;
+                    if (a.employeeEmail !== employeeEmail && a.email !== employeeEmail) return;
+                    if (a.status !== 'pending' && a.status !== 'approved') return;
+                    const aType = (a.leaveType || '').toLowerCase();
+                    if (aType.includes('others') || aType.includes('cto')) ctoBalance = Math.max(0, ctoBalance - (parseFloat(a.numDays) || 0));
+                });
+                
+                if (ctoBalance <= 0) {
+                    return res.status(400).json({ success: false, error: 'No CTO balance available', message: 'Cannot resubmit: no CTO balance.' });
+                }
+                if (numDays > ctoBalance) {
+                    return res.status(400).json({ success: false, error: 'Insufficient CTO balance', message: `Cannot resubmit: CTO balance is ${ctoBalance.toFixed(3)} day(s) but ${numDays} requested.` });
+                }
+            } catch (ctoErr) {
+                return res.status(500).json({ success: false, error: 'Unable to verify CTO balance' });
+            }
+        }
         
         // Update application with only allowed fields from resubmission (prevent mass assignment)
         if (updatedData) {
@@ -4678,6 +4752,20 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
             splSpent,
             vl, sl, spl, others, mandatoryForced 
         } = req.body;
+        
+        // Validate employeeEmail is provided
+        if (!employeeEmail) {
+            return res.status(400).json({ success: false, error: 'employeeEmail is required' });
+        }
+        
+        // Verify employee exists in users or employees data
+        const users = readJSON(usersFile);
+        const employees = readJSON(employeesFile);
+        const userExists = users.some(u => u.email === employeeEmail);
+        const employeeExists = employees.some(e => e.email === employeeEmail || e.employeeId === employeeEmail);
+        if (!userExists && !employeeExists) {
+            console.log(`[UPDATE LEAVE] Warning: employeeEmail ${employeeEmail} not found in users or employees - proceeding anyway for legacy cards`);
+        }
         
         let leavecards = readJSON(leavecardsFile);
         
@@ -6364,7 +6452,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('==========================================================');
     console.log('  Server running at: http://localhost:' + PORT);
     console.log('  Login Page: http://localhost:' + PORT);
-    console.log('  Database: http://localhost:' + PORT + '/database');
+    console.log('  Data Management: http://localhost:' + PORT + '/data-management');
     console.log('  PID: ' + process.pid);
     console.log('  Data Dir: ' + dataDir);
     if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {

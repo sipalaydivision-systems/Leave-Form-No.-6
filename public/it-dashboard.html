@@ -2015,6 +2015,10 @@
         }
 
         function logout() {
+            const token = localStorage.getItem('itToken');
+            if (token) {
+                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+            }
             localStorage.removeItem('itUser');
             localStorage.removeItem('itToken');
             window.location.href = '/it-login.html';

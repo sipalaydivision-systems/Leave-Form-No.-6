@@ -7,7 +7,6 @@ const PRECACHE_URLS = [
   '/index.html',
   '/login.html',
   '/style.css',
-  '/script.js',
   '/modal-alert.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

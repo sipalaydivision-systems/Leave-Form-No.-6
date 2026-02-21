@@ -670,6 +670,11 @@
         async function exportLogs() {
             try {
                 const response = await fetch('/api/export-activity-logs');
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({ error: 'Export failed' }));
+                    alert(err.error || 'Failed to export logs');
+                    return;
+                }
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
