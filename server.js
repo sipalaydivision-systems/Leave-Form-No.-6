@@ -1918,6 +1918,61 @@ app.post('/api/ao-login', loginRateLimiter, createLoginHandler({
 }));
 
 // ========== IT DEPARTMENT ==========
+
+// Bootstrap: Create the first IT user on a fresh deploy (no IT users exist yet).
+// SECURITY: Only works when IT_BOOTSTRAP_KEY env var is set AND it-users.json is empty.
+// Usage: POST /api/it-bootstrap { "bootstrapKey": "<your-key>", "email": "...", "pin": "123456", "fullName": "..." }
+// After creating the first IT user, REMOVE the IT_BOOTSTRAP_KEY env var to disable this endpoint.
+app.post('/api/it-bootstrap', loginRateLimiter, (req, res) => {
+    try {
+        const BOOTSTRAP_KEY = process.env.IT_BOOTSTRAP_KEY;
+        if (!BOOTSTRAP_KEY) {
+            return res.status(503).json({ success: false, error: 'Bootstrap is disabled. Set IT_BOOTSTRAP_KEY environment variable to enable.' });
+        }
+
+        const { bootstrapKey, email, pin, fullName } = req.body || {};
+
+        // Timing-safe key comparison
+        const keyBuffer = Buffer.from(bootstrapKey || '');
+        const expectedBuffer = Buffer.from(BOOTSTRAP_KEY);
+        if (keyBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(keyBuffer, expectedBuffer)) {
+            return res.status(403).json({ success: false, error: 'Invalid bootstrap key' });
+        }
+
+        // Only allow when no IT users exist (first-time setup)
+        const itUsers = readJSON(itUsersFile);
+        if (itUsers.length > 0) {
+            return res.status(400).json({ success: false, error: 'IT users already exist. Bootstrap is only for first-time setup.' });
+        }
+
+        if (!email || !pin || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email, PIN, and fullName are required' });
+        }
+        if (!/^\d{6}$/.test(pin)) {
+            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
+        }
+
+        const newITUser = {
+            id: crypto.randomUUID(),
+            email: email.trim().toLowerCase(),
+            password: hashPasswordWithSalt(pin),
+            name: fullName.trim(),
+            fullName: fullName.trim(),
+            role: 'it',
+            createdAt: new Date().toISOString()
+        };
+
+        writeJSON(itUsersFile, [newITUser]);
+        logActivity('IT_BOOTSTRAP', 'system', { email: newITUser.email, ip: getClientIp(req) });
+        console.log(`[BOOTSTRAP] First IT user created: ${newITUser.email}`);
+
+        res.json({ success: true, message: 'First IT user created successfully. Remove IT_BOOTSTRAP_KEY env var to disable this endpoint.' });
+    } catch (error) {
+        console.error('Bootstrap error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/it-login', loginRateLimiter, (req, res) => {
     try {
         const rawEmail = req.body?.email;
