@@ -1006,8 +1006,9 @@
                 newVlBal = prevVlBal + vlEarned;
                 newSlBal = prevSlBal + slEarned;
             } else {
-                newVlBal = prevVlBal - vlSpent - forceLeave;
-                newSlBal = prevSlBal - slSpent - splUsed;
+                // Force Leave and SPL are separate allocations — NOT deducted from VL/SL
+                newVlBal = prevVlBal - vlSpent;
+                newSlBal = prevSlBal - slSpent;
             }
 
             document.getElementById('edit_leave_vl_bal').textContent = newVlBal.toFixed(3);

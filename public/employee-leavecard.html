@@ -827,7 +827,7 @@
                         const used = parseFloat(cto.daysUsed) || 0;
                         
                         if (type === 'ADD') {
-                            runningBalance += (granted - used);
+                            runningBalance += granted;
                         } else {
                             runningBalance -= used;
                         }

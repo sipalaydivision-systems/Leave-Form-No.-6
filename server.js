@@ -1312,7 +1312,6 @@ app.get('/ao-register', (req, res) => res.sendFile(path.join(__dirname, 'public'
 app.get('/it-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-login.html')));
 app.get('/it-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-dashboard.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-app.get('/database', (req, res) => res.sendFile(path.join(__dirname, 'public', 'database.html')));
 app.get('/ao-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-dashboard.html')));
 app.get('/leave-form', (req, res) => res.sendFile(path.join(__dirname, 'public', 'leave_form.html')));
 app.get('/hr-approval', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-approval.html')));
@@ -3736,19 +3735,14 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
                     });
                 }
                 
-                // Check SL balance — per CSC Rule XVI Sec. 15, exhausted SL may be charged against VL
+                // Check SL balance — negative SL is NOT allowed and will NOT be charged to VL
                 if (leaveType === 'leave_sl' && numDays > slBalance) {
-                    if (numDays <= (slBalance + vlBalance)) {
-                        // SL exhausted but VL can cover the remainder — allow with note
-                        console.log(`[VALIDATION] SL for ${employeeEmail}: ${numDays} days requested, SL balance ${slBalance.toFixed(3)}, remainder charged to VL`);
-                    } else {
-                        console.log(`[VALIDATION] SL rejected for ${employeeEmail}: Requested ${numDays} days but only ${slBalance.toFixed(3)} SL + ${vlBalance.toFixed(3)} VL available`);
-                        return res.status(400).json({
-                            success: false,
-                            error: 'Insufficient Sick Leave balance',
-                            message: `You cannot apply for ${numDays} day(s) of Sick Leave. Your SL balance is ${slBalance.toFixed(3)} and VL balance is ${vlBalance.toFixed(3)} day(s). Per CSC rules, SL may be charged against VL when exhausted, but your combined balance is insufficient.`
-                        });
-                    }
+                    console.log(`[VALIDATION] SL rejected for ${employeeEmail}: Requested ${numDays} days but only ${slBalance.toFixed(3)} SL available`);
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Insufficient Sick Leave balance',
+                        message: `You cannot apply for ${numDays} day(s) of Sick Leave. Your SL balance is ${slBalance.toFixed(3)} day(s). The balance cannot go negative.`
+                    });
                 }
             } else {
                 // No leave card found — reject VL/SL applications (no balance means 0)
@@ -3762,82 +3756,43 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         }
         
         if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            if (employeeLeave) {
-                const forceLeaveSpent = employeeLeave.forceLeaveSpent || 0;
-                const splSpent = employeeLeave.splSpent || 0;
-                
-                // Also count pending FL/SPL applications not yet reflected in leave card
-                const allApplications = readJSONArray(applicationsFile);
-                // Build set of application IDs already reflected in leave card to avoid double-counting
-                const reflectedAppIds = new Set();
-                if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
-                    employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
+            // Get spent values from leave card (0 if no card exists)
+            const forceLeaveSpent = employeeLeave ? (employeeLeave.forceLeaveSpent || 0) : 0;
+            const splSpent = employeeLeave ? (employeeLeave.splSpent || 0) : 0;
+            
+            // Also count pending FL/SPL applications not yet reflected in leave card
+            const allApplications = readJSONArray(applicationsFile);
+            // Build set of application IDs already reflected in leave card to avoid double-counting
+            const reflectedAppIds = new Set();
+            if (employeeLeave && employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
+                employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
+            }
+            if (employeeLeave && employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
+                employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
+            }
+            let pendingForceSpent = 0;
+            let pendingSplSpent = 0;
+            allApplications.forEach(app => {
+                if (reflectedAppIds.has(app.id)) return; // Already counted in forceLeaveSpent/splSpent
+                if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
+                if (app.status !== 'pending' && app.status !== 'approved') return;
+                const appDays = parseFloat(app.numDays) || 0;
+                const appType = (app.leaveType || '').toLowerCase();
+                if (appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced')) {
+                    pendingForceSpent += appDays;
+                } else if (appType.includes('spl') || appType.includes('special')) {
+                    pendingSplSpent += appDays;
                 }
-                if (employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
-                    employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
-                }
-                let pendingForceSpent = 0;
-                let pendingSplSpent = 0;
-                allApplications.forEach(app => {
-                    if (reflectedAppIds.has(app.id)) return; // Already counted in forceLeaveSpent/splSpent
-                    if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
-                    if (app.status !== 'pending' && app.status !== 'approved') return;
-                    const appDays = parseFloat(app.numDays) || 0;
-                    const appType = (app.leaveType || '').toLowerCase();
-                    if (appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced')) {
-                        pendingForceSpent += appDays;
-                    } else if (appType.includes('spl') || appType.includes('special')) {
-                        pendingSplSpent += appDays;
-                    }
-                });
-                
-                const totalForceUsed = forceLeaveSpent + pendingForceSpent;
-                const totalSplUsed = splSpent + pendingSplSpent;
-                
-                if (leaveType === 'leave_mfl') {
-                    // ===== CSC MC No. 6 s.1996: Force Leave / Mandatory Leave Rules =====
-                    // 1. FL is mandatory only for employees with 10+ accumulated VL days
-                    // 2. FL is charged AGAINST VL balance (it IS vacation leave, just the mandatory portion)
-                    // 3. FL yearly cap is 5 days
-                    // 4. FL should ideally be taken as consecutive days (no restriction on consecutive days)
-                    
-                    // Compute effective VL balance for FL check
-                    let flVlBalance = null;
-                    if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory) && employeeLeave.leaveUsageHistory.length > 0) {
-                        const latestUsage = employeeLeave.leaveUsageHistory[employeeLeave.leaveUsageHistory.length - 1];
-                        if (latestUsage.balanceAfterVL !== undefined) flVlBalance = latestUsage.balanceAfterVL;
-                    }
-                    if (flVlBalance === null) {
-                        const vlEarned = parseFloat(employeeLeave.vacationLeaveEarned) || parseFloat(employeeLeave.vl) || 0;
-                        flVlBalance = Math.max(0, vlEarned - (employeeLeave.vacationLeaveSpent || 0));
-                    }
-                    // Deduct pending VL and FL applications not yet reflected
-                    allApplications.forEach(app => {
-                        if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
-                        if (app.status !== 'pending' && app.status !== 'approved') return;
-                        const appDays = parseFloat(app.numDays) || 0;
-                        if (appDays <= 0) return;
-                        const appType = (app.leaveType || '').toLowerCase();
-                        // Both VL and FL deduct from VL balance
-                        if (appType.includes('vl') || appType.includes('vacation') || appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced')) {
-                            // Skip FL apps already counted in pendingForceSpent to avoid double-counting
-                            if (!(appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced'))) {
-                                flVlBalance = Math.max(0, flVlBalance - appDays);
-                            }
-                        }
-                    });
-                    // Deduct pending FL from VL balance
-                    flVlBalance = Math.max(0, flVlBalance - pendingForceSpent);
-                    
-                    // Check 10-day VL threshold (CSC MC No. 6, s. 1996)
-                    if (flVlBalance < 10) {
-                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: VL balance ${flVlBalance.toFixed(3)} is below 10-day threshold`);
-                        return res.status(400).json({
-                            success: false,
-                            error: 'Force Leave not applicable',
-                            message: `Mandatory/Forced Leave is only required for employees with 10 or more accumulated Vacation Leave days (CSC MC No. 6, s. 1996). Your current VL balance is ${flVlBalance.toFixed(3)} day(s).`
-                        });
-                    }
+            });
+            
+            const totalForceUsed = forceLeaveSpent + pendingForceSpent;
+            const totalSplUsed = splSpent + pendingSplSpent;
+            
+            if (leaveType === 'leave_mfl') {
+                    // ===== Force Leave Rules (DepEd Non-Teaching) =====
+                    // 1. Each non-teaching employee gets 5 Force Leave days per year (separate allocation, NOT charged against VL)
+                    // 2. FL yearly cap is 5 days
+                    // 3. FL should NOT be filed as 5 consecutive days
                     
                     // Check FL yearly cap (5 days)
                     if ((totalForceUsed + numDays) > 5) {
@@ -3850,13 +3805,13 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
                         });
                     }
                     
-                    // Check VL balance can cover this FL application (FL deducts from VL)
-                    if (numDays > flVlBalance) {
-                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Requested ${numDays} FL days but only ${flVlBalance.toFixed(3)} VL available`);
+                    // Prevent filing 5 consecutive days at once
+                    if (numDays >= 5) {
+                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Cannot file ${numDays} consecutive days`);
                         return res.status(400).json({
                             success: false,
-                            error: 'Insufficient VL balance for Force Leave',
-                            message: `Force Leave is charged against your Vacation Leave balance. You cannot apply for ${numDays} day(s) of FL. Your current VL balance is ${flVlBalance.toFixed(3)} day(s).`
+                            error: 'Force Leave filing restriction',
+                            message: `Force Leave should not be filed as 5 consecutive days. Please file fewer days per application.`
                         });
                     }
                 }
@@ -3871,6 +3826,76 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
                         message: `You cannot apply for ${numDays} day(s) of Special Privilege Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 3-day yearly allocation.`
                     });
                 }
+        }
+        
+        // ===== CTO / Others leave balance validation =====
+        if (leaveType === 'leave_others') {
+            try {
+                ensureFile(ctoRecordsFile);
+                const ctoRecords = readJSON(ctoRecordsFile);
+                const empCtoRecords = ctoRecords.filter(r => r.employeeId === employeeEmail);
+                
+                // Calculate total CTO balance: sum of (granted - used) across all records
+                let ctoBalance = 0;
+                empCtoRecords.forEach(rec => {
+                    const granted = parseFloat(rec.daysGranted) || 0;
+                    const used = parseFloat(rec.daysUsed) || 0;
+                    ctoBalance += (granted - used);
+                });
+                ctoBalance = Math.max(0, ctoBalance);
+                
+                // Deduct pending/approved CTO applications not yet reflected in records
+                const allApplications = readJSONArray(applicationsFile);
+                // Build set of application IDs that may already be reflected in CTO records
+                const reflectedCtoAppIds = new Set();
+                empCtoRecords.forEach(rec => {
+                    if (rec.applicationIds && Array.isArray(rec.applicationIds)) {
+                        rec.applicationIds.forEach(id => reflectedCtoAppIds.add(id));
+                    }
+                });
+                if (employeeLeave && employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
+                    employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedCtoAppIds.add(h.applicationId); });
+                }
+                if (employeeLeave && employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
+                    employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedCtoAppIds.add(t.applicationId); });
+                }
+                
+                allApplications.forEach(app => {
+                    if (reflectedCtoAppIds.has(app.id)) return;
+                    if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
+                    if (app.status !== 'pending' && app.status !== 'approved') return;
+                    const appType = (app.leaveType || '').toLowerCase();
+                    if (appType.includes('others') || appType.includes('cto')) {
+                        const appDays = parseFloat(app.numDays) || 0;
+                        ctoBalance = Math.max(0, ctoBalance - appDays);
+                    }
+                });
+                
+                if (ctoBalance <= 0) {
+                    console.log(`[VALIDATION] CTO/Others rejected for ${employeeEmail}: No CTO records found (balance is 0)`);
+                    return res.status(400).json({
+                        success: false,
+                        error: 'No CTO balance available',
+                        message: 'You do not have any CTO (Compensatory Time-Off) balance. Please ensure a Special Order has been filed and CTO days have been granted before applying.'
+                    });
+                }
+                
+                if (numDays > ctoBalance) {
+                    console.log(`[VALIDATION] CTO/Others rejected for ${employeeEmail}: Requested ${numDays} days but only ${ctoBalance.toFixed(3)} CTO available`);
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Insufficient CTO balance',
+                        message: `You cannot apply for ${numDays} day(s) of CTO leave. Your current CTO balance is ${ctoBalance.toFixed(3)} day(s). The balance cannot go negative.`
+                    });
+                }
+            } catch (ctoCheckErr) {
+                console.error('[VALIDATION] Error checking CTO balance:', ctoCheckErr);
+                // If CTO records can't be read, reject as a safety measure
+                return res.status(500).json({
+                    success: false,
+                    error: 'Unable to verify CTO balance',
+                    message: 'Could not verify your CTO balance. Please try again or contact the Administrative Officer.'
+                });
             }
         }
         
@@ -4707,10 +4732,14 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
         } else {
             // Update with new transactions
             if (transactions && Array.isArray(transactions)) {
-                // Add new transactions to history
+                // Add new transactions to history with the date the entry was made
                 employeeLeave.transactions = employeeLeave.transactions || [];
+                const editDate = new Date().toISOString();
+                transactions.forEach(txn => {
+                    txn.dateRecorded = editDate; // Date the AO entered this transaction
+                });
                 employeeLeave.transactions.push(...transactions);
-                console.log('[UPDATE LEAVE] Added', transactions.length, 'transactions to history');
+                console.log('[UPDATE LEAVE] Added', transactions.length, 'transactions to history (recorded:', editDate, ')');
             }
             
             // Update legacy fields for backward compatibility
@@ -5027,10 +5056,12 @@ function updateEmployeeLeaveBalance(application) {
         const isSpecialLeave = leaveTypeLower.includes('special') || leaveTypeLower.includes('leave_spl');
         
         if (isForceLeave) {
-            // CSC MC No. 6 s.1996: Force Leave is charged against VL balance
-            const flDays = parseFloat(application.numDays) || parseFloat(application.daysApplied) || vlLess || 1;
-            employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - flDays);
-        } else if (!isSpecialLeave) {
+            // Force Leave is a separate 5-day yearly allocation — NOT charged against VL
+            // No deduction from employee.leaveCredits.vacationLeave
+        } else if (isSpecialLeave) {
+            // SPL is a separate 3-day yearly allocation — NOT charged against VL or SL
+            // No deduction from employee.leaveCredits
+        } else {
             if (vlLess > 0) {
                 employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - vlLess);
             }
@@ -5148,10 +5179,9 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         
         // Deduct from balance based on leave type
         if (forceLeaveUsed > 0) {
-            // CSC MC No. 6 s.1996: Force Leave is charged AGAINST VL balance
+            // Force Leave is a separate 5-day yearly allocation — NOT charged against VL
             leavecard.forceLeaveSpent = (leavecard.forceLeaveSpent || 0) + forceLeaveUsed;
-            leavecard.vl = Math.max(0, (leavecard.vl || 0) - forceLeaveUsed);
-            leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + forceLeaveUsed;
+            // Do NOT deduct from leavecard.vl or vacationLeaveSpent
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
         } else if (application.leaveType === 'leave_others' || String(application.leaveType || '').toLowerCase().includes('others')) {
@@ -5185,26 +5215,25 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 console.error('Error deducting CTO:', ctoErr);
             }
         } else {
-            // VL/SL deduction — with SL-to-VL fallback per CSC Rule XVI Sec. 15
+            // VL/SL deduction — negative balances are NOT allowed and NOT charged to other leave types
             if (slUsed > 0) {
                 const currentSl = leavecard.sl || 0;
+                // Only deduct what SL can cover — do NOT charge remainder to VL
+                const actualSlDeduction = Math.min(slUsed, currentSl);
+                leavecard.sl = Math.max(0, currentSl - actualSlDeduction);
+                leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + actualSlDeduction;
                 if (slUsed > currentSl) {
-                    // SL exhausted — deduct what SL can cover, charge remainder to VL
-                    const slPortion = currentSl;
-                    const vlPortion = slUsed - slPortion;
-                    leavecard.sl = 0;
-                    leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slPortion;
-                    leavecard.vl = Math.max(0, (leavecard.vl || 0) - vlPortion);
-                    leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlPortion;
-                    console.log(`[LEAVECARD] SL-to-VL fallback: ${slPortion} from SL, ${vlPortion} from VL for ${application.employeeEmail}`);
-                } else {
-                    leavecard.sl = Math.max(0, currentSl - slUsed);
-                    leavecard.sickLeaveSpent = (leavecard.sickLeaveSpent || 0) + slUsed;
+                    console.log(`[LEAVECARD] SL capped: requested ${slUsed} but only ${currentSl} available. NOT charging VL for ${application.employeeEmail}`);
                 }
             }
             if (vlUsed > 0) {
-                leavecard.vl = Math.max(0, (leavecard.vl || 0) - vlUsed);
-                leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + vlUsed;
+                const currentVl = leavecard.vl || 0;
+                const actualVlDeduction = Math.min(vlUsed, currentVl);
+                leavecard.vl = Math.max(0, currentVl - actualVlDeduction);
+                leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + actualVlDeduction;
+                if (vlUsed > currentVl) {
+                    console.log(`[LEAVECARD] VL capped: requested ${vlUsed} but only ${currentVl} available for ${application.employeeEmail}`);
+                }
             }
         }
         

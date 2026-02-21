@@ -2642,7 +2642,9 @@
                 // Show status tracker modal
                 showStatusTracker(result.applicationId, result.currentApprover, result.isSchoolBased);
             } else {
-                alert('❌ Error submitting application: ' + result.error);
+                // Show detailed message if available (includes balance info), otherwise fall back to short error
+                const errorMsg = result.message || result.error || 'Unknown error';
+                alert('❌ ' + errorMsg);
             }
         } catch (error) {
             console.error('Error:', error);
