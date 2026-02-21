@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity Logs - IT Department</title>
+    <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <style>
         * {
@@ -690,16 +691,7 @@
             }
         }
 
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, m => map[m]);
-        }
+        // escapeHtml() provided by /utils.js
 
         function truncateText(text, maxLength) {
             if (text.length > maxLength) {

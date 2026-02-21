@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IT Dashboard - Registration Validation</title>
+    <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1792,24 +1793,24 @@
             
             tbody.innerHTML = filtered.map(reg => `
                 <tr>
-                    <td style="text-align: center;"><input type="checkbox" class="row-checkbox" value="${reg.id}" data-email="${reg.email}" data-portal="${reg.portal}" onchange="updateDeleteButton()"></td>
+                    <td style="text-align: center;"><input type="checkbox" class="row-checkbox" value="${escapeHtml(reg.id)}" data-email="${escapeHtml(reg.email)}" data-portal="${escapeHtml(reg.portal)}" onchange="updateDeleteButton()"></td>
                     <td>${formatDate(reg.createdAt)}</td>
-                    <td><strong>${reg.fullName || reg.name || 'N/A'}</strong></td>
-                    <td>${reg.employeeNo || 'N/A'}</td>
-                    <td>${reg.email}</td>
-                    <td><span class="portal-badge ${reg.portal}">${reg.portal.toUpperCase()}</span></td>
-                    <td>${reg.office || reg.school || reg.district || 'N/A'}</td>
-                    <td><span class="status-badge ${reg.status}">${reg.status.charAt(0).toUpperCase() + reg.status.slice(1)}</span>${reg.deletedBy ? `<div class="deleted-by-info">🗑️ Deleted by: ${reg.deletedBy}</div>` : ''}</td>
+                    <td><strong>${escapeHtml(reg.fullName || reg.name || 'N/A')}</strong></td>
+                    <td>${escapeHtml(reg.employeeNo || 'N/A')}</td>
+                    <td>${escapeHtml(reg.email)}</td>
+                    <td><span class="portal-badge ${escapeHtml(reg.portal)}">${escapeHtml(reg.portal).toUpperCase()}</span></td>
+                    <td>${escapeHtml(reg.office || reg.school || reg.district || 'N/A')}</td>
+                    <td><span class="status-badge ${escapeHtml(reg.status)}">${escapeHtml(reg.status.charAt(0).toUpperCase() + reg.status.slice(1))}</span>${reg.deletedBy ? `<div class="deleted-by-info">🗑️ Deleted by: ${escapeHtml(reg.deletedBy)}</div>` : ''}</td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn view" onclick="viewDetails('${reg.id}')">View</button>
+                            <button class="action-btn view" onclick="viewDetails('${escapeHtml(reg.id)}')">View</button>
                             ${reg.status === 'pending' ? `
-                                <button class="action-btn approve" onclick="approveRegistration('${reg.id}')">Approve</button>
-                                <button class="action-btn reject" onclick="rejectRegistration('${reg.id}')">Reject</button>
+                                <button class="action-btn approve" onclick="approveRegistration('${escapeHtml(reg.id)}')">Approve</button>
+                                <button class="action-btn reject" onclick="rejectRegistration('${escapeHtml(reg.id)}')">Reject</button>
                             ` : ''}
                             ${reg.status === 'approved' ? `
-                                <button class="action-btn delete" onclick="showDeleteModal('${reg.id}', '${reg.email}', '${reg.portal}')">Delete</button>
-                                <button class="action-btn view" onclick="showResetPasswordModal('${reg.email}', '${reg.portal}')" title="Reset Password">🔑</button>
+                                <button class="action-btn delete" onclick="${safeOnclick('showDeleteModal', reg.id, reg.email, reg.portal)}">Delete</button>
+                                <button class="action-btn view" onclick="${safeOnclick('showResetPasswordModal', reg.email, reg.portal)}" title="Reset Password">🔑</button>
                             ` : ''}
                         </div>
                     </td>
@@ -1869,39 +1870,39 @@
             content.innerHTML = `
                 <div class="detail-row">
                     <div class="detail-label">Full Name</div>
-                    <div class="detail-value">${selectedRegistration.fullName || selectedRegistration.name || 'N/A'}</div>
+                    <div class="detail-value">${escapeHtml(selectedRegistration.fullName || selectedRegistration.name || 'N/A')}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Email</div>
-                    <div class="detail-value">${selectedRegistration.email}</div>
+                    <div class="detail-value">${escapeHtml(selectedRegistration.email)}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Portal Type</div>
-                    <div class="detail-value"><span class="portal-badge ${selectedRegistration.portal}">${selectedRegistration.portal.toUpperCase()}</span></div>
+                    <div class="detail-value"><span class="portal-badge ${escapeHtml(selectedRegistration.portal)}">${escapeHtml(selectedRegistration.portal).toUpperCase()}</span></div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Office/School</div>
-                    <div class="detail-value">${selectedRegistration.office || selectedRegistration.school || selectedRegistration.district || 'N/A'}</div>
+                    <div class="detail-value">${escapeHtml(selectedRegistration.office || selectedRegistration.school || selectedRegistration.district || 'N/A')}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Position</div>
-                    <div class="detail-value">${selectedRegistration.position || 'N/A'}</div>
+                    <div class="detail-value">${escapeHtml(selectedRegistration.position || 'N/A')}</div>
                 </div>
                 ${selectedRegistration.salaryGrade ? `
                 <div class="detail-row">
                     <div class="detail-label">Salary Grade</div>
-                    <div class="detail-value">${selectedRegistration.salaryGrade}</div>
+                    <div class="detail-value">${escapeHtml(selectedRegistration.salaryGrade)}</div>
                 </div>
                 ` : ''}
                 ${selectedRegistration.step ? `
                 <div class="detail-row">
                     <div class="detail-label">Step Increment</div>
-                    <div class="detail-value">Step ${selectedRegistration.step}</div>
+                    <div class="detail-value">Step ${escapeHtml(selectedRegistration.step)}</div>
                 </div>
                 ` : ''}
                 <div class="detail-row">
                     <div class="detail-label">Status</div>
-                    <div class="detail-value"><span class="status-badge ${selectedRegistration.status}">${selectedRegistration.status.charAt(0).toUpperCase() + selectedRegistration.status.slice(1)}</span></div>
+                    <div class="detail-value"><span class="status-badge ${escapeHtml(selectedRegistration.status)}">${escapeHtml(selectedRegistration.status.charAt(0).toUpperCase() + selectedRegistration.status.slice(1))}</span></div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Registered On</div>
@@ -1916,7 +1917,7 @@
                 ${selectedRegistration.processedBy ? `
                 <div class="detail-row">
                     <div class="detail-label">Processed By</div>
-                    <div class="detail-value">${selectedRegistration.processedBy}</div>
+                    <div class="detail-value">${escapeHtml(selectedRegistration.processedBy)}</div>
                 </div>
                 ` : ''}
             `;
@@ -2667,11 +2668,7 @@
             updateSpecificSelectedCount();
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // escapeHtml() provided by /utils.js
 
         function toggleSpecificItem(index, event) {
             if (event) event.stopPropagation();

@@ -15,6 +15,10 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'http://localhost:3000';
 
+// Shared constant — used in accrual period labels (DRY: defined once, used everywhere)
+const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
 // ========== SECURITY CONFIGURATION ==========
 
 // Rate limiting storage (in-memory)
@@ -332,13 +336,17 @@ function isEmployeeInAoSchool(employeeOffice, aoOffice) {
     return normAo === normEmp;
 }
 
-// Look up an employee's office from users or employees data
-function getEmployeeOffice(email) {
+/**
+ * Look up an employee's office from users or employees data.
+ * Accepts optional pre-loaded arrays to avoid redundant disk reads
+ * when called inside .filter() loops (CRITICAL perf fix — was O(N×2) disk reads).
+ */
+function getEmployeeOffice(email, usersCache, employeesCache) {
     if (!email) return null;
-    const users = readJSON(usersFile);
+    const users = usersCache || readJSON(usersFile);
     const user = users.find(u => u.email === email);
     if (user && user.office) return user.office;
-    const employees = readJSON(employeesFile);
+    const employees = employeesCache || readJSON(employeesFile);
     const emp = employees.find(e => e.email === email);
     if (emp && emp.office) return emp.office;
     return null;
@@ -526,6 +534,12 @@ ensureFile(asdsUsersFile);
 ensureFile(sdsUsersFile);
 ensureFile(itUsersFile);
 ensureFile(pendingRegistrationsFile);
+// Previously missing — these 5 files were only ensured lazily in handlers (D8/S19 fix)
+ensureFile(ctoRecordsFile);
+ensureFile(activityLogsFile);
+ensureFile(schoolsFile, '{}'); // schools.json is object-shaped, not array
+ensureFile(initialCreditsFile, '{}'); // expects {lookupMap:{}, credits:[]} shape, not []
+ensureFile(systemStateFile, '{}'); // stores object {lastAccruedMonth:...}, NOT array
 
 // Helper functions
 
@@ -683,9 +697,6 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 if (startMonth > 12) { startMonth = 1; startYear++; }
             }
 
-            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'];
-
             for (let m = 0; m < monthsToAccrue; m++) {
                 let entryMonth = startMonth + m;
                 let entryYear = startYear;
@@ -696,7 +707,7 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
 
                 lc.transactions.push({
                     type: 'ADD',
-                    periodCovered: `${monthNames[entryMonth]} ${entryYear} (Monthly Accrual)`,
+                    periodCovered: `${MONTH_NAMES[entryMonth]} ${entryYear} (Monthly Accrual)`,
                     vlEarned: accrualPerMonth,
                     slEarned: accrualPerMonth,
                     vlSpent: 0,
@@ -856,9 +867,7 @@ function runMonthlyAccrual() {
                 runningVL = +(runningVL + accrualPerMonth).toFixed(3);
                 runningSL = +(runningSL + accrualPerMonth).toFixed(3);
 
-                const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                    'July', 'August', 'September', 'October', 'November', 'December'];
-                const periodLabel = `${monthNames[entryMonth]} ${entryYear} (Monthly Accrual)`;
+                const periodLabel = `${MONTH_NAMES[entryMonth]} ${entryYear} (Monthly Accrual)`;
 
                 lc.transactions.push({
                     type: 'ADD',
@@ -1036,7 +1045,7 @@ function validatePortalPassword(password) {
     return { valid: true };
 }
 
-function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district) {
+function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district, suffix, employeeNo) {
     let lastName = '', firstName = '', middleName = '';
     if (fullName && fullName.includes(',')) {
         const parts = fullName.split(',');
@@ -1058,6 +1067,8 @@ function buildEmployeeRecord(office, fullName, email, position, salaryGrade, ste
         lastName,
         firstName,
         middleName,
+        suffix: suffix || '',         // D10 fix: was missing from employee records
+        employeeNo: employeeNo || '', // D10 fix: was missing from employee records
         fullName: fullName || '',
         position: position || '',
         salaryGrade: salaryGrade ? parseInt(salaryGrade) : null,
@@ -1387,6 +1398,204 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' });
 });
 
+// ========== DRY HANDLER FACTORIES (S4/S5/S6 fix) ==========
+// Instead of 5 nearly identical registration handlers, 5 login handlers,
+// and 6 profile update handlers, these factories produce them from config.
+
+/**
+ * DRY: Generic admin portal registration handler (S4 fix)
+ * All admin portals (HR, ASDS, SDS, AO) follow the same registration flow.
+ * Employee registration is kept separate due to unique field requirements.
+ */
+function createAdminRegisterHandler(config) {
+    const { portalName, portalLabel, userFile, excludePortals, defaultValues = {} } = config;
+    return (req, res) => {
+        try {
+            const { email, password, fullName, firstName, lastName, middleName, suffix,
+                    office, position, salaryGrade, step, salary, employeeNo, name } = req.body || {};
+            const userName = fullName || name;
+            if (!email || !password || !userName) {
+                return res.status(400).json({ success: false, error: 'Missing required fields' });
+            }
+            if (!employeeNo || !employeeNo.trim()) {
+                return res.status(400).json({ success: false, error: 'Employee Number is required' });
+            }
+            if (!validateDepEdEmail(email)) {
+                return res.status(400).json({ success: false, error: 'Please use a valid DepEd email (@deped.gov.ph)' });
+            }
+            const passwordValidation = validatePortalPassword(password);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ success: false, error: passwordValidation.error });
+            }
+            let portalUsers = readJSON(userFile);
+            let pendingRegs = readJSON(pendingRegistrationsFile);
+            if (portalUsers.find(u => u.email === email)) {
+                return res.status(400).json({ success: false, error: `${portalLabel} account already exists` });
+            }
+            const existingPortal = isEmailRegisteredInAnyPortal(email, excludePortals);
+            if (existingPortal) {
+                return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+            }
+            if (pendingRegs.find(r => r.email === email && r.portal === portalName && r.status === 'pending')) {
+                return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
+            }
+            const pendingRegistration = {
+                id: crypto.randomUUID(),
+                portal: portalName,
+                fullName: userName, name: userName,
+                firstName: firstName || '', lastName: lastName || '',
+                middleName: middleName || '', suffix: suffix || '',
+                email,
+                password: hashPasswordWithSalt(password),
+                office: office || defaultValues.office || '',
+                position: position || defaultValues.position || '',
+                salaryGrade: salaryGrade ? parseInt(salaryGrade) : null,
+                step: step ? parseInt(step) : null,
+                salary: salary ? Number(salary) : null,
+                employeeNo: employeeNo || '',
+                role: portalName,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            pendingRegs.push(pendingRegistration);
+            writeJSON(pendingRegistrationsFile, pendingRegs);
+            logActivity('REGISTRATION_SUBMITTED', portalName, {
+                userEmail: email, fullName: userName, portal: portalName,
+                ip: getClientIp(req), userAgent: req.get('user-agent')
+            });
+            res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    };
+}
+
+/**
+ * DRY: Generic portal login handler (S5 fix)
+ * All portals (except IT which uses PIN) follow the same login flow.
+ * Fixes: ASDS, SDS, AO were missing LOGIN_SUCCESS activity logs.
+ */
+function createLoginHandler(config) {
+    const { portalName, userFile, sessionRole, responseFields } = config;
+    return (req, res) => {
+        try {
+            const { email, password } = req.body;
+            const ip = getClientIp(req);
+            let users = readJSON(userFile);
+            const user = users.find(u => u.email === email && verifyPassword(password, u.password));
+            if (!user) {
+                logActivity('LOGIN_FAILED', portalName, {
+                    userEmail: email, ip, userAgent: req.get('user-agent')
+                });
+                let pendingRegs = readJSON(pendingRegistrationsFile);
+                const pending = pendingRegs.find(r => r.email === email && r.portal === portalName && r.status === 'pending');
+                if (pending) {
+                    return res.status(401).json({ success: false, error: 'Your registration is still pending IT approval.' });
+                }
+                return res.status(401).json({ success: false, error: 'Invalid email or password' });
+            }
+            rehashIfNeeded(password, user.password, user, users, userFile);
+            const token = createSession(user, sessionRole);
+            logActivity('LOGIN_SUCCESS', portalName, {
+                userEmail: user.email, userId: user.id, ip,
+                userAgent: req.get('user-agent'), userName: user.name
+            });
+            const responseUser = {};
+            for (const field of responseFields) {
+                if (user[field] !== undefined) responseUser[field] = user[field];
+            }
+            responseUser.role = sessionRole;
+            res.json({ success: true, token, user: responseUser });
+        } catch (error) {
+            res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
+        }
+    };
+}
+
+/**
+ * DRY: Generic portal profile update handler (S6 fix)
+ * All portals follow the same profile update flow with minor variations.
+ */
+function createProfileUpdateHandler(config) {
+    const { portalName, portalLabel, userFile, updatableFields = [],
+            usesPin = false, syncToEmployees = false, syncToLeaveCards = false,
+            responseFields } = config;
+    return (req, res) => {
+        try {
+            const { email, fullName, newPassword, newPin } = req.body;
+            if (!email || !fullName) {
+                return res.status(400).json({ success: false, error: 'Email and full name are required' });
+            }
+            // SECURITY: Verify the authenticated user is updating their own profile
+            if (req.session.email !== email) {
+                return res.status(403).json({ success: false, error: 'You can only update your own profile' });
+            }
+            let users = readJSON(userFile);
+            const userIndex = users.findIndex(u => u.email === email);
+            if (userIndex === -1) {
+                return res.status(404).json({ success: false, error: `${portalLabel} user not found` });
+            }
+            const oldName = users[userIndex].name;
+            users[userIndex].name = fullName;
+            users[userIndex].fullName = fullName;
+            // Keep segregated name fields in sync
+            const nameParts = parseFullNameIntoParts(fullName);
+            users[userIndex].firstName = nameParts.firstName || '';
+            users[userIndex].lastName = nameParts.lastName || '';
+            users[userIndex].middleName = nameParts.middleName || '';
+            users[userIndex].suffix = nameParts.suffix || '';
+            // Update portal-specific fields
+            for (const field of updatableFields) {
+                if (req.body[field]) users[userIndex][field] = req.body[field];
+            }
+            // Handle password/PIN change
+            if (usesPin && newPin) {
+                if (!/^\d{6}$/.test(newPin)) {
+                    return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
+                }
+                users[userIndex].password = hashPasswordWithSalt(newPin);
+            } else if (!usesPin && newPassword) {
+                const passwordValidation = validatePortalPassword(newPassword);
+                if (!passwordValidation.valid) {
+                    return res.status(400).json({ success: false, error: passwordValidation.error });
+                }
+                users[userIndex].password = hashPasswordWithSalt(newPassword);
+            }
+            users[userIndex].updatedAt = new Date().toISOString();
+            writeJSON(userFile, users);
+            // Sync name/fields to employees.json if employee portal
+            if (syncToEmployees) {
+                let employees = readJSON(employeesFile);
+                const empIndex = employees.findIndex(e => e.email === email);
+                if (empIndex !== -1) {
+                    employees[empIndex].name = fullName;
+                    for (const field of updatableFields) {
+                        if (req.body[field]) employees[empIndex][field] = req.body[field];
+                    }
+                    employees[empIndex].updatedAt = new Date().toISOString();
+                    writeJSON(employeesFile, employees);
+                }
+            }
+            // Sync name change to leave cards
+            if (syncToLeaveCards && oldName !== fullName) {
+                let leaveCards = readJSON(leavecardsFile);
+                leaveCards.forEach(card => { if (card.email === email) card.name = fullName; });
+                writeJSON(leavecardsFile, leaveCards);
+            }
+            logActivity('PROFILE_UPDATED', portalName, { userEmail: email, userName: fullName });
+            const responseUser = {};
+            for (const field of responseFields) {
+                if (users[userIndex][field] !== undefined) responseUser[field] = users[userIndex][field];
+            }
+            responseUser.role = portalName === 'employee' ? 'user' : portalName;
+            res.json({ success: true, message: 'Profile updated successfully', user: responseUser });
+        } catch (error) {
+            console.error(`Error updating ${portalLabel} profile:`, error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    };
+}
+
 // ========== EMPLOYEE REGISTRATION & LOGIN ==========
 app.post('/api/register', apiRateLimiter, (req, res) => {
     try {
@@ -1483,68 +1692,10 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
 });
 
 // Apply rate limiting to login endpoint
-app.post('/api/login', loginRateLimiter, (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const ip = getClientIp(req);
-
-        let users = readJSON(usersFile);
-        const user = users.find(u => u.email === email && verifyPassword(password, u.password));
-
-        if (!user) {
-            // Log failed login attempt
-            logActivity('LOGIN_FAILED', 'employee', {
-                userEmail: email,
-                ip,
-                userAgent: req.get('user-agent')
-            });
-            
-            let pendingRegs = readJSON(pendingRegistrationsFile);
-            const pending = pendingRegs.find(r => r.email === email && r.portal === 'employee' && r.status === 'pending');
-            if (pending) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Your registration is still pending IT approval.'
-                });
-            }
-            return res.status(401).json({ success: false, error: 'Invalid email or password' });
-        }
-
-        // Transparently upgrade password hash to bcrypt on successful login
-        rehashIfNeeded(password, user.password, user, users, usersFile);
-
-        // Create session token
-        const token = createSession(user, 'user');
-
-        // Log successful login
-        logActivity('LOGIN_SUCCESS', 'employee', {
-            userEmail: user.email,
-            userId: user.id,
-            ip,
-            userAgent: req.get('user-agent'),
-            userName: user.name
-        });
-
-        res.json({ 
-            success: true,
-            token,
-            user: { 
-                id: user.id, 
-                email: user.email, 
-                name: user.name, 
-                office: user.office,
-                position: user.position,
-                employeeNo: user.employeeNo,
-                salaryGrade: user.salaryGrade,
-                step: user.step,
-                salary: user.salary,
-                role: 'user' 
-            } 
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
-    }
-});
+app.post('/api/login', loginRateLimiter, createLoginHandler({
+    portalName: 'employee', userFile: usersFile, sessionRole: 'user',
+    responseFields: ['id', 'email', 'name', 'office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary']
+}));
 
 // IT Admin: Reset any user's password (forgot password - user asks IT staff for help)
 app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
@@ -1724,496 +1875,47 @@ app.get('/api/user-details', requireAuth(), (req, res) => {
     }
 });
 
-// ========== HR REGISTRATION & LOGIN ==========
-app.post('/api/hr-register', apiRateLimiter, (req, res) => {
-    try {
-        const { email, password, fullName, firstName, lastName, middleName, suffix, name, office, position, salaryGrade, step, salary, employeeNo } = req.body;
-
-        const userName = fullName || name;
-
-        if (!email || !password || !userName) {
-            return res.status(400).json({ success: false, error: 'Missing required fields' });
-        }
-
-        if (!validateDepEdEmail(email)) {
-            return res.status(400).json({ success: false, error: 'Please use a valid DepEd email (@deped.gov.ph)' });
-        }
-
-        const passwordValidation = validatePortalPassword(password);
-        if (!passwordValidation.valid) {
-            return res.status(400).json({ success: false, error: passwordValidation.error });
-        }
-        
-        if (!employeeNo || !employeeNo.trim()) {
-            return res.status(400).json({ success: false, error: 'Employee Number is required' });
-        }
-
-        let hrUsers = readJSON(hrUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
-
-        if (hrUsers.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, error: 'HR account already exists' });
-        }
-
-        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
-        const existingPortal = isEmailRegisteredInAnyPortal(email, ['hr', 'user']);
-        if (existingPortal) {
-            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
-        }
-
-        if (pendingRegs.find(r => r.email === email && r.portal === 'hr' && r.status === 'pending')) {
-            return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
-        }
-
-        const pendingRegistration = {
-            id: crypto.randomUUID(),
-            portal: 'hr',
-            fullName: userName,
-            name: userName,
-            firstName: firstName || '',
-            lastName: lastName || '',
-            middleName: middleName || '',
-            suffix: suffix || '',
-            email,
-            password: hashPasswordWithSalt(password),
-            office: office || 'Schools Division',
-            district: 'Schools Division of Sipalay City',
-            position: position || 'HR Staff',
-            salaryGrade: salaryGrade || null,
-            step: step || null,
-            salary: salary || null,
-            employeeNo: employeeNo || '',
-            role: 'hr',
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-
-        pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
-
-        // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'hr', {
-            userEmail: email,
-            fullName: userName,
-            portal: 'hr',
-            ip: getClientIp(req),
-            userAgent: req.get('user-agent')
-        });
-
-        res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/hr-login', loginRateLimiter, (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const ip = getClientIp(req);
-
-        let hrUsers = readJSON(hrUsersFile);
-        const hrUser = hrUsers.find(u => u.email === email && verifyPassword(password, u.password));
-
-        if (!hrUser) {
-            logActivity('LOGIN_FAILED', 'hr', {
-                userEmail: email,
-                ip,
-                userAgent: req.get('user-agent')
-            });
-            
-            let pendingRegs = readJSON(pendingRegistrationsFile);
-            const pending = pendingRegs.find(r => r.email === email && r.portal === 'hr' && r.status === 'pending');
-            if (pending) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Your registration is still pending IT approval.'
-                });
-            }
-            return res.status(401).json({ success: false, error: 'Invalid email or password' });
-        }
-
-        // Transparently upgrade password hash to bcrypt on successful login
-        rehashIfNeeded(password, hrUser.password, hrUser, hrUsers, hrUsersFile);
-
-        const token = createSession(hrUser, 'hr');
-
-        logActivity('LOGIN_SUCCESS', 'hr', {
-            userEmail: hrUser.email,
-            userId: hrUser.id,
-            ip,
-            userAgent: req.get('user-agent'),
-            userName: hrUser.name
-        });
-
-        res.json({
-            success: true,
-            token,
-            user: { id: hrUser.id, email: hrUser.email, name: hrUser.name, office: hrUser.office, position: hrUser.position, role: 'hr' }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
-    }
-});
-
-// ========== ASDS REGISTRATION & LOGIN ==========
-app.post('/api/asds-register', apiRateLimiter, (req, res) => {
-    try {
-        const { email, password, fullName, firstName, lastName, middleName, suffix, office, position, salaryGrade, step, salary, employeeNo } = req.body;
-
-        if (!email || !password || !fullName) {
-            return res.status(400).json({ success: false, error: 'Missing required fields' });
-        }
-        
-        if (!employeeNo || !employeeNo.trim()) {
-            return res.status(400).json({ success: false, error: 'Employee Number is required' });
-        }
-
-        if (!validateDepEdEmail(email)) {
-            return res.status(400).json({ success: false, error: 'Please use a valid DepEd email (@deped.gov.ph)' });
-        }
-
-        const passwordValidation = validatePortalPassword(password);
-        if (!passwordValidation.valid) {
-            return res.status(400).json({ success: false, error: passwordValidation.error });
-        }
-
-        let asdsUsers = readJSON(asdsUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
-
-        if (asdsUsers.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, error: 'ASDS account already exists' });
-        }
-
-        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
-        const existingPortal = isEmailRegisteredInAnyPortal(email, ['asds', 'user']);
-        if (existingPortal) {
-            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
-        }
-
-        if (pendingRegs.find(r => r.email === email && r.portal === 'asds' && r.status === 'pending')) {
-            return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
-        }
-
-        const pendingRegistration = {
-            id: crypto.randomUUID(),
-            portal: 'asds',
-            fullName,
-            name: fullName,
-            firstName: firstName || '',
-            lastName: lastName || '',
-            middleName: middleName || '',
-            suffix: suffix || '',
-            email,
-            password: hashPasswordWithSalt(password),
-            office,
-            position,
-            salaryGrade: parseInt(salaryGrade) || salaryGrade,
-            step: parseInt(step) || step,
-            salary: parseInt(salary) || salary,
-            employeeNo: employeeNo || '',
-            role: 'asds',
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-
-        pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
-
-        // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'asds', {
-            userEmail: email,
-            fullName: fullName,
-            portal: 'asds',
-            ip: getClientIp(req),
-            userAgent: req.get('user-agent')
-        });
-
-        res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/asds-login', loginRateLimiter, (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const ip = getClientIp(req);
-
-        let asdsUsers = readJSON(asdsUsersFile);
-        const asdsUser = asdsUsers.find(u => u.email === email && verifyPassword(password, u.password));
-
-        if (!asdsUser) {
-            logActivity('LOGIN_FAILED', 'asds', {
-                userEmail: email,
-                ip,
-                userAgent: req.get('user-agent')
-            });
-            
-            let pendingRegs = readJSON(pendingRegistrationsFile);
-            const pending = pendingRegs.find(r => r.email === email && r.portal === 'asds' && r.status === 'pending');
-            if (pending) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Your registration is still pending IT approval.'
-                });
-            }
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
-        }
-
-        // Transparently upgrade password hash to bcrypt on successful login
-        rehashIfNeeded(password, asdsUser.password, asdsUser, asdsUsers, asdsUsersFile);
-
-        const token = createSession(asdsUser, 'asds');
-
-        res.json({
-            success: true,
-            token,
-            user: { id: asdsUser.id, email: asdsUser.email, name: asdsUser.name, office: asdsUser.office, position: asdsUser.position, role: 'asds' }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
-    }
-});
-
-// ========== SDS REGISTRATION & LOGIN ==========
-app.post('/api/sds-register', apiRateLimiter, (req, res) => {
-    try {
-        const { email, fullName, firstName, lastName, middleName, suffix, office, position, salaryGrade, step, salary, password, employeeNo } = req.body;
-
-        if (!email || !fullName || !office || !position || !salaryGrade || !step || !password) {
-            return res.status(400).json({ success: false, error: 'All fields are required' });
-        }
-        
-        if (!employeeNo || !employeeNo.trim()) {
-            return res.status(400).json({ success: false, error: 'Employee Number is required' });
-        }
-
-        if (!validateDepEdEmail(email)) {
-            return res.status(400).json({ success: false, error: 'Please use a valid DepEd email (@deped.gov.ph)' });
-        }
-
-        const passwordValidation = validatePortalPassword(password);
-        if (!passwordValidation.valid) {
-            return res.status(400).json({ success: false, error: passwordValidation.error });
-        }
-
-        let sdsUsers = readJSON(sdsUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
-
-        if (sdsUsers.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, error: 'Email already registered' });
-        }
-
-        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
-        const existingPortal = isEmailRegisteredInAnyPortal(email, ['sds', 'user']);
-        if (existingPortal) {
-            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
-        }
-
-        if (pendingRegs.find(r => r.email === email && r.portal === 'sds' && r.status === 'pending')) {
-            return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
-        }
-
-        const pendingRegistration = {
-            id: crypto.randomUUID(),
-            portal: 'sds',
-            email,
-            password: hashPasswordWithSalt(password),
-            firstName: firstName || '',
-            lastName: lastName || '',
-            middleName: middleName || '',
-            suffix: suffix || '',
-            fullName: fullName || '',
-            name: fullName || '',
-            position,
-            salaryGrade: parseInt(salaryGrade),
-            step: parseInt(step),
-            salary: Number(salary),
-            office: office || 'Office of the Schools Division Superintendent',
-            employeeNo: employeeNo || '',
-            role: 'sds',
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-
-        pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
-
-        // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'sds', {
-            userEmail: email,
-            fullName: fullName,
-            portal: 'sds',
-            ip: getClientIp(req),
-            userAgent: req.get('user-agent')
-        });
-
-        res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/sds-login', loginRateLimiter, (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const ip = getClientIp(req);
-
-        let sdsUsers = readJSON(sdsUsersFile);
-        const sdsUser = sdsUsers.find(u => u.email === email && verifyPassword(password, u.password));
-
-        if (!sdsUser) {
-            logActivity('LOGIN_FAILED', 'sds', {
-                userEmail: email,
-                ip,
-                userAgent: req.get('user-agent')
-            });
-            
-            let pendingRegs = readJSON(pendingRegistrationsFile);
-            const pending = pendingRegs.find(r => r.email === email && r.portal === 'sds' && r.status === 'pending');
-            if (pending) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Your registration is still pending IT approval.'
-                });
-            }
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
-        }
-
-        // Transparently upgrade password hash to bcrypt on successful login
-        rehashIfNeeded(password, sdsUser.password, sdsUser, sdsUsers, sdsUsersFile);
-
-        const token = createSession(sdsUser, 'sds');
-
-        res.json({
-            success: true,
-            token,
-            user: { id: sdsUser.id, email: sdsUser.email, name: sdsUser.name, office: sdsUser.office, position: sdsUser.position, role: 'sds' }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
-    }
-});
-
-// ========== AO REGISTRATION & LOGIN ==========
-app.post('/api/ao-register', apiRateLimiter, (req, res) => {
-    try {
-        const { fullName, firstName, lastName, middleName, suffix, email, password, office, position, salaryGrade, step, salary, employeeNo } = req.body;
-
-        if (!fullName || !email || !password || !office || !position || !step) {
-            return res.status(400).json({ success: false, error: 'Missing required fields' });
-        }
-        
-        if (!employeeNo || !employeeNo.trim()) {
-            return res.status(400).json({ success: false, error: 'Employee Number is required' });
-        }
-
-        if (!validateDepEdEmail(email)) {
-            return res.status(400).json({ success: false, error: 'Please use a valid DepEd email address (@deped.gov.ph)' });
-        }
-
-        const passwordValidation = validatePortalPassword(password);
-        if (!passwordValidation.valid) {
-            return res.status(400).json({ success: false, error: passwordValidation.error });
-        }
-
-        let aoUsers = readJSON(aoUsersFile);
-        let pendingRegs = readJSON(pendingRegistrationsFile);
-
-        if (aoUsers.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, error: 'Email already registered' });
-        }
-
-        // SECURITY: Check cross-portal uniqueness (skip employee portal — admins are also employees)
-        const existingPortal = isEmailRegisteredInAnyPortal(email, ['ao', 'user']);
-        if (existingPortal) {
-            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
-        }
-
-        if (pendingRegs.find(r => r.email === email && r.portal === 'ao' && r.status === 'pending')) {
-            return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
-        }
-
-        const pendingRegistration = {
-            id: crypto.randomUUID(),
-            portal: 'ao',
-            fullName,
-            name: fullName,
-            firstName: firstName || '',
-            lastName: lastName || '',
-            middleName: middleName || '',
-            suffix: suffix || '',
-            email,
-            password: hashPasswordWithSalt(password),
-            office,
-            position,
-            salaryGrade: salaryGrade ? parseInt(salaryGrade) : null,
-            step: step ? parseInt(step) : null,
-            salary: salary ? Number(salary) : null,
-            employeeNo: employeeNo || '',
-            role: 'ao',
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-
-        pendingRegs.push(pendingRegistration);
-        writeJSON(pendingRegistrationsFile, pendingRegs);
-
-        // Log registration submission
-        logActivity('REGISTRATION_SUBMITTED', 'ao', {
-            userEmail: email,
-            fullName: fullName,
-            portal: 'ao',
-            ip: getClientIp(req),
-            userAgent: req.get('user-agent')
-        });
-
-        res.json({ success: true, message: 'Registration submitted! Please wait for IT department approval.' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/ao-login', loginRateLimiter, (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const ip = getClientIp(req);
-
-        let aoUsers = readJSON(aoUsersFile);
-        const aoUser = aoUsers.find(u => u.email === email && verifyPassword(password, u.password));
-
-        if (!aoUser) {
-            logActivity('LOGIN_FAILED', 'ao', {
-                userEmail: email,
-                ip,
-                userAgent: req.get('user-agent')
-            });
-            
-            let pendingRegs = readJSON(pendingRegistrationsFile);
-            const pending = pendingRegs.find(r => r.email === email && r.portal === 'ao' && r.status === 'pending');
-            if (pending) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Your registration is still pending IT approval.'
-                });
-            }
-            return res.status(401).json({ success: false, error: 'Invalid AO email or password' });
-        }
-
-        // Transparently upgrade password hash to bcrypt on successful login
-        rehashIfNeeded(password, aoUser.password, aoUser, aoUsers, aoUsersFile);
-
-        const token = createSession(aoUser, 'ao');
-
-        res.json({
-            success: true,
-            token,
-            user: { id: aoUser.id, email: aoUser.email, name: aoUser.name, office: aoUser.office, position: aoUser.position, role: 'ao' }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
-    }
-});
+// ========== HR REGISTRATION & LOGIN (DRY: uses factory) ==========
+app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
+    excludePortals: ['hr', 'user'],
+    defaultValues: { office: 'Schools Division', position: 'HR Staff' }
+}));
+app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
+    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
+
+// ========== ASDS REGISTRATION & LOGIN (DRY: uses factory) ==========
+app.post('/api/asds-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'asds', portalLabel: 'ASDS', userFile: asdsUsersFile,
+    excludePortals: ['asds', 'user']
+}));
+app.post('/api/asds-login', loginRateLimiter, createLoginHandler({
+    portalName: 'asds', userFile: asdsUsersFile, sessionRole: 'asds',
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
+
+// ========== SDS REGISTRATION & LOGIN (DRY: uses factory) ==========
+app.post('/api/sds-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'sds', portalLabel: 'SDS', userFile: sdsUsersFile,
+    excludePortals: ['sds', 'user'],
+    defaultValues: { office: 'Office of the Schools Division Superintendent' }
+}));
+app.post('/api/sds-login', loginRateLimiter, createLoginHandler({
+    portalName: 'sds', userFile: sdsUsersFile, sessionRole: 'sds',
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
+
+// ========== AO REGISTRATION & LOGIN (DRY: uses factory) ==========
+app.post('/api/ao-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'ao', portalLabel: 'AO', userFile: aoUsersFile,
+    excludePortals: ['ao', 'user']
+}));
+app.post('/api/ao-login', loginRateLimiter, createLoginHandler({
+    portalName: 'ao', userFile: aoUsersFile, sessionRole: 'ao',
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
 
 // ========== IT DEPARTMENT ==========
 app.post('/api/it-login', loginRateLimiter, (req, res) => {
@@ -2298,413 +2000,49 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
 });
 
 // Update IT Profile endpoint
-app.post('/api/update-it-profile', requireAuth('it'), (req, res) => {
-    try {
-        const { email, fullName, newPin } = req.body;
-
-        if (!email || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email and full name are required' });
-        }
-
-        // SECURITY: Verify the authenticated user is updating their own profile
-        if (req.session.email !== email) {
-            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
-        }
-
-        let itUsers = readJSON(itUsersFile);
-        const userIndex = itUsers.findIndex(u => u.email === email);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ success: false, error: 'IT staff not found' });
-        }
-
-        itUsers[userIndex].fullName = fullName;
-        itUsers[userIndex].name = fullName;
-        // Keep segregated name fields in sync
-        const itNameParts = parseFullNameIntoParts(fullName);
-        itUsers[userIndex].firstName = itNameParts.firstName || '';
-        itUsers[userIndex].lastName = itNameParts.lastName || '';
-        itUsers[userIndex].middleName = itNameParts.middleName || '';
-        itUsers[userIndex].suffix = itNameParts.suffix || '';
-        
-        if (newPin) {
-            if (!/^\d{6}$/.test(newPin)) {
-                return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
-            }
-            itUsers[userIndex].password = hashPasswordWithSalt(newPin);
-        }
-
-        itUsers[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(itUsersFile, itUsers);
-
-        res.json({ 
-            success: true, 
-            message: 'Profile updated successfully',
-            user: {
-                id: itUsers[userIndex].id,
-                email: itUsers[userIndex].email,
-                fullName: itUsers[userIndex].fullName,
-                name: itUsers[userIndex].name
-            }
-        });
-    } catch (error) {
-        console.error('Error updating IT profile:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+app.post('/api/update-it-profile', requireAuth('it'), createProfileUpdateHandler({
+    portalName: 'it', portalLabel: 'IT', userFile: itUsersFile,
+    usesPin: true, responseFields: ['id', 'email', 'fullName', 'name']
+}));
 
 
 // ========== SELF-SERVICE PROFILE EDITING ==========
 
 // Update Employee Profile
-app.post('/api/update-employee-profile', requireAuth('user'), (req, res) => {
-    try {
-        const { email, fullName, office, position, employeeNo, salaryGrade, step, salary, newPassword } = req.body;
-
-        if (!email || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email and full name are required' });
-        }
-
-        // SECURITY: Verify the authenticated user is updating their own profile
-        if (req.session.email !== email) {
-            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
-        }
-
-        let users = readJSON(usersFile);
-        const userIndex = users.findIndex(u => u.email === email);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
-
-        const oldName = users[userIndex].name;
-        users[userIndex].name = fullName;
-        users[userIndex].fullName = fullName;
-        // Keep segregated name fields in sync
-        const empNameParts = parseFullNameIntoParts(fullName);
-        users[userIndex].firstName = empNameParts.firstName || '';
-        users[userIndex].lastName = empNameParts.lastName || '';
-        users[userIndex].middleName = empNameParts.middleName || '';
-        users[userIndex].suffix = empNameParts.suffix || '';
-        if (office) users[userIndex].office = office;
-        if (position) users[userIndex].position = position;
-        if (employeeNo) users[userIndex].employeeNo = employeeNo;
-        if (salaryGrade) users[userIndex].salaryGrade = salaryGrade;
-        if (step) users[userIndex].step = step;
-        if (salary) users[userIndex].salary = salary;
-
-        if (newPassword) {
-            const passwordValidation = validatePortalPassword(newPassword);
-            if (!passwordValidation.valid) {
-                return res.status(400).json({ success: false, error: passwordValidation.error });
-            }
-            users[userIndex].password = hashPasswordWithSalt(newPassword);
-        }
-
-        users[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(usersFile, users);
-
-        // Also update employees.json for consistency
-        let employees = readJSON(employeesFile);
-        const empIndex = employees.findIndex(e => e.email === email);
-        if (empIndex !== -1) {
-            employees[empIndex].name = fullName;
-            if (office) employees[empIndex].office = office;
-            if (position) employees[empIndex].position = position;
-            if (employeeNo) employees[empIndex].employeeNo = employeeNo;
-            if (salaryGrade) employees[empIndex].salaryGrade = salaryGrade;
-            if (step) employees[empIndex].step = step;
-            if (salary) employees[empIndex].salary = salary;
-            employees[empIndex].updatedAt = new Date().toISOString();
-            writeJSON(employeesFile, employees);
-        }
-
-        // Update leave cards if name changed
-        if (oldName !== fullName) {
-            let leaveCards = readJSON(leavecardsFile);
-            leaveCards.forEach(card => {
-                if (card.email === email) {
-                    card.name = fullName;
-                }
-            });
-            writeJSON(leavecardsFile, leaveCards);
-        }
-
-        logActivity('PROFILE_UPDATED', 'employee', { userEmail: email, userName: fullName });
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: {
-                id: users[userIndex].id,
-                email: users[userIndex].email,
-                name: users[userIndex].name,
-                office: users[userIndex].office,
-                position: users[userIndex].position,
-                employeeNo: users[userIndex].employeeNo,
-                salaryGrade: users[userIndex].salaryGrade,
-                step: users[userIndex].step,
-                salary: users[userIndex].salary,
-                role: 'user'
-            }
-        });
-    } catch (error) {
-        console.error('Error updating employee profile:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+app.post('/api/update-employee-profile', requireAuth('user'), createProfileUpdateHandler({
+    portalName: 'employee', portalLabel: 'Employee', userFile: usersFile,
+    updatableFields: ['office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary'],
+    syncToEmployees: true, syncToLeaveCards: true,
+    responseFields: ['id', 'email', 'name', 'office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary']
+}));
 
 // Update AO Profile
-app.post('/api/update-ao-profile', requireAuth('ao'), (req, res) => {
-    try {
-        const { email, fullName, school, position, newPassword } = req.body;
-
-        if (!email || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email and full name are required' });
-        }
-
-        // SECURITY: Verify the authenticated user is updating their own profile
-        if (req.session.email !== email) {
-            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
-        }
-
-        let aoUsers = readJSON(aoUsersFile);
-        const userIndex = aoUsers.findIndex(u => u.email === email);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ success: false, error: 'AO user not found' });
-        }
-
-        aoUsers[userIndex].name = fullName;
-        aoUsers[userIndex].fullName = fullName;
-        // Keep segregated name fields in sync
-        const aoNameParts = parseFullNameIntoParts(fullName);
-        aoUsers[userIndex].firstName = aoNameParts.firstName || '';
-        aoUsers[userIndex].lastName = aoNameParts.lastName || '';
-        aoUsers[userIndex].middleName = aoNameParts.middleName || '';
-        aoUsers[userIndex].suffix = aoNameParts.suffix || '';
-        if (school) aoUsers[userIndex].school = school;
-        if (position) aoUsers[userIndex].position = position;
-
-        if (newPassword) {
-            const passwordValidation = validatePortalPassword(newPassword);
-            if (!passwordValidation.valid) {
-                return res.status(400).json({ success: false, error: passwordValidation.error });
-            }
-            aoUsers[userIndex].password = hashPasswordWithSalt(newPassword);
-        }
-
-        aoUsers[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(aoUsersFile, aoUsers);
-
-        logActivity('PROFILE_UPDATED', 'ao', { userEmail: email, userName: fullName });
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: {
-                id: aoUsers[userIndex].id,
-                email: aoUsers[userIndex].email,
-                name: aoUsers[userIndex].name,
-                school: aoUsers[userIndex].school,
-                position: aoUsers[userIndex].position,
-                role: 'ao'
-            }
-        });
-    } catch (error) {
-        console.error('Error updating AO profile:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+app.post('/api/update-ao-profile', requireAuth('ao'), createProfileUpdateHandler({
+    portalName: 'ao', portalLabel: 'AO', userFile: aoUsersFile,
+    updatableFields: ['school', 'position'],
+    responseFields: ['id', 'email', 'name', 'school', 'position']
+}));
 
 // Update HR Profile
-app.post('/api/update-hr-profile', requireAuth('hr'), (req, res) => {
-    try {
-        const { email, fullName, office, position, newPassword } = req.body;
-
-        if (!email || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email and full name are required' });
-        }
-
-        // SECURITY: Verify the authenticated user is updating their own profile
-        if (req.session.email !== email) {
-            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
-        }
-
-        let hrUsers = readJSON(hrUsersFile);
-        const userIndex = hrUsers.findIndex(u => u.email === email);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ success: false, error: 'HR user not found' });
-        }
-
-        hrUsers[userIndex].name = fullName;
-        hrUsers[userIndex].fullName = fullName;
-        // Keep segregated name fields in sync
-        const hrNameParts = parseFullNameIntoParts(fullName);
-        hrUsers[userIndex].firstName = hrNameParts.firstName || '';
-        hrUsers[userIndex].lastName = hrNameParts.lastName || '';
-        hrUsers[userIndex].middleName = hrNameParts.middleName || '';
-        hrUsers[userIndex].suffix = hrNameParts.suffix || '';
-        if (office) hrUsers[userIndex].office = office;
-        if (position) hrUsers[userIndex].position = position;
-
-        if (newPassword) {
-            const passwordValidation = validatePortalPassword(newPassword);
-            if (!passwordValidation.valid) {
-                return res.status(400).json({ success: false, error: passwordValidation.error });
-            }
-            hrUsers[userIndex].password = hashPasswordWithSalt(newPassword);
-        }
-
-        hrUsers[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(hrUsersFile, hrUsers);
-
-        logActivity('PROFILE_UPDATED', 'hr', { userEmail: email, userName: fullName });
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: {
-                id: hrUsers[userIndex].id,
-                email: hrUsers[userIndex].email,
-                name: hrUsers[userIndex].name,
-                office: hrUsers[userIndex].office,
-                position: hrUsers[userIndex].position,
-                role: 'hr'
-            }
-        });
-    } catch (error) {
-        console.error('Error updating HR profile:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+app.post('/api/update-hr-profile', requireAuth('hr'), createProfileUpdateHandler({
+    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
+    updatableFields: ['office', 'position'],
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
 
 // Update ASDS Profile
-app.post('/api/update-asds-profile', requireAuth('asds'), (req, res) => {
-    try {
-        const { email, fullName, office, position, newPassword } = req.body;
-
-        if (!email || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email and full name are required' });
-        }
-
-        // SECURITY: Verify the authenticated user is updating their own profile
-        if (req.session.email !== email) {
-            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
-        }
-
-        let asdsUsers = readJSON(asdsUsersFile);
-        const userIndex = asdsUsers.findIndex(u => u.email === email);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ success: false, error: 'ASDS user not found' });
-        }
-
-        asdsUsers[userIndex].name = fullName;
-        asdsUsers[userIndex].fullName = fullName;
-        // Keep segregated name fields in sync
-        const asdsNameParts = parseFullNameIntoParts(fullName);
-        asdsUsers[userIndex].firstName = asdsNameParts.firstName || '';
-        asdsUsers[userIndex].lastName = asdsNameParts.lastName || '';
-        asdsUsers[userIndex].middleName = asdsNameParts.middleName || '';
-        asdsUsers[userIndex].suffix = asdsNameParts.suffix || '';
-        if (office) asdsUsers[userIndex].office = office;
-        if (position) asdsUsers[userIndex].position = position;
-
-        if (newPassword) {
-            const passwordValidation = validatePortalPassword(newPassword);
-            if (!passwordValidation.valid) {
-                return res.status(400).json({ success: false, error: passwordValidation.error });
-            }
-            asdsUsers[userIndex].password = hashPasswordWithSalt(newPassword);
-        }
-
-        asdsUsers[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(asdsUsersFile, asdsUsers);
-
-        logActivity('PROFILE_UPDATED', 'asds', { userEmail: email, userName: fullName });
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: {
-                id: asdsUsers[userIndex].id,
-                email: asdsUsers[userIndex].email,
-                name: asdsUsers[userIndex].name,
-                office: asdsUsers[userIndex].office,
-                position: asdsUsers[userIndex].position,
-                role: 'asds'
-            }
-        });
-    } catch (error) {
-        console.error('Error updating ASDS profile:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+app.post('/api/update-asds-profile', requireAuth('asds'), createProfileUpdateHandler({
+    portalName: 'asds', portalLabel: 'ASDS', userFile: asdsUsersFile,
+    updatableFields: ['office', 'position'],
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
 
 // Update SDS Profile
-app.post('/api/update-sds-profile', requireAuth('sds'), (req, res) => {
-    try {
-        const { email, fullName, office, position, newPassword } = req.body;
-
-        if (!email || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email and full name are required' });
-        }
-
-        // SECURITY: Verify the authenticated user is updating their own profile
-        if (req.session.email !== email) {
-            return res.status(403).json({ success: false, error: 'You can only update your own profile' });
-        }
-
-        let sdsUsers = readJSON(sdsUsersFile);
-        const userIndex = sdsUsers.findIndex(u => u.email === email);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ success: false, error: 'SDS user not found' });
-        }
-
-        sdsUsers[userIndex].name = fullName;
-        sdsUsers[userIndex].fullName = fullName;
-        // Keep segregated name fields in sync
-        const sdsNameParts = parseFullNameIntoParts(fullName);
-        sdsUsers[userIndex].firstName = sdsNameParts.firstName || '';
-        sdsUsers[userIndex].lastName = sdsNameParts.lastName || '';
-        sdsUsers[userIndex].middleName = sdsNameParts.middleName || '';
-        sdsUsers[userIndex].suffix = sdsNameParts.suffix || '';
-        if (office) sdsUsers[userIndex].office = office;
-        if (position) sdsUsers[userIndex].position = position;
-
-        if (newPassword) {
-            const passwordValidation = validatePortalPassword(newPassword);
-            if (!passwordValidation.valid) {
-                return res.status(400).json({ success: false, error: passwordValidation.error });
-            }
-            sdsUsers[userIndex].password = hashPasswordWithSalt(newPassword);
-        }
-
-        sdsUsers[userIndex].updatedAt = new Date().toISOString();
-        writeJSON(sdsUsersFile, sdsUsers);
-
-        logActivity('PROFILE_UPDATED', 'sds', { userEmail: email, userName: fullName });
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            user: {
-                id: sdsUsers[userIndex].id,
-                email: sdsUsers[userIndex].email,
-                name: sdsUsers[userIndex].name,
-                office: sdsUsers[userIndex].office,
-                position: sdsUsers[userIndex].position,
-                role: 'sds'
-            }
-        });
-    } catch (error) {
-        console.error('Error updating SDS profile:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+app.post('/api/update-sds-profile', requireAuth('sds'), createProfileUpdateHandler({
+    portalName: 'sds', portalLabel: 'SDS', userFile: sdsUsersFile,
+    updatableFields: ['office', 'position'],
+    responseFields: ['id', 'email', 'name', 'office', 'position']
+}));
 
 // ========== PENDING REGISTRATIONS ==========
 app.get('/api/pending-registrations', requireAuth('it'), (req, res) => {
@@ -2932,8 +2270,6 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                                     newLeavecard.lastAccrualDate = globalLastAccrued;
                                     
                                     // Add transaction entries for each month
-                                    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                                        'July', 'August', 'September', 'October', 'November', 'December'];
                                     if (!newLeavecard.transactions) newLeavecard.transactions = [];
                                     let runningVL = 0, runningSL = 0;
                                     for (let m = 1; m <= monthsToAccrue; m++) {
@@ -2941,7 +2277,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                                         runningSL = +(runningSL + accrualPerMonth).toFixed(3);
                                         newLeavecard.transactions.push({
                                             type: 'ADD',
-                                            periodCovered: `${monthNames[m]} ${globalParts[0]} (Monthly Accrual)`,
+                                            periodCovered: `${MONTH_NAMES[m]} ${globalParts[0]} (Monthly Accrual)`,
                                             vlEarned: accrualPerMonth,
                                             slEarned: accrualPerMonth,
                                             vlSpent: 0,
@@ -3272,7 +2608,7 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
 
         // Log deletion activity
         logActivity('DATA_DELETION', 'it', {
-            userEmail: 'system-admin',
+            userEmail: req.session?.email || 'IT Admin',
             ip,
             userAgent: req.get('user-agent'),
             category,
@@ -3326,7 +2662,7 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
         // Log bulk deletion activity
         const deletedCategories = Object.keys(deleteOptions).filter(k => deleteOptions[k] === true && fileMapping[k]);
         logActivity('DATA_DELETION', 'it', {
-            userEmail: 'system-admin',
+            userEmail: req.session?.email || 'IT Admin',
             action: 'delete-selected-data',
             deletedCategories: deletedCategories,
             filesDeleted: filesDeleted,
@@ -3384,7 +2720,7 @@ app.post('/api/delete-all-data', requireAuth('it'), loginRateLimiter, (req, res)
 
         // Log delete-all activity
         logActivity('DATA_DELETION', 'it', {
-            userEmail: 'system-admin',
+            userEmail: req.session?.email || 'IT Admin',
             action: 'delete-all-data',
             filesCleared: dataFilesToClear.length,
             ip: getClientIp(req),
@@ -3544,6 +2880,7 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 });
 
 // Bulk delete multiple users
+// S3 fix: Load shared files ONCE, mutate in memory, write ONCE at the end (was O(N×M) disk I/O)
 app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
     try {
         const { users, registrations } = req.body;
@@ -3564,8 +2901,19 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
             'it': itUsersFile
         };
 
+        // Pre-load shared files ONCE instead of re-reading per user
+        let pendingRegs = readJSON(pendingRegistrationsFile);
+        let leavecards = readJSON(leavecardsFile);
+        let employees = readJSON(employeesFile);
+        // Cache portal files: only read each portal file once
+        const portalDataCache = {};
+
         let deletedCount = 0;
         const errors = [];
+        let pendingRegsModified = false;
+        let leavecardsModified = false;
+        let employeesModified = false;
+        const modifiedPortalFiles = new Set();
 
         for (const user of deleteList) {
             try {
@@ -3581,34 +2929,37 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
                     continue;
                 }
 
-                // Remove from user file
-                let userData = readJSON(userFile);
+                // Load portal file from cache or disk (once per portal)
+                if (!portalDataCache[portal]) {
+                    portalDataCache[portal] = readJSON(userFile);
+                }
+                let userData = portalDataCache[portal];
                 const originalLength = userData.length;
                 userData = userData.filter(u => u.email !== email);
+                portalDataCache[portal] = userData;
 
                 if (userData.length < originalLength) {
-                    writeJSON(userFile, userData);
+                    modifiedPortalFiles.add(portal);
                     deletedCount++;
 
-                    // Also remove from pending registrations
-                    let pendingRegs = readJSON(pendingRegistrationsFile);
+                    // Mark pending registration as deleted
                     const regIndex = pendingRegs.findIndex(r => r.email === email);
                     if (regIndex !== -1) {
                         pendingRegs[regIndex].status = 'deleted';
                         pendingRegs[regIndex].deletedAt = new Date().toISOString();
-                        pendingRegs[regIndex].deletedBy = deletedBy || 'IT Admin';
-                        writeJSON(pendingRegistrationsFile, pendingRegs);
+                        pendingRegs[regIndex].deletedBy = deletedBy;
+                        pendingRegsModified = true;
                     }
 
                     // Remove leave card
-                    let leavecards = readJSON(leavecardsFile);
+                    const lcBefore = leavecards.length;
                     leavecards = leavecards.filter(lc => lc.email !== email);
-                    writeJSON(leavecardsFile, leavecards);
+                    if (leavecards.length < lcBefore) leavecardsModified = true;
 
                     // Remove from employees
-                    let employees = readJSON(employeesFile);
+                    const empBefore = employees.length;
                     employees = employees.filter(emp => emp.email !== email);
-                    writeJSON(employeesFile, employees);
+                    if (employees.length < empBefore) employeesModified = true;
 
                     console.log(`[BULK DELETE] Deleted user: ${email} (${portal})`);
                 } else {
@@ -3618,6 +2969,14 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
                 errors.push(`Error deleting ${user.email}: ${userError.message}`);
             }
         }
+
+        // Write all modified files ONCE at the end
+        for (const portal of modifiedPortalFiles) {
+            writeJSON(portalToFile[portal], portalDataCache[portal]);
+        }
+        if (pendingRegsModified) writeJSON(pendingRegistrationsFile, pendingRegs);
+        if (leavecardsModified) writeJSON(leavecardsFile, leavecards);
+        if (employeesModified) writeJSON(employeesFile, employees);
 
         // Log bulk delete activity
         logActivity('BULK_USER_DELETE', 'it', {
@@ -4154,10 +3513,13 @@ app.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (
         let applications = readJSONArray(applicationsFile);
         
         // AO school-based filtering: AO can only see applications from their school's employees
+        // S2 fix: Pre-load user/employee data once, pass as cache to avoid O(N×2) disk reads
         if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
             const aoOffice = req.session.office;
+            const usersCache = readJSON(usersFile);
+            const employeesCache = readJSON(employeesFile);
             applications = applications.filter(app => {
-                const empOffice = getEmployeeOffice(app.employeeEmail || app.email);
+                const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
                 return isEmployeeInAoSchool(empOffice, aoOffice);
             });
         }
@@ -4245,10 +3607,13 @@ app.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds
         });
         
         // AO school-based filtering: AO can only see applications from their school's employees
+        // S2 fix: Pre-load data once for filter loop
         if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
             const aoOffice = req.session.office;
+            const usersCache = readJSON(usersFile);
+            const employeesCache = readJSON(employeesFile);
             portalApps = portalApps.filter(app => {
-                const empOffice = getEmployeeOffice(app.employeeEmail || app.email);
+                const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
                 return isEmployeeInAoSchool(empOffice, aoOffice);
             });
             console.log(`[AO FILTER] ${req.session.email} (${aoOffice}): showing ${portalApps.length} applications`);
@@ -5181,58 +4546,20 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
 });
 
 // Function to update employee leave balance after final approval
+/**
+ * Update employee leave balance after SDS final approval.
+ * YAGNI/S8 fix: Removed dead `leaveCredits` field from employees.json.
+ * The single source of truth for balances is leavecards.json (vl/sl fields).
+ */
 function updateEmployeeLeaveBalance(application) {
     try {
-        const employees = readJSON(employeesFile);
-        const empIndex = employees.findIndex(e => e.email === application.employeeEmail);
-        
-        if (empIndex === -1) {
-            console.error('Employee not found for balance update:', application.employeeEmail);
-            return;
-        }
-        
-        const employee = employees[empIndex];
-        
-        // Initialize leave credits if not present
-        if (!employee.leaveCredits) {
-            employee.leaveCredits = {
-                vacationLeave: 0,
-                sickLeave: 0
-            };
-        }
-        
-        // Deduct based on leave type and days
+        // Update leave card with leave usage history (single source of truth)
         const vlLess = parseFloat(application.vlLess) || 0;
         const slLess = parseFloat(application.slLess) || 0;
-        const leaveType = application.typeOfLeave || application.leaveType || '';
-        const leaveTypeLower = String(leaveType).toLowerCase();
-        
-        const isForceLeave = leaveTypeLower.includes('force') || leaveTypeLower.includes('mandatory') || leaveTypeLower.includes('leave_mfl');
-        const isSpecialLeave = leaveTypeLower.includes('special') || leaveTypeLower.includes('leave_spl');
-        
-        if (isForceLeave) {
-            // Force Leave is a separate 5-day yearly allocation — NOT charged against VL
-            // No deduction from employee.leaveCredits.vacationLeave
-        } else if (isSpecialLeave) {
-            // SPL is a separate 3-day yearly allocation — NOT charged against VL or SL
-            // No deduction from employee.leaveCredits
-        } else {
-            if (vlLess > 0) {
-                employee.leaveCredits.vacationLeave = Math.max(0, (employee.leaveCredits.vacationLeave || 0) - vlLess);
-            }
-            if (slLess > 0) {
-                employee.leaveCredits.sickLeave = Math.max(0, (employee.leaveCredits.sickLeave || 0) - slLess);
-            }
-        }
-        
-        employee.lastLeaveUpdate = new Date().toISOString();
-        employees[empIndex] = employee;
-        writeJSON(employeesFile, employees);
-        
-        // Update leave card with leave usage history
         updateLeaveCardWithUsage(application, vlLess, slLess);
         
-        console.log(`[LEAVE] Updated leave balance for ${application.employeeEmail}: VL=${employee.leaveCredits.vacationLeave}, SL=${employee.leaveCredits.sickLeave}, LeaveType=${leaveType}`);
+        const leaveType = application.typeOfLeave || application.leaveType || '';
+        console.log(`[LEAVE] Updated leave balance for ${application.employeeEmail}: vlLess=${vlLess}, slLess=${slLess}, LeaveType=${leaveType}`);
     } catch (error) {
         console.error('Error updating leave balance:', error);
     }
@@ -5569,7 +4896,7 @@ app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
 app.get('/api/activity-logs', requireAuth('it'), (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = Math.min(parseInt(req.query.limit) || 50, 500); // S16: Cap at 500 to prevent abuse
         const action = req.query.action;
         const portal = req.query.portal;
         const userEmail = req.query.userEmail;
@@ -5747,7 +5074,9 @@ const DATA_FILES = [
     'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json',
     'it-users.json', 'pending-registrations.json',
     'cto-records.json', 'schools.json', 'initial-credits.json',
-    'activity-logs.json', 'applications.backup.json'
+    'activity-logs.json', 'system-state.json'
+    // NOTE: so-records.json removed — dead file never referenced by any endpoint (D1)
+    // NOTE: applications.backup.json removed — not a real data file
 ];
 
 // POST /api/data/backup - Create a timestamped backup of all data

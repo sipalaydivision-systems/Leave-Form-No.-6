@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Management - Backup & Restore</title>
+    <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -552,8 +553,8 @@
                 for (const p of data.parsed) {
                     tableHtml += `
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-                            <td style="padding: 8px 12px; color: #fff;">${p.name}</td>
-                            <td style="padding: 8px; text-align: right; color: rgba(255,255,255,0.6);">${p.employeeNo || '—'}</td>
+                            <td style="padding: 8px 12px; color: #fff;">${escapeHtml(p.name)}</td>
+                            <td style="padding: 8px; text-align: right; color: rgba(255,255,255,0.6);">${escapeHtml(p.employeeNo || '—')}</td>
                             <td style="padding: 8px; text-align: right; color: #4fc3f7; font-weight: 600;">${p.vacationLeave.toFixed(3)}</td>
                             <td style="padding: 8px; text-align: right; color: #81c784; font-weight: 600;">${p.sickLeave.toFixed(3)}</td>
                             <td style="padding: 8px; text-align: right; color: rgba(255,255,255,0.5);">${p.transactions ? p.transactions.length : 0}</td>
@@ -566,7 +567,7 @@
                 if (data.errors && data.errors.length > 0) {
                     let errHtml = '<div style="background: rgba(198,40,40,0.2); border-radius: 8px; padding: 12px; border: 1px solid rgba(198,40,40,0.3);"><h4 style="color: #ef9a9a; font-size: 13px; margin-bottom: 8px;">⚠️ Files that could not be parsed:</h4><ul style="color: rgba(255,255,255,0.6); font-size: 12px; padding-left: 20px;">';
                     for (const e of data.errors) {
-                        errHtml += `<li>${e.file}: ${e.error}</li>`;
+                        errHtml += `<li>${escapeHtml(e.file)}: ${escapeHtml(e.error)}</li>`;
                     }
                     errHtml += '</ul></div>';
                     document.getElementById('migrationErrors').innerHTML = errHtml;
@@ -637,7 +638,7 @@
                     resultHtml += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: center; color: #fff;">Action</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL</th><th style="padding: 8px; text-align: right; color: #81c784;">SL</th></tr></thead><tbody>';
                     for (const d of data.details) {
                         const actionColor = d.action === 'created' ? '#81c784' : d.action === 'updated' ? '#4fc3f7' : '#ffab91';
-                        resultHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${d.name}</td><td style="padding: 6px 8px; text-align: center; color: ${actionColor};">${d.action}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${d.vl !== undefined ? d.vl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${d.sl !== undefined ? d.sl.toFixed(3) : '—'}</td></tr>`;
+                        resultHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(d.name)}</td><td style="padding: 6px 8px; text-align: center; color: ${actionColor};">${escapeHtml(d.action)}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${d.vl !== undefined ? d.vl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${d.sl !== undefined ? d.sl.toFixed(3) : '—'}</td></tr>`;
                     }
                     resultHtml += '</tbody></table></div>';
                 }

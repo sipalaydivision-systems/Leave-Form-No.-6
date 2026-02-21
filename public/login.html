@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - CS Form No. 6</title>
+    <script src="/utils.js"></script>
     <script src="/modal-alert.js"></script>
     <style>
         * {
@@ -1609,7 +1610,7 @@ function updatePendingRegistrationsUI() {
     pending.forEach((p, idx) => {
         const div = document.createElement('div');
         div.className = 'pending-item';
-        div.innerHTML = `<strong>${p.fullName}</strong> (${p.email}) - ${new Date(p.timestamp).toLocaleString()} <button class="btn btn-link" onclick="retryPending(${idx})">Retry</button> <button class="btn btn-link" onclick="removePending(${idx})">Remove</button>`;
+        div.innerHTML = `<strong>${escapeHtml(p.fullName)}</strong> (${escapeHtml(p.email)}) - ${escapeHtml(new Date(p.timestamp).toLocaleString())} <button class="btn btn-link" onclick="retryPending(${idx})">Retry</button> <button class="btn btn-link" onclick="removePending(${idx})">Remove</button>`;
         listEl.appendChild(div);
     });
 }

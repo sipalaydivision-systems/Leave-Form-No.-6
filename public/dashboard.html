@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Dashboard - CS Form No. 6</title>
+    <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1492,22 +1493,11 @@
             
             if (!userString || !authToken) {
                 console.warn('[DASHBOARD] Missing session data, redirecting to login', { hasUser: !!userString, hasToken: !!authToken });
-                // Show visible debug info before redirecting
-                document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;background:#ff4444;color:white;padding:20px;z-index:99999;font-family:monospace;font-size:14px;">' +
-                    '<b>[DEBUG] Dashboard redirect reason:</b><br>' +
-                    'sessionStorage.user: ' + (!!userString) + '<br>' +
-                    'sessionStorage.authToken: ' + (!!authToken) + '<br>' +
-                    'localStorage.user_backup: ' + (!!localStorage.getItem('user_backup')) + '<br>' +
-                    'localStorage.authToken_backup: ' + (!!localStorage.getItem('authToken_backup')) + '<br>' +
-                    'Redirecting to /login in 5 seconds... <a href="/login" style="color:yellow">Click to go now</a>' +
-                    '</div>';
-                setTimeout(() => {
-                    sessionStorage.clear();
-                    localStorage.removeItem('user_backup');
-                    localStorage.removeItem('authToken_backup');
-                    localStorage.removeItem('employee_backup');
-                    window.location.href = '/login';
-                }, 5000);
+                sessionStorage.clear();
+                localStorage.removeItem('user_backup');
+                localStorage.removeItem('authToken_backup');
+                localStorage.removeItem('employee_backup');
+                window.location.href = '/login';
                 return;
             }
 
@@ -1529,20 +1519,11 @@
                 if (!validateResp.ok) {
                     const errBody = await validateResp.text().catch(() => 'no body');
                     console.warn('[DASHBOARD] Session invalid on server, redirecting to login. Status:', validateResp.status, errBody);
-                    document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;background:#ff4444;color:white;padding:20px;z-index:99999;font-family:monospace;font-size:14px;">' +
-                        '<b>[DEBUG] Session validation failed:</b><br>' +
-                        'Status: ' + validateResp.status + '<br>' +
-                        'Response: ' + errBody + '<br>' +
-                        'Token exists: ' + (!!authToken) + ' (length: ' + (authToken||'').length + ')<br>' +
-                        'Redirecting to /login in 5 seconds... <a href="/login" style="color:yellow">Click to go now</a>' +
-                        '</div>';
-                    setTimeout(() => {
-                        sessionStorage.clear();
-                        localStorage.removeItem('user_backup');
-                        localStorage.removeItem('authToken_backup');
-                        localStorage.removeItem('employee_backup');
-                        window.location.href = '/login';
-                    }, 5000);
+                    sessionStorage.clear();
+                    localStorage.removeItem('user_backup');
+                    localStorage.removeItem('authToken_backup');
+                    localStorage.removeItem('employee_backup');
+                    window.location.href = '/login';
                     return;
                 }
             } catch (e) {

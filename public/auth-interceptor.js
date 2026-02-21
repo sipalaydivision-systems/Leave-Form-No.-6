@@ -17,12 +17,15 @@
     const _originalFetch = window.fetch;
 
     function getAuthToken() {
+        // Scope token to current portal to prevent cross-portal token leakage
+        const path = window.location.pathname;
+        if (path.includes('ao-')) return sessionStorage.getItem('aoToken');
+        if (path.includes('hr-')) return localStorage.getItem('hrToken');
+        if (path.includes('asds-')) return localStorage.getItem('asdsToken');
+        if (path.includes('sds-')) return localStorage.getItem('sdsToken');
+        if (path.includes('it-')) return localStorage.getItem('itToken');
+        // Employee portal: try session first, then backup
         return sessionStorage.getItem('authToken')
-            || sessionStorage.getItem('aoToken')
-            || localStorage.getItem('hrToken')
-            || localStorage.getItem('asdsToken')
-            || localStorage.getItem('sdsToken')
-            || localStorage.getItem('itToken')
             || localStorage.getItem('authToken_backup');
     }
 
