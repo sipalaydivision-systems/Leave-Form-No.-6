@@ -16,25 +16,25 @@
     'use strict';
     const _originalFetch = window.fetch;
 
-    // Shared pages accessible from any admin portal
-    const SHARED_PAGES = ['leave-calendar'];
+    // Pages accessible from multiple admin portals (no portal prefix in filename)
+    var SHARED_PAGES = ['leave-calendar', 'edit-employee-cards', 'data-management', 'activity-logs'];
 
     function getAuthToken() {
         // Scope token to current portal to prevent cross-portal token leakage
-        const path = window.location.pathname;
+        var path = window.location.pathname;
         if (path.includes('ao-')) return sessionStorage.getItem('aoToken');
         if (path.includes('hr-')) return localStorage.getItem('hrToken');
         if (path.includes('asds-')) return localStorage.getItem('asdsToken');
         if (path.includes('sds-')) return localStorage.getItem('sdsToken');
         if (path.includes('it-')) return localStorage.getItem('itToken');
 
-        // Shared pages: try all admin tokens since any portal can link here
+        // Shared admin pages: try all admin tokens since any portal can link here
         if (SHARED_PAGES.some(function(p) { return path.includes(p); })) {
-            return sessionStorage.getItem('aoToken')
+            return localStorage.getItem('itToken')
+                || sessionStorage.getItem('aoToken')
                 || localStorage.getItem('hrToken')
                 || localStorage.getItem('asdsToken')
                 || localStorage.getItem('sdsToken')
-                || localStorage.getItem('itToken')
                 || sessionStorage.getItem('authToken');
         }
 
@@ -45,15 +45,15 @@
 
     // Detect which portal we're on and return the appropriate login URL
     function getLoginRedirect() {
-        const path = window.location.pathname;
+        var path = window.location.pathname;
         if (path.includes('ao-')) return '/ao-login.html';
         if (path.includes('hr-')) return '/hr-login.html';
         if (path.includes('asds-')) return '/asds-login.html';
         if (path.includes('sds-')) return '/sds-login.html';
         if (path.includes('it-')) return '/it-login.html';
-        // Shared pages: go back in history instead of a specific login
+        // Shared pages: use referrer or go back to previous page
         if (SHARED_PAGES.some(function(p) { return path.includes(p); })) {
-            return '/login.html';
+            return document.referrer || '/login.html';
         }
         return '/login.html'; // Employee default
     }

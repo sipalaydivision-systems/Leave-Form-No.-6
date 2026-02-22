@@ -219,7 +219,7 @@
                 console.error('Error loading leaves:', err);
                 allLeaves = [];
             }
-            // Always render calendar grid (even if empty)
+            // Always render calendar grid (even if empty/error)
             renderCalendar();
         }
         
@@ -229,8 +229,8 @@
             if (leaveType === 'leave_sl' || leaveType.includes('sick')) return 'leave-type-sick';
             if (leaveType === 'leave_ml' || leaveType.includes('maternity') || leaveType.includes('paternity')) return 'leave-type-maternity';
             if (leaveType.includes('spl') || leaveType.includes('special')) return 'leave-type-spl';
-            if (leaveType.includes('mandatory') || leaveType.includes('mfl') || leaveType.includes('force')) return 'leave-type-mandatory';
-            if (leaveType.includes('others') || leaveType.includes('cto')) return 'leave-type-others';
+            if (leaveType.includes('mfl') || leaveType.includes('mandatory') || leaveType.includes('force')) return 'leave-type-mandatory';
+            if (leaveType.includes('cto') || leaveType.includes('others')) return 'leave-type-others';
             return 'leave-type-default';
         }
         
