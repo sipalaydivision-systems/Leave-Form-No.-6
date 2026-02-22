@@ -2497,9 +2497,10 @@
             `;
 
             const safeAppId = typeof appId === 'string' ? appId.replace(/'/g, "\\'") : appId;
+            const isFinalized = app.status === 'approved' || app.status === 'rejected';
             document.getElementById('modalFooter').innerHTML = `
                 <button class="btn" style="background: #666;" onclick="printLeaveForm()">🖨️ Print</button>
-                <button class="btn btn-recommend" onclick="closeModal(); openAsdsApprovalModal('${safeAppId}');">📋 Review & Recommend</button>
+                ${isFinalized ? '' : `<button class="btn btn-recommend" onclick="closeModal(); openAsdsApprovalModal('${safeAppId}');">📋 Review & Recommend</button>`}
             `;
 
             document.getElementById('detailsModal').classList.add('active');

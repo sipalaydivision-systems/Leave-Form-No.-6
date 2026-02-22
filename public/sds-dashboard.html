@@ -2769,14 +2769,17 @@
             `;
 
             const safeAppId2 = typeof appId === 'string' ? appId.replace(/'/g, "\\'") : appId;
+            const isFinalized = app.status === 'approved' || app.status === 'rejected';
             document.getElementById('modalFooter').innerHTML = `
                 <button class="btn" id="sdsBtnGeneratePdf" style="background: #1976D2;" onclick="generateSdsLeaveFormPDF()">📄 Generate PDF</button>
                 <button class="btn" id="sdsBtnDownloadPdf" style="background: #388E3C; display: none;" onclick="downloadSdsLeaveFormPDF()">⬇ Download</button>
                 <button class="btn" id="sdsBtnPrintPdf" style="background: #F57C00; display: none;" onclick="printSdsLeaveFormPDF()">🖨️ Print PDF</button>
                 <button class="btn" style="background: #666;" onclick="printLeaveForm()">🖨️ Print</button>
+                ${isFinalized ? '' : `
                 <button class="btn btn-reject" onclick="closeModal(); rejectApp('${safeAppId2}');">Reject</button>
                 <button class="btn" style="background: #f0ad4e; color: white;" onclick="closeModal(); returnApp('${safeAppId2}');">Return</button>
                 <button class="btn btn-approve" onclick="closeModal(); openSdsApprovalModal('${safeAppId2}');">✓ Final Approve</button>
+                `}
             `;
 
             document.getElementById('detailsModal').classList.add('active');

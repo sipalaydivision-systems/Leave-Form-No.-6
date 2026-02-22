@@ -4817,12 +4817,20 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         const sessionRole = req.session?.role;
         const currentApprover = roleToPortal[sessionRole] || (approverPortal || '').toUpperCase();
         
+        // Block action on already-finalized applications
+        if (app.status === 'approved' || app.status === 'rejected') {
+            return res.status(403).json({ 
+                success: false, 
+                error: `This application has already been ${app.status}. No further action can be taken.`
+            });
+        }
+        
         // Validate that the session role matches what the application expects
         if (currentApprover !== app.currentApprover) {
             console.log(`[APPROVE-LEAVE] Portal mismatch: session role=${sessionRole} (${currentApprover}), app expects=${app.currentApprover}`);
             return res.status(403).json({ 
                 success: false, 
-                error: `This application is currently waiting for ${app.currentApprover} approval. You cannot act on it as ${currentApprover}.`
+                error: `This application is currently waiting for ${app.currentApprover || 'unknown'} approval. You cannot act on it as ${currentApprover}.`
             });
         }
         
