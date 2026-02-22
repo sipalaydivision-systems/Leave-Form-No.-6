@@ -85,9 +85,9 @@ const getLeaveTypeName = getLeaveTypeLabel;
 
 /**
  * Initialize the logout modal system. Call once on DOMContentLoaded.
+ * Uses HttpOnly cookie auth — server handles session destruction.
  * @param {object} opts
- * @param {string} opts.tokenKey - Session/localStorage key (e.g., 'authToken', 'aoToken')
- * @param {'session'|'local'} [opts.storage='session'] - Which storage the token lives in
+ * @param {'session'|'local'} [opts.storage='session'] - Which storage holds cached user display data
  * @param {string} opts.redirectUrl - URL to redirect after logout (e.g., '/ao-login')
  */
 function initLogoutSystem(opts) {
@@ -139,8 +139,9 @@ function initLogoutSystem(opts) {
         document.getElementById('logoutModal').style.display = 'none';
     };
     window.confirmLogout = function() {
-        store.removeItem(opts.tokenKey);
-        // Clear any other auth data
+        // Destroy server session (cookie sent automatically)
+        fetch('/api/logout', { method: 'POST' }).catch(() => {});
+        // Clear cached user display data
         store.removeItem('user');
         store.removeItem('userData');
         window.location.href = opts.redirectUrl;

@@ -880,12 +880,8 @@
         }
 
         function confirmLogout() {
-            const token = sessionStorage.getItem('aoToken');
-            if (token) {
-                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
-            }
+            fetch('/api/logout', { method: 'POST' }).catch(() => {});
             sessionStorage.removeItem('user');
-            sessionStorage.removeItem('aoToken');
             window.location.href = '/ao-login';
         }
 

@@ -276,11 +276,10 @@
     </div>
 
     <script>
-        // Auth check
+        // Auth check (cookie-based — no token needed in storage)
         document.addEventListener('DOMContentLoaded', function() {
             const itUser = localStorage.getItem('itUser');
-            const itToken = localStorage.getItem('itToken');
-            if (!itUser || !itToken) {
+            if (!itUser) {
                 window.location.href = '/it-login.html';
                 return;
             }
@@ -288,9 +287,7 @@
         });
 
         function getAuthHeaders(includeContentType = false) {
-            const token = localStorage.getItem('itToken');
             const headers = {};
-            if (token) headers['Authorization'] = 'Bearer ' + token;
             if (includeContentType) headers['Content-Type'] = 'application/json';
             return headers;
         }
@@ -522,7 +519,6 @@
                 showStatus('📊 Parsing Excel files...', 'info');
                 const resp = await fetch('/api/migrate-leave-cards?mode=preview', {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('itToken') },
                     body: formData
                 });
 
@@ -610,7 +606,6 @@
                 showStatus('📥 Importing leave cards...', 'info');
                 const resp = await fetch(`/api/migrate-leave-cards?mode=import&overwrite=${overwrite}`, {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('itToken') },
                     body: formData
                 });
 

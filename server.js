@@ -9,6 +9,7 @@ const https = require('https');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const bcrypt = require('bcryptjs');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -183,6 +184,29 @@ if (!MAILERSEND_API_KEY) {
 const activeSessions = new Map(); // token -> { userId, email, role, portal, createdAt, expiresAt }
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
 
+// HttpOnly cookie options for secure session management
+const SESSION_COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: SESSION_DURATION_MS
+};
+
+// Extract session token from HttpOnly cookie (preferred) or Authorization header (fallback)
+function extractToken(req) {
+    // 1. Try HttpOnly cookie first
+    if (req.cookies && req.cookies.session) {
+        return req.cookies.session;
+    }
+    // 2. Fall back to Authorization header (backward compatibility during migration)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+    }
+    return null;
+}
+
 // Persist sessions to file so they survive Railway redeploys
 // sessionsFile is defined later (needs dataDir), so we use a lazy getter
 let _sessionsFile = null;
@@ -288,14 +312,13 @@ setInterval(() => {
     }
 }, 15 * 60 * 1000);
 
-// Auth middleware - validates session token from Authorization header
+// Auth middleware - validates session token from HttpOnly cookie or Authorization header
 function requireAuth(...allowedRoles) {
     return (req, res, next) => {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        const token = extractToken(req);
+        if (!token) {
             return res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
         }
-        const token = authHeader.substring(7);
         const session = validateSession(token);
         if (!session) {
             return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
@@ -358,6 +381,7 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -395,7 +419,7 @@ app.use(express.static('public', { index: false, etag: false, lastModified: fals
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // App version — used for cache-busting. Increment on every deploy.
-const APP_VERSION = '2026.02.22.1';
+const APP_VERSION = '2026.02.22.2';
 app.get('/api/version', (req, res) => res.json({ version: APP_VERSION }));
 
 // Data file paths
@@ -1507,11 +1531,11 @@ try {
 app.use('/api', (req, res, next) => {
     if (!maintenanceMode) return next();
     // Allow IT admin actions, health checks, and login endpoints through
-    const exemptPaths = ['/health', '/system-maintenance', '/system-state', '/run-reconciliation'];
+    const exemptPaths = ['/health', '/system-maintenance', '/system-state', '/run-reconciliation', '/me'];
     if (exemptPaths.includes(req.path) || req.path.startsWith('/login')) return next();
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const session = validateSession(authHeader.substring(7));
+    const token = extractToken(req);
+    if (token) {
+        const session = validateSession(token);
         if (session && session.role === 'it') return next();
     }
     return res.status(503).json({ success: false, error: maintenanceMessage });
@@ -2069,21 +2093,42 @@ app.get('/api/health', (req, res) => {
 
 // ========== SESSION VALIDATION & LOGOUT ==========
 app.get('/api/validate-session', (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = extractToken(req);
+    if (!token) {
         return res.status(401).json({ success: false, error: 'No session' });
     }
-    const session = validateSession(authHeader.substring(7));
+    const session = validateSession(token);
     if (!session) {
         return res.status(401).json({ success: false, error: 'Session expired' });
     }
     res.json({ success: true, session: { email: session.email, role: session.role, portal: session.portal } });
 });
 
+// GET /api/me — cookie-based session check (preferred over validate-session)
+app.get('/api/me', (req, res) => {
+    const token = extractToken(req);
+    if (!token) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+    const session = validateSession(token);
+    if (!session) {
+        res.clearCookie('session', { path: '/' });
+        return res.status(401).json({ success: false, error: 'Session expired' });
+    }
+    res.json({
+        success: true,
+        user: {
+            email: session.email,
+            role: session.role,
+            portal: session.portal,
+            office: session.office
+        }
+    });
+});
+
 app.post('/api/logout', (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
+    const token = extractToken(req);
+    if (token) {
         const session = validateSession(token);
         if (session) {
             logActivity('LOGOUT', session.portal, {
@@ -2094,6 +2139,7 @@ app.post('/api/logout', (req, res) => {
         }
         destroySession(token);
     }
+    res.clearCookie('session', { path: '/' });
     res.json({ success: true, message: 'Logged out successfully' });
 });
 
@@ -2204,7 +2250,8 @@ function createLoginHandler(config) {
                 if (user[field] !== undefined) responseUser[field] = user[field];
             }
             responseUser.role = sessionRole;
-            res.json({ success: true, token, user: responseUser });
+            res.cookie('session', token, SESSION_COOKIE_OPTIONS);
+            res.json({ success: true, user: responseUser });
         } catch (error) {
             res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
         }
@@ -2693,9 +2740,9 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
 
         const token = createSession(itUser, 'it');
 
+        res.cookie('session', token, SESSION_COOKIE_OPTIONS);
         res.json({
             success: true,
-            token,
             user: { id: itUser.id, email: itUser.email, name: itUser.name, role: 'it' }
         });
     } catch (error) {
@@ -3457,7 +3504,7 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 
         // Destroy active sessions for the deleted user
         // But NEVER destroy the requesting IT admin's own session
-        const requestToken = req.headers.authorization?.substring(7);
+        const requestToken = extractToken(req);
         let sessionsDestroyed = 0;
         for (const [token, session] of activeSessions) {
             if (session.email && session.email.toLowerCase() === email.toLowerCase()) {

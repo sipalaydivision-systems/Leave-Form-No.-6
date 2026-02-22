@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leave Calendar - CS Form No. 6</title>
     <script src="/utils.js"></script>
+    <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -195,17 +196,6 @@
     </div>
 
     <script>
-        // Self-contained auth for shared pages — resolves the correct admin token
-        // regardless of which auth-interceptor version the browser has cached
-        function getAdminToken() {
-            return sessionStorage.getItem('aoToken')
-                || localStorage.getItem('itToken')
-                || localStorage.getItem('hrToken')
-                || localStorage.getItem('asdsToken')
-                || localStorage.getItem('sdsToken')
-                || sessionStorage.getItem('authToken');
-        }
-
         let currentYear, currentMonth;
         let allLeaves = [];
         
@@ -233,11 +223,7 @@
         async function loadLeaves() {
             let authError = false;
             try {
-                const token = getAdminToken();
-                if (!token) { authError = true; throw new Error('NO_TOKEN'); }
-                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
+                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`);
                 if (res.status === 401) { authError = true; throw new Error('UNAUTHORIZED'); }
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || 'Unknown error');

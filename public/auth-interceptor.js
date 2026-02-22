@@ -1,47 +1,13 @@
 /**
- * auth-interceptor.js — Automatically adds authentication tokens to API requests.
- * Include this script in any page that makes /api/ calls.
+ * auth-interceptor.js — Handles 401 responses by redirecting to the appropriate login page.
  * 
- * Works with all portal token storage patterns:
- * - Employee: sessionStorage.authToken
- * - AO: sessionStorage.aoToken
- * - HR: localStorage.hrToken
- * - ASDS: localStorage.asdsToken
- * - SDS: localStorage.sdsToken
- * - IT: localStorage.itToken
- * 
- * Also handles 401 responses by clearing stale tokens and redirecting to login.
+ * With HttpOnly cookie auth, tokens are managed entirely by the browser.
+ * No manual Authorization headers needed — cookies are sent automatically.
+ * This interceptor only handles expired-session redirects.
  */
 (function() {
     'use strict';
     const _originalFetch = window.fetch;
-
-    // Pages accessible from multiple admin portals (no portal prefix in filename)
-    var SHARED_PAGES = ['leave-calendar', 'edit-employee-cards', 'data-management', 'activity-logs'];
-
-    function getAuthToken() {
-        // Scope token to current portal to prevent cross-portal token leakage
-        var path = window.location.pathname;
-        if (path.includes('ao-')) return sessionStorage.getItem('aoToken');
-        if (path.includes('hr-')) return localStorage.getItem('hrToken');
-        if (path.includes('asds-')) return localStorage.getItem('asdsToken');
-        if (path.includes('sds-')) return localStorage.getItem('sdsToken');
-        if (path.includes('it-')) return localStorage.getItem('itToken');
-
-        // Shared admin pages: try all admin tokens since any portal can link here
-        if (SHARED_PAGES.some(function(p) { return path.includes(p); })) {
-            return localStorage.getItem('itToken')
-                || sessionStorage.getItem('aoToken')
-                || localStorage.getItem('hrToken')
-                || localStorage.getItem('asdsToken')
-                || localStorage.getItem('sdsToken')
-                || sessionStorage.getItem('authToken');
-        }
-
-        // Employee portal: try session first, then backup
-        return sessionStorage.getItem('authToken')
-            || localStorage.getItem('authToken_backup');
-    }
 
     // Detect which portal we're on and return the appropriate login URL
     function getLoginRedirect() {
@@ -50,26 +16,25 @@
         if (path.includes('hr-')) return '/hr-login.html';
         if (path.includes('asds-')) return '/asds-login.html';
         if (path.includes('sds-')) return '/sds-login.html';
-        if (path.includes('it-')) return '/it-login.html';
-        // Shared pages: use referrer or go back to previous page
-        if (SHARED_PAGES.some(function(p) { return path.includes(p); })) {
-            return document.referrer || '/login.html';
-        }
+        if (path.includes('it-') || path.includes('data-management')) return '/it-login.html';
         return '/login.html'; // Employee default
     }
 
-    // Clear all auth tokens
-    function clearAllTokens() {
-        sessionStorage.removeItem('authToken');
-        sessionStorage.removeItem('aoToken');
-        localStorage.removeItem('hrToken');
-        localStorage.removeItem('asdsToken');
-        localStorage.removeItem('sdsToken');
-        localStorage.removeItem('itToken');
-        localStorage.removeItem('authToken_backup');
+    // Clear cached user display data on session expiry
+    function clearUserData() {
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('employee');
         localStorage.removeItem('user_backup');
         localStorage.removeItem('employee_backup');
+        localStorage.removeItem('hrUser');
+        localStorage.removeItem('asdsUser');
+        localStorage.removeItem('sdsUser');
+        localStorage.removeItem('itUser');
+        localStorage.removeItem('userRole');
     }
+
+    // Exempt endpoints that should not trigger redirects
+    var AUTH_EXEMPT = ['/api/login', '/api/register', '/api/validate-session', '/api/me', '/api/health'];
 
     // Track if we're already redirecting (prevent multiple redirects)
     let _isRedirecting = false;
@@ -77,34 +42,13 @@
     window.fetch = function(url, options) {
         // Only intercept API calls to our server
         if (typeof url === 'string' && url.startsWith('/api/')) {
-            options = options || {};
-
-            // Normalize headers to a plain object
-            if (!options.headers) {
-                options.headers = {};
-            } else if (options.headers instanceof Headers) {
-                const h = {};
-                options.headers.forEach(function(v, k) { h[k] = v; });
-                options.headers = h;
-            }
-
-            // Don't override an existing Authorization header
-            if (!options.headers['Authorization']) {
-                var token = getAuthToken();
-                if (token) {
-                    options.headers['Authorization'] = 'Bearer ' + token;
-                }
-            }
-
-            // Wrap the response to handle 401 (session expired / server restarted)
             return _originalFetch.call(this, url, options).then(function(response) {
                 if (response.status === 401 && !_isRedirecting) {
-                    // Skip redirect for login/register/validate-session endpoints
-                    if (!url.includes('/api/login') && !url.includes('/api/register') && !url.includes('/api/validate-session')) {
+                    // Skip redirect for login/register/health endpoints
+                    var exempt = AUTH_EXEMPT.some(function(p) { return url.includes(p); });
+                    if (!exempt) {
                         _isRedirecting = true;
-                        clearAllTokens();
-                        sessionStorage.removeItem('user');
-                        sessionStorage.removeItem('employee');
+                        clearUserData();
                         console.warn('[AUTH] Session expired or invalid. Redirecting to login...');
                         window.location.href = getLoginRedirect();
                     }

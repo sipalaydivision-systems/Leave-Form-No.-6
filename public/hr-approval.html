@@ -2592,13 +2592,9 @@
         }
 
         function confirmLogout() {
-            const token = localStorage.getItem('hrToken');
-            if (token) {
-                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
-            }
+            fetch('/api/logout', { method: 'POST' }).catch(() => {});
             localStorage.removeItem('hrUser');
             localStorage.removeItem('userRole');
-            localStorage.removeItem('hrToken');
             window.location.href = '/';
         }
 

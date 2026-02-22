@@ -1638,11 +1638,9 @@
         let pendingApprovalId = null;
         let pendingRejectId = null;
 
-        // Helper to get auth headers
+        // Helper to get auth headers (cookie-based — no token needed)
         function getAuthHeaders(includeContentType = false) {
-            const token = localStorage.getItem('itToken');
             const headers = {};
-            if (token) headers['Authorization'] = 'Bearer ' + token;
             if (includeContentType) headers['Content-Type'] = 'application/json';
             return headers;
         }
@@ -1724,11 +1722,10 @@
             } catch (e) { /* ignore */ }
         }
 
-        // Check authentication
+        // Check authentication (cookie-based — no token needed in storage)
         document.addEventListener('DOMContentLoaded', function() {
             const itUser = localStorage.getItem('itUser');
-            const itToken = localStorage.getItem('itToken');
-            if (!itUser || !itToken) {
+            if (!itUser) {
                 window.location.href = '/it-login.html';
                 return;
             }
@@ -2104,12 +2101,8 @@
         }
 
         function logout() {
-            const token = localStorage.getItem('itToken');
-            if (token) {
-                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
-            }
+            fetch('/api/logout', { method: 'POST' }).catch(() => {});
             localStorage.removeItem('itUser');
-            localStorage.removeItem('itToken');
             window.location.href = '/it-login.html';
         }
 
@@ -2185,7 +2178,6 @@
                 
                 if (response.status === 401) {
                     alert('Session expired. Please log in again.');
-                    localStorage.removeItem('itToken');
                     localStorage.removeItem('itUser');
                     window.location.href = '/it-login.html';
                     return;

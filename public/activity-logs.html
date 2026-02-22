@@ -20,7 +20,7 @@
     }).catch(function(){});
     </script>
     <script src="/utils.js"></script>
-    <!-- auth-interceptor.js intentionally excluded: self-contained getAdminToken() handles auth -->
+    <script src="/auth-interceptor.js"></script>
     <style>
         * {
             margin: 0;
@@ -522,18 +522,9 @@
     </div>
 
     <script>
-        // Self-contained auth — resolves the IT admin token directly
-        function getAdminToken() {
-            return localStorage.getItem('itToken')
-                || sessionStorage.getItem('aoToken')
-                || localStorage.getItem('hrToken')
-                || localStorage.getItem('asdsToken')
-                || localStorage.getItem('sdsToken')
-                || sessionStorage.getItem('authToken');
-        }
+        // Cookie-based auth — no manual token/header management needed
         function authHeaders() {
-            var t = getAdminToken();
-            return t ? { 'Authorization': 'Bearer ' + t } : {};
+            return {};
         }
 
         let currentPage = 1;

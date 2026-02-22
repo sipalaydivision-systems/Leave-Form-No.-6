@@ -1482,26 +1482,37 @@
 
         // Initialize Dashboard
         async function initializeDashboard() {
+            // Validate session via HttpOnly cookie (server checks the cookie automatically)
+            try {
+                const validateResp = await fetch('/api/me');
+                if (!validateResp.ok) {
+                    console.warn('[DASHBOARD] Session invalid, redirecting to login');
+                    sessionStorage.clear();
+                    localStorage.removeItem('user_backup');
+                    localStorage.removeItem('employee_backup');
+                    window.location.href = '/login';
+                    return;
+                }
+                const meData = await validateResp.json();
+                // Refresh user data from server session
+                if (meData.user) {
+                    sessionStorage.setItem('user', JSON.stringify(meData.user));
+                    localStorage.setItem('user_backup', JSON.stringify(meData.user));
+                }
+            } catch (e) {
+                console.warn('[DASHBOARD] Could not reach server for session validation, trying cached data');
+            }
+
             let userString = sessionStorage.getItem('user');
-            let authToken = sessionStorage.getItem('authToken');
-            
-            // Restore from localStorage backup if sessionStorage lost data (SW update, etc.)
+            // Restore from localStorage backup if sessionStorage lost data
             if (!userString && localStorage.getItem('user_backup')) {
                 userString = localStorage.getItem('user_backup');
                 sessionStorage.setItem('user', userString);
-                console.log('[DASHBOARD] Restored user from localStorage backup');
-            }
-            if (!authToken && localStorage.getItem('authToken_backup')) {
-                authToken = localStorage.getItem('authToken_backup');
-                sessionStorage.setItem('authToken', authToken);
-                console.log('[DASHBOARD] Restored authToken from localStorage backup');
             }
             
-            if (!userString || !authToken) {
-                console.warn('[DASHBOARD] Missing session data, redirecting to login', { hasUser: !!userString, hasToken: !!authToken });
+            if (!userString) {
                 sessionStorage.clear();
                 localStorage.removeItem('user_backup');
-                localStorage.removeItem('authToken_backup');
                 localStorage.removeItem('employee_backup');
                 window.location.href = '/login';
                 return;
@@ -1513,27 +1524,9 @@
                 console.error('[DASHBOARD] Invalid user data in sessionStorage');
                 sessionStorage.clear();
                 localStorage.removeItem('user_backup');
-                localStorage.removeItem('authToken_backup');
                 localStorage.removeItem('employee_backup');
                 window.location.href = '/login';
                 return;
-            }
-
-            // Validate session is still alive on the server before loading data
-            try {
-                const validateResp = await fetch('/api/validate-session');
-                if (!validateResp.ok) {
-                    const errBody = await validateResp.text().catch(() => 'no body');
-                    console.warn('[DASHBOARD] Session invalid on server, redirecting to login. Status:', validateResp.status, errBody);
-                    sessionStorage.clear();
-                    localStorage.removeItem('user_backup');
-                    localStorage.removeItem('authToken_backup');
-                    localStorage.removeItem('employee_backup');
-                    window.location.href = '/login';
-                    return;
-                }
-            } catch (e) {
-                console.warn('[DASHBOARD] Could not reach server for session validation, continuing with cached data');
             }
 
             const userName = currentUser.name || currentUser.email.split('@')[0];
@@ -2241,15 +2234,10 @@
         }
 
         function confirmLogout() {
-            const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken_backup');
-            if (token) {
-                fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
-            }
+            fetch('/api/logout', { method: 'POST' }).catch(() => {});
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('employee');
-            sessionStorage.removeItem('authToken');
             localStorage.removeItem('user_backup');
-            localStorage.removeItem('authToken_backup');
             localStorage.removeItem('employee_backup');
             window.location.href = '/';
         }

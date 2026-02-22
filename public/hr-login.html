@@ -1157,7 +1157,6 @@
                 if (response.ok && result.success) {
                     localStorage.setItem('hrUser', JSON.stringify(result.user));
                     localStorage.setItem('userRole', 'hr');
-                    if (result.token) localStorage.setItem('hrToken', result.token);
                     message.textContent = '✓ HR Login Successful! Redirecting to approval portal...';
                     message.className = 'message success';
                     message.style.display = 'block';

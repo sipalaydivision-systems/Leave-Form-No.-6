@@ -1383,10 +1383,6 @@ async function handleLogin(e) {
             // Store auth data in sessionStorage (primary) AND localStorage (backup)
             sessionStorage.setItem('user', JSON.stringify(result.user));
             localStorage.setItem('user_backup', JSON.stringify(result.user));
-            if (result.token) {
-                sessionStorage.setItem('authToken', result.token);
-                localStorage.setItem('authToken_backup', result.token);
-            }
             if (result.employee) {
                 sessionStorage.setItem('employee', JSON.stringify(result.employee));
                 localStorage.setItem('employee_backup', JSON.stringify(result.employee));

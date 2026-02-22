@@ -20,7 +20,7 @@
     }).catch(function(){});
     </script>
     <script src="/utils.js"></script>
-    <!-- auth-interceptor.js intentionally excluded: self-contained getAdminToken() handles auth -->
+    <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -619,19 +619,9 @@
     </div>
 
     <script>
-        // Self-contained auth for shared pages — resolves the correct admin token
-        // regardless of which auth-interceptor version the browser has cached
-        function getAdminToken() {
-            return sessionStorage.getItem('aoToken')
-                || localStorage.getItem('itToken')
-                || localStorage.getItem('hrToken')
-                || localStorage.getItem('asdsToken')
-                || localStorage.getItem('sdsToken')
-                || sessionStorage.getItem('authToken');
-        }
+        // Cookie-based auth — no manual token/header management needed
         function authHeaders() {
-            var t = getAdminToken();
-            return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+            return { 'Content-Type': 'application/json' };
         }
 
         let employeeEmail = '';

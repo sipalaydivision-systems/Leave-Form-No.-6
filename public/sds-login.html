@@ -1157,7 +1157,6 @@
                 if (response.ok && result.success) {
                     localStorage.setItem('sdsUser', JSON.stringify(result.user));
                     localStorage.setItem('userRole', 'sds');
-                    if (result.token) localStorage.setItem('sdsToken', result.token);
                     message.textContent = '✓ SDS Login Successful! Redirecting to dashboard...';
                     message.className = 'message success';
                     message.style.display = 'block';
