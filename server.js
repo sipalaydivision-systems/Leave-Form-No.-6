@@ -391,8 +391,12 @@ app.use((req, res, next) => {
     }
     next();
 });
-app.use(express.static('public', { index: false }));
+app.use(express.static('public', { index: false, etag: false, lastModified: false }));
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
+
+// App version — used for cache-busting. Increment on every deploy.
+const APP_VERSION = '2026.02.22.1';
+app.get('/api/version', (req, res) => res.json({ version: APP_VERSION }));
 
 // Data file paths
 // Railway Volume: When RAILWAY_VOLUME_MOUNT_PATH is set, data persists across deployments.

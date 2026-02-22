@@ -3,7 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Leave Calendar - CS Form No. 6</title>
+    <script>
+    // Force clear service worker cache for this page to prevent stale code
+    if ('caches' in window) { caches.keys().then(function(k) { k.forEach(function(n) { caches.delete(n); }); }); }
+    // Auto-reload if browser is serving a stale cached version
+    var PAGE_VERSION = '2026.02.22.1';
+    fetch('/api/version').then(function(r){return r.json()}).then(function(d){
+        if(d.version && d.version !== PAGE_VERSION && !sessionStorage.getItem('_reloaded_'+PAGE_VERSION)){
+            sessionStorage.setItem('_reloaded_'+d.version,'1');
+            window.location.reload(true);
+        }
+    }).catch(function(){});
+    </script>
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
