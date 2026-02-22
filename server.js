@@ -382,9 +382,9 @@ app.use('/deped%20logo.png', (req, res, next) => {
     next();
 });
 
-// Prevent caching of HTML pages — ensures clients get latest code after deploys
+// Prevent caching of HTML and JS files — ensures clients get latest code after deploys
 app.use((req, res, next) => {
-    if (req.path.endsWith('.html') || (!req.path.includes('.') && req.path !== '/')) {
+    if (req.path.endsWith('.html') || req.path.endsWith('.js') || (!req.path.includes('.') && req.path !== '/')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
