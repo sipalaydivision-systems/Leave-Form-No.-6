@@ -604,6 +604,21 @@
     </div>
 
     <script>
+        // Self-contained auth for shared pages — resolves the correct admin token
+        // regardless of which auth-interceptor version the browser has cached
+        function getAdminToken() {
+            return sessionStorage.getItem('aoToken')
+                || localStorage.getItem('itToken')
+                || localStorage.getItem('hrToken')
+                || localStorage.getItem('asdsToken')
+                || localStorage.getItem('sdsToken')
+                || sessionStorage.getItem('authToken');
+        }
+        function authHeaders() {
+            var t = getAdminToken();
+            return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+        }
+
         let employeeEmail = '';
         let employeeData = null;
 
@@ -645,7 +660,7 @@
 
         async function loadEmployeeData() {
             try {
-                const response = await fetch('/api/all-employees');
+                const response = await fetch('/api/all-employees', { headers: authHeaders() });
                 const result = await response.json();
                 
                 if (result.success && result.employees) {
@@ -685,7 +700,7 @@
 
         async function loadLeaveCardData() {
             try {
-                const response = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(employeeEmail)}`);
+                const response = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(employeeEmail)}`, { headers: authHeaders() });
                 const data = await response.json();
 
                 const tbody = document.getElementById('leaveHistoryBody');
@@ -844,7 +859,7 @@
 
         async function loadCTOCardData() {
             try {
-                const response = await fetch(`/api/cto-records?employeeId=${encodeURIComponent(employeeEmail)}`);
+                const response = await fetch(`/api/cto-records?employeeId=${encodeURIComponent(employeeEmail)}`, { headers: authHeaders() });
                 const data = await response.json();
 
                 const tbody = document.getElementById('ctoHistoryBody');
@@ -1066,7 +1081,7 @@
 
                 const response = await fetch('/api/update-leave-credits', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders(),
                     body: JSON.stringify({
                         employeeEmail: employeeEmail,
                         transactions: [transaction]
@@ -1134,7 +1149,7 @@
 
                 const response = await fetch('/api/update-cto-records', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders(),
                     body: JSON.stringify(ctoData)
                 });
 

@@ -184,6 +184,17 @@
     </div>
 
     <script>
+        // Self-contained auth for shared pages — resolves the correct admin token
+        // regardless of which auth-interceptor version the browser has cached
+        function getAdminToken() {
+            return sessionStorage.getItem('aoToken')
+                || localStorage.getItem('itToken')
+                || localStorage.getItem('hrToken')
+                || localStorage.getItem('asdsToken')
+                || localStorage.getItem('sdsToken')
+                || sessionStorage.getItem('authToken');
+        }
+
         let currentYear, currentMonth;
         let allLeaves = [];
         
@@ -210,8 +221,9 @@
         
         async function loadLeaves() {
             try {
-                // Auth-interceptor handles token injection automatically
-                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`);
+                const token = getAdminToken();
+                const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`, { headers });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
                 allLeaves = data.leaves || [];

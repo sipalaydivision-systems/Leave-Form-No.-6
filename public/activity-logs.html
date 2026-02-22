@@ -507,13 +507,27 @@
     </div>
 
     <script>
+        // Self-contained auth — resolves the IT admin token directly
+        function getAdminToken() {
+            return localStorage.getItem('itToken')
+                || sessionStorage.getItem('aoToken')
+                || localStorage.getItem('hrToken')
+                || localStorage.getItem('asdsToken')
+                || localStorage.getItem('sdsToken')
+                || sessionStorage.getItem('authToken');
+        }
+        function authHeaders() {
+            var t = getAdminToken();
+            return t ? { 'Authorization': 'Bearer ' + t } : {};
+        }
+
         let currentPage = 1;
         let currentFilters = {};
 
         // Load statistics
         async function loadStats() {
             try {
-                const response = await fetch('/api/activity-logs-summary');
+                const response = await fetch('/api/activity-logs-summary', { headers: authHeaders() });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -558,7 +572,7 @@
                     ...currentFilters
                 });
 
-                const response = await fetch(`/api/activity-logs?${params}`);
+                const response = await fetch(`/api/activity-logs?${params}`, { headers: authHeaders() });
                 const data = await response.json();
 
                 if (data.success) {
@@ -670,7 +684,7 @@
 
         async function exportLogs() {
             try {
-                const response = await fetch('/api/export-activity-logs');
+                const response = await fetch('/api/export-activity-logs', { headers: authHeaders() });
                 if (!response.ok) {
                     const err = await response.json().catch(() => ({ error: 'Export failed' }));
                     alert(err.error || 'Failed to export logs');
@@ -703,7 +717,7 @@
         // Populate User dropdown from summary stats
         async function populateUserFilter() {
             try {
-                const response = await fetch('/api/activity-logs?limit=10000');
+                const response = await fetch('/api/activity-logs?limit=10000', { headers: authHeaders() });
                 const data = await response.json();
                 if (data.success && data.logs.length > 0) {
                     const users = [...new Set(data.logs.map(log => log.userEmail))].filter(e => e && e !== 'anonymous').sort();
