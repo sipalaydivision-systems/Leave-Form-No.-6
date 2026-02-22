@@ -59,6 +59,11 @@ Thumbs.db
 data/backups/
 
 # ==============================
+# UPLOADS (SO PDFs, generated leave form PDFs)
+# ==============================
+data/uploads/
+
+# ==============================
 # LOGS
 # ==============================
 *.log
@@ -81,6 +86,7 @@ OneDrive_*/
 # ==============================
 # MISC
 # ==============================
+*.tmp
 .env.example
 .htaccess
 server-json-backup.js

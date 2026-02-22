@@ -228,84 +228,7 @@
             background-color: #bdbdbd;
         }
 
-        /* Alert Modal Styles */
-        .alert-modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.3s ease-in;
-        }
 
-        .alert-modal-content {
-            background-color: #fff;
-            margin: 15% auto;
-            padding: 25px;
-            border: none;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 450px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-            animation: slideDown 0.3s ease-out;
-        }
-
-        .alert-modal-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 20px;
-            font-weight: bold;
-            color: #dc3545;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f8d7da;
-        }
-
-        .alert-modal-header .alert-icon {
-            font-size: 28px;
-        }
-
-        .alert-modal-body {
-            font-size: 15px;
-            color: #333;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-
-        .alert-modal-body ul {
-            margin: 10px 0;
-            padding-left: 20px;
-        }
-
-        .alert-modal-body li {
-            margin: 8px 0;
-            color: #dc3545;
-        }
-
-        .alert-modal-footer {
-            display: flex;
-            justify-content: center;
-        }
-
-        .alert-modal-btn {
-            padding: 12px 40px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            background-color: #dc3545;
-            color: white;
-            transition: background-color 0.2s;
-        }
-
-        .alert-modal-btn:hover {
-            background-color: #c82333;
-        }
         
         .container {
             max-width: 1200px;
@@ -787,6 +710,7 @@
             <div class="hr-user-info">
                 <small>Logged in as:</small>
                 <div id="hrUserDisplay" style="font-weight: bold; margin-bottom: 8px;">Loading...</div>
+                <a href="leave-calendar.html" class="logout-btn" style="background: #00796b; text-decoration: none; display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 5px; color: white; font-size: 14px;">📅 Calendar</a>
                 <button class="logout-btn" style="margin-right:6px;" onclick="showProfileModal()">⚙️ Profile</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -1588,24 +1512,7 @@
             renderApplicationsList();
         }
         
-        function getLeaveTypeLabel(leaveType) {
-            const labels = {
-                'leave_vl': 'Vacation Leave',
-                'leave_sl': 'Sick Leave',
-                'leave_spl': 'Special Privilege Leave',
-                'leave_ml': 'Maternity Leave',
-                'leave_pl': 'Paternity Leave',
-                'leave_mfl': 'Mandatory/Forced Leave',
-                'leave_solo': 'Solo Parent Leave',
-                'leave_study': 'Study Leave',
-                'leave_vawc': 'VAWC Leave',
-                'leave_rehab': 'Rehabilitation Leave',
-                'leave_women': 'Women Benefits Leave',
-                'leave_calamity': 'Calamity Leave',
-                'leave_adoption': 'Adoption Leave'
-            };
-            return labels[leaveType] || leaveType || 'N/A';
-        }
+        // getLeaveTypeLabel() now provided by utils.js
         
         function selectApplication(appId) {
             console.log('[SELECT APP] Attempting to select app ID:', appId);
@@ -2611,20 +2518,6 @@
             }, 5000);
         }
         
-        function showAlertModal(message, title = 'Required Fields Missing') {
-            const modal = document.getElementById('alertModal');
-            const titleEl = document.getElementById('alertModalTitle');
-            const bodyEl = document.getElementById('alertModalBody');
-            
-            titleEl.textContent = title;
-            bodyEl.innerHTML = message;
-            modal.style.display = 'block';
-        }
-        
-        function closeAlertModal() {
-            document.getElementById('alertModal').style.display = 'none';
-        }
-        
         // ========== PROFILE EDITING ==========
         function showProfileModal() {
             const user = JSON.parse(localStorage.getItem('hrUser') || '{}');
@@ -2784,21 +2677,7 @@
         </div>
     </div>
 
-    <!-- Alert Modal for Validation Errors -->
-    <div id="alertModal" class="alert-modal">
-        <div class="alert-modal-content">
-            <div class="alert-modal-header">
-                <span class="alert-icon">⚠️</span>
-                <span id="alertModalTitle">Required Fields Missing</span>
-            </div>
-            <div class="alert-modal-body" id="alertModalBody">
-                Please fill in all required fields.
-            </div>
-            <div class="alert-modal-footer">
-                <button class="alert-modal-btn" onclick="closeAlertModal()">OK</button>
-            </div>
-        </div>
-    </div>
+    <!-- Alert Modal now provided by modal-alert.js -->
 
     <!-- Leave Form View Modal -->
     <div id="formViewModal" class="form-view-modal">

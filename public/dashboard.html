@@ -7,6 +7,8 @@
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -1466,6 +1468,10 @@
                 </div>
             </div>
             <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding: 15px 20px; border-top: 1px solid #ddd; background: #f5f5f5;">
+                <button id="btnGeneratePdf" onclick="generateLeaveFormPDF()" style="background: #1976D2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 600; display: none;">📄 Generate PDF</button>
+                <button id="btnDownloadPdf" onclick="downloadLeaveFormPDF()" style="background: #388E3C; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 600; display: none;">⬇ Download PDF</button>
+                <button id="btnPrintPdf" onclick="printLeaveFormPDF()" style="background: #F57C00; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 600; display: none;">🖨️ Print PDF</button>
+                <button id="btnPrintDirect" onclick="printLeaveFormDirect()" style="background: #E65100; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 600; display: none;">🖨️ Print</button>
                 <button onclick="closeModal('finalLeaveFormModal')" style="background: #999; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 600;">Close</button>
             </div>
         </div>
@@ -1676,7 +1682,29 @@
                                     </div>
                                 </div>
 
-                                ${isReturned && app.currentApprover === 'EMPLOYEE' ? `
+                                ${isSdsApproved ? `
+                                <!-- FINAL APPROVED: Show action buttons instead of progress bars -->
+                                <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 1px solid #4caf50; border-radius: 8px; padding: 14px; margin: 10px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                        <span style="font-size: 22px;">✅</span>
+                                        <div>
+                                            <strong style="color: #2e7d32; font-size: 14px;">Application Approved by SDS</strong>
+                                            <p style="color: #388e3c; font-size: 12px; margin: 2px 0 0 0;">Approved on ${app.sdsApprovedAt ? new Date(app.sdsApprovedAt).toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'}) : 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <button onclick="event.stopPropagation(); viewFinalLeaveForm(${safeId})" style="background: #1976D2; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            📄 View Final Form
+                                        </button>
+                                        <button onclick="event.stopPropagation(); printFinalLeaveFormDirect(${safeId})" style="background: #F57C00; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            🖨️ Print
+                                        </button>
+                                        <button onclick="event.stopPropagation(); downloadFinalLeaveFormPDF(${safeId})" style="background: #388E3C; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                                            ⬇️ Download PDF
+                                        </button>
+                                    </div>
+                                </div>
+                                ` : isReturned && app.currentApprover === 'EMPLOYEE' ? `
                                 <div class="return-notice" style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin: 10px 0;">
                                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                                         <span style="font-size: 18px;">⚠️</span>
@@ -1712,6 +1740,7 @@
                                 </div>
                                 ` : ''}
 
+                                ${!isSdsApproved ? `
                                 <div class="progress-steps with-ao">
                                     <div class="progress-line-fill" style="width: ${progressWidth}%;"></div>
                                     
@@ -1745,6 +1774,7 @@
                                         <div class="step-status">${getStepStatus(app, 'sds')}</div>
                                     </div>
                                 </div>
+                                ` : ''}
                             </div>
                         `;
                     });
@@ -1775,43 +1805,7 @@
             }
         }
 
-        // Get leave type display name
-        function getLeaveTypeName(type) {
-            const types = {
-                'vacation': 'Vacation Leave',
-                'mandatory': 'Mandatory/Force Leave',
-                'sick': 'Sick Leave',
-                'maternity': 'Maternity Leave',
-                'paternity': 'Paternity Leave',
-                'special_privilege': 'Special Privilege Leave',
-                'solo_parent': 'Solo Parent Leave',
-                'study': 'Study Leave',
-                'vawc': '10-Day VAWC Leave',
-                'rehabilitation': 'Rehabilitation Privilege',
-                'leave_vl': 'Vacation Leave',
-                'leave_mfl': 'Mandatory/Force Leave',
-                'leave_mandatory': 'Mandatory/Force Leave',
-                'leave_sl': 'Sick Leave',
-                'leave_maternity': 'Maternity Leave',
-                'leave_paternity': 'Paternity Leave',
-                'leave_spl': 'Special Privilege Leave',
-                'leave_solo': 'Solo Parent Leave',
-                'leave_study': 'Study Leave',
-                'leave_vawc': '10-Day VAWC Leave',
-                'leave_ml': 'Maternity Leave',
-                'leave_pl': 'Paternity Leave',
-                'leave_rehabilitation': 'Rehabilitation Privilege',
-                'leave_rehab': 'Rehabilitation Privilege',
-                'special_leave_women': 'Special Leave Benefits for Women',
-                'leave_women': 'Special Leave Benefits for Women',
-                'special_emergency': 'Special Emergency (Calamity) Leave',
-                'leave_calamity': 'Special Emergency (Calamity) Leave',
-                'adoption': 'Adoption Leave',
-                'leave_adoption': 'Adoption Leave',
-                'others': 'Other Leave'
-            };
-            return types[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) + ' Leave' : 'Leave');
-        }
+        // getLeaveTypeName() now provided by utils.js
 
         // Helper functions for tracker
         function getOverallStatus(app) {
@@ -2273,12 +2267,41 @@
         });
 
         // View Final Leave Form with All Approvals
+        let currentViewingAppId = null;
+        let currentPdfUrl = null;
+        
         async function viewFinalLeaveForm(applicationId) {
             console.log('viewFinalLeaveForm called with ID:', applicationId);
+            currentViewingAppId = applicationId;
+            currentPdfUrl = null;
             const contentDiv = document.getElementById('finalLeaveFormContent');
             contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading-spinner"></div><p>Loading final leave form...</p></div>';
             
+            // Reset button visibility
+            document.getElementById('btnGeneratePdf').style.display = 'none';
+            document.getElementById('btnDownloadPdf').style.display = 'none';
+            document.getElementById('btnPrintPdf').style.display = 'none';
+            document.getElementById('btnPrintDirect').style.display = 'none';
+            
             try {
+                // Check if PDF already exists
+                const pdfStatusRes = await fetch(`/api/leave-form-pdf-status/${applicationId}`);
+                const pdfStatus = await pdfStatusRes.json();
+                
+                if (pdfStatus.success && pdfStatus.exists) {
+                    // PDF exists — show it in an iframe
+                    currentPdfUrl = pdfStatus.pdfUrl;
+                    contentDiv.innerHTML = `
+                        <iframe src="${pdfStatus.pdfUrl}" style="width: 100%; height: 75vh; border: none;"></iframe>
+                    `;
+                    openModal('finalLeaveFormModal');
+                    document.getElementById('btnDownloadPdf').style.display = 'inline-block';
+                    document.getElementById('btnPrintPdf').style.display = 'inline-block';
+                    document.getElementById('btnPrintDirect').style.display = 'inline-block';
+                    document.getElementById('btnGeneratePdf').style.display = 'inline-block';
+                    document.getElementById('btnGeneratePdf').textContent = '🔄 Regenerate PDF';
+                    return;
+                }
                 console.log('Fetching /api/application-details/' + applicationId);
                 const response = await fetch(`/api/application-details/${applicationId}`);
                 console.log('Response status:', response.status);
@@ -2345,6 +2368,11 @@
                                 }
                             }).catch(err => console.error('Error fetching leave credits:', err));
                     }
+                    
+                    // Show Generate PDF and Print buttons
+                    document.getElementById('btnGeneratePdf').style.display = 'inline-block';
+                    document.getElementById('btnGeneratePdf').textContent = '📄 Generate PDF';
+                    document.getElementById('btnPrintDirect').style.display = 'inline-block';
                 } else {
                     contentDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: #d32f2f;"><p>❌ Error loading application details: ' + result.error + '</p></div>';
                 }
@@ -2407,8 +2435,10 @@
                     .details-column { padding: 4px; font-size: 9px; }
                     .details-column:first-child { border-right: 1px solid #000; }
                     .column-header { font-weight: bold; font-size: 9px; margin-bottom: 6px; text-decoration: underline; }
+                    /* === Print-friendly checkbox styling === */
+                    .final-form-container input[type="checkbox"] { width: 15px; height: 15px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; cursor: default; }
                     .leave-option { display: flex; align-items: flex-start; margin-bottom: 3px; font-size: 9px; }
-                    .leave-option input[type="checkbox"] { margin-right: 5px; margin-top: 2px; flex-shrink: 0; }
+                    .leave-option input[type="checkbox"] { margin-right: 5px; margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; }
                     .leave-option span { line-height: 1.3; }
                     .leave-option small { color: #666; font-size: 8px; }
                     .sub-section { padding: 2px 0; margin-bottom: 5px; }
@@ -2439,7 +2469,7 @@
                     .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #000; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
                     .officer-title { font-size: 9px; color: #000; }
                     .recommendation-options label { display: flex; align-items: flex-start; margin-bottom: 5px; font-size: 9px; }
-                    .recommendation-options input[type="checkbox"] { margin-right: 5px; margin-top: 2px; }
+                    .recommendation-options input[type="checkbox"] { margin-right: 5px; margin-top: 2px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .recommendation-input { border: none; border-bottom: 1px solid #000; width: 40px; text-align: center; font-size: 9px; }
                     .disapproval-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 4px; font-size: 9px; background: transparent; margin-bottom: 2px; }
                     .disapproval-input:disabled { background-color: transparent; border-bottom-color: #000; cursor: default; }
@@ -2453,7 +2483,10 @@
                     .final-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; object-fit: contain; }
                     .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #000; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; border-top: none; }
                     .final-officer-title { font-size: 9px; line-height: 1.1; }
-                    @media print { .final-form-container { box-shadow: none; border: none; padding: 2mm 3mm; width: 100%; max-width: 100%; } }
+                    @media print {
+                        .final-form-container { box-shadow: none; border: none; padding: 2mm 3mm; width: 100%; max-width: 100%; }
+                        .final-form-container input[type="checkbox"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; accent-color: #000 !important; }
+                    }
                 </style>
 
                 <div class="final-form-container" id="printableFinalForm">
@@ -2474,7 +2507,7 @@
                         <div style="text-align: center; margin-bottom: 0;">
                             <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
                                 <div style="flex-shrink: 0; margin-left: -70px;">
-                                    <img src="/deped logo.png" alt="DepEd Logo" style="width: 70px; height: 70px; object-fit: contain;">
+                                    <img src="/deped%20logo.png" alt="DepEd Logo" style="width: 70px; height: 70px; object-fit: contain;">
                                 </div>
                                 <div style="font-size: 11px;">
                                     <p style="margin: 1px 0; font-style: italic;">Republic of the Philippines</p>
@@ -2805,12 +2838,162 @@
             `;
         }
 
-        // Print Final Leave Form
-        function printFinalLeaveForm() {
+        // ========== PDF GENERATION (jsPDF + html2canvas) ==========
+        
+        async function generateLeaveFormPDF() {
             const formContainer = document.getElementById('printableFinalForm');
-            const styleContent = document.querySelector('#leaveFormViewContainer style')?.innerHTML || '';
+            if (!formContainer) {
+                // If viewing existing PDF, re-fetch form HTML first
+                if (currentViewingAppId && currentPdfUrl) {
+                    // Need to reload the HTML form to regenerate
+                    const contentDiv = document.getElementById('finalLeaveFormContent');
+                    contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading-spinner"></div><p>Regenerating PDF...</p></div>';
+                    
+                    const response = await fetch(`/api/application-details/${currentViewingAppId}`);
+                    const result = await response.json();
+                    if (!result.success) {
+                        alert('Error loading application: ' + result.error);
+                        return;
+                    }
+                    const app = result.application;
+                    contentDiv.innerHTML = generateFinalLeaveFormHTML(app);
+                    
+                    // Wait for images to load
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                if (!document.getElementById('printableFinalForm')) {
+                    alert('No form content to generate PDF from.');
+                    return;
+                }
+            }
             
-            // Convert images to base64 data URLs so they show in print window
+            const btn = document.getElementById('btnGeneratePdf');
+            const origText = btn.textContent;
+            btn.textContent = '⏳ Generating...';
+            btn.disabled = true;
+            
+            try {
+                const element = document.getElementById('printableFinalForm');
+                
+                // Use html2canvas to capture the form as an image
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    width: element.scrollWidth,
+                    height: element.scrollHeight
+                });
+                
+                // Create PDF with jsPDF (A4 size)
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                
+                // Calculate dimensions to fit A4 with margins
+                const margin = 5; // mm
+                const contentWidth = pageWidth - (margin * 2);
+                const imgAspectRatio = canvas.height / canvas.width;
+                const contentHeight = contentWidth * imgAspectRatio;
+                
+                if (contentHeight <= pageHeight - (margin * 2)) {
+                    // Fits on one page
+                    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, contentHeight);
+                } else {
+                    // Multi-page: slice the canvas
+                    const pageContentHeight = pageHeight - (margin * 2);
+                    const scaleFactor = contentWidth / canvas.width;
+                    const pixelsPerPage = pageContentHeight / scaleFactor;
+                    let yOffset = 0;
+                    let pageNum = 0;
+                    
+                    while (yOffset < canvas.height) {
+                        if (pageNum > 0) pdf.addPage();
+                        const sliceHeight = Math.min(pixelsPerPage, canvas.height - yOffset);
+                        
+                        // Create a slice canvas
+                        const sliceCanvas = document.createElement('canvas');
+                        sliceCanvas.width = canvas.width;
+                        sliceCanvas.height = sliceHeight;
+                        const ctx = sliceCanvas.getContext('2d');
+                        ctx.drawImage(canvas, 0, yOffset, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+                        
+                        const sliceImgHeight = sliceHeight * scaleFactor;
+                        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, sliceImgHeight);
+                        
+                        yOffset += sliceHeight;
+                        pageNum++;
+                    }
+                }
+                
+                // Convert to base64 for upload
+                const pdfBase64 = pdf.output('datauristring');
+                
+                // Save to server
+                const saveRes = await fetch(`/api/save-leave-form-pdf/${currentViewingAppId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pdfData: pdfBase64 })
+                });
+                const saveResult = await saveRes.json();
+                
+                if (saveResult.success) {
+                    currentPdfUrl = saveResult.pdfUrl;
+                    
+                    // Show PDF in iframe
+                    const contentDiv = document.getElementById('finalLeaveFormContent');
+                    contentDiv.innerHTML = `
+                        <iframe src="${currentPdfUrl}" style="width: 100%; height: 75vh; border: none;"></iframe>
+                    `;
+                    
+                    // Show download and print buttons
+                    document.getElementById('btnDownloadPdf').style.display = 'inline-block';
+                    document.getElementById('btnPrintPdf').style.display = 'inline-block';
+                    btn.textContent = '🔄 Regenerate PDF';
+                    
+                    console.log('[PDF] Leave form PDF generated and saved:', currentPdfUrl);
+                } else {
+                    alert('Error saving PDF: ' + saveResult.error);
+                    btn.textContent = origText;
+                }
+            } catch (error) {
+                console.error('[PDF] Error generating PDF:', error);
+                alert('Error generating PDF: ' + error.message);
+                btn.textContent = origText;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        
+        function downloadLeaveFormPDF() {
+            if (!currentPdfUrl) return;
+            const a = document.createElement('a');
+            a.href = currentPdfUrl;
+            a.download = `${currentViewingAppId}_leave-form.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        function printLeaveFormPDF() {
+            if (!currentPdfUrl) return;
+            const printWindow = window.open(currentPdfUrl, '_blank');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    setTimeout(() => printWindow.print(), 500);
+                });
+            }
+        }
+
+        // Direct browser print of the form HTML (no PDF needed)
+        function printLeaveFormDirect() {
+            const formContainer = document.getElementById('finalLeaveFormContent');
+            if (!formContainer) return;
+            const styleEl = formContainer.querySelector('style');
+            const styleContent = styleEl ? styleEl.innerHTML : '';
+            
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = formContainer.innerHTML;
             const images = tempDiv.querySelectorAll('img');
@@ -2820,14 +3003,11 @@
                     imagePromises.push(new Promise((resolve) => {
                         const canvas = document.createElement('canvas');
                         const tempImg = new Image();
-                        // Don't set crossOrigin for same-origin images to avoid CORS canvas taint
                         tempImg.onload = () => {
                             canvas.width = tempImg.naturalWidth;
                             canvas.height = tempImg.naturalHeight;
                             canvas.getContext('2d').drawImage(tempImg, 0, 0);
-                            try {
-                                img.src = canvas.toDataURL('image/png');
-                            } catch(e) { /* keep original src */ }
+                            try { img.src = canvas.toDataURL('image/png'); } catch(e) {}
                             resolve();
                         };
                         tempImg.onerror = () => resolve();
@@ -2842,25 +3022,262 @@
                 printWindow.document.write(`
                 <html>
                 <head>
-                    <title>Final Leave Application Form</title>
+                    <base href="${window.location.origin}/">
+                    <title>Leave Application</title>
                     <style>
                         ${styleContent}
                         * { box-sizing: border-box; }
-                        body { font-family: Arial, sans-serif; margin: 0; padding: 3mm 5mm; }
-                        img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                        .printable-form {
+                            width: 100%; min-height: 287mm; padding: 3mm 5mm; margin: 0;
+                            background: white; border: none; display: flex; flex-direction: column; box-sizing: border-box;
+                        }
+                        .printable-form > *:last-child { margin-top: auto; }
+                        .printable-form .form-header { margin-bottom: 3px; }
+                        .printable-form .letterhead { margin-top: -3px; margin-bottom: 2px; }
+                        .printable-form .letterhead img { -webkit-print-color-adjust: exact; print-color-adjust: exact; display: inline-block !important; visibility: visible !important; }
+                        .printable-form .form-title { margin: 5px 0; font-size: 14px; }
+                        .printable-form .info-cell { padding: 3px 5px; font-size: 9px; }
+                        .printable-form .section-header { padding: 3px 5px; font-size: 9px; }
+                        .printable-form .details-column { padding: 5px; font-size: 8px; }
+                        .printable-form .leave-option { margin-bottom: 1px; font-size: 7px; }
+                        .printable-form .leave-option small { font-size: 6px; }
+                        .printable-form .sub-section { padding: 2px 3px; margin-bottom: 2px; }
+                        .printable-form .sub-section-title { font-size: 6px; }
+                        .printable-form .sub-option { font-size: 7px; margin-bottom: 1px; }
+                        .printable-form .sub-field input { font-size: 7px; }
+                        .printable-form .bottom-column { padding: 4px; font-size: 8px; }
+                        .printable-form .field-label { font-size: 8px; margin-bottom: 2px; }
+                        .printable-form .action-column { padding: 3px; font-size: 8px; min-height: 160px; }
+                        .printable-form .credits-table { margin: 3px 0; font-size: 7px; }
+                        .printable-form .credits-table th, .printable-form .credits-table td { padding: 2px; }
+                        .printable-form .approval-column { padding: 4px; font-size: 8px; min-height: 50px; }
+                        .printable-form .final-signature { padding: 4px 8px; min-height: 70px; }
+                        .printable-form .signature-area { margin-top: 0; min-height: 40px; }
+                        .printable-form .signature-area img { border: none !important; background: transparent !important; max-width: 200px; max-height: 70px; }
+                        .printable-form .officer-signature { min-height: 80px; padding-bottom: 2px; }
+                        .printable-form .officer-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
+                        .printable-form .officer-name { font-size: 10px; min-width: 180px; padding-top: 2px; text-decoration: underline; }
+                        .printable-form .officer-title { font-size: 8px; }
+                        .printable-form .final-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
+                        .printable-form .final-officer-name { font-size: 10px; min-width: 180px; text-decoration: underline; }
+                        .printable-form .final-officer-title { font-size: 8px; line-height: 1.2; }
+                        input[type="checkbox"] {
+                            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+                            accent-color: #000 !important; width: 15px; height: 15px;
+                        }
                         @media print {
                             @page { size: A4; margin: 3mm; }
-                            body { padding: 0; }
-                            .no-print { display: none; }
+                            body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            input[type="checkbox"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; accent-color: #000 !important; }
+                            .printable-form { width: 100%; min-height: 287mm; padding: 2mm 3mm; border: none; display: flex; flex-direction: column; box-sizing: border-box; }
+                            .printable-form .approval-section { min-height: 50px; flex-grow: 1; }
+                            .printable-form .final-signature { min-height: 65px; }
+                            .printable-form .action-column { min-height: 160px; }
+                            .printable-form .officer-signature img,
+                            .printable-form .final-signature img,
+                            .printable-form .signature-area img { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0 auto -5px auto; border: none !important; background: transparent !important; box-shadow: none !important; }
+                            .printable-form .officer-signature { min-height: 100px; }
+                            .printable-form .officer-signature img { max-width: 200px; max-height: 70px; }
+                            .printable-form .final-signature img { max-width: 200px; max-height: 70px; }
+                            .printable-form .signature-area { min-height: 35px; margin-top: 0; }
+                            .printable-form .signature-area img { max-width: 200px; max-height: 70px; }
                         }
                     </style>
                 </head>
-                <body>${printContent}</body>
+                <body>
+                    <div class="printable-form">${printContent}</div>
+                </body>
                 </html>
-            `);
+                `);
                 printWindow.document.close();
                 printWindow.print();
             });
+        }
+
+        // Print directly from tracker card (loads app details, renders form, then prints)
+        async function printFinalLeaveFormDirect(applicationId) {
+            try {
+                const response = await fetch('/api/application-details/' + applicationId);
+                const result = await response.json();
+                if (!result.success) { alert('Error loading application: ' + result.error); return; }
+                const app = result.application;
+
+                // Generate form HTML inline, render into a hidden container, then print
+                const formHTML = generateFinalLeaveFormHTML(app);
+                const tempContainer = document.createElement('div');
+                tempContainer.style.position = 'fixed';
+                tempContainer.style.left = '-9999px';
+                tempContainer.id = 'tempPrintContainer';
+                tempContainer.innerHTML = formHTML;
+                document.body.appendChild(tempContainer);
+
+                // Also auto-populate CTO/SPL/FL credits before printing
+                const empEmail = app.employeeEmail || app.email || '';
+                if (empEmail) {
+                    await Promise.all([
+                        fetch('/api/cto-records?employeeId=' + encodeURIComponent(empEmail)).then(r => r.json()).then(data => {
+                            if (data.success && data.records && data.records.length > 0) {
+                                const totalGranted = data.records.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
+                                const totalUsed = data.records.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
+                                const balance = totalGranted - totalUsed;
+                                const ctoCells = tempContainer.querySelectorAll('.cto-credit-cell');
+                                if (ctoCells.length >= 3) {
+                                    const isCtoApp = app.leaveType === 'leave_others' || (app.leaveType || '').toLowerCase().includes('cto');
+                                    const ctoLessThisApp = isCtoApp ? (parseFloat(app.numDays) || 0) : 0;
+                                    ctoCells[0].textContent = totalGranted.toFixed(3);
+                                    ctoCells[1].textContent = ctoLessThisApp.toFixed(3);
+                                    ctoCells[2].textContent = (balance - ctoLessThisApp).toFixed(3);
+                                }
+                            }
+                        }).catch(() => {}),
+                        fetch('/api/leave-credits?employeeId=' + encodeURIComponent(empEmail)).then(r => r.json()).then(data => {
+                            if (data.success && data.credits) {
+                                const c = data.credits;
+                                const splCells = tempContainer.querySelectorAll('.spl-credit-cell');
+                                if (splCells.length >= 3) {
+                                    const splEarned = c.splEarned || 3;
+                                    const isSplApp = app.leaveType === 'leave_spl' || (app.leaveType || '').toLowerCase().includes('special privilege');
+                                    const splLessThisApp = isSplApp ? (parseFloat(app.numDays) || 0) : 0;
+                                    splCells[0].textContent = splEarned.toFixed(3);
+                                    splCells[1].textContent = splLessThisApp.toFixed(3);
+                                    splCells[2].textContent = (splEarned - (c.splSpent || 0) - splLessThisApp).toFixed(3);
+                                }
+                                const flCells = tempContainer.querySelectorAll('.fl-credit-cell');
+                                if (flCells.length >= 3) {
+                                    const flEarned = c.forceLeaveEarned || 5;
+                                    const isFlApp = app.leaveType === 'leave_mfl' || (app.leaveType || '').toLowerCase().includes('force');
+                                    const flLessThisApp = isFlApp ? (parseFloat(app.numDays) || 0) : 0;
+                                    flCells[0].textContent = flEarned.toFixed(3);
+                                    flCells[1].textContent = flLessThisApp.toFixed(3);
+                                    flCells[2].textContent = (flEarned - (c.forceLeaveSpent || 0) - flLessThisApp).toFixed(3);
+                                }
+                            }
+                        }).catch(() => {})
+                    ]);
+                }
+
+                // Extract style and content, then print
+                const styleEl = tempContainer.querySelector('style');
+                const styleContent = styleEl ? styleEl.innerHTML : '';
+                const printableDiv = tempContainer.querySelector('.printable-form') || tempContainer;
+                
+                // Convert images to base64
+                const images = printableDiv.querySelectorAll('img');
+                const imgPromises = [];
+                images.forEach(img => {
+                    if (img.src && !img.src.startsWith('data:')) {
+                        imgPromises.push(new Promise(resolve => {
+                            const canvas = document.createElement('canvas');
+                            const tempImg = new Image();
+                            tempImg.onload = () => {
+                                canvas.width = tempImg.naturalWidth; canvas.height = tempImg.naturalHeight;
+                                canvas.getContext('2d').drawImage(tempImg, 0, 0);
+                                try { img.src = canvas.toDataURL('image/png'); } catch(e) {}
+                                resolve();
+                            };
+                            tempImg.onerror = () => resolve();
+                            tempImg.src = img.src;
+                        }));
+                    }
+                });
+                await Promise.all(imgPromises);
+
+                const printContent = printableDiv.innerHTML;
+                document.body.removeChild(tempContainer);
+
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                <html>
+                <head>
+                    <base href="${window.location.origin}/">
+                    <title>Leave Application</title>
+                    <style>
+                        ${styleContent}
+                        * { box-sizing: border-box; }
+                        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+                        .printable-form { width: 100%; min-height: 287mm; padding: 3mm 5mm; margin: 0; background: white; border: none; display: flex; flex-direction: column; box-sizing: border-box; }
+                        .printable-form > *:last-child { margin-top: auto; }
+                        .printable-form .form-header { margin-bottom: 3px; }
+                        .printable-form .letterhead { margin-top: -3px; margin-bottom: 2px; }
+                        .printable-form .letterhead img { -webkit-print-color-adjust: exact; print-color-adjust: exact; display: inline-block !important; visibility: visible !important; }
+                        .printable-form .form-title { margin: 5px 0; font-size: 14px; }
+                        .printable-form .info-cell { padding: 3px 5px; font-size: 9px; }
+                        .printable-form .section-header { padding: 3px 5px; font-size: 9px; }
+                        .printable-form .details-column { padding: 5px; font-size: 8px; }
+                        .printable-form .leave-option { margin-bottom: 1px; font-size: 7px; }
+                        .printable-form .leave-option small { font-size: 6px; }
+                        .printable-form .sub-section { padding: 2px 3px; margin-bottom: 2px; }
+                        .printable-form .sub-section-title { font-size: 6px; }
+                        .printable-form .sub-option { font-size: 7px; margin-bottom: 1px; }
+                        .printable-form .sub-field input { font-size: 7px; }
+                        .printable-form .bottom-column { padding: 4px; font-size: 8px; }
+                        .printable-form .field-label { font-size: 8px; margin-bottom: 2px; }
+                        .printable-form .action-column { padding: 3px; font-size: 8px; min-height: 160px; }
+                        .printable-form .credits-table { margin: 3px 0; font-size: 7px; }
+                        .printable-form .credits-table th, .printable-form .credits-table td { padding: 2px; }
+                        .printable-form .approval-column { padding: 4px; font-size: 8px; min-height: 50px; }
+                        .printable-form .final-signature { padding: 4px 8px; min-height: 70px; }
+                        .printable-form .signature-area { margin-top: 0; min-height: 40px; }
+                        .printable-form .signature-area img { border: none !important; background: transparent !important; max-width: 200px; max-height: 70px; }
+                        .printable-form .officer-signature { min-height: 80px; padding-bottom: 2px; }
+                        .printable-form .officer-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
+                        .printable-form .officer-name { font-size: 10px; min-width: 180px; padding-top: 2px; text-decoration: underline; }
+                        .printable-form .officer-title { font-size: 8px; }
+                        .printable-form .final-signature img { max-width: 200px; max-height: 70px; margin: 0 auto -5px auto; border: none !important; background: transparent !important; }
+                        .printable-form .final-officer-name { font-size: 10px; min-width: 180px; text-decoration: underline; }
+                        .printable-form .final-officer-title { font-size: 8px; line-height: 1.2; }
+                        input[type="checkbox"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; accent-color: #000 !important; width: 15px; height: 15px; }
+                        @media print {
+                            @page { size: A4; margin: 3mm; }
+                            body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            input[type="checkbox"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; accent-color: #000 !important; }
+                            .printable-form { width: 100%; min-height: 287mm; padding: 2mm 3mm; border: none; display: flex; flex-direction: column; box-sizing: border-box; }
+                            .printable-form .approval-section { min-height: 50px; flex-grow: 1; }
+                            .printable-form .final-signature { min-height: 65px; }
+                            .printable-form .action-column { min-height: 160px; }
+                            .printable-form .officer-signature img, .printable-form .final-signature img, .printable-form .signature-area img { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0 auto -5px auto; border: none !important; background: transparent !important; box-shadow: none !important; }
+                            .printable-form .officer-signature { min-height: 100px; }
+                            .printable-form .officer-signature img { max-width: 200px; max-height: 70px; }
+                            .printable-form .final-signature img { max-width: 200px; max-height: 70px; }
+                            .printable-form .signature-area { min-height: 35px; margin-top: 0; }
+                            .printable-form .signature-area img { max-width: 200px; max-height: 70px; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="printable-form">${printContent}</div>
+                </body>
+                </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            } catch (error) {
+                console.error('Error printing final leave form:', error);
+                alert('Error printing: ' + error.message);
+            }
+        }
+
+        // Download PDF directly from tracker card
+        async function downloadFinalLeaveFormPDF(applicationId) {
+            try {
+                // Check if PDF already exists
+                const statusRes = await fetch('/api/leave-form-pdf-status/' + applicationId);
+                const status = await statusRes.json();
+                if (status.success && status.exists) {
+                    const a = document.createElement('a');
+                    a.href = status.pdfUrl;
+                    a.download = applicationId + '_leave-form.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } else {
+                    alert('No PDF generated yet for this application. Please open the form first and generate a PDF.');
+                }
+            } catch (error) {
+                console.error('Error downloading PDF:', error);
+                alert('Error downloading PDF: ' + error.message);
+            }
         }
 
         // Initialize on page load

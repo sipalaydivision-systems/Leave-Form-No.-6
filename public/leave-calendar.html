@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Calendar - CS Form No. 6</title>
+    <script src="/utils.js"></script>
+    <script src="/auth-interceptor.js"></script>
+    <script src="/modal-alert.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #333; }
+        
+        .header {
+            background: linear-gradient(135deg, #003366 0%, #004080 100%);
+            color: white; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; }
+        .header p { opacity: 0.8; font-size: 14px; margin-top: 4px; }
+        .back-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; text-decoration: none; font-size: 14px; }
+        .back-btn:hover { background: rgba(255,255,255,0.3); }
+        
+        .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+        
+        .controls {
+            display: flex; gap: 15px; align-items: center; justify-content: center;
+            margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .controls button {
+            background: #003366; color: white; border: none; padding: 10px 20px;
+            border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600;
+        }
+        .controls button:hover { background: #004488; }
+        .controls .month-label { font-size: 22px; font-weight: 700; min-width: 200px; text-align: center; }
+        
+        .filter-bar {
+            display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; justify-content: center;
+        }
+        .filter-bar select, .filter-bar input {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px;
+        }
+        
+        .legend {
+            display: flex; gap: 15px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+        
+        .calendar-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+            background: #ddd; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .day-header {
+            background: #003366; color: white; padding: 10px; text-align: center;
+            font-weight: 600; font-size: 13px;
+        }
+        .day-cell {
+            background: white; min-height: 120px; padding: 6px; position: relative;
+            transition: background 0.2s;
+        }
+        .day-cell:hover { background: #f0f4ff; }
+        .day-cell.other-month { background: #f9f9f9; opacity: 0.5; }
+        .day-cell.today { background: #e3f2fd; border: 2px solid #1976D2; }
+        .day-cell.weekend { background: #fafafa; }
+        .day-number {
+            font-size: 13px; font-weight: 600; color: #666; margin-bottom: 4px;
+        }
+        .day-cell.today .day-number { color: #1976D2; font-weight: 700; }
+        
+        .leave-chip {
+            display: block; padding: 2px 5px; margin-bottom: 2px; border-radius: 3px;
+            font-size: 10px; color: white; cursor: pointer; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; transition: transform 0.1s;
+        }
+        .leave-chip:hover { transform: scale(1.02); filter: brightness(1.1); }
+        .leave-chip.approved { background: #28a745; }
+        .leave-chip.pending { background: #F57C00; }
+        
+        .leave-type-vacation { background: #1976D2 !important; }
+        .leave-type-sick { background: #d32f2f !important; }
+        .leave-type-maternity, .leave-type-paternity { background: #7B1FA2 !important; }
+        .leave-type-spl { background: #00897B !important; }
+        .leave-type-mandatory, .leave-type-mfl { background: #E65100 !important; }
+        .leave-type-others { background: #455A64 !important; }
+        .leave-type-default { background: #757575 !important; }
+        
+        .more-leaves { font-size: 10px; color: #1976D2; cursor: pointer; font-weight: 600; }
+        
+        /* Tooltip */
+        .tooltip-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .tooltip-overlay.active { display: flex; }
+        .tooltip-card {
+            background: white; border-radius: 10px; padding: 20px; max-width: 400px; width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .tooltip-card h3 { margin-bottom: 10px; color: #003366; }
+        .tooltip-card .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .tooltip-card .detail-label { font-weight: 600; color: #666; }
+        .tooltip-card .close-tooltip { margin-top: 12px; background: #003366; color: white; border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer; width: 100%; }
+        
+        /* Summary sidebar */
+        .summary-panel {
+            background: white; border-radius: 8px; padding: 20px; margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .summary-panel h3 { color: #003366; margin-bottom: 12px; font-size: 16px; }
+        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        .stat-card {
+            background: #f5f7fa; padding: 12px; border-radius: 6px; text-align: center;
+            border-left: 3px solid #003366;
+        }
+        .stat-card .stat-value { font-size: 24px; font-weight: 700; color: #003366; }
+        .stat-card .stat-label { font-size: 11px; color: #666; margin-top: 2px; }
+        
+        @media (max-width: 768px) {
+            .day-cell { min-height: 70px; padding: 3px; }
+            .leave-chip { font-size: 8px; padding: 1px 3px; }
+            .day-number { font-size: 11px; }
+            .controls .month-label { font-size: 18px; min-width: 160px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div>
+                <h1>📅 Leave Calendar</h1>
+                <p>Visual overview of leave schedules across the division</p>
+            </div>
+            <a href="javascript:history.back()" class="back-btn">← Back to Dashboard</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="controls">
+            <button onclick="changeMonth(-1)">◀ Previous</button>
+            <div class="month-label" id="monthLabel"></div>
+            <button onclick="changeMonth(1)">Next ▶</button>
+            <button onclick="goToToday()" style="background: #28a745;">Today</button>
+        </div>
+        
+        <div class="filter-bar">
+            <select id="filterStatus" onchange="renderCalendar()">
+                <option value="all">All Statuses</option>
+                <option value="approved">Approved Only</option>
+                <option value="pending">Pending Only</option>
+            </select>
+            <select id="filterLeaveType" onchange="renderCalendar()">
+                <option value="all">All Leave Types</option>
+                <option value="leave_vacation">Vacation Leave</option>
+                <option value="leave_sick">Sick Leave</option>
+                <option value="leave_mandatory">Mandatory/Forced Leave</option>
+                <option value="leave_spl">Special Privilege Leave</option>
+                <option value="leave_maternity">Maternity Leave</option>
+                <option value="leave_paternity">Paternity Leave</option>
+                <option value="leave_others">Others (CTO)</option>
+            </select>
+            <input type="text" id="filterSearch" placeholder="Search employee name..." oninput="renderCalendar()">
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot leave-type-vacation"></div> Vacation</div>
+            <div class="legend-item"><div class="legend-dot leave-type-sick"></div> Sick</div>
+            <div class="legend-item"><div class="legend-dot leave-type-spl"></div> Special Privilege</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#E65100;"></div> Mandatory/Forced</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#7B1FA2;"></div> Maternity/Paternity</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#455A64;"></div> Others/CTO</div>
+        </div>
+        
+        <div class="calendar-grid" id="calendarGrid"></div>
+        
+        <div class="summary-panel">
+            <h3>📊 Monthly Summary</h3>
+            <div class="summary-stats" id="summaryStats"></div>
+        </div>
+    </div>
+    
+    <div class="tooltip-overlay" id="tooltipOverlay" onclick="closeTooltip(event)">
+        <div class="tooltip-card" id="tooltipCard" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <script>
+        let currentYear, currentMonth;
+        let allLeaves = [];
+        
+        async function init() {
+            const now = new Date();
+            currentYear = now.getFullYear();
+            currentMonth = now.getMonth() + 1;
+            await loadLeaves();
+        }
+        
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+            if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+            loadLeaves();
+        }
+        
+        function goToToday() {
+            const now = new Date();
+            currentYear = now.getFullYear();
+            currentMonth = now.getMonth() + 1;
+            loadLeaves();
+        }
+        
+        async function loadLeaves() {
+            try {
+                const token = sessionStorage.getItem('authToken');
+                if (!token) { window.location.href = '/'; return; }
+                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                allLeaves = data.leaves || [];
+                renderCalendar();
+            } catch (err) {
+                console.error('Error loading leaves:', err);
+                if (err.message && err.message.includes('Session expired')) {
+                    window.location.href = '/';
+                }
+            }
+        }
+        
+        function getLeaveTypeClass(leaveType) {
+            if (!leaveType) return 'leave-type-default';
+            if (leaveType.includes('vacation')) return 'leave-type-vacation';
+            if (leaveType.includes('sick')) return 'leave-type-sick';
+            if (leaveType.includes('maternity') || leaveType.includes('paternity')) return 'leave-type-maternity';
+            if (leaveType.includes('spl') || leaveType.includes('special')) return 'leave-type-spl';
+            if (leaveType.includes('mandatory') || leaveType.includes('mfl') || leaveType.includes('force')) return 'leave-type-mandatory';
+            if (leaveType.includes('others') || leaveType.includes('cto')) return 'leave-type-others';
+            return 'leave-type-default';
+        }
+        
+        function getLeaveTypeName(leaveType) {
+            const map = {
+                'leave_vacation': 'VL', 'leave_sick': 'SL', 'leave_mandatory': 'MFL',
+                'leave_mfl': 'MFL', 'leave_spl': 'SPL', 'leave_maternity': 'Mat',
+                'leave_paternity': 'Pat', 'leave_others': 'CTO', 'leave_solo_parent': 'SP',
+                'leave_study': 'Study', 'leave_vawc': 'VAWC', 'leave_rehab': 'Rehab',
+                'leave_women': 'Women', 'leave_calamity': 'Cal', 'leave_adoption': 'Adopt'
+            };
+            return map[leaveType] || 'Leave';
+        }
+        
+        function renderCalendar() {
+            const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            document.getElementById('monthLabel').textContent = `${months[currentMonth - 1]} ${currentYear}`;
+            
+            // Apply filters
+            const statusFilter = document.getElementById('filterStatus').value;
+            const typeFilter = document.getElementById('filterLeaveType').value;
+            const searchFilter = (document.getElementById('filterSearch').value || '').toLowerCase();
+            
+            let filtered = allLeaves.filter(l => {
+                if (statusFilter !== 'all' && l.status !== statusFilter) return false;
+                if (typeFilter !== 'all' && l.leaveType !== typeFilter) return false;
+                if (searchFilter && !(l.employeeName || '').toLowerCase().includes(searchFilter)) return false;
+                return true;
+            });
+            
+            // Build calendar grid
+            const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); // 0=Sun
+            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+            const today = new Date();
+            
+            let html = '';
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            dayNames.forEach(d => { html += `<div class="day-header">${d}</div>`; });
+            
+            // Previous month padding
+            const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
+            for (let i = firstDay - 1; i >= 0; i--) {
+                html += `<div class="day-cell other-month"><div class="day-number">${prevMonthDays - i}</div></div>`;
+            }
+            
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(currentYear, currentMonth - 1, day);
+                const isToday = date.toDateString() === today.toDateString();
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                
+                // Find leaves that cover this day
+                const dayLeaves = filtered.filter(l => {
+                    return dateStr >= l.dateFrom && dateStr <= l.dateTo;
+                });
+                
+                let classes = 'day-cell';
+                if (isToday) classes += ' today';
+                if (isWeekend) classes += ' weekend';
+                
+                html += `<div class="${classes}"><div class="day-number">${day}</div>`;
+                
+                const maxChips = 3;
+                dayLeaves.slice(0, maxChips).forEach(l => {
+                    const typeClass = getLeaveTypeClass(l.leaveType);
+                    const statusClass = l.status === 'approved' ? 'approved' : 'pending';
+                    const lastName = (l.employeeName || '').split(',')[0] || l.employeeName;
+                    html += `<div class="leave-chip ${typeClass}" onclick="showLeaveDetail('${l.id}')" title="${l.employeeName} - ${getLeaveTypeName(l.leaveType)}">${getLeaveTypeName(l.leaveType)}: ${lastName}</div>`;
+                });
+                
+                if (dayLeaves.length > maxChips) {
+                    html += `<div class="more-leaves" onclick="showDayDetail('${dateStr}')">+${dayLeaves.length - maxChips} more</div>`;
+                }
+                
+                html += '</div>';
+            }
+            
+            // Next month padding
+            const totalCells = firstDay + daysInMonth;
+            const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+            for (let i = 1; i <= remainingCells; i++) {
+                html += `<div class="day-cell other-month"><div class="day-number">${i}</div></div>`;
+            }
+            
+            document.getElementById('calendarGrid').innerHTML = html;
+            
+            // Update summary
+            renderSummary(filtered);
+        }
+        
+        function renderSummary(filtered) {
+            const approved = filtered.filter(l => l.status === 'approved').length;
+            const pending = filtered.filter(l => l.status === 'pending').length;
+            const totalDays = filtered.reduce((sum, l) => sum + (parseFloat(l.numDays) || 0), 0);
+            
+            // Count by type
+            const typeCounts = {};
+            filtered.forEach(l => {
+                const name = getLeaveTypeName(l.leaveType);
+                typeCounts[name] = (typeCounts[name] || 0) + 1;
+            });
+            
+            // Unique employees on leave
+            const uniqueEmps = new Set(filtered.map(l => l.employeeName)).size;
+            
+            let html = `
+                <div class="stat-card"><div class="stat-value">${filtered.length}</div><div class="stat-label">Total Applications</div></div>
+                <div class="stat-card" style="border-color: #28a745;"><div class="stat-value" style="color:#28a745;">${approved}</div><div class="stat-label">Approved</div></div>
+                <div class="stat-card" style="border-color: #F57C00;"><div class="stat-value" style="color:#F57C00;">${pending}</div><div class="stat-label">Pending</div></div>
+                <div class="stat-card" style="border-color: #1976D2;"><div class="stat-value" style="color:#1976D2;">${totalDays.toFixed(1)}</div><div class="stat-label">Total Leave Days</div></div>
+                <div class="stat-card" style="border-color: #7B1FA2;"><div class="stat-value" style="color:#7B1FA2;">${uniqueEmps}</div><div class="stat-label">Employees on Leave</div></div>
+            `;
+            
+            // Add type breakdown
+            Object.entries(typeCounts).sort((a,b) => b[1] - a[1]).forEach(([type, count]) => {
+                html += `<div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">${type}</div></div>`;
+            });
+            
+            document.getElementById('summaryStats').innerHTML = html;
+        }
+        
+        function showLeaveDetail(appId) {
+            const leave = allLeaves.find(l => l.id === appId || l.id === String(appId));
+            if (!leave) return;
+            
+            const typeNames = {
+                'leave_vacation': 'Vacation Leave', 'leave_sick': 'Sick Leave',
+                'leave_mandatory': 'Mandatory/Forced Leave', 'leave_mfl': 'Mandatory/Forced Leave',
+                'leave_spl': 'Special Privilege Leave', 'leave_maternity': 'Maternity Leave',
+                'leave_paternity': 'Paternity Leave', 'leave_others': 'Others (CTO)',
+                'leave_solo_parent': 'Solo Parent Leave', 'leave_study': 'Study Leave'
+            };
+            
+            document.getElementById('tooltipCard').innerHTML = `
+                <h3>📋 Leave Application Details</h3>
+                <div class="detail-row"><span class="detail-label">Application ID</span><span>${leave.id}</span></div>
+                <div class="detail-row"><span class="detail-label">Employee</span><span>${leave.employeeName}</span></div>
+                <div class="detail-row"><span class="detail-label">Office/School</span><span>${leave.office || 'N/A'}</span></div>
+                <div class="detail-row"><span class="detail-label">Leave Type</span><span>${typeNames[leave.leaveType] || leave.leaveType}</span></div>
+                <div class="detail-row"><span class="detail-label">Date From</span><span>${leave.dateFrom}</span></div>
+                <div class="detail-row"><span class="detail-label">Date To</span><span>${leave.dateTo}</span></div>
+                <div class="detail-row"><span class="detail-label">Days</span><span>${leave.numDays}</span></div>
+                <div class="detail-row"><span class="detail-label">Status</span><span style="color: ${leave.status === 'approved' ? '#28a745' : '#F57C00'}; font-weight: 600;">${leave.status.toUpperCase()}${leave.currentApprover ? ' (at ' + leave.currentApprover + ')' : ''}</span></div>
+                <button class="close-tooltip" onclick="closeTooltip()">Close</button>
+            `;
+            document.getElementById('tooltipOverlay').classList.add('active');
+        }
+        
+        function showDayDetail(dateStr) {
+            const dayLeaves = allLeaves.filter(l => dateStr >= l.dateFrom && dateStr <= l.dateTo);
+            let rows = dayLeaves.map(l => `
+                <div class="detail-row" style="cursor:pointer;" onclick="showLeaveDetail('${l.id}')">
+                    <span>${l.employeeName}</span>
+                    <span style="color: ${l.status === 'approved' ? '#28a745' : '#F57C00'};">${getLeaveTypeName(l.leaveType)} — ${l.status}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('tooltipCard').innerHTML = `
+                <h3>📅 Leaves on ${dateStr}</h3>
+                ${rows || '<p>No leaves on this date.</p>'}
+                <button class="close-tooltip" onclick="closeTooltip()">Close</button>
+            `;
+            document.getElementById('tooltipOverlay').classList.add('active');
+        }
+        
+        function closeTooltip(event) {
+            if (event && event.target !== document.getElementById('tooltipOverlay')) return;
+            document.getElementById('tooltipOverlay').classList.remove('active');
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

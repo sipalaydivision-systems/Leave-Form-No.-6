@@ -1,6 +1,6 @@
 # Backend Architecture — CS Form No. 6 Leave Management System
 
-> **File:** `server.js` (~6,404 lines)  
+> **File:** `server.js` (~5,440 lines after DRY refactoring)  
 > **Runtime:** Node.js + Express.js  
 > **Storage:** JSON flat files in `data/` directory  
 > **Auth:** Bearer tokens (96-char hex, 8-hour expiry, in-memory + persisted)
@@ -647,9 +647,26 @@ flowchart TD
 | L434 | `ensureFile(filepath, default)` | Seed missing file from defaults/ | Startup |
 | L494 | `acquireLock/releaseLock(path)` | File-level write locking | Available (not actively used) |
 | L508 | `readJSON(filepath)` | Read JSON, strip BOM, recover from .bak | Everywhere |
-| L547 | `readJSONArray(filepath)` | readJSON + unwrap {key:[]} format | Applications endpoints |
+| L547 | `readJSONArray(filepath)` | readJSON + unwrap {key:[]} format | Applications, activity-logs endpoints |
 | L564 | `writeJSON(filepath, data)` | Atomic write: tmp→rename, creates .bak | Everywhere |
-| L588 | `catchUpNewCards(lastMonth, now)` | Accrual for late-created cards | runMonthlyAccrual |
+| — | **SHARED HELPERS (DRY)** | — | — |
+| ~L640 | `ADMIN_ROLES` | Constant array of admin portal names | `isSelfOrAdmin()` |
+| ~L645 | `PORTAL_TO_FILE` | Portal name → user file path mapping | approve-registration |
+| ~L650 | `CATEGORY_TO_FILE` | Data category → file path mapping | data-items, delete-specific-items |
+| ~L670 | `getCategoryFile(category)` | Resolve category to file path | data-items, delete-specific-items |
+| ~L680 | `findApplicationById(apps, id)` | Find app by id (Number, String, or String→Number) | application-status, application-details, save-leave-form-pdf |
+| ~L690 | `findApplicationIndexById(apps, id)` | Index variant of above | save-leave-form-pdf |
+| ~L700 | `isSelfOrAdmin(req, email)` | Check if requester is self or admin role | 10+ employee-data endpoints |
+| ~L720 | `isAoAccessAllowed(req, email)` | Check AO school jurisdiction | update-leave-credits, approve-leave, cto endpoints |
+| ~L760 | `getReflectedAppIds(leaveCard)` | Collect all app IDs from leave card transactions | submit-leave, resubmit-leave, leave-credits |
+| ~L780 | `calculateEffectiveBalance(email, lc, excludeId)` | Calculate VL/SL/FL/SPL balance (minus pending) | validateLeaveBalance |
+| ~L830 | `calculateCtoBalance(email, lc, excludeId)` | Calculate CTO balance (minus pending) | validateLeaveBalance |
+| ~L850 | `getLatestLeaveCard(records)` | Find latest leave card from array | leave-credits, employee-leavecard |
+| ~L870 | `createDefaultLeaveCard(email, name, fields, vl, sl)` | Standard ~25-field leave card object | approve-registration, migration |
+| ~L910 | `createAccrualTransaction(month, yr, vl, sl, src)` | Standard accrual transaction object | catchUpNewCards, runMonthlyAccrual, approve-registration |
+| ~L930 | `buildPortalUser(reg, role)` | Standard user object for portal files | approve-registration (ao/hr/asds/sds cases) |
+| ~L960 | `validateLeaveBalance(type, days, email, excludeId)` | Full balance validation with pending deductions | submit-leave, resubmit-leave |
+| ~L1020 | `catchUpNewCards(lastMonth, now)` | Accrual for late-created cards | runMonthlyAccrual |
 | L686 | `runMonthlyAccrual()` | Main accrual: +1.25 VL+SL per month | Startup + 24h interval |
 | L828 | `parseFullNameIntoParts(name)` | "LAST, FIRST MID SUFFIX" → parts | Profile updates, migration |
 | L847 | `hashPasswordWithSalt(pw)` | bcrypt.hashSync(pw, 12) | All registration/reset |
@@ -659,10 +676,6 @@ flowchart TD
 | L885 | `verifyPassword(pw, hash)` | Boolean wrapper | All login endpoints |
 | L890 | `rehashIfNeeded(pw, hash, user, arr, file)` | Auto-upgrade legacy → bcrypt | All login endpoints |
 | L900 | `validateDepEdEmail(email)` | Check @deped.gov.ph | All registrations |
-| L905 | `validatePortalPassword(pw)` | 6-24 chars, letters+numbers+special | Registrations, pw reset |
-| L1003 | `buildEmployeeRecord(...)` | Build employee object with parsed name | approve-registration |
-| L1043 | `normalizeNameForMatching(name)` | Uppercase, strip special chars | lookupInitialCredits |
-| L1054 | `lookupInitialCredits(name)` | Match VL/SL from initial-credits.json | Migration |
 | L1138 | `sendEmail(to, name, subject, html)` | MailerSend HTTPS API | approve-registration |
 | L1190 | `generateLoginFormEmail(...)` | HTML email template | approve-registration |
 | L3611 | `isSchoolBased(office)` | Check if school-based employee | submit-leave |
@@ -817,3 +830,41 @@ L6279-6404 │ Error handlers & server start
 | New email template | ~L1300 | After `generateLoginFormEmail` |
 | New data file | ~L382 | After last `ensureFile()` call |
 | New helper function | ~L1000 | In the helpers section |
+
+---
+
+## 17. Code Quality Audit Summary
+
+### Principles Applied
+- **KISS** — Replaced complex inline patterns with clear, named helper calls
+- **DRY** — Extracted 14 shared server helpers + 2 shared client utilities (`getLeaveTypeLabel`, `initLogoutSystem`)
+- **SOLID/SRP** — Each helper has a single responsibility; `validateLeaveBalance()` consolidates all balance validation
+- **YAGNI** — Removed `lookupInitialCredits()` (~79 lines) and `normalizeNameForMatching()` (~7 lines) — defined but never called
+- **Security** — Added PDF magic bytes validation, password hash stripping, date validation, CSV newline escaping
+- **Readability** — Named functions instead of inline anonymous patterns; JSDoc on all helpers
+
+### Backend Changes (`server.js`: 6,124 → 5,437 lines = -687 lines / -11%)
+| Change | Lines Saved |
+|---|---|
+| Extracted 14 shared helpers (new ~300 lines, but eliminated ~500+ inline dups) | ~200 net |
+| Config-driven approve-registration (4 cases → `buildPortalUser()`) | ~65 |
+| `createDefaultLeaveCard()` replaces inline 25-field object | ~20 |
+| `createAccrualTransaction()` replaces 3 inline transaction objects | ~30 |
+| Removed dead code (`lookupInitialCredits`, `normalizeNameForMatching`, no-op cross-portal check) | ~100 |
+| `validateLeaveBalance()` replaces ~300 lines in submit + resubmit | ~290 |
+
+### Frontend Changes
+| Change | Files | Lines Saved |
+|---|---|---|
+| `getLeaveTypeLabel()` → utils.js | 6 files | ~150 |
+| `initLogoutSystem()` → utils.js | Available for 7 files | ~135 (per file, when adopted) |
+| Inline alert modal → modal-alert.js alias | 3 files | ~90 |
+| utils.js added to leave_form.html | 1 file | — |
+
+### Security Fixes
+| Fix | Severity |
+|---|---|
+| `/api/all-registered-users` now strips password hashes | High |
+| SO PDF uploads validated for `%PDF` magic bytes | Medium |
+| `isValidDate()` now enforced on submit-leave dates | Medium |
+| CSV export escapes newlines to prevent row injection | Low |

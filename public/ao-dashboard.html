@@ -587,6 +587,7 @@
                 <p>Review and Approve Teacher Leave Applications</p>
             </div>
             <div style="display: flex; gap: 10px;">
+                <a href="leave-calendar.html" class="logout-btn" style="background: rgba(255,255,255,0.3); text-decoration: none; display: inline-flex; align-items: center; padding: 8px 16px;">📅 Calendar</a>
                 <button class="logout-btn" style="background: rgba(255,255,255,0.3);" onclick="loadApplications()">🔄 Refresh</button>
                 <button class="logout-btn" style="background: rgba(255,255,255,0.3);" onclick="showProfileModal()">⚙️ Profile</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
@@ -1115,25 +1116,7 @@
             `}).join('');
         }
 
-        function getLeaveTypeLabel(leaveType) {
-            const labels = {
-                'leave_vl': 'Vacation Leave',
-                'leave_mfl': 'Mandatory/Forced Leave',
-                'leave_sl': 'Sick Leave',
-                'leave_spl': 'Special Privilege Leave',
-                'leave_ml': 'Maternity/Paternity Leave',
-                'leave_pl': 'Personal Leave',
-                'leave_solo': 'Solo Parent Leave',
-                'leave_study': 'Educational Leave',
-                'leave_vawc': 'VAWC Leave',
-                'leave_rehab': 'Rehabilitation Leave',
-                'leave_women': 'Women Victims Leave',
-                'leave_calamity': 'Calamity Leave',
-                'leave_adoption': 'Adoption Leave',
-                'leave_other': 'Other Purpose'
-            };
-            return labels[leaveType] || leaveType || 'N/A';
-        }
+        // getLeaveTypeLabel() now provided by utils.js
 
         function viewDetails(appId) {
             const app = allApplications.find(a => a.id === appId);

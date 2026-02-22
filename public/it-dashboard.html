@@ -1106,8 +1106,17 @@
                     <a href="data-management.html" class="refresh-btn" style="background: #2e7d32; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
                         💾 Data Backup &amp; Restore
                     </a>
+                    <a href="leave-calendar.html" class="refresh-btn" style="background: #00796b; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                        📅 Leave Calendar
+                    </a>
                     <button class="refresh-btn" style="background: #c62828;" onclick="showDeleteAllDataModal()">
                         🗑️ Delete All System Data
+                    </button>
+                    <button id="maintenanceToggleBtn" class="refresh-btn" style="background: #FF6F00;" onclick="toggleMaintenanceMode()">
+                        🔧 Maintenance Mode
+                    </button>
+                    <button class="refresh-btn" style="background: #00838F;" onclick="runReconciliation()">
+                        🔍 Reconcile Balances
                     </button>
                     <button id="deleteSelectedBtn" class="refresh-btn" style="background: #d32f2f; display: none;" onclick="showDeleteSelectedModal()">
                         🗑️ Delete Selected (<span id="selectedCount">0</span>)
@@ -1637,6 +1646,83 @@
             return headers;
         }
 
+        // ========== MAINTENANCE MODE & RECONCILIATION ==========
+        async function toggleMaintenanceMode() {
+            const btn = document.getElementById('maintenanceToggleBtn');
+            try {
+                // Check current state first
+                const stateRes = await fetch('/api/system-state', { headers: getAuthHeaders() });
+                const stateData = await stateRes.json();
+                const isCurrentlyMaintenance = stateData.success && stateData.state.maintenanceMode;
+                
+                if (isCurrentlyMaintenance) {
+                    if (!confirm('Maintenance mode is currently ENABLED. Disable it to allow normal access?')) return;
+                } else {
+                    const msg = prompt('Enter maintenance message (or leave blank for default):', 'The system is undergoing scheduled maintenance. Please try again later.');
+                    if (msg === null) return; // cancelled
+                    var maintenanceMsg = msg || undefined;
+                }
+                
+                const res = await fetch('/api/system-maintenance', {
+                    method: 'POST',
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify({ enabled: !isCurrentlyMaintenance, message: maintenanceMsg })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.maintenanceMode 
+                        ? '🔧 Maintenance mode ENABLED. All non-IT users will see a maintenance message.' 
+                        : '✅ Maintenance mode DISABLED. System is now accessible to all users.');
+                    btn.style.background = data.maintenanceMode ? '#d32f2f' : '#FF6F00';
+                    btn.innerHTML = data.maintenanceMode ? '🔧 Disable Maintenance' : '🔧 Maintenance Mode';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Error toggling maintenance mode: ' + err.message);
+            }
+        }
+        
+        async function runReconciliation() {
+            if (!confirm('Run leave balance reconciliation? This will check all leave cards against application history.')) return;
+            try {
+                const res = await fetch('/api/run-reconciliation', {
+                    method: 'POST',
+                    headers: getAuthHeaders(true)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (data.discrepancies && data.discrepancies.length > 0) {
+                        let msg = `⚠️ Found ${data.discrepancies.length} discrepancies:\n\n`;
+                        data.discrepancies.slice(0, 10).forEach(d => {
+                            msg += `• ${d.email}: VL drift=${d.vlDrift}, SL drift=${d.slDrift}\n`;
+                        });
+                        if (data.discrepancies.length > 10) msg += `\n...and ${data.discrepancies.length - 10} more.`;
+                        alert(msg);
+                    } else {
+                        alert('✅ ' + data.message);
+                    }
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Error running reconciliation: ' + err.message);
+            }
+        }
+        
+        // Check maintenance mode state on load and update button
+        async function checkMaintenanceState() {
+            try {
+                const res = await fetch('/api/system-state', { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (data.success && data.state.maintenanceMode) {
+                    const btn = document.getElementById('maintenanceToggleBtn');
+                    btn.style.background = '#d32f2f';
+                    btn.innerHTML = '🔧 Disable Maintenance';
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         // Check authentication
         document.addEventListener('DOMContentLoaded', function() {
             const itUser = localStorage.getItem('itUser');
@@ -1651,6 +1737,7 @@
             
             loadRegistrations();
             loadStats();
+            checkMaintenanceState();
         });
 
         async function loadRegistrations() {

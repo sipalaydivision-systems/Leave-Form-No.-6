@@ -316,3 +316,11 @@ if (document.readyState === 'loading') {
 } else {
     initializeModalAlert();
 }
+
+/**
+ * Backward-compatible alias for dashboards that call showAlertModal(message, title).
+ * DRY: Eliminates per-file wrapper definitions in sds/asds/hr dashboards.
+ */
+window.showAlertModal = function(message, title = 'Required Fields Missing') {
+    showModalAlert(message, title, 'warning');
+};

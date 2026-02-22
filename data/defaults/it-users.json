@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": "it-1",
+    "email": "jenel.tiad@deped.gov.ph",
+    "password": "$2b$12$nGYHE6anSnwuAUlf3/Qo2euWD0tux..nJMU0/hDxdIU3BYpGrATAG",
+    "name": "Tiad, Jenel",
+    "role": "it"
+  },
+  {
+    "id": "it-2",
+    "email": "wesleyhans.platil@deped.gov.ph",
+    "password": "$2b$12$nGYHE6anSnwuAUlf3/Qo2euWD0tux..nJMU0/hDxdIU3BYpGrATAG",
+    "name": "Platil, Wesley Hans H.",
+    "role": "it"
+  }
+]

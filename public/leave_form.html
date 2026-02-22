@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CS Form No. 6 - Application for Leave</title>
     <script src="/auth-interceptor.js"></script>
+    <script src="/utils.js"></script>
     <script src="/modal-alert.js"></script>
     <style>
         * {
@@ -2318,25 +2319,7 @@
         window.location.href = '/';
     }
 
-    // Get leave type display name
-    function getLeaveTypeName(type) {
-        const types = {
-            'leave_vl': 'Vacation Leave',
-            'leave_mfl': 'Mandatory/Force Leave',
-            'leave_sl': 'Sick Leave',
-            'leave_ml': 'Maternity Leave',
-            'leave_pl': 'Paternity Leave',
-            'leave_spl': 'Special Privilege Leave',
-            'leave_solo': 'Solo Parent Leave',
-            'leave_study': 'Study Leave',
-            'leave_vawc': '10-Day VAWC Leave',
-            'leave_rehab': 'Rehabilitation Privilege',
-            'leave_women': 'Special Leave Benefits for Women',
-            'leave_calamity': 'Special Emergency (Calamity) Leave',
-            'leave_adoption': 'Adoption Leave'
-        };
-        return types[type] || 'Leave';
-    }
+    // getLeaveTypeName() now provided by utils.js
 
     // Close modal when clicking outside of it
     window.addEventListener('click', function(event) {

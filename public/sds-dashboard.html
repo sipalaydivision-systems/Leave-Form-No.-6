@@ -7,6 +7,8 @@
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -429,67 +431,6 @@
             cursor: not-allowed;
         }
 
-        /* Alert Modal Styles */
-        .alert-modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-
-        .alert-modal-content {
-            background-color: #fff;
-            margin: 15% auto;
-            padding: 25px;
-            border: none;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 450px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-        }
-
-        .alert-modal-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 20px;
-            font-weight: bold;
-            color: #dc3545;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f8d7da;
-        }
-
-        .alert-modal-body {
-            font-size: 15px;
-            color: #333;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-
-        .alert-modal-footer {
-            display: flex;
-            justify-content: center;
-        }
-
-        .alert-modal-btn {
-            padding: 12px 40px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .alert-modal-btn:hover {
-            background-color: #c82333;
-        }
 
         .modal {
             display: none;
@@ -1244,6 +1185,7 @@
     <nav class="navbar">
         <h1>🏛️ Schools Division Superintendent Portal</h1>
         <div style="display:flex; gap:10px;">
+            <a href="leave-calendar.html" class="logout-btn" style="text-decoration:none; display:inline-flex; align-items:center;">📅 Calendar</a>
             <button class="logout-btn" onclick="showProfileModal()">⚙️ Profile</button>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -1549,21 +1491,7 @@
         </div>
     </div>
 
-    <!-- Alert Modal for Validation Errors -->
-    <div id="alertModal" class="alert-modal">
-        <div class="alert-modal-content">
-            <div class="alert-modal-header">
-                <span class="alert-icon">⚠️</span>
-                <span id="alertModalTitle">Required Fields Missing</span>
-            </div>
-            <div class="alert-modal-body" id="alertModalBody">
-                Please fill in all required fields.
-            </div>
-            <div class="alert-modal-footer">
-                <button class="alert-modal-btn" onclick="closeAlertModal()">OK</button>
-            </div>
-        </div>
-    </div>
+    <!-- Alert Modal now provided by modal-alert.js -->
 
     <script>
         let applications = [];
@@ -1587,25 +1515,7 @@
             }
         }
 
-        // Define getLeaveTypeLabel function early so it's available for all functions
-        function getLeaveTypeLabel(leaveType) {
-            const labels = {
-                'leave_vl': 'Vacation Leave',
-                'leave_sl': 'Sick Leave',
-                'leave_spl': 'Special Privilege',
-                'leave_ml': 'Maternity Leave',
-                'leave_pl': 'Paternity Leave',
-                'leave_mfl': 'Mandatory Leave',
-                'leave_solo': 'Solo Parent Leave',
-                'leave_study': 'Study Leave',
-                'leave_vawc': 'VAWC Leave',
-                'leave_rehab': 'Rehabilitation Leave',
-                'leave_women': 'Women Benefits',
-                'leave_calamity': 'Calamity Leave',
-                'leave_adoption': 'Adoption Leave'
-            };
-            return labels[leaveType] || leaveType || 'N/A';
-        }
+        // getLeaveTypeLabel() now provided by utils.js
 
         // Search and Filter Functions
         function setStatusFilter(status) {
@@ -2474,8 +2384,9 @@
                     .details-column:first-child { border-right: 1px solid #000; }
                     .column-header { font-weight: bold; font-size: 9px; margin-bottom: 3px; text-decoration: underline; }
                     .leave-option { display: flex; align-items: flex-start; margin-bottom: 0px; font-size: 10px; }
-                    .leave-option input { margin-right: 3px; margin-top: 2px; flex-shrink: 0; accent-color: #228B22; width: 13px; height: 13px; }
-                    .leave-option input[type="checkbox"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .leave-option input { margin-right: 3px; margin-top: 2px; flex-shrink: 0; accent-color: #000; width: 15px; height: 15px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .leave-option input[type="checkbox"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; accent-color: #000; }
+                    .printable-form input[type="checkbox"] { accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; width: 15px; height: 15px; }
                     .leave-option span { line-height: 1.2; }
                     .leave-option small { color: #444; font-size: 9px; }
                     .others-line { margin-top: 2px; margin-left: 0; }
@@ -2533,7 +2444,7 @@
                     <div class="letterhead">
                         <div class="letterhead-content">
                             <div class="letterhead-logo">
-                                <img src="/deped logo.png" alt="DepEd Logo">
+                                <img src="/deped%20logo.png" alt="DepEd Logo">
                             </div>
                             <div class="letterhead-text">
                                 <p style="font-style: italic;">Republic of the Philippines</p>
@@ -2859,6 +2770,9 @@
 
             const safeAppId2 = typeof appId === 'string' ? appId.replace(/'/g, "\\'") : appId;
             document.getElementById('modalFooter').innerHTML = `
+                <button class="btn" id="sdsBtnGeneratePdf" style="background: #1976D2;" onclick="generateSdsLeaveFormPDF()">📄 Generate PDF</button>
+                <button class="btn" id="sdsBtnDownloadPdf" style="background: #388E3C; display: none;" onclick="downloadSdsLeaveFormPDF()">⬇ Download</button>
+                <button class="btn" id="sdsBtnPrintPdf" style="background: #F57C00; display: none;" onclick="printSdsLeaveFormPDF()">🖨️ Print PDF</button>
                 <button class="btn" style="background: #666;" onclick="printLeaveForm()">🖨️ Print</button>
                 <button class="btn btn-reject" onclick="closeModal(); rejectApp('${safeAppId2}');">Reject</button>
                 <button class="btn" style="background: #f0ad4e; color: white;" onclick="closeModal(); returnApp('${safeAppId2}');">Return</button>
@@ -2931,6 +2845,115 @@
             }, 200);
         }
 
+        // ========== PDF GENERATION (jsPDF + html2canvas) — SDS Portal ==========
+        let sdsCurrentPdfUrl = null;
+        
+        async function generateSdsLeaveFormPDF() {
+            const formContainer = document.getElementById('printableFinalForm');
+            if (!formContainer) {
+                alert('No form content to generate PDF from. Please open the form details first.');
+                return;
+            }
+            
+            const btn = document.getElementById('sdsBtnGeneratePdf');
+            const origText = btn.textContent;
+            btn.textContent = '⏳ Generating...';
+            btn.disabled = true;
+            
+            try {
+                const element = document.getElementById('printableFinalForm');
+                
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    width: element.scrollWidth,
+                    height: element.scrollHeight
+                });
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 5;
+                const contentWidth = pageWidth - (margin * 2);
+                const imgAspectRatio = canvas.height / canvas.width;
+                const contentHeight = contentWidth * imgAspectRatio;
+                
+                if (contentHeight <= pageHeight - (margin * 2)) {
+                    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, contentHeight);
+                } else {
+                    const pageContentHeight = pageHeight - (margin * 2);
+                    const scaleFactor = contentWidth / canvas.width;
+                    const pixelsPerPage = pageContentHeight / scaleFactor;
+                    let yOffset = 0;
+                    let pageNum = 0;
+                    
+                    while (yOffset < canvas.height) {
+                        if (pageNum > 0) pdf.addPage();
+                        const sliceHeight = Math.min(pixelsPerPage, canvas.height - yOffset);
+                        const sliceCanvas = document.createElement('canvas');
+                        sliceCanvas.width = canvas.width;
+                        sliceCanvas.height = sliceHeight;
+                        const ctx = sliceCanvas.getContext('2d');
+                        ctx.drawImage(canvas, 0, yOffset, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+                        const sliceImgHeight = sliceHeight * scaleFactor;
+                        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, sliceImgHeight);
+                        yOffset += sliceHeight;
+                        pageNum++;
+                    }
+                }
+                
+                const pdfBase64 = pdf.output('datauristring');
+                
+                const saveRes = await fetch(`/api/save-leave-form-pdf/${currentAppId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pdfData: pdfBase64 })
+                });
+                const saveResult = await saveRes.json();
+                
+                if (saveResult.success) {
+                    sdsCurrentPdfUrl = saveResult.pdfUrl;
+                    document.getElementById('sdsBtnDownloadPdf').style.display = 'inline-block';
+                    document.getElementById('sdsBtnPrintPdf').style.display = 'inline-block';
+                    btn.textContent = '🔄 Regenerate PDF';
+                    alert('PDF generated and saved successfully!');
+                } else {
+                    alert('Error saving PDF: ' + saveResult.error);
+                    btn.textContent = origText;
+                }
+            } catch (error) {
+                console.error('[PDF] Error generating PDF:', error);
+                alert('Error generating PDF: ' + error.message);
+                btn.textContent = origText;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        
+        function downloadSdsLeaveFormPDF() {
+            if (!sdsCurrentPdfUrl) return;
+            const a = document.createElement('a');
+            a.href = sdsCurrentPdfUrl;
+            a.download = `${currentAppId}_leave-form.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        function printSdsLeaveFormPDF() {
+            if (!sdsCurrentPdfUrl) return;
+            const printWindow = window.open(sdsCurrentPdfUrl, '_blank');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    setTimeout(() => printWindow.print(), 500);
+                });
+            }
+        }
+
         function printLeaveForm() {
             const formContainer = document.getElementById('printableFinalForm');
             const styleContent = document.querySelector('#modalBody style')?.innerHTML || '';
@@ -2945,7 +2968,7 @@
                     imagePromises.push(new Promise((resolve) => {
                         const canvas = document.createElement('canvas');
                         const tempImg = new Image();
-                        tempImg.crossOrigin = 'anonymous';
+                        // Don't set crossOrigin for same-origin images to avoid CORS canvas taint
                         tempImg.onload = () => {
                             canvas.width = tempImg.naturalWidth;
                             canvas.height = tempImg.naturalHeight;
@@ -2967,6 +2990,7 @@
                 printWindow.document.write(`
                 <html>
                 <head>
+                    <base href="${window.location.origin}/">
                     <title>Leave Application</title>
                     <style>
                         ${styleContent}
@@ -3024,9 +3048,8 @@
                             -webkit-print-color-adjust: exact !important;
                             print-color-adjust: exact !important;
                             accent-color: #000 !important;
-                        }
-                        input[type="checkbox"]:checked {
-                            background-color: #000 !important;
+                            width: 15px;
+                            height: 15px;
                         }
                         @media print {
                             @page {
@@ -3043,7 +3066,6 @@
                                 -webkit-print-color-adjust: exact !important;
                                 print-color-adjust: exact !important;
                                 accent-color: #000 !important;
-                                filter: contrast(1.5);
                             }
                             .printable-form { 
                                 width: 100%;
@@ -3545,20 +3567,6 @@
         function getSdsSignatureData() {
             if (!sdsSignatureCanvas) return null;
             return sdsSignatureCanvas.toDataURL('image/png');
-        }
-
-        function showAlertModal(message, title = 'Required Fields Missing') {
-            const modal = document.getElementById('alertModal');
-            const titleEl = document.getElementById('alertModalTitle');
-            const bodyEl = document.getElementById('alertModalBody');
-
-            titleEl.textContent = title;
-            bodyEl.innerHTML = message;
-            modal.style.display = 'block';
-        }
-
-        function closeAlertModal() {
-            document.getElementById('alertModal').style.display = 'none';
         }
 
         async function submitSdsApproval(event) {

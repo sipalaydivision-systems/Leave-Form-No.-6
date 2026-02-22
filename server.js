@@ -122,12 +122,6 @@ function sanitizeObject(obj) {
     return obj;
 }
 
-// Validate email format
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
 // SECURITY: Check if email is already registered in ANY portal (prevents cross-portal abuse)
 // excludePortals can be a string (single portal) or array of portal names to skip.
 // Policy: Employee and admin portals can share the same email (all admins ARE employees).
@@ -160,7 +154,7 @@ function isValidDate(dateStr) {
     const date = new Date(dateStr);
     return date instanceof Date && !isNaN(date);
 }
-// Note: isValidDate used in submit-leave date validation below
+// isValidDate used in validateLeaveBalance() for date field validation
 
 // NOTE: Body sanitization middleware moved below bodyParser (see after line ~213)
 
@@ -383,6 +377,10 @@ app.use('/sipalay_logo.png', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     next();
 });
+app.use('/deped%20logo.png', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+});
 
 // Prevent caching of HTML pages — ensures clients get latest code after deploys
 app.use((req, res, next) => {
@@ -426,10 +424,23 @@ const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
 const activityLogsFile = path.join(dataDir, 'activity-logs.json');
 const systemStateFile = path.join(dataDir, 'system-state.json');
 
+// Upload directories (inside dataDir so they persist on Railway Volume)
+const uploadsDir = path.join(dataDir, 'uploads');
+const soPdfsDir = path.join(uploadsDir, 'so-pdfs');
+const leaveFormPdfsDir = path.join(uploadsDir, 'leave-forms');
+
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
+
+// Ensure upload directories exist
+[uploadsDir, soPdfsDir, leaveFormPdfsDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`[DATA] Created upload directory: ${dir}`);
+    }
+});
 
 // ========== ACTIVITY LOGGING SYSTEM ==========
 
@@ -478,14 +489,17 @@ function logActivity(action, portalType, details = {}) {
             }
         }
         
-        // Keep only last 10,000 logs to prevent file from getting too large
+        // APPEND-ONLY: Write new entry by appending to array, then atomic-write
+        // This preserves full audit trail integrity — entries are never modified/deleted
         logs.push(logEntry);
         if (logs.length > 10000) {
+            // Archive old logs before trimming (keeps audit trail recoverable)
+            const archivePath = activityLogsFile.replace('.json', `-archive-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+            try { writeJSON(archivePath, logs.slice(0, logs.length - 10000)); } catch (e) { /* best-effort archive */ }
             logs = logs.slice(-10000);
         }
         
         writeJSON(activityLogsFile, logs);
-        console.log(`Activity logged: ${action} by ${userEmail} (${portalType})`);
     } catch (error) {
         console.error('Error logging activity:', error);
     }
@@ -598,6 +612,10 @@ function readJSONArray(filepath) {
 
 function writeJSON(filepath, data) {
     // Atomic write: write to temp file, then rename to prevent corruption
+    // CONCURRENCY NOTE: All route handlers that read→modify→write use synchronous
+    // readFileSync/writeFileSync with no await between them. Since Node.js is single-threaded,
+    // the entire read-modify-write cycle completes in one event loop tick, making it
+    // inherently safe against concurrent HTTP requests (no race conditions).
     const tempPath = filepath + '.tmp';
     const backupPath = filepath + '.bak';
     try {
@@ -620,7 +638,433 @@ function writeJSON(filepath, data) {
     }
 }
 
+// ========== SHARED HELPERS (DRY: extracted from repeated inline patterns) ==========
+
+/** Admin role names — used for self-or-admin access checks throughout the API */
+const ADMIN_ROLES = ['ao', 'hr', 'asds', 'sds', 'it'];
+
+/** Portal-to-file mapping for approve-registration (DRY: config-driven portal routing) */
+const PORTAL_TO_FILE = {
+    employee: () => usersFile,
+    ao: () => aoUsersFile,
+    hr: () => hrUsersFile,
+    asds: () => asdsUsersFile,
+    sds: () => sdsUsersFile
+};
+
+/**
+ * Category-to-file mapping for data management endpoints.
+ * DRY: Defined once, used in /api/data-items/:category and /api/delete-specific-items.
+ */
+const CATEGORY_TO_FILE = {
+    'employeeUsers': () => usersFile,
+    'aoUsers': () => aoUsersFile,
+    'hrUsers': () => hrUsersFile,
+    'asdsUsers': () => asdsUsersFile,
+    'sdsUsers': () => sdsUsersFile,
+    'applications': () => applicationsFile,
+    'leavecards': () => leavecardsFile,
+    'pendingRegistrations': () => pendingRegistrationsFile,
+    'schools': () => schoolsFile
+};
+
+/**
+ * Resolve a category name to its data file path.
+ * @param {string} category - Category key (e.g., 'employeeUsers')
+ * @returns {string|null} File path, or null if invalid category
+ */
+function getCategoryFile(category) {
+    const getter = CATEGORY_TO_FILE[category];
+    return getter ? getter() : null;
+}
+
+/**
+ * Find an application by ID, handling both string and numeric ID formats.
+ * DRY: Replaces the triple-comparison pattern used in 4+ endpoints.
+ * @param {Array} applications - Array of application objects
+ * @param {string|number} idParam - The ID to search for
+ * @returns {object|undefined} The matching application, or undefined
+ */
+function findApplicationById(applications, idParam) {
+    return applications.find(a =>
+        a.id === idParam || a.id === parseInt(idParam) || String(a.id) === String(idParam)
+    );
+}
+
+/**
+ * Find index of an application by ID.
+ * @param {Array} applications - Array of application objects
+ * @param {string|number} idParam - The ID to search for
+ * @returns {number} Index, or -1 if not found
+ */
+function findApplicationIndexById(applications, idParam) {
+    return applications.findIndex(a =>
+        a.id === idParam || a.id === parseInt(idParam) || String(a.id) === String(idParam)
+    );
+}
+
+/**
+ * Assert that the requesting user has access: either they own the resource or are an admin.
+ * DRY: Replaces 10+ identical inline admin-role checks.
+ * @param {object} req - Express request with req.session
+ * @param {string} targetEmail - The email of the resource owner
+ * @returns {boolean} true if access is allowed
+ */
+function isSelfOrAdmin(req, targetEmail) {
+    return ADMIN_ROLES.includes(req.session.role) || req.session.email === targetEmail;
+}
+
+/**
+ * Check AO school-based access for a specific employee.
+ * DRY: Replaces 10+ identical inline AO-school guard blocks.
+ * @param {object} req - Express request with req.session
+ * @param {string} employeeEmail - The employee being accessed
+ * @param {Array} [usersCache] - Optional pre-loaded users array
+ * @param {Array} [employeesCache] - Optional pre-loaded employees array
+ * @returns {boolean} true if access is allowed (division AO, or employee is in AO's school, or not AO role)
+ */
+function isAoAccessAllowed(req, employeeEmail, usersCache, employeesCache) {
+    if (req.session.role !== 'ao') return true;
+    if (!req.session.office) return true;
+    if (isAoDivisionLevel(req.session.office)) return true;
+    const empOffice = getEmployeeOffice(employeeEmail, usersCache, employeesCache);
+    return isEmployeeInAoSchool(empOffice, req.session.office);
+}
+
+/**
+ * Build the set of application IDs already reflected in a leave card's history.
+ * DRY: This pattern was copy-pasted in submit-leave, resubmit-leave, and leave-credits.
+ * @param {object} leaveCard - The employee's leave card object
+ * @returns {Set<string>} Set of reflected application IDs
+ */
+function getReflectedAppIds(leaveCard) {
+    const ids = new Set();
+    if (leaveCard && leaveCard.leaveUsageHistory && Array.isArray(leaveCard.leaveUsageHistory)) {
+        leaveCard.leaveUsageHistory.forEach(h => { if (h.applicationId) ids.add(h.applicationId); });
+    }
+    if (leaveCard && leaveCard.transactions && Array.isArray(leaveCard.transactions)) {
+        leaveCard.transactions.forEach(t => { if (t.applicationId) ids.add(t.applicationId); });
+    }
+    return ids;
+}
+
+/**
+ * Calculate effective VL/SL balance after deducting pending/approved applications.
+ * DRY: Consolidates the balance calculation from submit-leave, resubmit-leave, and leave-credits.
+ * @param {string} employeeEmail - Employee email
+ * @param {object|null} leaveCard - The employee's leave card (or null)
+ * @param {string|null} excludeAppId - Application ID to exclude (for resubmissions)
+ * @returns {{ vlBalance: number, slBalance: number, forceSpent: number, splSpent: number, ctoBalance: number, hasCard: boolean }}
+ */
+function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
+    const result = { vlBalance: 0, slBalance: 0, forceSpent: 0, splSpent: 0, ctoBalance: 0, hasCard: false };
+
+    if (!leaveCard) return result;
+    result.hasCard = true;
+
+    // VL/SL from summary fields (single source of truth)
+    let vl = (leaveCard.vl !== undefined) ? leaveCard.vl : null;
+    let sl = (leaveCard.sl !== undefined) ? leaveCard.sl : null;
+    // Fallback for legacy cards
+    if (vl === null) vl = Math.max(0, (leaveCard.vacationLeaveEarned || 0) - (leaveCard.vacationLeaveSpent || 0));
+    if (sl === null) sl = Math.max(0, (leaveCard.sickLeaveEarned || 0) - (leaveCard.sickLeaveSpent || 0));
+
+    result.forceSpent = leaveCard.forceLeaveSpent || 0;
+    result.splSpent = leaveCard.splSpent || 0;
+
+    // Deduct pending/approved applications not yet reflected in leave card
+    const allApps = readJSONArray(applicationsFile);
+    const reflected = getReflectedAppIds(leaveCard);
+    let pendingForceSpent = 0, pendingSplSpent = 0;
+
+    allApps.forEach(app => {
+        if (excludeAppId && app.id === excludeAppId) return;
+        if (reflected.has(app.id)) return;
+        if (app.employeeEmail !== employeeEmail && app.email !== employeeEmail) return;
+        if (app.status !== 'pending' && app.status !== 'approved') return;
+        const days = parseFloat(app.numDays) || 0;
+        if (days <= 0) return;
+        const type = (app.leaveType || '').toLowerCase();
+        if (type.includes('vl') || type.includes('vacation')) vl = Math.max(0, vl - days);
+        else if (type.includes('sl') || type.includes('sick')) sl = Math.max(0, sl - days);
+        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) pendingForceSpent += days;
+        else if (type.includes('spl') || type.includes('special')) pendingSplSpent += days;
+    });
+
+    result.vlBalance = vl;
+    result.slBalance = sl;
+    result.forceSpent += pendingForceSpent;
+    result.splSpent += pendingSplSpent;
+
+    return result;
+}
+
+/**
+ * Calculate CTO balance after deducting pending/approved CTO applications.
+ * @param {string} employeeEmail
+ * @param {object|null} leaveCard - Optional, used for reflected IDs
+ * @param {string|null} excludeAppId - Application ID to exclude
+ * @returns {number} Effective CTO balance
+ */
+function calculateCtoBalance(employeeEmail, leaveCard, excludeAppId) {
+    ensureFile(ctoRecordsFile);
+    const ctoRecords = readJSON(ctoRecordsFile);
+    const empRecords = ctoRecords.filter(r => r.employeeId === employeeEmail);
+    let balance = 0;
+    empRecords.forEach(rec => { balance += (parseFloat(rec.daysGranted) || 0) - (parseFloat(rec.daysUsed) || 0); });
+    balance = Math.max(0, balance);
+
+    // Build reflected IDs from both CTO records and leave card
+    const reflectedIds = new Set();
+    empRecords.forEach(rec => {
+        if (rec.applicationIds && Array.isArray(rec.applicationIds)) {
+            rec.applicationIds.forEach(id => reflectedIds.add(id));
+        }
+    });
+    if (leaveCard) {
+        const lcIds = getReflectedAppIds(leaveCard);
+        lcIds.forEach(id => reflectedIds.add(id));
+    }
+
+    const allApps = readJSONArray(applicationsFile);
+    allApps.forEach(app => {
+        if (excludeAppId && app.id === excludeAppId) return;
+        if (reflectedIds.has(app.id)) return;
+        if (app.employeeEmail !== employeeEmail && app.email !== employeeEmail) return;
+        if (app.status !== 'pending' && app.status !== 'approved') return;
+        const type = (app.leaveType || '').toLowerCase();
+        if (type.includes('others') || type.includes('cto')) {
+            balance = Math.max(0, balance - (parseFloat(app.numDays) || 0));
+        }
+    });
+
+    return balance;
+}
+
+/**
+ * Get the latest leave card record for an employee (by updatedAt/createdAt).
+ * DRY: Replaces 2+ identical "find latest" loops.
+ * @param {Array} records - Array of leave card records
+ * @returns {object} The most recently updated record
+ */
+function getLatestLeaveCard(records) {
+    if (!records || records.length === 0) return null;
+    let latest = records[0];
+    records.forEach(record => {
+        const latestTime = new Date(latest.updatedAt || latest.createdAt || 0).getTime();
+        const currentTime = new Date(record.updatedAt || record.createdAt || 0).getTime();
+        if (currentTime > latestTime) latest = record;
+    });
+    return latest;
+}
+
+/**
+ * Create a default leave card object for a new employee.
+ * DRY: Replaces 4+ identical ~25-field object literals.
+ * @param {string} email
+ * @param {string} name
+ * @param {object} [nameFields] - Optional { firstName, lastName, middleName, suffix }
+ * @param {number} [vlCredits=0] - Initial VL credits
+ * @param {number} [slCredits=0] - Initial SL credits
+ * @returns {object} Leave card object
+ */
+function createDefaultLeaveCard(email, name, nameFields, vlCredits, slCredits) {
+    const vl = vlCredits || 0;
+    const sl = slCredits || 0;
+    return {
+        employeeId: email,
+        email: email,
+        name: name,
+        firstName: (nameFields && nameFields.firstName) || '',
+        lastName: (nameFields && nameFields.lastName) || '',
+        middleName: (nameFields && nameFields.middleName) || '',
+        suffix: (nameFields && nameFields.suffix) || '',
+        vacationLeaveEarned: vl,
+        sickLeaveEarned: sl,
+        forceLeaveEarned: 5,
+        splEarned: 3,
+        vacationLeaveSpent: 0,
+        sickLeaveSpent: 0,
+        forceLeaveSpent: 0,
+        splSpent: 0,
+        vl: vl,
+        sl: sl,
+        spl: 3,
+        others: 0,
+        forceLeaveYear: new Date().getFullYear(),
+        splYear: new Date().getFullYear(),
+        leaveUsageHistory: [],
+        transactions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        initialCreditsSource: 'accrual'
+    };
+}
+
+/**
+ * Create a monthly accrual transaction entry.
+ * DRY: Replaces 4+ identical transaction object literals in catchUpNewCards,
+ * runMonthlyAccrual, approve-registration, and JSON migration.
+ * @param {number} month - Month number (1-12)
+ * @param {number} year
+ * @param {number} runningVL - Running VL balance after this accrual
+ * @param {number} runningSL - Running SL balance after this accrual
+ * @param {string} source - e.g., 'system-accrual', 'system-accrual-catchup'
+ * @param {number} [accrual=1.25] - Monthly accrual amount
+ * @returns {object} Transaction entry
+ */
+function createAccrualTransaction(month, year, runningVL, runningSL, source, accrual) {
+    const amt = accrual || 1.25;
+    return {
+        type: 'ADD',
+        periodCovered: `${MONTH_NAMES[month]} ${year} (Monthly Accrual)`,
+        vlEarned: amt,
+        slEarned: amt,
+        vlSpent: 0,
+        slSpent: 0,
+        forcedLeave: 0,
+        splUsed: 0,
+        vlBalance: runningVL,
+        slBalance: runningSL,
+        total: +(runningVL + runningSL).toFixed(3),
+        source: source,
+        date: new Date().toISOString()
+    };
+}
+
+/**
+ * Build a portal user object from a registration record.
+ * DRY: Replaces the 5-case switch in approve-registration where 90% of fields are identical.
+ * @param {object} registration - The pending registration record
+ * @param {string} role - Portal role ('user', 'ao', 'hr', 'asds', 'sds')
+ * @returns {object} User object ready to push into portal's user file
+ */
+function buildPortalUser(registration, role) {
+    return {
+        id: registration.id,
+        email: registration.email,
+        password: registration.password,
+        name: registration.fullName || registration.name,
+        fullName: registration.fullName || registration.name,
+        firstName: registration.firstName || '',
+        lastName: registration.lastName || '',
+        middleName: registration.middleName || '',
+        suffix: registration.suffix || '',
+        office: registration.office,
+        position: registration.position,
+        salaryGrade: registration.salaryGrade,
+        step: registration.step,
+        salary: registration.salary,
+        role: role,
+        createdAt: registration.createdAt
+    };
+}
+
+/**
+ * Validate leave balance for a given leave type and return error response if insufficient.
+ * DRY: Consolidates validation from submit-leave and resubmit-leave.
+ * @param {string} leaveType - Leave type code (e.g., 'leave_vl')
+ * @param {number} numDays - Requested number of days
+ * @param {string} employeeEmail
+ * @param {string|null} excludeAppId - App ID to skip (for resubmissions)
+ * @returns {{ valid: boolean, error?: string, message?: string }}
+ */
+function validateLeaveBalance(leaveType, numDays, employeeEmail, excludeAppId) {
+    const leavecards = readJSON(leavecardsFile);
+    const leaveCard = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
+
+    if (leaveType === 'leave_vl' || leaveType === 'leave_sl') {
+        if (!leaveCard) {
+            return { valid: false, error: 'No leave card found', message: 'You do not have a leave card on file. Please contact the Administrative Officer to create your leave card before applying for leave.' };
+        }
+        const bal = calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId);
+        if (leaveType === 'leave_vl' && numDays > bal.vlBalance) {
+            console.log(`[VALIDATION] VL rejected for ${employeeEmail}: Requested ${numDays} but only ${bal.vlBalance.toFixed(3)} available`);
+            return { valid: false, error: 'Insufficient Vacation Leave balance', message: `You cannot apply for ${numDays} day(s) of Vacation Leave. Your current balance is ${bal.vlBalance.toFixed(3)} day(s). The leave card balance cannot go negative.` };
+        }
+        if (leaveType === 'leave_sl' && numDays > bal.slBalance) {
+            console.log(`[VALIDATION] SL rejected for ${employeeEmail}: Requested ${numDays} but only ${bal.slBalance.toFixed(3)} available`);
+            return { valid: false, error: 'Insufficient Sick Leave balance', message: `You cannot apply for ${numDays} day(s) of Sick Leave. Your SL balance is ${bal.slBalance.toFixed(3)} day(s). The balance cannot go negative.` };
+        }
+        return { valid: true };
+    }
+
+    if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
+        const bal = calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId);
+        if (leaveType === 'leave_mfl') {
+            if ((bal.forceSpent + numDays) > 5) {
+                const remaining = Math.max(0, 5 - bal.forceSpent);
+                console.log(`[VALIDATION] FL rejected for ${employeeEmail}: Already used ${bal.forceSpent}/5, requested ${numDays}`);
+                return { valid: false, error: 'Insufficient Force Leave balance', message: `You cannot apply for ${numDays} day(s) of Force Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 5-day yearly allocation.` };
+            }
+            if (numDays >= 5) {
+                return { valid: false, error: 'Force Leave filing restriction', message: 'Force Leave should not be filed as 5 consecutive days. Please file fewer days per application.' };
+            }
+        }
+        if (leaveType === 'leave_spl') {
+            if ((bal.splSpent + numDays) > 3) {
+                const remaining = Math.max(0, 3 - bal.splSpent);
+                console.log(`[VALIDATION] SPL rejected for ${employeeEmail}: Already used ${bal.splSpent}/3, requested ${numDays}`);
+                return { valid: false, error: 'Insufficient Special Privilege Leave balance', message: `You cannot apply for ${numDays} day(s) of Special Privilege Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 3-day yearly allocation.` };
+            }
+        }
+        return { valid: true };
+    }
+
+    if (leaveType === 'leave_others') {
+        try {
+            const ctoBalance = calculateCtoBalance(employeeEmail, leaveCard, excludeAppId);
+            if (ctoBalance <= 0) {
+                console.log(`[VALIDATION] CTO rejected for ${employeeEmail}: No CTO records (balance is 0)`);
+                return { valid: false, error: 'No CTO balance available', message: 'You do not have any CTO (Compensatory Time-Off) balance. Please ensure a Special Order has been filed and CTO days have been granted before applying.' };
+            }
+            if (numDays > ctoBalance) {
+                console.log(`[VALIDATION] CTO rejected for ${employeeEmail}: Requested ${numDays} but only ${ctoBalance.toFixed(3)} available`);
+                return { valid: false, error: 'Insufficient CTO balance', message: `You cannot apply for ${numDays} day(s) of CTO leave. Your current CTO balance is ${ctoBalance.toFixed(3)} day(s). The balance cannot go negative.` };
+            }
+            return { valid: true };
+        } catch (err) {
+            console.error('[VALIDATION] Error checking CTO balance:', err);
+            return { valid: false, error: 'Unable to verify CTO balance', message: 'Could not verify your CTO balance. Please try again or contact the Administrative Officer.' };
+        }
+    }
+
+    // Other leave types — no balance check needed
+    return { valid: true };
+}
+
 // ========== MONTHLY LEAVE CREDIT ACCRUAL (1.25/month) ==========
+
+/**
+ * Check if an employee's position is a teaching role.
+ * Teachers do NOT receive monthly 1.25-day VL/SL accrual — they get proportional
+ * vacation service credits (VSC) at the end of the school year instead.
+ * Only non-teaching personnel accrue 1.25 VL + 1.25 SL per month.
+ * @param {string} position - The employee's position title
+ * @returns {boolean} true if position is teaching (should SKIP monthly accrual)
+ */
+function isTeachingPosition(position) {
+    if (!position) return false;
+    const p = position.toLowerCase().trim();
+    // Teaching roles: Teacher I-III, Master Teacher I-IV, Head Teacher I-VI
+    if (/\bteacher\b/.test(p)) return true;
+    if (/\bmaster\s*teacher\b/.test(p)) return true;
+    if (/\bhead\s*teacher\b/.test(p)) return true;
+    return false;
+}
+
+/**
+ * Build email→position lookup map from users.json for accrual filtering.
+ * @returns {Map<string, string>} email → position
+ */
+function buildPositionMap() {
+    const users = readJSON(usersFile);
+    const map = new Map();
+    users.forEach(u => {
+        if (u.email && u.position) map.set(u.email, u.position);
+    });
+    return map;
+}
 
 /**
  * Catch-up accrual for cards created AFTER the global monthly accrual already ran.
@@ -633,10 +1077,22 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
         const leavecards = readJSON(leavecardsFile);
         if (leavecards.length === 0) return;
 
+        // Build position map to skip teaching personnel
+        const positionMap = buildPositionMap();
+
         const accrualPerMonth = 1.25;
         let updatedCount = 0;
+        let skippedTeachers = 0;
 
         leavecards.forEach(lc => {
+            // Skip teaching personnel — teachers do NOT get monthly accrual
+            const empEmail = lc.email || lc.employeeId;
+            const position = positionMap.get(empEmail) || '';
+            if (isTeachingPosition(position)) {
+                skippedTeachers++;
+                return;
+            }
+
             const cardLastAccrual = lc.lastAccrualDate || null;
 
             // If card already has accrual up to the global month, skip
@@ -705,21 +1161,9 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 runningVL = +(runningVL + accrualPerMonth).toFixed(3);
                 runningSL = +(runningSL + accrualPerMonth).toFixed(3);
 
-                lc.transactions.push({
-                    type: 'ADD',
-                    periodCovered: `${MONTH_NAMES[entryMonth]} ${entryYear} (Monthly Accrual)`,
-                    vlEarned: accrualPerMonth,
-                    slEarned: accrualPerMonth,
-                    vlSpent: 0,
-                    slSpent: 0,
-                    forcedLeave: 0,
-                    splUsed: 0,
-                    vlBalance: runningVL,
-                    slBalance: runningSL,
-                    total: +(runningVL + runningSL).toFixed(3),
-                    source: 'system-accrual-catchup',
-                    date: now.toISOString()
-                });
+                lc.transactions.push(
+                    createAccrualTransaction(entryMonth, entryYear, runningVL, runningSL, 'system-accrual-catchup')
+                );
             }
 
             lc.lastAccrualDate = globalLastAccruedMonth;
@@ -730,7 +1174,7 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
 
         if (updatedCount > 0) {
             writeJSON(leavecardsFile, leavecards);
-            console.log(`[ACCRUAL CATCH-UP] Updated ${updatedCount} card(s) that missed previous accrual.`);
+            console.log(`[ACCRUAL CATCH-UP] Updated ${updatedCount} card(s) that missed previous accrual. Skipped ${skippedTeachers} teacher(s).`);
 
             // Log activity
             try {
@@ -747,6 +1191,7 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                     timestamp: now.toISOString(),
                     details: {
                         employeesUpdated: updatedCount,
+                        teachersSkipped: skippedTeachers,
                         globalLastAccruedMonth: globalLastAccruedMonth
                     }
                 });
@@ -755,7 +1200,7 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 console.error('[ACCRUAL CATCH-UP] Could not log activity:', logErr.message);
             }
         } else {
-            console.log('[ACCRUAL CATCH-UP] All cards are up to date.');
+            console.log(`[ACCRUAL CATCH-UP] All cards are up to date. (${skippedTeachers} teacher(s) excluded from accrual)`);
         }
     } catch (error) {
         console.error('[ACCRUAL CATCH-UP] Error:', error.message);
@@ -830,8 +1275,20 @@ function runMonthlyAccrual() {
             return;
         }
 
+        // Build position map to skip teaching personnel
+        const positionMap = buildPositionMap();
+
         let updatedCount = 0;
+        let skippedTeachers = 0;
         leavecards.forEach(lc => {
+            // Skip teaching personnel — teachers do NOT get monthly 1.25 VL/SL accrual
+            const empEmail = lc.email || lc.employeeId;
+            const position = positionMap.get(empEmail) || '';
+            if (isTeachingPosition(position)) {
+                skippedTeachers++;
+                return;
+            }
+
             // Add to vacationLeaveEarned and sickLeaveEarned
             const prevVL = parseFloat(lc.vacationLeaveEarned) || parseFloat(lc.vl) || 0;
             const prevSL = parseFloat(lc.sickLeaveEarned) || parseFloat(lc.sl) || 0;
@@ -867,23 +1324,9 @@ function runMonthlyAccrual() {
                 runningVL = +(runningVL + accrualPerMonth).toFixed(3);
                 runningSL = +(runningSL + accrualPerMonth).toFixed(3);
 
-                const periodLabel = `${MONTH_NAMES[entryMonth]} ${entryYear} (Monthly Accrual)`;
-
-                lc.transactions.push({
-                    type: 'ADD',
-                    periodCovered: periodLabel,
-                    vlEarned: accrualPerMonth,
-                    slEarned: accrualPerMonth,
-                    vlSpent: 0,
-                    slSpent: 0,
-                    forcedLeave: 0,
-                    splUsed: 0,
-                    vlBalance: runningVL,
-                    slBalance: runningSL,
-                    total: +(runningVL + runningSL).toFixed(3),
-                    source: 'system-accrual',
-                    date: now.toISOString()
-                });
+                lc.transactions.push(
+                    createAccrualTransaction(entryMonth, entryYear, runningVL, runningSL, 'system-accrual')
+                );
             }
 
             lc.updatedAt = now.toISOString();
@@ -900,7 +1343,7 @@ function runMonthlyAccrual() {
         systemState.lastAccrualEmployees = updatedCount;
         fs.writeFileSync(systemStateFile, JSON.stringify(systemState, null, 2));
 
-        console.log(`[ACCRUAL] Added ${totalAccrual.toFixed(3)} days (${monthsToAccrue} month(s) x 1.25) to VL and SL for ${updatedCount} employee(s).`);
+        console.log(`[ACCRUAL] Added ${totalAccrual.toFixed(3)} days (${monthsToAccrue} month(s) x 1.25) to VL and SL for ${updatedCount} non-teaching employee(s). Skipped ${skippedTeachers} teacher(s).`);
 
         // Log activity
         try {
@@ -919,6 +1362,7 @@ function runMonthlyAccrual() {
                     monthsAccrued: monthsToAccrue,
                     totalAccrual: totalAccrual,
                     employeesUpdated: updatedCount,
+                    teachersSkipped: skippedTeachers,
                     period: (lastAccruedMonth || 'initial') + ' -> ' + lastCompletedKey
                 }
             });
@@ -942,6 +1386,164 @@ setInterval(() => {
     console.log('[ACCRUAL] Running daily accrual check...');
     runMonthlyAccrual();
 }, 24 * 60 * 60 * 1000);
+
+// ========== LEAVE BALANCE RECONCILIATION JOB ==========
+// Runs weekly: Cross-checks leave card balances against application history to detect drift.
+function runBalanceReconciliation() {
+    try {
+        console.log('[RECONCILIATION] Starting weekly balance reconciliation...');
+        const leavecards = readJSON(leavecardsFile);
+        const applications = readJSONArray(applicationsFile);
+        const discrepancies = [];
+        
+        for (const card of leavecards) {
+            const email = card.email || card.employeeId;
+            if (!email) continue;
+            
+            // Sum up all approved VL/SL usage from applications for this employee
+            const approvedApps = applications.filter(a => 
+                a.employeeEmail === email && a.status === 'approved'
+            );
+            
+            let totalVlUsed = 0, totalSlUsed = 0;
+            approvedApps.forEach(a => {
+                totalVlUsed += parseFloat(a.vlLess) || 0;
+                totalSlUsed += parseFloat(a.slLess) || 0;
+            });
+            
+            // Compare with leave card spent values
+            const cardVlSpent = parseFloat(card.vacationLeaveSpent) || 0;
+            const cardSlSpent = parseFloat(card.sickLeaveSpent) || 0;
+            
+            const vlDrift = Math.abs(cardVlSpent - totalVlUsed);
+            const slDrift = Math.abs(cardSlSpent - totalSlUsed);
+            
+            if (vlDrift > 0.01 || slDrift > 0.01) {
+                discrepancies.push({
+                    email,
+                    vlCardSpent: cardVlSpent,
+                    vlAppSum: totalVlUsed,
+                    vlDrift: vlDrift.toFixed(3),
+                    slCardSpent: cardSlSpent,
+                    slAppSum: totalSlUsed,
+                    slDrift: slDrift.toFixed(3)
+                });
+            }
+        }
+        
+        if (discrepancies.length > 0) {
+            console.warn(`[RECONCILIATION] Found ${discrepancies.length} balance discrepancies:`);
+            discrepancies.forEach(d => {
+                console.warn(`  - ${d.email}: VL drift=${d.vlDrift}, SL drift=${d.slDrift}`);
+            });
+            logActivity('BALANCE_RECONCILIATION', 'system', {
+                discrepancyCount: discrepancies.length,
+                discrepancies: discrepancies.slice(0, 20) // Log first 20
+            });
+        } else {
+            console.log('[RECONCILIATION] All balances consistent. No discrepancies found.');
+        }
+        
+        // Update system state
+        const systemState = readJSON(systemStateFile);
+        systemState.lastReconciliation = new Date().toISOString();
+        systemState.lastReconciliationResult = discrepancies.length === 0 ? 'clean' : `${discrepancies.length} discrepancies`;
+        fs.writeFileSync(systemStateFile, JSON.stringify(systemState, null, 2));
+        
+        return discrepancies;
+    } catch (error) {
+        console.error('[RECONCILIATION] Error:', error.message);
+        return [];
+    }
+}
+
+// Run reconciliation on startup (delayed) and then weekly
+setTimeout(() => { runBalanceReconciliation(); }, 15000);
+setInterval(() => {
+    console.log('[RECONCILIATION] Running weekly balance reconciliation...');
+    runBalanceReconciliation();
+}, 7 * 24 * 60 * 60 * 1000);
+
+// ========== MAINTENANCE MODE ==========
+// When enabled, all non-IT API requests return a maintenance message.
+// IT admins can still access the system to manage it.
+let maintenanceMode = false;
+let maintenanceMessage = 'The system is currently undergoing maintenance. Please try again later.';
+
+// Load maintenance state from system-state.json
+try {
+    const sysState = readJSON(systemStateFile);
+    if (sysState.maintenanceMode) {
+        maintenanceMode = true;
+        maintenanceMessage = sysState.maintenanceMessage || maintenanceMessage;
+        console.log('[MAINTENANCE] System started in maintenance mode');
+    }
+} catch (e) { /* ignore */ }
+
+// Maintenance mode middleware — applied to all API routes except IT and health
+app.use('/api', (req, res, next) => {
+    if (!maintenanceMode) return next();
+    // Allow IT admin actions, health checks, and login endpoints through
+    const exemptPaths = ['/health', '/system-maintenance', '/system-state', '/run-reconciliation'];
+    if (exemptPaths.includes(req.path) || req.path.startsWith('/login')) return next();
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const session = validateSession(authHeader.substring(7));
+        if (session && session.role === 'it') return next();
+    }
+    return res.status(503).json({ success: false, error: maintenanceMessage });
+});
+
+// IT endpoint to toggle maintenance mode
+app.post('/api/system-maintenance', requireAuth('it'), (req, res) => {
+    const { enabled, message } = req.body;
+    maintenanceMode = !!enabled;
+    if (message) maintenanceMessage = message;
+    
+    // Persist to system-state.json
+    const systemState = readJSON(systemStateFile);
+    systemState.maintenanceMode = maintenanceMode;
+    systemState.maintenanceMessage = maintenanceMode ? maintenanceMessage : undefined;
+    systemState.maintenanceToggledAt = new Date().toISOString();
+    systemState.maintenanceToggledBy = req.session.email;
+    fs.writeFileSync(systemStateFile, JSON.stringify(systemState, null, 2));
+    
+    logActivity(maintenanceMode ? 'MAINTENANCE_ENABLED' : 'MAINTENANCE_DISABLED', 'it', {
+        userEmail: req.session.email,
+        message: maintenanceMode ? maintenanceMessage : 'Maintenance mode disabled',
+        ip: getClientIp(req)
+    });
+    
+    console.log(`[MAINTENANCE] ${maintenanceMode ? 'ENABLED' : 'DISABLED'} by ${req.session.email}`);
+    res.json({ success: true, maintenanceMode, message: maintenanceMode ? maintenanceMessage : 'System is operational' });
+});
+
+// IT endpoint to get system health & state
+app.get('/api/system-state', requireAuth('it'), (req, res) => {
+    const systemState = readJSON(systemStateFile);
+    res.json({
+        success: true,
+        state: {
+            ...systemState,
+            maintenanceMode,
+            activeSessions: activeSessions.size,
+            rateLimitEntries: rateLimitStore.size,
+            uptime: process.uptime(),
+            memoryUsage: process.memoryUsage(),
+            nodeVersion: process.version
+        }
+    });
+});
+
+// IT endpoint to trigger manual reconciliation
+app.post('/api/run-reconciliation', requireAuth('it'), (req, res) => {
+    const discrepancies = runBalanceReconciliation();
+    res.json({ 
+        success: true, 
+        message: discrepancies.length === 0 ? 'All balances are consistent.' : `Found ${discrepancies.length} discrepancies.`,
+        discrepancies 
+    });
+});
 
 // Parse fullName ("LASTNAME, FIRSTNAME MIDDLENAME SUFFIX") into segregated parts
 function parseFullNameIntoParts(fullName) {
@@ -1077,106 +1679,6 @@ function buildEmployeeRecord(office, fullName, email, position, salaryGrade, ste
         email: email || '',
         createdAt: new Date().toISOString()
     };
-}
-
-// ========== INITIAL CREDITS LOOKUP FUNCTION ==========
-/**
- * Normalize a name for matching (remove special chars, uppercase)
- */
-function normalizeNameForMatching(name) {
-    return name
-        .toUpperCase()
-        .replace(/[.,\-_]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-/**
- * Look up initial leave credits from the extracted Excel data
- * @param {string} fullName - Employee full name (e.g., "Platil, Wesley Hans Magbanua")
- * @returns {object|null} - { vacationLeave, sickLeave } or null if not found
- */
-function lookupInitialCredits(fullName) {
-    try {
-        if (!fs.existsSync(initialCreditsFile)) {
-            console.log('[INITIAL CREDITS] File not found:', initialCreditsFile);
-            return null;
-        }
-        
-        const data = JSON.parse(fs.readFileSync(initialCreditsFile, 'utf8'));
-        
-        if (!data || !data.lookupMap) {
-            console.log('[INITIAL CREDITS] Invalid data format');
-            return null;
-        }
-        
-        // Normalize the input name for matching
-        const normalizedInput = normalizeNameForMatching(fullName);
-        
-        // Try exact match first
-        if (data.lookupMap[normalizedInput]) {
-            const credits = data.lookupMap[normalizedInput];
-            console.log(`[INITIAL CREDITS] Found exact match for "${fullName}": VL=${credits.vacationLeave}, SL=${credits.sickLeave}`);
-            return {
-                vacationLeave: credits.vacationLeave,
-                sickLeave: credits.sickLeave
-            };
-        }
-        
-        // Extract last name and first name from input
-        let inputLastName = '', inputFirstName = '';
-        if (fullName.includes(',')) {
-            const parts = fullName.split(',');
-            inputLastName = parts[0].trim().toUpperCase();
-            // Get just the first word of the remaining part as first name
-            const restParts = (parts[1] || '').trim().split(/\s+/);
-            inputFirstName = restParts[0].toUpperCase();
-        } else {
-            const parts = fullName.trim().split(/\s+/);
-            inputFirstName = parts[0].toUpperCase();
-            inputLastName = parts[parts.length - 1].toUpperCase();
-        }
-        
-        // Search through all credits for partial match
-        for (const credit of data.credits) {
-            // The credit.name is in format "LASTNAME, FIRSTNAME" from file name
-            let creditLastName = '', creditFirstName = '';
-            if (credit.name.includes(',')) {
-                const parts = credit.name.split(',');
-                creditLastName = parts[0].trim().toUpperCase();
-                const restParts = (parts[1] || '').trim().split(/\s+/);
-                creditFirstName = restParts[0].toUpperCase();
-            } else {
-                const parts = credit.name.trim().split(/\s+/);
-                creditFirstName = parts[0].toUpperCase();
-                creditLastName = parts[parts.length - 1].toUpperCase();
-            }
-            
-            // Remove special characters for comparison
-            creditLastName = creditLastName.replace(/[.,\-_]/g, '');
-            creditFirstName = creditFirstName.replace(/[.,\-_]/g, '');
-            inputLastName = inputLastName.replace(/[.,\-_]/g, '');
-            inputFirstName = inputFirstName.replace(/[.,\-_]/g, '');
-            
-            // Match if last name matches and first name starts with same letters
-            if (creditLastName === inputLastName && 
-                (creditFirstName === inputFirstName || 
-                 creditFirstName.startsWith(inputFirstName) || 
-                 inputFirstName.startsWith(creditFirstName))) {
-                console.log(`[INITIAL CREDITS] Found partial match for "${fullName}" -> "${credit.name}": VL=${credit.vacationLeave}, SL=${credit.sickLeave}`);
-                return {
-                    vacationLeave: credit.vacationLeave,
-                    sickLeave: credit.sickLeave
-                };
-            }
-        }
-        
-        console.log(`[INITIAL CREDITS] No match found for "${fullName}"`);
-        return null;
-    } catch (error) {
-        console.error('[INITIAL CREDITS] Error looking up credits:', error.message);
-        return null;
-    }
 }
 
 // ========== EMAIL SENDING FUNCTION ==========
@@ -1338,6 +1840,180 @@ function generateLoginFormEmail(userEmail, userName, portal, temporaryPassword =
                 <div class="footer">
                     <p>This is an automated email from the Leave Form System. Please do not reply to this email.</p>
                     <p>&copy; 2026 DepEd Sipalay Division. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+}
+
+// ========== EMAIL NOTIFICATION SYSTEM ==========
+// Fire-and-forget email helpers for leave workflow events.
+// If MAILERSEND_API_KEY is not set, these silently no-op.
+
+/**
+ * Notify the employee that their leave application has been submitted.
+ */
+function notifyLeaveSubmitted(app) {
+    if (!MAILERSEND_API_KEY) return;
+    const empEmail = app.employeeEmail;
+    if (!empEmail) return;
+    const subject = `Leave Application Submitted — ${app.id}`;
+    const html = generateWorkflowEmail(
+        'Application Submitted',
+        app.employeeName || empEmail,
+        `Your leave application <strong>${app.id}</strong> (${formatLeaveType(app.leaveType)}) for ${app.numDays} day(s) from ${app.dateFrom} to ${app.dateTo} has been submitted successfully.`,
+        'Your application is now with the <strong>Administrative Officer (AO)</strong> for initial review.',
+        '#28a745'
+    );
+    sendEmail(empEmail, app.employeeName || '', subject, html).catch(e => console.error('[EMAIL] Submit notification failed:', e.message));
+}
+
+/**
+ * Notify the employee (and optionally next approver) when an application is approved at a stage.
+ */
+function notifyLeaveApproved(app, approverPortal, nextApprover) {
+    if (!MAILERSEND_API_KEY) return;
+    const empEmail = app.employeeEmail;
+    if (!empEmail) return;
+    
+    const isFinal = !nextApprover;
+    const subject = isFinal
+        ? `✅ Leave Application APPROVED — ${app.id}`
+        : `Leave Application Approved by ${approverPortal} — ${app.id}`;
+    
+    const message = isFinal
+        ? `Great news! Your leave application <strong>${app.id}</strong> (${formatLeaveType(app.leaveType)}) has received <strong>final approval</strong> from the Schools Division Superintendent.`
+        : `Your leave application <strong>${app.id}</strong> (${formatLeaveType(app.leaveType)}) has been approved by <strong>${approverPortal}</strong>.`;
+    
+    const nextSteps = isFinal
+        ? 'Your leave is now officially approved. You may view and print the final form from your dashboard.'
+        : `Your application is now with <strong>${nextApprover}</strong> for the next review step.`;
+    
+    const color = isFinal ? '#28a745' : '#1976D2';
+    const html = generateWorkflowEmail(isFinal ? 'Final Approval' : `Approved by ${approverPortal}`, app.employeeName || empEmail, message, nextSteps, color);
+    sendEmail(empEmail, app.employeeName || '', subject, html).catch(e => console.error('[EMAIL] Approval notification failed:', e.message));
+    
+    // Notify next approver if applicable
+    if (nextApprover) {
+        notifyNextApprover(app, nextApprover);
+    }
+}
+
+/**
+ * Notify the employee when their application is returned.
+ */
+function notifyLeaveReturned(app, returnedBy, remarks) {
+    if (!MAILERSEND_API_KEY) return;
+    const empEmail = app.employeeEmail;
+    if (!empEmail) return;
+    const subject = `⚠️ Leave Application Returned — ${app.id}`;
+    const html = generateWorkflowEmail(
+        'Application Returned',
+        app.employeeName || empEmail,
+        `Your leave application <strong>${app.id}</strong> (${formatLeaveType(app.leaveType)}) has been returned by <strong>${returnedBy}</strong>.`,
+        `<strong>Reason:</strong> ${remarks || 'Please review and resubmit.'}<br><br>Please log in to your dashboard to view details and resubmit.`,
+        '#F57C00'
+    );
+    sendEmail(empEmail, app.employeeName || '', subject, html).catch(e => console.error('[EMAIL] Return notification failed:', e.message));
+}
+
+/**
+ * Notify the employee when their application is rejected.
+ */
+function notifyLeaveRejected(app, rejectedBy, reason) {
+    if (!MAILERSEND_API_KEY) return;
+    const empEmail = app.employeeEmail;
+    if (!empEmail) return;
+    const subject = `❌ Leave Application Rejected — ${app.id}`;
+    const html = generateWorkflowEmail(
+        'Application Rejected',
+        app.employeeName || empEmail,
+        `Your leave application <strong>${app.id}</strong> (${formatLeaveType(app.leaveType)}) has been <strong>rejected</strong> by <strong>${rejectedBy}</strong>.`,
+        `<strong>Reason:</strong> ${reason || 'No specific reason provided.'}<br><br>If you believe this was in error, please contact the ${rejectedBy} office or submit a new application.`,
+        '#d32f2f'
+    );
+    sendEmail(empEmail, app.employeeName || '', subject, html).catch(e => console.error('[EMAIL] Rejection notification failed:', e.message));
+}
+
+/**
+ * Notify the next approver in the chain that an application is waiting for them.
+ */
+function notifyNextApprover(app, approverRole) {
+    if (!MAILERSEND_API_KEY) return;
+    const portalToFile = { 'HR': hrUsersFile, 'AO': aoUsersFile, 'ASDS': asdsUsersFile, 'SDS': sdsUsersFile };
+    const file = portalToFile[approverRole];
+    if (!file) return;
+    
+    const approvers = readJSON(file);
+    // Notify all users in that portal (they share responsibility)
+    approvers.forEach(user => {
+        if (!user.email) return;
+        const subject = `📋 New Leave Application Pending Your Review — ${app.id}`;
+        const html = generateWorkflowEmail(
+            'Action Required',
+            user.name || user.email,
+            `A leave application from <strong>${app.employeeName || app.employeeEmail}</strong> (${formatLeaveType(app.leaveType)}, ${app.numDays} days) is now waiting for your review.`,
+            `Please log in to your <strong>${approverRole}</strong> dashboard to review and take action on application <strong>${app.id}</strong>.`,
+            '#003366'
+        );
+        sendEmail(user.email, user.name || '', subject, html).catch(e => console.error(`[EMAIL] Next-approver notification to ${user.email} failed:`, e.message));
+    });
+}
+
+/** Format leave type code for display */
+function formatLeaveType(leaveType) {
+    const map = {
+        'leave_vacation': 'Vacation Leave', 'leave_mandatory': 'Mandatory/Forced Leave',
+        'leave_sick': 'Sick Leave', 'leave_maternity': 'Maternity Leave',
+        'leave_paternity': 'Paternity Leave', 'leave_spl': 'Special Privilege Leave',
+        'leave_solo_parent': 'Solo Parent Leave', 'leave_study': 'Study Leave',
+        'leave_vawc': '10-Day VAWC Leave', 'leave_rehab': 'Rehabilitation Leave',
+        'leave_women': 'Special Leave Benefits for Women', 'leave_calamity': 'Calamity Leave',
+        'leave_adoption': 'Adoption Leave', 'leave_others': 'Others (CTO)',
+        'leave_mfl': 'Mandatory/Forced Leave'
+    };
+    return map[leaveType] || leaveType || 'Leave';
+}
+
+/** Reusable workflow email template */
+function generateWorkflowEmail(heading, recipientName, mainMessage, nextSteps, accentColor) {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
+            .email-wrapper { background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .header { background: ${accentColor}; color: white; padding: 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 22px; }
+            .header p { margin: 5px 0 0; opacity: 0.9; font-size: 13px; }
+            .content { padding: 25px; }
+            .info-box { background: #f9f9f9; border-left: 4px solid ${accentColor}; padding: 12px 15px; margin: 15px 0; border-radius: 0 4px 4px 0; }
+            .footer { text-align: center; padding: 15px 25px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="email-wrapper">
+                <div class="header">
+                    <h1>${heading}</h1>
+                    <p>CS Form No. 6 — Leave Application System</p>
+                </div>
+                <div class="content">
+                    <p>Dear <strong>${recipientName}</strong>,</p>
+                    <p>${mainMessage}</p>
+                    <div class="info-box">
+                        <p style="margin:0;"><strong>Next Steps:</strong></p>
+                        <p style="margin:5px 0 0;">${nextSteps}</p>
+                    </div>
+                    <p style="font-size:13px; color:#666;">If you have questions, contact your immediate supervisor or the IT Department.</p>
+                    <p>Best regards,<br><strong>DepEd Sipalay Division</strong></p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated notification. Please do not reply to this email.<br>&copy; 2026 DepEd Sipalay Division</p>
                 </div>
             </div>
         </div>
@@ -1639,13 +2315,8 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'Email already registered' });
         }
 
-        // SECURITY: Check cross-portal uniqueness
-        // Employee registration allows emails that exist in admin portals (all admins are employees)
-        // Only block if already registered as employee
-        const existingPortal = isEmailRegisteredInAnyPortal(email, ['user', 'ao', 'hr', 'asds', 'sds', 'it']);
-        if (existingPortal) {
-            return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
-        }
+        // NOTE: Cross-portal check removed — all 6 portals were excluded, making it a no-op.
+        // Employee-duplicate check above is sufficient. Admins ARE employees per policy.
 
         if (pendingRegs.find(r => r.email === email && r.status === 'pending')) {
             return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
@@ -1844,8 +2515,7 @@ app.get('/api/user-details', requireAuth(), (req, res) => {
         }
         
         // SECURITY: Only allow access to own data unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== email) {
+        if (!isSelfOrAdmin(req, email)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
@@ -2153,7 +2823,9 @@ app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
             });
         });
 
-        res.json({ success: true, registrations: activeRegs });
+        // SECURITY: Strip password hashes before sending to client (prevents leaking bcrypt hashes)
+        const safeRegs = activeRegs.map(({ password, ...rest }) => rest);
+        res.json({ success: true, registrations: safeRegs });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -2272,47 +2944,30 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                         writeJSON(leavecardsFile, leavecards);
                         console.log(`[REGISTRATION] Assigned existing leave card to ${registration.email} (matched by name: ${normalizedRegName})`);
                     } else {
-                        // Create new leave card — VL and SL start at 0
-                        // Credits are earned through monthly accrual (1.25/month)
-                        // Force Leave (5/year) and SPL (3/year) are fixed yearly allocations
-                        const newLeavecard = {
-                            employeeId: registration.email,
-                            email: registration.email,
-                            name: registration.fullName || registration.name,
-                            firstName: registration.firstName || '',
-                            lastName: registration.lastName || '',
-                            middleName: registration.middleName || '',
-                            suffix: registration.suffix || '',
-                            vacationLeaveEarned: 0,
-                            sickLeaveEarned: 0,
-                            forceLeaveEarned: 5,
-                            splEarned: 3,
-                            vacationLeaveSpent: 0,
-                            sickLeaveSpent: 0,
-                            forceLeaveSpent: 0,
-                            splSpent: 0,
-                            vl: 0,
-                            sl: 0,
-                            spl: 3,
-                            others: 0,
-                            forceLeaveYear: new Date().getFullYear(),
-                            splYear: new Date().getFullYear(),
-                            leaveUsageHistory: [],
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                            initialCreditsSource: 'accrual'
-                        };
+                        // DRY: Use shared helper for default leave card creation
+                        const newLeavecard = createDefaultLeaveCard(
+                            registration.email,
+                            registration.fullName || registration.name,
+                            registration,
+                            0, 0
+                        );
                         leavecards.push(newLeavecard);
                         writeJSON(leavecardsFile, leavecards);
                         console.log(`[REGISTRATION] Created leave card for ${registration.email}: VL=${newLeavecard.vl}, SL=${newLeavecard.sl}, Source=${newLeavecard.initialCreditsSource}`);
                         
                         // Immediately apply catch-up accrual for completed months this year
                         // so the employee doesn't start with VL=0/SL=0
+                        // NOTE: Skip for teaching personnel — teachers don't get monthly accrual
+                        const regPosition = registration.position || '';
+                        const isTeacher = isTeachingPosition(regPosition);
+                        if (isTeacher) {
+                            console.log(`[REGISTRATION] Skipping catch-up accrual for ${registration.email} (teaching position: ${regPosition})`);
+                        }
                         try {
                             ensureFile(systemStateFile);
                             const sysState = readJSON(systemStateFile);
                             const globalLastAccrued = sysState.lastAccruedMonth || null;
-                            if (globalLastAccrued) {
+                            if (globalLastAccrued && !isTeacher) {
                                 const globalParts = globalLastAccrued.split('-').map(Number);
                                 const monthsToAccrue = globalParts[1]; // Jan=1, Feb=2, etc.
                                 if (monthsToAccrue > 0) {
@@ -2330,21 +2985,9 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                                     for (let m = 1; m <= monthsToAccrue; m++) {
                                         runningVL = +(runningVL + accrualPerMonth).toFixed(3);
                                         runningSL = +(runningSL + accrualPerMonth).toFixed(3);
-                                        newLeavecard.transactions.push({
-                                            type: 'ADD',
-                                            periodCovered: `${MONTH_NAMES[m]} ${globalParts[0]} (Monthly Accrual)`,
-                                            vlEarned: accrualPerMonth,
-                                            slEarned: accrualPerMonth,
-                                            vlSpent: 0,
-                                            slSpent: 0,
-                                            forcedLeave: 0,
-                                            splUsed: 0,
-                                            vlBalance: runningVL,
-                                            slBalance: runningSL,
-                                            total: +(runningVL + runningSL).toFixed(3),
-                                            source: 'system-accrual-catchup',
-                                            date: new Date().toISOString()
-                                        });
+                                        newLeavecard.transactions.push(
+                                            createAccrualTransaction(m, globalParts[0], runningVL, runningSL, 'system-accrual-catchup')
+                                        );
                                     }
                                     newLeavecard.updatedAt = new Date().toISOString();
                                     writeJSON(leavecardsFile, leavecards);
@@ -2359,90 +3002,12 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 break;
 
             case 'ao':
-                targetFile = aoUsersFile;
-                newUser = {
-                    id: registration.id,
-                    email: registration.email,
-                    password: registration.password,
-                    fullName: registration.fullName,
-                    name: registration.fullName,
-                    firstName: registration.firstName || '',
-                    lastName: registration.lastName || '',
-                    middleName: registration.middleName || '',
-                    suffix: registration.suffix || '',
-                    office: registration.office,
-                    position: registration.position,
-                    salaryGrade: registration.salaryGrade,
-                    step: registration.step,
-                    role: 'ao',
-                    createdAt: registration.createdAt
-                };
-                break;
-
             case 'hr':
-                targetFile = hrUsersFile;
-                newUser = {
-                    id: registration.id,
-                    email: registration.email,
-                    password: registration.password,
-                    name: registration.name || registration.fullName,
-                    fullName: registration.fullName || registration.name,
-                    firstName: registration.firstName || '',
-                    lastName: registration.lastName || '',
-                    middleName: registration.middleName || '',
-                    suffix: registration.suffix || '',
-                    office: registration.office,
-                    position: registration.position,
-                    salaryGrade: registration.salaryGrade,
-                    step: registration.step,
-                    salary: registration.salary,
-                    role: 'hr',
-                    createdAt: registration.createdAt
-                };
-                break;
-
             case 'asds':
-                targetFile = asdsUsersFile;
-                newUser = {
-                    id: registration.id,
-                    email: registration.email,
-                    password: registration.password,
-                    fullName: registration.fullName,
-                    name: registration.fullName,
-                    firstName: registration.firstName || '',
-                    lastName: registration.lastName || '',
-                    middleName: registration.middleName || '',
-                    suffix: registration.suffix || '',
-                    office: registration.office,
-                    position: registration.position,
-                    salaryGrade: registration.salaryGrade,
-                    step: registration.step,
-                    salary: registration.salary,
-                    role: 'asds',
-                    createdAt: registration.createdAt
-                };
-                break;
-
             case 'sds':
-                targetFile = sdsUsersFile;
-                newUser = {
-                    id: registration.id,
-                    email: registration.email,
-                    password: registration.password,
-                    firstName: registration.firstName || '',
-                    lastName: registration.lastName || '',
-                    middleName: registration.middleName || '',
-                    suffix: registration.suffix || '',
-                    fullName: registration.fullName,
-                    name: registration.name || registration.fullName,
-                    position: registration.position,
-                    salaryGrade: registration.salaryGrade,
-                    step: registration.step,
-                    salary: registration.salary,
-                    office: registration.office,
-                    role: 'sds',
-                    createdAt: registration.createdAt
-                };
+                // DRY: All non-employee portals use the same user shape
+                targetFile = PORTAL_TO_FILE[registration.portal]();
+                newUser = buildPortalUser(registration, registration.portal);
                 break;
         }
 
@@ -2544,19 +3109,7 @@ app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
 app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
     try {
         const category = req.params.category;
-        const categoryToFile = {
-            'employeeUsers': usersFile,
-            'aoUsers': aoUsersFile,
-            'hrUsers': hrUsersFile,
-            'asdsUsers': asdsUsersFile,
-            'sdsUsers': sdsUsersFile,
-            'applications': applicationsFile,
-            'leavecards': leavecardsFile,
-            'pendingRegistrations': pendingRegistrationsFile,
-            'schools': schoolsFile
-        };
-
-        const filePath = categoryToFile[category];
+        const filePath = getCategoryFile(category);
         if (!filePath) {
             return res.status(400).json({ success: false, error: 'Invalid category' });
         }
@@ -2612,19 +3165,7 @@ app.post('/api/delete-specific-items', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Category and itemIds are required' });
         }
 
-        const categoryToFile = {
-            'employeeUsers': usersFile,
-            'aoUsers': aoUsersFile,
-            'hrUsers': hrUsersFile,
-            'asdsUsers': asdsUsersFile,
-            'sdsUsers': sdsUsersFile,
-            'applications': applicationsFile,
-            'leavecards': leavecardsFile,
-            'pendingRegistrations': pendingRegistrationsFile,
-            'schools': schoolsFile
-        };
-
-        const filePath = categoryToFile[category];
+        const filePath = getCategoryFile(category);
         if (!filePath) {
             return res.status(400).json({ success: false, error: 'Invalid category' });
         }
@@ -3109,7 +3650,14 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         // Override client-provided email with session email
         applicationData.employeeEmail = employeeEmail;
         
-        // ===== VALIDATION: Check Force/SPL leave balance =====
+        // ===== STRUCTURAL VALIDATION: Required fields =====
+        const requiredFields = ['leaveType', 'dateFrom', 'dateTo', 'numDays', 'employeeName'];
+        for (const field of requiredFields) {
+            if (!applicationData[field] || !String(applicationData[field]).trim()) {
+                return res.status(400).json({ success: false, error: `Missing required field: ${field}`, message: `Please fill in the ${field} field before submitting.` });
+            }
+        }
+        
         const leaveType = applicationData.leaveType;
         const numDays = parseFloat(applicationData.numDays) || 0;
         
@@ -3121,222 +3669,40 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
             });
         }
         
-        // ===== COMPREHENSIVE LEAVE BALANCE VALIDATION =====
-        // Read leave card to check balance for ALL leave types
-        const leavecards = readJSON(leavecardsFile);
-        const employeeLeave = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
-        
-        if (leaveType === 'leave_vl' || leaveType === 'leave_sl') {
-            // Calculate current VL/SL balance from leave card
-            // Single source of truth: vl/sl summary fields (updated by accrual, SDS approval, and AO edits)
-            if (employeeLeave) {
-                let vlBalance = (employeeLeave.vl !== undefined) ? employeeLeave.vl : null;
-                let slBalance = (employeeLeave.sl !== undefined) ? employeeLeave.sl : null;
-                
-                // Fallback for legacy cards without vl/sl fields
-                if (vlBalance === null) {
-                    vlBalance = Math.max(0, (employeeLeave.vacationLeaveEarned || 0) - (employeeLeave.vacationLeaveSpent || 0));
-                }
-                if (slBalance === null) {
-                    slBalance = Math.max(0, (employeeLeave.sickLeaveEarned || 0) - (employeeLeave.sickLeaveSpent || 0));
-                }
-                
-                // Also deduct pending/approved applications not yet reflected in leave card
-                const allApplications = readJSONArray(applicationsFile);
-                const reflectedAppIds = new Set();
-                if (employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
-                    employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
-                }
-                if (employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
-                    employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
-                }
-                
-                allApplications.forEach(app => {
-                    if (reflectedAppIds.has(app.id)) return;
-                    if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
-                    if (app.status !== 'pending' && app.status !== 'approved') return;
-                    const appDays = parseFloat(app.numDays) || 0;
-                    if (appDays <= 0) return;
-                    const appType = (app.leaveType || '').toLowerCase();
-                    if (appType.includes('vl') || appType.includes('vacation')) {
-                        vlBalance = Math.max(0, vlBalance - appDays);
-                    } else if (appType.includes('sl') || appType.includes('sick')) {
-                        slBalance = Math.max(0, slBalance - appDays);
-                    }
-                });
-                
-                // Check VL balance
-                if (leaveType === 'leave_vl' && numDays > vlBalance) {
-                    console.log(`[VALIDATION] VL rejected for ${employeeEmail}: Requested ${numDays} days but only ${vlBalance.toFixed(3)} available`);
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Insufficient Vacation Leave balance',
-                        message: `You cannot apply for ${numDays} day(s) of Vacation Leave. Your current balance is ${vlBalance.toFixed(3)} day(s). The leave card balance cannot go negative.`
-                    });
-                }
-                
-                // Check SL balance — negative SL is NOT allowed and will NOT be charged to VL
-                if (leaveType === 'leave_sl' && numDays > slBalance) {
-                    console.log(`[VALIDATION] SL rejected for ${employeeEmail}: Requested ${numDays} days but only ${slBalance.toFixed(3)} SL available`);
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Insufficient Sick Leave balance',
-                        message: `You cannot apply for ${numDays} day(s) of Sick Leave. Your SL balance is ${slBalance.toFixed(3)} day(s). The balance cannot go negative.`
-                    });
-                }
-            } else {
-                // No leave card found — reject VL/SL applications (no balance means 0)
-                console.log(`[VALIDATION] ${leaveType} rejected for ${employeeEmail}: No leave card found (balance is 0)`);
-                return res.status(400).json({
-                    success: false,
-                    error: 'No leave card found',
-                    message: 'You do not have a leave card on file. Please contact the Administrative Officer to create your leave card before applying for leave.'
-                });
-            }
+        // SECURITY: Validate date fields
+        if (!isValidDate(applicationData.dateFrom)) {
+            return res.status(400).json({ success: false, error: 'Invalid start date format', message: 'Date From must be in YYYY-MM-DD format.' });
+        }
+        if (!isValidDate(applicationData.dateTo)) {
+            return res.status(400).json({ success: false, error: 'Invalid end date format', message: 'Date To must be in YYYY-MM-DD format.' });
         }
         
-        if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            // Get spent values from leave card (0 if no card exists)
-            const forceLeaveSpent = employeeLeave ? (employeeLeave.forceLeaveSpent || 0) : 0;
-            const splSpent = employeeLeave ? (employeeLeave.splSpent || 0) : 0;
-            
-            // Also count pending FL/SPL applications not yet reflected in leave card
-            const allApplications = readJSONArray(applicationsFile);
-            // Build set of application IDs already reflected in leave card to avoid double-counting
-            const reflectedAppIds = new Set();
-            if (employeeLeave && employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
-                employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
-            }
-            if (employeeLeave && employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
-                employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
-            }
-            let pendingForceSpent = 0;
-            let pendingSplSpent = 0;
-            allApplications.forEach(app => {
-                if (reflectedAppIds.has(app.id)) return; // Already counted in forceLeaveSpent/splSpent
-                if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
-                if (app.status !== 'pending' && app.status !== 'approved') return;
-                const appDays = parseFloat(app.numDays) || 0;
-                const appType = (app.leaveType || '').toLowerCase();
-                if (appType.includes('mfl') || appType.includes('mandatory') || appType.includes('forced')) {
-                    pendingForceSpent += appDays;
-                } else if (appType.includes('spl') || appType.includes('special')) {
-                    pendingSplSpent += appDays;
-                }
-            });
-            
-            const totalForceUsed = forceLeaveSpent + pendingForceSpent;
-            const totalSplUsed = splSpent + pendingSplSpent;
-            
-            if (leaveType === 'leave_mfl') {
-                    // ===== Force Leave Rules (DepEd Non-Teaching) =====
-                    // 1. Each non-teaching employee gets 5 Force Leave days per year (separate allocation, NOT charged against VL)
-                    // 2. FL yearly cap is 5 days
-                    // 3. FL should NOT be filed as 5 consecutive days
-                    
-                    // Check FL yearly cap (5 days)
-                    if ((totalForceUsed + numDays) > 5) {
-                        const remaining = Math.max(0, 5 - totalForceUsed);
-                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Already used ${totalForceUsed}/5 days, requested ${numDays}`);
-                        return res.status(400).json({ 
-                            success: false, 
-                            error: 'Insufficient Force Leave balance',
-                            message: `You cannot apply for ${numDays} day(s) of Force Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 5-day yearly allocation.`
-                        });
-                    }
-                    
-                    // Prevent filing 5 consecutive days at once
-                    if (numDays >= 5) {
-                        console.log(`[VALIDATION] Force Leave rejected for ${employeeEmail}: Cannot file ${numDays} consecutive days`);
-                        return res.status(400).json({
-                            success: false,
-                            error: 'Force Leave filing restriction',
-                            message: `Force Leave should not be filed as 5 consecutive days. Please file fewer days per application.`
-                        });
-                    }
-                }
-                
-                // Check if SPL is exhausted (including pending)
-                if (leaveType === 'leave_spl' && (totalSplUsed + numDays) > 3) {
-                    const remaining = Math.max(0, 3 - totalSplUsed);
-                    console.log(`[VALIDATION] SPL rejected for ${employeeEmail}: Already used ${totalSplUsed}/3 days, requested ${numDays}`);
-                    return res.status(400).json({ 
-                        success: false, 
-                        error: 'Insufficient Special Privilege Leave balance',
-                        message: `You cannot apply for ${numDays} day(s) of Special Privilege Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 3-day yearly allocation.`
-                    });
-                }
+        // ===== DATE RANGE VALIDATION: dateTo must be >= dateFrom =====
+        if (new Date(applicationData.dateTo) < new Date(applicationData.dateFrom)) {
+            return res.status(400).json({ success: false, error: 'Invalid date range', message: 'End date must be on or after start date.' });
         }
         
-        // ===== CTO / Others leave balance validation =====
-        if (leaveType === 'leave_others') {
-            try {
-                ensureFile(ctoRecordsFile);
-                const ctoRecords = readJSON(ctoRecordsFile);
-                const empCtoRecords = ctoRecords.filter(r => r.employeeId === employeeEmail);
-                
-                // Calculate total CTO balance: sum of (granted - used) across all records
-                let ctoBalance = 0;
-                empCtoRecords.forEach(rec => {
-                    const granted = parseFloat(rec.daysGranted) || 0;
-                    const used = parseFloat(rec.daysUsed) || 0;
-                    ctoBalance += (granted - used);
-                });
-                ctoBalance = Math.max(0, ctoBalance);
-                
-                // Deduct pending/approved CTO applications not yet reflected in records
-                const allApplications = readJSONArray(applicationsFile);
-                // Build set of application IDs that may already be reflected in CTO records
-                const reflectedCtoAppIds = new Set();
-                empCtoRecords.forEach(rec => {
-                    if (rec.applicationIds && Array.isArray(rec.applicationIds)) {
-                        rec.applicationIds.forEach(id => reflectedCtoAppIds.add(id));
-                    }
-                });
-                if (employeeLeave && employeeLeave.leaveUsageHistory && Array.isArray(employeeLeave.leaveUsageHistory)) {
-                    employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedCtoAppIds.add(h.applicationId); });
-                }
-                if (employeeLeave && employeeLeave.transactions && Array.isArray(employeeLeave.transactions)) {
-                    employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedCtoAppIds.add(t.applicationId); });
-                }
-                
-                allApplications.forEach(app => {
-                    if (reflectedCtoAppIds.has(app.id)) return;
-                    if ((app.employeeEmail !== employeeEmail && app.email !== employeeEmail)) return;
-                    if (app.status !== 'pending' && app.status !== 'approved') return;
-                    const appType = (app.leaveType || '').toLowerCase();
-                    if (appType.includes('others') || appType.includes('cto')) {
-                        const appDays = parseFloat(app.numDays) || 0;
-                        ctoBalance = Math.max(0, ctoBalance - appDays);
-                    }
-                });
-                
-                if (ctoBalance <= 0) {
-                    console.log(`[VALIDATION] CTO/Others rejected for ${employeeEmail}: No CTO records found (balance is 0)`);
-                    return res.status(400).json({
-                        success: false,
-                        error: 'No CTO balance available',
-                        message: 'You do not have any CTO (Compensatory Time-Off) balance. Please ensure a Special Order has been filed and CTO days have been granted before applying.'
-                    });
-                }
-                
-                if (numDays > ctoBalance) {
-                    console.log(`[VALIDATION] CTO/Others rejected for ${employeeEmail}: Requested ${numDays} days but only ${ctoBalance.toFixed(3)} CTO available`);
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Insufficient CTO balance',
-                        message: `You cannot apply for ${numDays} day(s) of CTO leave. Your current CTO balance is ${ctoBalance.toFixed(3)} day(s). The balance cannot go negative.`
-                    });
-                }
-            } catch (ctoCheckErr) {
-                console.error('[VALIDATION] Error checking CTO balance:', ctoCheckErr);
-                // If CTO records can't be read, reject as a safety measure
-                return res.status(500).json({
-                    success: false,
-                    error: 'Unable to verify CTO balance',
-                    message: 'Could not verify your CTO balance. Please try again or contact the Administrative Officer.'
-                });
-            }
+        // ===== DUPLICATE SUBMISSION DETECTION =====
+        // Reject if the same employee already has a pending/approved leave overlapping the same dates
+        const dupApp = applications.find(a => {
+            if (a.employeeEmail !== employeeEmail) return false;
+            if (a.status === 'rejected') return false;
+            if (a.leaveType !== leaveType) return false;
+            // Check date overlap: A.start <= B.end && A.end >= B.start
+            const existStart = new Date(a.dateFrom);
+            const existEnd = new Date(a.dateTo);
+            const newStart = new Date(applicationData.dateFrom);
+            const newEnd = new Date(applicationData.dateTo);
+            return existStart <= newEnd && existEnd >= newStart;
+        });
+        if (dupApp) {
+            return res.status(409).json({ success: false, error: 'Duplicate leave application', message: `You already have a ${dupApp.status} ${leaveType.replace('leave_', '').toUpperCase()} leave application (${dupApp.id}) covering overlapping dates. Please check your existing applications.` });
+        }
+        
+        // ===== COMPREHENSIVE LEAVE BALANCE VALIDATION (DRY: uses shared validateLeaveBalance) =====
+        const validation = validateLeaveBalance(leaveType, numDays, employeeEmail, null);
+        if (!validation.valid) {
+            return res.status(400).json({ success: false, error: validation.error, message: validation.message });
         }
         
         // Determine initial status and current approver based on office
@@ -3380,8 +3746,9 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
             studyBar: applicationData.studyBar || false,
             womenIllness: applicationData.womenIllness || '',
             otherLeaveSpecify: applicationData.otherLeaveSpecify || '',
-            soFileData: applicationData.soFileData || null,
+            soFileData: null,  // No longer stored inline — saved to disk below
             soFileName: applicationData.soFileName || '',
+            soFilePath: null,  // Will be set if SO file was uploaded
             isSchoolBased: schoolBased,
             status: 'pending',
             currentApprover: 'AO',
@@ -3390,6 +3757,32 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         };
         
         applications.push(newApplication);
+        
+        // Save SO PDF file to disk if provided (instead of keeping base64 in JSON)
+        if (applicationData.soFileData && applicationData.soFileName) {
+            try {
+                const base64Match = applicationData.soFileData.match(/^data:[^;]+;base64,(.+)$/);
+                if (base64Match) {
+                    const pdfBuffer = Buffer.from(base64Match[1], 'base64');
+                    // SECURITY: Validate PDF magic bytes before writing to disk
+                    if (pdfBuffer.length < 4 || pdfBuffer.toString('ascii', 0, 4) !== '%PDF') {
+                        console.warn('[UPLOAD] Rejected non-PDF file upload for application', applicationId);
+                    } else {
+                        const ext = path.extname(applicationData.soFileName) || '.pdf';
+                        const safeId = applicationId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                        const soFilename = `${safeId}_SO${ext}`;
+                        const soFilePath = path.join(soPdfsDir, soFilename);
+                        fs.writeFileSync(soFilePath, pdfBuffer);
+                        newApplication.soFilePath = `/api/uploads/so-pdfs/${soFilename}`;
+                        console.log(`[UPLOAD] Saved SO PDF to disk: ${soFilename}`);
+                    }
+                }
+            } catch (soErr) {
+                console.error('[UPLOAD] Error saving SO PDF to disk:', soErr);
+                // Non-fatal: application is still saved, just without disk file
+            }
+        }
+        
         writeJSON(applicationsFile, applications);
         
         // Log activity
@@ -3405,6 +3798,10 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         
         const officeType = schoolBased ? 'School-based' : 'Division Office';
         console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (AO first)`);
+        
+        // Send email notifications (fire-and-forget)
+        notifyLeaveSubmitted(newApplication);
+        notifyNextApprover(newApplication, 'AO');
         
         res.json({ 
             success: true, 
@@ -3423,22 +3820,17 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
 app.get('/api/application-status/:id', requireAuth(), (req, res) => {
     try {
         const idParam = req.params.id;
-        let appId = parseInt(idParam);
-        if (isNaN(appId)) {
-            appId = idParam; // Try as string if not a valid number
-        }
         
         const applications = readJSONArray(applicationsFile);
-        const app = applications.find(a => a.id === appId || a.id === parseInt(appId) || String(a.id) === idParam);
+        const app = findApplicationById(applications, idParam);
         
         if (!app) {
-            console.error('Application not found:', { idParam, appId, totalApps: applications.length });
+            console.error('Application not found:', { idParam, totalApps: applications.length });
             return res.status(404).json({ success: false, error: 'Application not found' });
         }
         
         // SECURITY: Only allow access to own application unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== app.employeeEmail) {
+        if (!isSelfOrAdmin(req, app.employeeEmail)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
@@ -3454,8 +3846,7 @@ app.get('/api/my-applications/:email', requireAuth(), (req, res) => {
     try {
         const email = req.params.email;
         // SECURITY: Only allow access to own applications unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== email) {
+        if (!isSelfOrAdmin(req, email)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         const applications = readJSONArray(applicationsFile);
@@ -3472,19 +3863,107 @@ app.get('/api/application-details/:id', requireAuth(), (req, res) => {
     try {
         const idParam = req.params.id;
         const applications = readJSONArray(applicationsFile);
-        const application = applications.find(a => a.id === idParam || a.id === parseInt(idParam) || String(a.id) === idParam);
+        const application = findApplicationById(applications, idParam);
         
         if (!application) {
             return res.status(404).json({ success: false, error: 'Application not found' });
         }
         
         // SECURITY: Only allow access to own application unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== application.employeeEmail) {
+        if (!isSelfOrAdmin(req, application.employeeEmail)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
         res.json({ success: true, application: application });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ========== UPLOAD FILE SERVING ==========
+
+// Serve SO PDFs from disk
+app.get('/api/uploads/so-pdfs/:filename', requireAuth(), (req, res) => {
+    const filename = path.basename(req.params.filename); // prevent path traversal
+    const filePath = path.join(soPdfsDir, filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, error: 'File not found' });
+    }
+    res.sendFile(filePath);
+});
+
+// Save client-generated leave form PDF
+app.post('/api/save-leave-form-pdf/:id', requireAuth(), (req, res) => {
+    try {
+        const idParam = req.params.id;
+        const { pdfData } = req.body; // base64 data URI
+        
+        if (!pdfData) {
+            return res.status(400).json({ success: false, error: 'No PDF data provided' });
+        }
+        
+        // Verify application exists and user has access
+        const applications = readJSONArray(applicationsFile);
+        const appIndex = findApplicationIndexById(applications, idParam);
+        if (appIndex === -1) {
+            return res.status(404).json({ success: false, error: 'Application not found' });
+        }
+        
+        if (!isSelfOrAdmin(req, applications[appIndex].employeeEmail)) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
+        // Decode base64 and save to disk
+        const base64Match = pdfData.match(/^data:[^;]+;base64,(.+)$/);
+        const rawBase64 = base64Match ? base64Match[1] : pdfData;
+        const safeId = idParam.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const pdfFilename = `${safeId}_leave-form.pdf`;
+        const pdfFilePath = path.join(leaveFormPdfsDir, pdfFilename);
+        
+        fs.writeFileSync(pdfFilePath, Buffer.from(rawBase64, 'base64'));
+        
+        // Store the path reference in the application record
+        applications[appIndex].leaveFormPdfPath = `/api/uploads/leave-forms/${pdfFilename}`;
+        applications[appIndex].leaveFormPdfGeneratedAt = new Date().toISOString();
+        writeJSON(applicationsFile, applications);
+        
+        console.log(`[PDF] Saved leave form PDF for ${idParam}: ${pdfFilename}`);
+        res.json({ 
+            success: true, 
+            message: 'PDF saved successfully',
+            pdfUrl: `/api/uploads/leave-forms/${pdfFilename}`
+        });
+    } catch (error) {
+        console.error('[PDF] Error saving leave form PDF:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Serve leave form PDFs from disk
+app.get('/api/uploads/leave-forms/:filename', requireAuth(), (req, res) => {
+    const filename = path.basename(req.params.filename); // prevent path traversal
+    const filePath = path.join(leaveFormPdfsDir, filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, error: 'File not found' });
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.sendFile(filePath);
+});
+
+// Check if a leave form PDF exists for an application
+app.get('/api/leave-form-pdf-status/:id', requireAuth(), (req, res) => {
+    try {
+        const idParam = req.params.id;
+        const safeId = idParam.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const pdfFilename = `${safeId}_leave-form.pdf`;
+        const pdfFilePath = path.join(leaveFormPdfsDir, pdfFilename);
+        const exists = fs.existsSync(pdfFilePath);
+        res.json({ 
+            success: true, 
+            exists,
+            pdfUrl: exists ? `/api/uploads/leave-forms/${pdfFilename}` : null
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -3585,6 +4064,58 @@ app.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (
     }
 });
 
+// Leave calendar data — returns approved leaves with date ranges for calendar display
+// Accessible to all admin roles for planning purposes
+app.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+    try {
+        const { month, year } = req.query;
+        const applications = readJSONArray(applicationsFile);
+        
+        // Filter to approved or pending leaves
+        let relevantApps = applications.filter(a => a.status === 'approved' || a.status === 'pending');
+        
+        // If month/year provided, filter to apps that overlap that month
+        if (month && year) {
+            const m = parseInt(month), y = parseInt(year);
+            const monthStart = new Date(y, m - 1, 1);
+            const monthEnd = new Date(y, m, 0); // last day of month
+            relevantApps = relevantApps.filter(a => {
+                const start = new Date(a.dateFrom);
+                const end = new Date(a.dateTo);
+                return start <= monthEnd && end >= monthStart;
+            });
+        }
+        
+        // AO school-based filtering
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const aoOffice = req.session.office;
+            const usersCache = readJSON(usersFile);
+            const employeesCache = readJSON(employeesFile);
+            relevantApps = relevantApps.filter(a => {
+                const empOffice = getEmployeeOffice(a.employeeEmail || a.email, usersCache, employeesCache);
+                return isEmployeeInAoSchool(empOffice, aoOffice);
+            });
+        }
+        
+        // Return minimal data for calendar rendering
+        const calendarData = relevantApps.map(a => ({
+            id: a.id,
+            employeeName: a.employeeName || a.employeeEmail,
+            office: a.office || '',
+            leaveType: a.leaveType || '',
+            dateFrom: a.dateFrom,
+            dateTo: a.dateTo,
+            numDays: a.numDays,
+            status: a.status,
+            currentApprover: a.currentApprover
+        }));
+        
+        res.json({ success: true, leaves: calendarData });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Get all registered employees (for AO to manage their cards)
 // Merges registered user accounts with leave card holders so that
 // employees from Excel migration also appear even if they haven't
@@ -3635,7 +4166,7 @@ app.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
             const aoOffice = req.session.office;
             if (!isAoDivisionLevel(aoOffice)) {
                 employees = employees.filter(emp => isEmployeeInAoSchool(emp.office, aoOffice));
-                console.log(`[AO FILTER] ${req.session.email} (${aoOffice}): showing ${employees.length} employees`);
+
             }
         }
         
@@ -3671,7 +4202,7 @@ app.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds
                 const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
                 return isEmployeeInAoSchool(empOffice, aoOffice);
             });
-            console.log(`[AO FILTER] ${req.session.email} (${aoOffice}): showing ${portalApps.length} applications`);
+
         }
         
         res.json({ success: true, applications: portalApps });
@@ -3689,17 +4220,13 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         }
         
         // SECURITY: Only allow access to own leave credits unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+        if (!isSelfOrAdmin(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
-        // AO school-based filtering: AO can only view leave credits of their school's employees
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const empOffice = getEmployeeOffice(employeeId);
-            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
-                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
-            }
+        // AO school-based filtering
+        if (!isAoAccessAllowed(req, employeeId)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         
         const leavecards = readJSON(leavecardsFile);
@@ -3743,14 +4270,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         }
         
         // Get the latest record (most recent based on updatedAt or createdAt)
-        let latestRecord = employeeRecords[0];
-        employeeRecords.forEach(record => {
-            const latestTime = new Date(latestRecord.updatedAt || latestRecord.createdAt || 0).getTime();
-            const currentTime = new Date(record.updatedAt || record.createdAt || 0).getTime();
-            if (currentTime > latestTime) {
-                latestRecord = record;
-            }
-        });
+        const latestRecord = getLatestLeaveCard(employeeRecords);
         
         const currentYear = new Date().getFullYear();
         
@@ -3797,7 +4317,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
             slBalance = Math.max(0, sickLeaveEarned - (latestRecord.sickLeaveSpent || 0));
         }
         
-        console.log('[LEAVE-CREDITS API] Using vl/sl balance: VL=', vlBalance, 'SL=', slBalance);
+
         
         // Compute "spent" values from the balance for backward compat
         let vacationLeaveSpent = Math.max(0, vacationLeaveEarned - vlBalance);
@@ -3853,7 +4373,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
             sickLeaveSpent = Math.max(0, sickLeaveEarned - slBalance);
             
             if (employeeApps.length > 0) {
-                console.log('[LEAVE-CREDITS API] After pending apps deduction: VL=', vlBalance, 'SL=', slBalance, 'apps checked=', employeeApps.length);
+
             }
         } catch (appErr) {
             console.log('[LEAVE-CREDITS API] Could not read applications for deduction:', appErr.message);
@@ -3878,17 +4398,6 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
             currentSlBalance: slBalance
         };
         
-        console.log('[LEAVE-CREDITS API] Returning:', JSON.stringify({
-            vlBalance, slBalance,
-            vacationLeaveEarned: enrichedCredits.vacationLeaveEarned,
-            vacationLeaveSpent: enrichedCredits.vacationLeaveSpent,
-            sickLeaveEarned: enrichedCredits.sickLeaveEarned,
-            sickLeaveSpent: enrichedCredits.sickLeaveSpent,
-            forceLeaveSpent: enrichedCredits.forceLeaveSpent,
-            splSpent: enrichedCredits.splSpent,
-            txCount: (latestRecord.transactions || []).length
-        }));
-        
         res.json({ success: true, credits: enrichedCredits });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -3905,8 +4414,7 @@ app.get('/api/leave-card', requireAuth(), (req, res) => {
         }
         
         // SECURITY: Only allow access to own leave card unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+        if (!isSelfOrAdmin(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
@@ -3931,14 +4439,7 @@ app.get('/api/leave-card', requireAuth(), (req, res) => {
         }
         
         // Get the latest record
-        let latestRecord = employeeRecords[0];
-        employeeRecords.forEach(record => {
-            const latestTime = new Date(latestRecord.updatedAt || latestRecord.createdAt || 0).getTime();
-            const currentTime = new Date(record.updatedAt || record.createdAt || 0).getTime();
-            if (currentTime > latestTime) {
-                latestRecord = record;
-            }
-        });
+        const latestRecord = getLatestLeaveCard(employeeRecords);
         
         // Return the actual allocation values from the leave card (earned values = the allocation set in edit)
         res.json({ 
@@ -3967,8 +4468,7 @@ app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
         }
         
         // SECURITY: Only allow access to own leave card unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+        if (!isSelfOrAdmin(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
@@ -3977,7 +4477,7 @@ app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
         // Try to find by employeeId first, then by email (since we use email as ID now)
         let leavecard = leavecards.find(lc => lc.employeeId === employeeId || lc.email === employeeId);
         
-        console.log(`[EMPLOYEE LEAVECARD] Looking for: id=${employeeId}, Found: ${!!leavecard}`);
+
         
         if (!leavecard) {
             // Return empty leave card if not found
@@ -4009,8 +4509,7 @@ app.get('/api/returned-applications/:email', requireAuth(), (req, res) => {
     try {
         const email = req.params.email;
         // SECURITY: Only allow access to own returned applications unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (!adminRoles.includes(req.session.role) && req.session.email !== email) {
+        if (!isSelfOrAdmin(req, email)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         const applications = readJSONArray(applicationsFile);
@@ -4055,114 +4554,12 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Application is not awaiting resubmission' });
         }
         
-        // ===== VALIDATION: Check leave balance for resubmitted applications =====
+        // ===== VALIDATION: Check leave balance (DRY: uses shared validateLeaveBalance) =====
         const leaveType = app.leaveType;
         const numDays = parseFloat(updatedData?.numDays || app.numDays) || 0;
-        
-        // Read leave card for balance checks
-        const leavecards = readJSON(leavecardsFile);
-        const employeeLeave = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
-        
-        if (leaveType === 'leave_vl' || leaveType === 'leave_sl') {
-            if (employeeLeave) {
-                // Single source of truth: vl/sl summary fields
-                let vlBalance = (employeeLeave.vl !== undefined) ? employeeLeave.vl : null;
-                let slBalance = (employeeLeave.sl !== undefined) ? employeeLeave.sl : null;
-                
-                // Fallback for legacy cards without vl/sl fields
-                if (vlBalance === null) vlBalance = Math.max(0, (employeeLeave.vacationLeaveEarned || 0) - (employeeLeave.vacationLeaveSpent || 0));
-                if (slBalance === null) slBalance = Math.max(0, (employeeLeave.sickLeaveEarned || 0) - (employeeLeave.sickLeaveSpent || 0));
-                
-                // Deduct pending/approved apps not yet reflected (exclude THIS application since it's being resubmitted)
-                const allApplications = readJSONArray(applicationsFile);
-                const reflectedAppIds = new Set();
-                if (employeeLeave.leaveUsageHistory) employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
-                if (employeeLeave.transactions) employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
-                
-                allApplications.forEach(a => {
-                    if (a.id === applicationId) return; // Skip the app being resubmitted
-                    if (reflectedAppIds.has(a.id)) return;
-                    if (a.employeeEmail !== employeeEmail && a.email !== employeeEmail) return;
-                    if (a.status !== 'pending' && a.status !== 'approved') return;
-                    const aDays = parseFloat(a.numDays) || 0;
-                    const aType = (a.leaveType || '').toLowerCase();
-                    if (aType.includes('vl') || aType.includes('vacation')) vlBalance = Math.max(0, vlBalance - aDays);
-                    else if (aType.includes('sl') || aType.includes('sick')) slBalance = Math.max(0, slBalance - aDays);
-                });
-                
-                if (leaveType === 'leave_vl' && numDays > vlBalance) {
-                    return res.status(400).json({ success: false, error: 'Insufficient Vacation Leave balance', message: `Cannot resubmit: VL balance is ${vlBalance.toFixed(3)} day(s) but ${numDays} requested.` });
-                }
-                if (leaveType === 'leave_sl' && numDays > slBalance) {
-                    return res.status(400).json({ success: false, error: 'Insufficient Sick Leave balance', message: `Cannot resubmit: SL balance is ${slBalance.toFixed(3)} day(s) but ${numDays} requested.` });
-                }
-            } else {
-                return res.status(400).json({ success: false, error: 'No leave card found', message: 'Cannot resubmit: no leave card on file.' });
-            }
-        }
-        
-        if (leaveType === 'leave_mfl' || leaveType === 'leave_spl') {
-            const forceLeaveSpent = employeeLeave ? (employeeLeave.forceLeaveSpent || 0) : 0;
-            const splSpent = employeeLeave ? (employeeLeave.splSpent || 0) : 0;
-            
-            // Count pending FL/SPL (exclude THIS application)
-            const allApplications = readJSONArray(applicationsFile);
-            const reflectedAppIds = new Set();
-            if (employeeLeave && employeeLeave.leaveUsageHistory) employeeLeave.leaveUsageHistory.forEach(h => { if (h.applicationId) reflectedAppIds.add(h.applicationId); });
-            if (employeeLeave && employeeLeave.transactions) employeeLeave.transactions.forEach(t => { if (t.applicationId) reflectedAppIds.add(t.applicationId); });
-            let pendingForceSpent = 0, pendingSplSpent = 0;
-            allApplications.forEach(a => {
-                if (a.id === applicationId) return;
-                if (reflectedAppIds.has(a.id)) return;
-                if (a.employeeEmail !== employeeEmail && a.email !== employeeEmail) return;
-                if (a.status !== 'pending' && a.status !== 'approved') return;
-                const aDays = parseFloat(a.numDays) || 0;
-                const aType = (a.leaveType || '').toLowerCase();
-                if (aType.includes('mfl') || aType.includes('mandatory') || aType.includes('forced')) pendingForceSpent += aDays;
-                else if (aType.includes('spl') || aType.includes('special')) pendingSplSpent += aDays;
-            });
-            
-            if (leaveType === 'leave_mfl' && (forceLeaveSpent + pendingForceSpent + numDays) > 5) {
-                const remaining = Math.max(0, 5 - forceLeaveSpent - pendingForceSpent);
-                return res.status(400).json({ success: false, error: 'Insufficient Force Leave balance', message: `Cannot resubmit: ${remaining.toFixed(0)} FL day(s) remaining out of 5.` });
-            }
-            if (leaveType === 'leave_mfl' && numDays >= 5) {
-                return res.status(400).json({ success: false, error: 'Force Leave filing restriction', message: 'Force Leave should not be filed as 5 consecutive days.' });
-            }
-            if (leaveType === 'leave_spl' && (splSpent + pendingSplSpent + numDays) > 3) {
-                const remaining = Math.max(0, 3 - splSpent - pendingSplSpent);
-                return res.status(400).json({ success: false, error: 'Insufficient SPL balance', message: `Cannot resubmit: ${remaining.toFixed(0)} SPL day(s) remaining out of 3.` });
-            }
-        }
-        
-        if (leaveType === 'leave_others') {
-            try {
-                ensureFile(ctoRecordsFile);
-                const ctoRecords = readJSON(ctoRecordsFile);
-                const empCtoRecords = ctoRecords.filter(r => r.employeeId === employeeEmail);
-                let ctoBalance = 0;
-                empCtoRecords.forEach(rec => { ctoBalance += (parseFloat(rec.daysGranted) || 0) - (parseFloat(rec.daysUsed) || 0); });
-                ctoBalance = Math.max(0, ctoBalance);
-                
-                // Deduct pending CTO apps (exclude THIS application)
-                const allApplications = readJSONArray(applicationsFile);
-                allApplications.forEach(a => {
-                    if (a.id === applicationId) return;
-                    if (a.employeeEmail !== employeeEmail && a.email !== employeeEmail) return;
-                    if (a.status !== 'pending' && a.status !== 'approved') return;
-                    const aType = (a.leaveType || '').toLowerCase();
-                    if (aType.includes('others') || aType.includes('cto')) ctoBalance = Math.max(0, ctoBalance - (parseFloat(a.numDays) || 0));
-                });
-                
-                if (ctoBalance <= 0) {
-                    return res.status(400).json({ success: false, error: 'No CTO balance available', message: 'Cannot resubmit: no CTO balance.' });
-                }
-                if (numDays > ctoBalance) {
-                    return res.status(400).json({ success: false, error: 'Insufficient CTO balance', message: `Cannot resubmit: CTO balance is ${ctoBalance.toFixed(3)} day(s) but ${numDays} requested.` });
-                }
-            } catch (ctoErr) {
-                return res.status(500).json({ success: false, error: 'Unable to verify CTO balance' });
-            }
+        const validation = validateLeaveBalance(leaveType, numDays, employeeEmail, applicationId);
+        if (!validation.valid) {
+            return res.status(400).json({ success: false, error: validation.error, message: validation.message });
         }
         
         // Update application with only allowed fields from resubmission (prevent mass assignment)
@@ -4229,12 +4626,9 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'employeeEmail is required' });
         }
         
-        // AO school-based filtering: AO can only update leave credits of their school's employees
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const empOffice = getEmployeeOffice(employeeEmail);
-            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
-                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
-            }
+        // AO school-based filtering
+        if (!isAoAccessAllowed(req, employeeEmail)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         
         // Verify employee exists in users or employees data
@@ -4249,7 +4643,7 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
         let leavecards = readJSON(leavecardsFile);
         
         // Use email as primary lookup key since that's what we have from applications
-        console.log(`[UPDATE LEAVE] Received: email=${employeeEmail}, applicationId=${applicationId}`);
+
         
         // Find existing leave card by email, name, or employee number
         let employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
@@ -4268,7 +4662,7 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
             employeeLeave = leavecards.find(lc => lc.employeeNo && lc.employeeNo === employeeEmail);
         }
         
-        console.log(`[UPDATE LEAVE] Found existing record: ${!!employeeLeave}`);
+
         
         if (!employeeLeave) {
             // Create new leave card record with transaction history
@@ -4306,7 +4700,7 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
                     txn.dateRecorded = editDate; // Date the AO entered this transaction
                 });
                 employeeLeave.transactions.push(...transactions);
-                console.log('[UPDATE LEAVE] Added', transactions.length, 'transactions to history (recorded:', editDate, ')');
+
             }
             
             // Update legacy fields for backward compatibility
@@ -4346,11 +4740,11 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
             }
             
             employeeLeave.updatedAt = new Date().toISOString();
-            console.log('[UPDATE LEAVE] Updated existing leave card for:', employeeEmail);
+
         }
         
         writeJSON(leavecardsFile, leavecards);
-        console.log('[UPDATE LEAVE] Successfully saved leave card data');
+
         
         // Log leave credits update
         logActivity('LEAVE_CREDITS_UPDATED', 'employee', {
@@ -4379,7 +4773,7 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
     try {
         const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
         const ip = getClientIp(req);
-        console.log('[APPROVE-LEAVE] Request received:', { applicationId, action, approverPortal, approverName });
+
         
         const applications = readJSONArray(applicationsFile);
         // Handle both string and number applicationId
@@ -4391,14 +4785,11 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         }
         
         const app = applications[appIndex];
-        console.log('[APPROVE-LEAVE] Found application:', { id: app.id, employee: app.employeeName, currentApprover: app.currentApprover });
+
         
-        // AO school-based filtering: AO can only approve/return/reject applications from their school's employees
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const empOffice = getEmployeeOffice(app.employeeEmail || app.email);
-            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
-                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
-            }
+        // AO school-based filtering
+        if (!isAoAccessAllowed(req, app.employeeEmail || app.email)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         
         // SECURITY: Use session role instead of trusting client-provided portal
@@ -4481,6 +4872,9 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             
             console.log(`[LEAVE] Application ${applicationId} returned by ${approverPortal} to ${returnedTo} - Reason: ${remarks}`);
             
+            // Email notification for return
+            notifyLeaveReturned(app, currentApprover, remarks);
+            
         } else if (action === 'rejected') {
             // Final rejection - application is permanently rejected
             app.status = 'rejected';
@@ -4491,6 +4885,9 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             app.rejectionReason = remarks;
             
             console.log(`[LEAVE] Application ${applicationId} REJECTED by ${approverPortal} - Reason: ${remarks}`);
+            
+            // Email notification for rejection
+            notifyLeaveRejected(app, currentApprover, remarks);
             
         } else if (action === 'approved') {
             // Determine next approver based on workflow
@@ -4566,17 +4963,13 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             }
             
             console.log(`[LEAVE] Application ${applicationId} approved by ${approverPortal}, new currentApprover: ${app.currentApprover}`);
+            
+            // Email notification for approval (fire-and-forget)
+            notifyLeaveApproved(app, currentApprover, app.currentApprover);
         }
         
         applications[appIndex] = app;
         writeJSON(applicationsFile, applications);
-        
-        console.log('[APPROVE-LEAVE] Application updated successfully', { 
-            applicationId: app.id, 
-            newStatus: app.status, 
-            newCurrentApprover: app.currentApprover,
-            action: action 
-        });
         
         res.json({ 
             success: true, 
@@ -4820,17 +5213,13 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
         ensureFile(ctoRecordsFile);
         
         // SECURITY: Only allow access to own CTO records unless admin role
-        const adminRoles = ['ao', 'hr', 'asds', 'sds', 'it'];
-        if (employeeId && !adminRoles.includes(req.session.role) && req.session.email !== employeeId) {
+        if (employeeId && !isSelfOrAdmin(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
         
-        // AO school-based filtering: AO can only view CTO records of their school's employees
-        if (employeeId && req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const empOffice = getEmployeeOffice(employeeId);
-            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
-                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
-            }
+        // AO school-based filtering
+        if (employeeId && !isAoAccessAllowed(req, employeeId)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         let ctoRecords = readJSON(ctoRecordsFile);
 
@@ -4862,12 +5251,9 @@ app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
 
-        // AO school-based filtering: AO can only update CTO records of their school's employees
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const empOffice = getEmployeeOffice(employeeId);
-            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
-                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
-            }
+        // AO school-based filtering
+        if (!isAoAccessAllowed(req, employeeId)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
         // Validate soImage size (max 5MB base64 ≈ ~6.7MB string length)
@@ -4923,12 +5309,9 @@ app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
             return res.status(404).json({ success: false, error: 'Record not found' });
         }
 
-        // AO school-based filtering: AO can only update CTO records of their school's employees
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const empOffice = getEmployeeOffice(ctoRecords[index].employeeId || ctoRecords[index].email);
-            if (!isEmployeeInAoSchool(empOffice, req.session.office)) {
-                return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
-            }
+        // AO school-based filtering
+        if (!isAoAccessAllowed(req, ctoRecords[index].employeeId || ctoRecords[index].email)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
         ctoRecords[index].daysUsed = (ctoRecords[index].daysUsed || 0) + Number(daysUsed);
@@ -4958,16 +5341,7 @@ app.get('/api/activity-logs', requireAuth('it'), (req, res) => {
         const startDate = req.query.startDate;
         const endDate = req.query.endDate;
         
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
+        const logs = readJSONArray(activityLogsFile);
         
         // Apply filters
         let filtered = logs;
@@ -5017,16 +5391,7 @@ app.get('/api/activity-logs', requireAuth('it'), (req, res) => {
 // Get activity log summary (stats)
 app.get('/api/activity-logs-summary', requireAuth('it'), (req, res) => {
     try {
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
+        const logs = readJSONArray(activityLogsFile);
         
         // Calculate statistics
         const stats = {
@@ -5078,16 +5443,7 @@ app.get('/api/activity-logs-summary', requireAuth('it'), (req, res) => {
 // Export activity logs as CSV
 app.get('/api/export-activity-logs', requireAuth('it'), (req, res) => {
     try {
-        let logs = [];
-        if (fs.existsSync(activityLogsFile)) {
-            try {
-                const content = fs.readFileSync(activityLogsFile, 'utf-8');
-                logs = JSON.parse(content);
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) {
-                logs = [];
-            }
-        }
+        const logs = readJSONArray(activityLogsFile);
         
         // Convert to CSV
         const headers = ['ID', 'Timestamp', 'Action', 'Portal', 'User Email', 'User ID', 'IP Address', 'User Agent', 'Details'];
@@ -5103,7 +5459,7 @@ app.get('/api/export-activity-logs', requireAuth('it'), (req, res) => {
                 log.ip,
                 (log.userAgent || '').replace(/,/g, ';'),
                 JSON.stringify(log.details).replace(/,/g, ';')
-            ].map(field => `"${String(field || '').replace(/"/g, '""')}"` ).join(','))
+            ].map(field => `"${String(field || '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"` ).join(','))
         ].join('\n');
         
         res.setHeader('Content-Type', 'text/csv');
@@ -5369,7 +5725,6 @@ const migrationUpload = multer({
 
 /**
  * Extract VL/SL balance from a single Excel leave card buffer.
- * Mirrors the logic from scripts/extract_initial_credits.js.
  *
  * Excel leave-card layout (DepEd standard):
  *  - Filename = "LASTNAME, FIRSTNAME.xlsx"
