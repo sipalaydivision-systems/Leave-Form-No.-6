@@ -2382,154 +2382,148 @@
             }
         }
 
-        // Generate Final Leave Form HTML - Using exact structure from leave_form.html
+        // Generate Final Leave Form HTML - Identical to SDS portal rendering (DRY: single source of truth)
         function generateFinalLeaveFormHTML(app) {
             const getApprovalInfo = (approver) => {
                 if (!app.approvalHistory) return null;
-                const portal = approver.toUpperCase();
-                // Use slice().reverse().find() to get the LATEST approved entry
-                // This handles re-approvals after returns correctly
-                const approval = app.approvalHistory.slice().reverse().find(a => a.portal === portal && a.action === 'approved');
-                return approval || null;
+                return app.approvalHistory.find(a => a.portal.toLowerCase() === approver.toLowerCase());
             };
 
             // Get approver info
-            const hrApproval = getApprovalInfo('hr');
+            const aoApproval = getApprovalInfo('ao');
             const asdsApproval = getApprovalInfo('asds');
             const sdsApproval = getApprovalInfo('sds');
 
-            // Default signatory names (matching SDS portal view)
+            // Parse name from employeeName (Last, First Middle)
+            const nameParts = (app.employeeName || '').split(',');
+            const lastName = nameParts[0]?.trim() || '';
+            const firstMiddle = nameParts[1]?.trim().split(' ') || [];
+            const firstName = firstMiddle[0] || '';
+            const middleName = firstMiddle.slice(1).join(' ') || '';
+
+            // Default signatory names — use stored officer names, NOT approvalHistory names
             const aoSignatoryName = app.authorizedOfficerName || 'MA. LUISA B. CATIGAN';
             const asdsSignatoryName = app.asdsOfficerName || 'DONDY A. DEPOSITARIO, PhD';
             const sdsSignatoryName = app.sdsOfficerName || 'BERNIE L. LIBO-ON, PhD';
 
             // Calculate as of date (last day of previous month)
-            const now = new Date();
-            const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-            const asOfDate = lastDayPrevMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const creditDate = new Date();
+            const lastDayPrevMonth = new Date(creditDate.getFullYear(), creditDate.getMonth(), 0);
+            const creditDateFormatted = lastDayPrevMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
             return `
                 <style>
-                    .final-form-container {
-                        width: 100%;
-                        max-width: 100%;
-                        margin: 0 auto;
-                        background-color: white;
-                        padding: 10px 12px;
-                        border: none;
-                        font-family: Arial, sans-serif;
-                        font-size: 10px;
-                        line-height: 1.4;
-                        box-sizing: border-box;
-                    }
-                    .final-form-header { text-align: center; margin-bottom: 10px; }
-                    .final-form-title { font-size: 16px; font-weight: bold; text-align: center; margin: 10px 0; letter-spacing: 2px; }
-                    .info-row { display: grid; grid-template-columns: 1.5fr 2fr; border: 1px solid #000; border-bottom: none; }
+                    .printable-form { width: 100%; max-width: 100%; margin: 0 auto; background-color: white; padding: 8px 10px; border: none; font-family: Arial, sans-serif; font-size: 10px; line-height: 1.2; box-sizing: border-box; }
+                    .form-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
+                    .form-number { font-size: 10px; font-style: italic; }
+                    .stamp-box { border: 1px solid #000; padding: 6px 10px; font-size: 9px; text-align: center; min-width: 90px; }
+                    .letterhead { text-align: center; margin-bottom: 0; margin-top: -3px; }
+                    .letterhead-content { display: flex; justify-content: center; align-items: center; gap: 12px; }
+                    .letterhead-logo { flex-shrink: 0; margin-left: -70px; }
+                    .letterhead img { width: 70px; height: 70px; object-fit: contain; border-radius: 50%; }
+                    .letterhead-text { font-size: 11px; line-height: 1.0; }
+                    .letterhead-text p { margin: 0; line-height: 1.0; }
+                    .agency { font-weight: bold; font-style: italic; }
+                    .form-title { font-size: 15px; font-weight: bold; text-align: center; margin: 6px 0; letter-spacing: 2px; }
+                    .info-row { display: grid; grid-template-columns: 1.5fr 2fr; border: 1px solid #000; border-bottom: none; margin-top: -1px; }
                     .info-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
-                    .info-cell { padding: 4px 8px; border-right: 1px solid #000; font-size: 10px; }
+                    .info-cell { padding: 3px 6px; border-right: 1px solid transparent; font-size: 10px; }
                     .info-cell:last-child { border-right: none; }
-                    .info-cell label { font-weight: bold; display: inline; margin-right: 5px; }
-                    .info-cell .value { display: inline; }
-                    .section-header { background-color: #f0f0f0; border: 1px solid #000; padding: 5px 8px; font-weight: bold; font-size: 10px; text-align: center; }
+                    .info-cell label { font-weight: bold; display: block; margin-bottom: 1px; }
+                    .info-cell span { display: block; }
+                    .info-row:last-of-type { border-bottom: 1px solid #000 !important; }
+                    .section-header { background-color: #f0f0f0; border: 1px solid #000; padding: 4px 6px; font-weight: bold; font-size: 10px; text-align: center; }
                     .details-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
                     .details-column { padding: 4px; font-size: 9px; }
                     .details-column:first-child { border-right: 1px solid #000; }
-                    .column-header { font-weight: bold; font-size: 9px; margin-bottom: 6px; text-decoration: underline; }
-                    /* === Print-friendly checkbox styling === */
-                    .final-form-container input[type="checkbox"] { width: 15px; height: 15px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; cursor: default; }
-                    .leave-option { display: flex; align-items: flex-start; margin-bottom: 3px; font-size: 9px; }
-                    .leave-option input[type="checkbox"] { margin-right: 5px; margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; }
-                    .leave-option span { line-height: 1.3; }
-                    .leave-option small { color: #666; font-size: 8px; }
-                    .sub-section { padding: 2px 0; margin-bottom: 5px; }
-                    .sub-section-title { font-weight: bold; font-size: 8px; margin-bottom: 4px; font-style: italic; }
-                    .sub-option { display: flex; align-items: center; margin-bottom: 2px; font-size: 9px; }
-                    .sub-option input[type="checkbox"] { margin-right: 5px; }
-                    .sub-field { margin-left: 20px; margin-top: 2px; }
-                    .sub-field input { width: 90%; border: none; border-bottom: 1px solid #000; font-size: 9px; padding: 2px; background: transparent; }
+                    .column-header { font-weight: bold; font-size: 9px; margin-bottom: 3px; text-decoration: underline; }
+                    .leave-option { display: flex; align-items: flex-start; margin-bottom: 0px; font-size: 10px; }
+                    .leave-option input { margin-right: 3px; margin-top: 2px; flex-shrink: 0; accent-color: #000; width: 15px; height: 15px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .leave-option input[type="checkbox"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; accent-color: #000; }
+                    .printable-form input[type="checkbox"] { accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; width: 15px; height: 15px; }
+                    .leave-option span { line-height: 1.2; }
+                    .leave-option small { color: #444; font-size: 9px; }
+                    .others-line { margin-top: 2px; margin-left: 0; }
+                    .sub-section { border: 1px solid #ccc; padding: 2px 4px; margin-bottom: 2px; background: #fafafa; }
+                    .sub-section-title { font-weight: bold; font-size: 7px; margin-bottom: 1px; font-style: italic; }
+                    .sub-option { display: flex; align-items: center; margin-bottom: 1px; font-size: 8px; }
+                    .sub-option input { margin-right: 4px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .sub-field { margin-left: 18px; margin-top: 1px; }
+                    .sub-field input { width: calc(100% - 5px); border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; }
                     .bottom-details { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .bottom-column { padding: 5px; font-size: 9px; }
+                    .bottom-column { padding: 3px 5px; font-size: 9px; }
                     .bottom-column:first-child { border-right: 1px solid #000; }
-                    .field-label { font-weight: bold; font-size: 9px; margin-bottom: 4px; }
-                    .field-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 4px; font-size: 10px; background: transparent; }
-                    .commutation-options label { display: flex; align-items: center; margin-bottom: 3px; font-size: 9px; }
-                    .commutation-options input[type="checkbox"] { margin-right: 5px; }
-                    .signature-area { margin-top: 15px; text-align: center; }
-                    .signature-line { border-bottom: 1px solid #000; height: 25px; margin-bottom: 3px; }
-                    .signature-label { font-size: 8px; font-style: italic; }
+                    .field-label { font-weight: bold; font-size: 9px; margin-bottom: 2px; }
+                    .field-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 2px; font-size: 10px; background: transparent; }
+                    .commutation-options label { display: flex; align-items: center; margin-bottom: 2px; font-size: 9px; }
+                    .commutation-options input { margin-right: 4px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .recommendation-options input[type="checkbox"] { accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .action-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; }
-                    .action-column { padding: 8px; font-size: 9px; display: flex; flex-direction: column; min-height: 160px; }
+                    .action-column { padding: 4px; font-size: 9px; display: flex; flex-direction: column; min-height: 160px; }
                     .action-column:first-child { border-right: 1px solid #000; }
-                    .credits-table { width: 100%; border-collapse: collapse; font-size: 9px; margin: 8px 0; }
-                    .credits-table th, .credits-table td { border: 1px solid #000; padding: 4px; text-align: center; }
+                    .credits-table { width: 100%; border-collapse: collapse; font-size: 8px; margin: 4px 0; }
+                    .credits-table th, .credits-table td { border: 1px solid #000; padding: 2px; text-align: center; }
                     .credits-table th { background: #f0f0f0; font-weight: bold; }
                     .credits-table td:first-child { text-align: left; font-style: italic; }
-                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 3px; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-                    .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; object-fit: contain; }
-                    .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #000; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
-                    .officer-title { font-size: 9px; color: #000; }
-                    .recommendation-options label { display: flex; align-items: flex-start; margin-bottom: 5px; font-size: 9px; }
-                    .recommendation-options input[type="checkbox"] { margin-right: 5px; margin-top: 2px; accent-color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    .recommendation-input { border: none; border-bottom: 1px solid #000; width: 40px; text-align: center; font-size: 9px; }
-                    .disapproval-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 4px; font-size: 9px; background: transparent; margin-bottom: 2px; }
-                    .disapproval-input:disabled { background-color: transparent; border-bottom-color: #000; cursor: default; }
-                    .approval-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; border-bottom: none; }
-                    .approval-column { padding: 8px; font-size: 9px; }
-                    .approval-column:first-child { border-right: 1px solid #000; }
-                    .approval-field { display: flex; align-items: center; margin-bottom: 4px; font-size: 9px; }
-                    .approval-field input { width: 50px; border: none; border-bottom: 1px solid #000; margin-right: 5px; text-align: center; font-size: 9px; background: transparent; }
-                    .approval-field input:disabled { background-color: transparent; border-bottom-color: #000; cursor: default; }
-                    .final-signature { text-align: center; padding: 6px 8px; border: 1px solid #000; border-top: none; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-                    .final-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; object-fit: contain; }
-                    .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #000; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; border-top: none; }
+                    .officer-signature { text-align: center; margin-top: auto; padding-bottom: 2px; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+                    .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; object-fit: contain; }
+                    .officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; }
+                    .officer-title { font-size: 9px; color: #003366; }
+                    .recommendation-options label { display: flex; align-items: flex-start; margin-bottom: 2px; font-size: 8px; }
+                    .recommendation-options input[type="checkbox"] { margin-right: 3px; margin-top: 1px; }
+                    .disapproval-input { width: 100%; border: none; border-bottom: 1px solid #000; padding: 1px; font-size: 8px; background: transparent; margin-bottom: 1px; }
+                    .approval-section { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; border-bottom: none; min-height: 60px; }
+                    .approval-column { padding: 5px; font-size: 9px; display: flex; flex-direction: column; }
+                    .approval-column:first-child { border-right: 1px solid transparent; }
+                    .approval-field { display: flex; align-items: center; margin-bottom: 3px; font-size: 9px; }
+                    .approval-field input { width: 45px; border: none; border-bottom: 1px solid #000; margin-right: 4px; text-align: center; font-size: 9px; background: transparent; }
+                    .final-signature { text-align: center; padding: 4px 8px; border: 1px solid #000; border-top: none; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+                    .final-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; object-fit: contain; }
+                    .final-officer-name { font-weight: bold; font-size: 11px; margin-top: 0; color: #003366; text-transform: uppercase; text-decoration: underline; padding-top: 2px; display: inline-block; min-width: 180px; background: white; position: relative; z-index: 2; border-top: none; }
                     .final-officer-title { font-size: 9px; line-height: 1.1; }
+                    .signature-line { border-bottom: 1px solid #000; width: 220px; margin: 0 auto; }
                     @media print {
-                        .final-form-container { box-shadow: none; border: none; padding: 2mm 3mm; width: 100%; max-width: 100%; }
-                        .final-form-container input[type="checkbox"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; accent-color: #000 !important; }
+                        .printable-form { box-shadow: none; border: none; padding: 2mm 3mm; width: 100%; max-width: 100%; }
+                        .printable-form input[type="checkbox"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; accent-color: #000 !important; }
                     }
                 </style>
 
-                <div class="final-form-container" id="printableFinalForm">
-                    <!-- Header Wrapper -->
-                    <div class="header-wrapper" style="margin-bottom: 10px;">
-                        <!-- Form Header -->
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
-                            <div style="font-size: 10px; font-style: italic;">
-                                <strong>Civil Service Form No. 6</strong><br>
-                                Revised 2020
-                            </div>
-                            <div style="border: 1px solid #000; padding: 8px 12px; font-size: 9px; text-align: center; min-width: 100px;">
-                                Stamp of Date of Receipt
-                            </div>
+                <div class="printable-form" id="printableFinalForm">
+                    <!-- Header -->
+                    <div class="form-header">
+                        <div class="form-number">
+                            <strong>Civil Service Form No. 6</strong><br>
+                            Revised 2020
                         </div>
+                        <div class="stamp-box">Stamp of Date of Receipt</div>
+                    </div>
 
-                        <!-- Letterhead -->
-                        <div style="text-align: center; margin-bottom: 0;">
-                            <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
-                                <div style="flex-shrink: 0; margin-left: -70px;">
-                                    <img src="/deped%20logo.png" alt="DepEd Logo" style="width: 70px; height: 70px; object-fit: contain;">
-                                </div>
-                                <div style="font-size: 11px;">
-                                    <p style="margin: 1px 0; font-style: italic;">Republic of the Philippines</p>
-                                    <p style="margin: 1px 0; font-weight: bold; font-style: italic;">Department of Education</p>
-                                    <p style="margin: 1px 0;">NEGROS ISLAND REGION</p>
-                                    <p style="margin: 1px 0; font-weight: bold;">SCHOOLS DIVISION OF SIPALAY CITY</p>
-                                </div>
+                    <!-- Letterhead -->
+                    <div class="letterhead">
+                        <div class="letterhead-content">
+                            <div class="letterhead-logo">
+                                <img src="/deped%20logo.png" alt="DepEd Logo">
+                            </div>
+                            <div class="letterhead-text">
+                                <p style="font-style: italic;">Republic of the Philippines</p>
+                                <p class="agency">Department of Education</p>
+                                <p>NEGROS ISLAND REGION</p>
+                                <p style="font-weight: bold;">SCHOOLS DIVISION OF SIPALAY CITY</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="final-form-title">APPLICATION FOR LEAVE</div>
+                    <div class="form-title">APPLICATION FOR LEAVE</div>
 
                     <!-- Row 1: Office and Name -->
-                    <div class="info-row">
+                    <div class="info-row" style="margin-top: 0;">
                         <div class="info-cell">
                             <label>1. OFFICE/DEPARTMENT/SCHOOL</label>
-                            <span class="value">${app.office || ''}</span>
+                            <span>${app.office || ''}</span>
                         </div>
                         <div class="info-cell">
                             <label>2. NAME: (Last) (First) (Middle)</label>
-                            <span class="value">${app.employeeName || ''}</span>
+                            <span style="padding-left: 20px;">${lastName}, ${firstName} ${middleName}</span>
                         </div>
                     </div>
 
@@ -2537,15 +2531,15 @@
                     <div class="info-row three-col" style="border-bottom: 1px solid #000;">
                         <div class="info-cell">
                             <label>3. DATE OF FILING</label>
-                            <span class="value">${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}</span>
+                            <span>${app.dateOfFiling ? new Date(app.dateOfFiling).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : ''}</span>
                         </div>
                         <div class="info-cell">
                             <label>4. POSITION</label>
-                            <span class="value">${app.position || ''}</span>
+                            <span>${app.position || ''}</span>
                         </div>
                         <div class="info-cell">
                             <label>5. SALARY</label>
-                            <span class="value">${app.salary || ''}</span>
+                            <span>${app.salary || ''}</span>
                         </div>
                     </div>
 
@@ -2609,12 +2603,11 @@
                                 <input type="checkbox" ${app.leaveType === 'leave_adoption' ? 'checked' : ''} disabled>
                                 <span>Adoption Leave <small>(R.A. No. 8552)</small></span>
                             </div>
-                            <div style="margin-top: 10px;">
-                                <div class="leave-option">
-                                    <input type="checkbox" ${app.leaveType === 'leave_others' ? 'checked' : ''} disabled>
-                                    <span>Others:</span>
-                                </div>
-                                <input type="text" value="${app.otherLeaveSpecify || ''}" style="width: 70%; border: none; border-bottom: 1px solid #000; font-size: 9px; background: transparent;" readonly>
+                            <div class="leave-option" style="margin-top: 3px;">
+                                <span style="font-weight: bold;">Others:</span>
+                            </div>
+                            <div class="others-line">
+                                <input type="text" value="${app.otherLeaveSpecify || ''}" readonly style="width: 80%; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent;">
                             </div>
                         </div>
 
@@ -2627,13 +2620,12 @@
                                 <div class="sub-option">
                                     <input type="checkbox" ${app.locationPH ? 'checked' : ''} disabled>
                                     <span>Within the Philippines</span>
+                                    <input type="text" value="${app.locationPHSpecify || ''}" readonly style="flex: 1; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; margin-left: 5px;">
                                 </div>
                                 <div class="sub-option">
                                     <input type="checkbox" ${app.locationAbroad ? 'checked' : ''} disabled>
                                     <span>Abroad (Specify)</span>
-                                </div>
-                                <div class="sub-field">
-                                    <input type="text" value="${app.abroadSpecify || ''}" readonly>
+                                    <input type="text" value="${app.abroadSpecify || ''}" readonly style="flex: 1; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; margin-left: 5px;">
                                 </div>
                             </div>
 
@@ -2642,24 +2634,20 @@
                                 <div class="sub-option">
                                     <input type="checkbox" ${app.sickHospital ? 'checked' : ''} disabled>
                                     <span>In Hospital (Specify Illness)</span>
-                                </div>
-                                <div class="sub-field">
-                                    <input type="text" value="${app.hospitalIllness || ''}" readonly>
+                                    <input type="text" value="${app.hospitalIllness || ''}" readonly style="flex: 1; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; margin-left: 5px;">
                                 </div>
                                 <div class="sub-option">
                                     <input type="checkbox" ${app.sickOutpatient ? 'checked' : ''} disabled>
                                     <span>Out Patient (Specify Illness)</span>
-                                </div>
-                                <div class="sub-field">
-                                    <input type="text" value="${app.outpatientIllness || ''}" readonly>
+                                    <input type="text" value="${app.outpatientIllness || ''}" readonly style="flex: 1; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; margin-left: 5px;">
                                 </div>
                             </div>
 
                             <div class="sub-section">
                                 <div class="sub-section-title">In case of Special Leave Benefits for Women:</div>
-                                <span style="font-size: 8px;">(Specify Illness)</span>
-                                <div class="sub-field">
-                                    <input type="text" value="${app.womenIllness || ''}" readonly>
+                                <div class="sub-option">
+                                    <span style="font-size: 8px;">(Specify Illness)</span>
+                                    <input type="text" value="${app.womenIllness || ''}" readonly style="flex: 1; border: none; border-bottom: 1px solid #000; font-size: 8px; padding: 1px; background: transparent; margin-left: 5px;">
                                 </div>
                             </div>
 
@@ -2715,8 +2703,10 @@
                             </div>
                             <div class="signature-area" style="margin-top: 0; text-align: center; min-height: 50px; display: flex; flex-direction: column; justify-content: flex-end;">
                                 ${app.employeeSignature && app.employeeSignature.startsWith('data:image') ? `<img src="${app.employeeSignature}" alt="Applicant Signature" style="max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; border: none; background: transparent;">` : '<div style="height: 30px;"></div>'}
-                                <div style="font-size: 9px; font-style: italic; margin-top: 2px;">(Signature of Applicant)</div>
-                                <div style="font-size: 10px; margin-top: 2px;">${app.employeeName || ''}</div>
+                                <div style="width: 220px; margin: 0 auto; padding-top: 2px;">
+                                    <span style="font-size: 11px; font-weight: bold; text-decoration: underline;">${app.employeeName || ''}</span>
+                                </div>
+                                <div style="font-size: 9px; font-style: italic; margin-top: 1px;">(Signature of Applicant)</div>
                             </div>
                         </div>
                     </div>
@@ -2729,7 +2719,7 @@
                         <div class="action-column">
                             <div class="field-label">7.A CERTIFICATION OF LEAVE CREDITS</div>
                             <div style="font-size: 9px; margin-bottom: 8px;">
-                                As of <span style="border-bottom: 1px solid #000; padding: 0 5px;">${asOfDate}</span>
+                                As of <input type="text" value="${creditDateFormatted}" style="border: none; border-bottom: 1px solid #000; width: 140px; font-size: 9px; padding: 0 5px;" disabled readonly>
                             </div>
                             
                             <table class="credits-table">
@@ -2746,36 +2736,35 @@
                                 <tbody>
                                     <tr>
                                         <td>Total Earned</td>
-                                        <td>${app.vlEarned || '0.000'}</td>
-                                        <td>${app.slEarned || '0.000'}</td>
-                                        <td class="spl-credit-cell">${app.splEarned || '0.000'}</td>
-                                        <td class="fl-credit-cell">${app.flEarned || '0.000'}</td>
-                                        <td class="cto-credit-cell">${app.ctoEarned || '0.000'}</td>
+                                        <td><input type="number" value="${app.vlEarned || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td><input type="number" value="${app.slEarned || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="spl-credit-cell"><input type="number" value="${app.splEarned || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="fl-credit-cell"><input type="number" value="${app.flEarned || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="cto-credit-cell"><input type="number" value="${app.ctoEarned || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
                                     </tr>
                                     <tr>
                                         <td>Less this application</td>
-                                        <td>${app.vlLess || '0'}</td>
-                                        <td>${app.slLess || '0'}</td>
-                                        <td class="spl-credit-cell">${app.splLess || '0'}</td>
-                                        <td class="fl-credit-cell">${app.flLess || '0'}</td>
-                                        <td class="cto-credit-cell">${app.ctoLess || '0'}</td>
+                                        <td><input type="number" value="${app.vlLess || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td><input type="number" value="${app.slLess || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="spl-credit-cell"><input type="number" value="${app.splLess || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="fl-credit-cell"><input type="number" value="${app.flLess || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="cto-credit-cell"><input type="number" value="${app.ctoLess || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
                                     </tr>
                                     <tr>
                                         <td>Balance</td>
-                                        <td>${app.vlBalance || '0.000'}</td>
-                                        <td>${app.slBalance || '0.000'}</td>
-                                        <td class="spl-credit-cell">${app.splBalance || '0.000'}</td>
-                                        <td class="fl-credit-cell">${app.flBalance || '0.000'}</td>
-                                        <td class="cto-credit-cell">${app.ctoBalance || '0.000'}</td>
+                                        <td><input type="number" value="${app.vlBalance || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td><input type="number" value="${app.slBalance || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="spl-credit-cell"><input type="number" value="${app.splBalance || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="fl-credit-cell"><input type="number" value="${app.flBalance || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
+                                        <td class="cto-credit-cell"><input type="number" value="${app.ctoBalance || ''}" step="0.001" disabled style="width: 100%; border: none; background: transparent;"></td>
                                     </tr>
                                 </tbody>
                             </table>
 
                             <div class="officer-signature">
                                 ${app.authorizedOfficerSignature && app.authorizedOfficerSignature.startsWith('data:image') ? `<img src="${app.authorizedOfficerSignature}" alt="AO Signature">` : '<div style="height: 30px;"></div>'}
-                                <div class="officer-name">${hrApproval ? hrApproval.approverName : aoSignatoryName}</div>
+                                <div class="officer-name">${app.authorizedOfficerName || aoSignatoryName}</div>
                                 <div class="officer-title">Administrative Officer IV-Personnel Section</div>
-                                ${hrApproval ? `<div style="font-size: 8px; margin-top: 5px;">Certified: ${new Date(hrApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
                         </div>
 
@@ -2785,20 +2774,22 @@
                             <div class="recommendation-options">
                                 <label>
                                     <input type="checkbox" ${asdsApproval ? 'checked' : ''} disabled>
-                                    <span>For approval of <span style="border-bottom: 1px solid #000; padding: 0 5px;">${app.numDays || ''}</span> days leave with pay</span>
+                                    <span>For approval of <input type="text" value="${app.numDays || ''}" style="width: 30px; border: none; border-bottom: 1px solid #000; text-align: center; font-size: 8px; padding: 0 2px;" disabled> days leave with pay</span>
                                 </label>
                                 <label style="display: flex; align-items: center; margin-bottom: 3px;">
                                     <input type="checkbox" disabled>
                                     <span style="margin-right: 5px;">For disapproval due to</span>
+                                    <input type="text" class="disapproval-input" style="flex: 1; margin-bottom: 0;" disabled readonly>
                                 </label>
+                                <input type="text" class="disapproval-input" disabled readonly>
+                                <input type="text" class="disapproval-input" disabled readonly>
                                 <input type="text" class="disapproval-input" disabled readonly>
                             </div>
 
-                            <div class="officer-signature" style="margin-top: auto; padding-bottom: 10px;">
+                            <div class="officer-signature" style="margin-top: auto;">
                                 ${app.asdsOfficerSignature && app.asdsOfficerSignature.startsWith('data:image') ? `<img src="${app.asdsOfficerSignature}" alt="ASDS Signature">` : '<div style="height: 30px;"></div>'}
-                                <div class="officer-name">${asdsApproval ? asdsApproval.approverName : asdsSignatoryName}</div>
+                                <div class="officer-name" style="color: #003366;">${app.asdsOfficerName || asdsSignatoryName}</div>
                                 <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
-                                ${asdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Recommended: ${new Date(asdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -2828,11 +2819,10 @@
                     <!-- Final Signature -->
                     <div class="final-signature">
                         ${app.sdsOfficerSignature && app.sdsOfficerSignature.startsWith('data:image') ? `<img src="${app.sdsOfficerSignature}" alt="SDS Signature">` : '<div style="height: 40px;"></div>'}
-                        <div class="final-officer-name">${sdsApproval ? sdsApproval.approverName : sdsSignatoryName}</div>
+                        <div class="final-officer-name">${app.sdsOfficerName || sdsSignatoryName}</div>
                         <div class="final-officer-title">Assistant Schools Division Superintendent</div>
                         <div class="final-officer-title">Officer-In-Charge</div>
                         <div class="final-officer-title">Office of the Schools Division Superintendent</div>
-                        ${sdsApproval ? `<div style="font-size: 8px; margin-top: 5px;">Approved: ${new Date(sdsApproval.timestamp).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>` : ''}
                     </div>
                 </div>
             `;
