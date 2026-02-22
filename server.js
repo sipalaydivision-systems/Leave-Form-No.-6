@@ -704,6 +704,25 @@ function findApplicationIndexById(applications, idParam) {
 }
 
 /**
+ * Look up a user's full name by email across all portal user files.
+ * Falls back to the email itself if no match is found.
+ * @param {string} email - The user's email address
+ * @returns {string} The user's full name or the email if not found
+ */
+function lookupUserName(email) {
+    if (!email) return 'Unknown';
+    const portalFiles = [
+        aoUsersFile, hrUsersFile, asdsUsersFile, sdsUsersFile, usersFile, itUsersFile
+    ];
+    for (const file of portalFiles) {
+        const users = readJSON(file);
+        const user = users.find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+        if (user && (user.fullName || user.name)) return user.fullName || user.name;
+    }
+    return email;
+}
+
+/**
  * Assert that the requesting user has access: either they own the resource or are an admin.
  * DRY: Replaces 10+ identical inline admin-role checks.
  * @param {object} req - Express request with req.session
@@ -4816,10 +4835,13 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         }
         
         // Add to approval history — use session-derived portal for audit integrity
+        // Resolve the approver's full name from user records (not just email)
+        const resolvedApproverName = lookupUserName(req.session.email) || approverName;
+        
         app.approvalHistory.push({
             portal: currentApprover,
             action: action,
-            approverName: req.session.email || approverName,
+            approverName: resolvedApproverName,
             remarks: remarks || '',
             timestamp: new Date().toISOString()
         });
@@ -4881,7 +4903,7 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             app.currentApprover = null;
             app.rejectedAt = new Date().toISOString();
             app.rejectedBy = currentApprover;
-            app.rejectedByName = req.session.email || approverName;
+            app.rejectedByName = resolvedApproverName;
             app.rejectionReason = remarks;
             
             console.log(`[LEAVE] Application ${applicationId} REJECTED by ${approverPortal} - Reason: ${remarks}`);
