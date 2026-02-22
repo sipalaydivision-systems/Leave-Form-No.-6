@@ -16,6 +16,9 @@
     'use strict';
     const _originalFetch = window.fetch;
 
+    // Shared pages accessible from any admin portal
+    const SHARED_PAGES = ['leave-calendar'];
+
     function getAuthToken() {
         // Scope token to current portal to prevent cross-portal token leakage
         const path = window.location.pathname;
@@ -24,6 +27,17 @@
         if (path.includes('asds-')) return localStorage.getItem('asdsToken');
         if (path.includes('sds-')) return localStorage.getItem('sdsToken');
         if (path.includes('it-')) return localStorage.getItem('itToken');
+
+        // Shared pages: try all admin tokens since any portal can link here
+        if (SHARED_PAGES.some(function(p) { return path.includes(p); })) {
+            return sessionStorage.getItem('aoToken')
+                || localStorage.getItem('hrToken')
+                || localStorage.getItem('asdsToken')
+                || localStorage.getItem('sdsToken')
+                || localStorage.getItem('itToken')
+                || sessionStorage.getItem('authToken');
+        }
+
         // Employee portal: try session first, then backup
         return sessionStorage.getItem('authToken')
             || localStorage.getItem('authToken_backup');
@@ -37,6 +51,10 @@
         if (path.includes('asds-')) return '/asds-login.html';
         if (path.includes('sds-')) return '/sds-login.html';
         if (path.includes('it-')) return '/it-login.html';
+        // Shared pages: go back in history instead of a specific login
+        if (SHARED_PAGES.some(function(p) { return path.includes(p); })) {
+            return '/login.html';
+        }
         return '/login.html'; // Employee default
     }
 

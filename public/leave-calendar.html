@@ -151,13 +151,13 @@
             </select>
             <select id="filterLeaveType" onchange="renderCalendar()">
                 <option value="all">All Leave Types</option>
-                <option value="leave_vacation">Vacation Leave</option>
-                <option value="leave_sick">Sick Leave</option>
-                <option value="leave_mandatory">Mandatory/Forced Leave</option>
+                <option value="leave_vl">Vacation Leave</option>
+                <option value="leave_sl">Sick Leave</option>
+                <option value="leave_mfl">Mandatory/Forced Leave</option>
                 <option value="leave_spl">Special Privilege Leave</option>
-                <option value="leave_maternity">Maternity Leave</option>
+                <option value="leave_ml">Maternity Leave</option>
                 <option value="leave_paternity">Paternity Leave</option>
-                <option value="leave_others">Others (CTO)</option>
+                <option value="leave_cto">Others (CTO)</option>
             </select>
             <input type="text" id="filterSearch" placeholder="Search employee name..." oninput="renderCalendar()">
         </div>
@@ -210,28 +210,24 @@
         
         async function loadLeaves() {
             try {
-                const token = sessionStorage.getItem('authToken');
-                if (!token) { window.location.href = '/'; return; }
-                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                // Auth-interceptor handles token injection automatically
+                const res = await fetch(`/api/leave-calendar?month=${currentMonth}&year=${currentYear}`);
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
                 allLeaves = data.leaves || [];
-                renderCalendar();
             } catch (err) {
                 console.error('Error loading leaves:', err);
-                if (err.message && err.message.includes('Session expired')) {
-                    window.location.href = '/';
-                }
+                allLeaves = [];
             }
+            // Always render calendar grid (even if empty)
+            renderCalendar();
         }
         
         function getLeaveTypeClass(leaveType) {
             if (!leaveType) return 'leave-type-default';
-            if (leaveType.includes('vacation')) return 'leave-type-vacation';
-            if (leaveType.includes('sick')) return 'leave-type-sick';
-            if (leaveType.includes('maternity') || leaveType.includes('paternity')) return 'leave-type-maternity';
+            if (leaveType === 'leave_vl' || leaveType.includes('vacation')) return 'leave-type-vacation';
+            if (leaveType === 'leave_sl' || leaveType.includes('sick')) return 'leave-type-sick';
+            if (leaveType === 'leave_ml' || leaveType.includes('maternity') || leaveType.includes('paternity')) return 'leave-type-maternity';
             if (leaveType.includes('spl') || leaveType.includes('special')) return 'leave-type-spl';
             if (leaveType.includes('mandatory') || leaveType.includes('mfl') || leaveType.includes('force')) return 'leave-type-mandatory';
             if (leaveType.includes('others') || leaveType.includes('cto')) return 'leave-type-others';
@@ -240,9 +236,14 @@
         
         function getLeaveTypeName(leaveType) {
             const map = {
-                'leave_vacation': 'VL', 'leave_sick': 'SL', 'leave_mandatory': 'MFL',
-                'leave_mfl': 'MFL', 'leave_spl': 'SPL', 'leave_maternity': 'Mat',
-                'leave_paternity': 'Pat', 'leave_others': 'CTO', 'leave_solo_parent': 'SP',
+                'leave_vl': 'VL', 'leave_vacation': 'VL',
+                'leave_sl': 'SL', 'leave_sick': 'SL',
+                'leave_mfl': 'MFL', 'leave_mandatory': 'MFL',
+                'leave_spl': 'SPL',
+                'leave_ml': 'Mat', 'leave_maternity': 'Mat',
+                'leave_paternity': 'Pat',
+                'leave_cto': 'CTO', 'leave_others': 'CTO',
+                'leave_soloparent': 'SP', 'leave_solo_parent': 'SP',
                 'leave_study': 'Study', 'leave_vawc': 'VAWC', 'leave_rehab': 'Rehab',
                 'leave_women': 'Women', 'leave_calamity': 'Cal', 'leave_adoption': 'Adopt'
             };
@@ -362,11 +363,15 @@
             if (!leave) return;
             
             const typeNames = {
-                'leave_vacation': 'Vacation Leave', 'leave_sick': 'Sick Leave',
-                'leave_mandatory': 'Mandatory/Forced Leave', 'leave_mfl': 'Mandatory/Forced Leave',
-                'leave_spl': 'Special Privilege Leave', 'leave_maternity': 'Maternity Leave',
-                'leave_paternity': 'Paternity Leave', 'leave_others': 'Others (CTO)',
-                'leave_solo_parent': 'Solo Parent Leave', 'leave_study': 'Study Leave'
+                'leave_vl': 'Vacation Leave', 'leave_vacation': 'Vacation Leave',
+                'leave_sl': 'Sick Leave', 'leave_sick': 'Sick Leave',
+                'leave_mfl': 'Mandatory/Forced Leave', 'leave_mandatory': 'Mandatory/Forced Leave',
+                'leave_spl': 'Special Privilege Leave',
+                'leave_ml': 'Maternity Leave', 'leave_maternity': 'Maternity Leave',
+                'leave_paternity': 'Paternity Leave',
+                'leave_cto': 'Others (CTO)', 'leave_others': 'Others (CTO)',
+                'leave_soloparent': 'Solo Parent Leave', 'leave_solo_parent': 'Solo Parent Leave',
+                'leave_study': 'Study Leave'
             };
             
             document.getElementById('tooltipCard').innerHTML = `
