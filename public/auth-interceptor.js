@@ -16,7 +16,7 @@
         if (path.includes('hr-')) return '/hr-login.html';
         if (path.includes('asds-')) return '/asds-login.html';
         if (path.includes('sds-')) return '/sds-login.html';
-        if (path.includes('it-') || path.includes('data-management')) return '/it-login.html';
+        if (path.includes('it-') || path.includes('data-management') || path.includes('activity-logs')) return '/it-login.html';
         return '/login.html'; // Employee default
     }
 

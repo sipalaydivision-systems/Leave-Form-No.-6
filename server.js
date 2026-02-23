@@ -12,6 +12,11 @@ const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
 const app = express();
+
+// Trust first proxy (Railway, Render, etc.) so req.ip returns the real client IP
+// Without this, rate limiting and activity logs use the proxy IP for ALL users
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'http://localhost:3000';
@@ -2096,6 +2101,8 @@ app.get('/leave-form', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/hr-approval', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-approval.html')));
 app.get('/asds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-dashboard.html')));
 app.get('/sds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-dashboard.html')));
+app.get('/activity-logs', (req, res) => res.sendFile(path.join(__dirname, 'public', 'activity-logs.html')));
+app.get('/data-management', (req, res) => res.sendFile(path.join(__dirname, 'public', 'data-management.html')));
 
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
@@ -4370,15 +4377,36 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         // Check if Force Leave or SPL year needs reset
         let forceLeaveSpent = latestRecord.forceLeaveSpent || 0;
         let splSpent = latestRecord.splSpent || 0;
+        let needsPersist = false;
         
-        // Reset Force Leave if year changed
+        // Reset Force Leave if year changed — persist to disk so validateLeaveBalance uses correct value
         if (latestRecord.forceLeaveYear && latestRecord.forceLeaveYear !== currentYear) {
             forceLeaveSpent = 0;
+            latestRecord.forceLeaveSpent = 0;
+            latestRecord.forceLeaveYear = currentYear;
+            needsPersist = true;
         }
         
         // Reset Special Privilege Leave if year changed
         if (latestRecord.splYear && latestRecord.splYear !== currentYear) {
             splSpent = 0;
+            latestRecord.splSpent = 0;
+            latestRecord.splYear = currentYear;
+            needsPersist = true;
+        }
+        
+        // Persist year reset to disk so submit-leave validation reads correct values
+        if (needsPersist) {
+            const allCards = readJSON(leavecardsFile);
+            const cardIdx = allCards.findIndex(lc => lc.email === latestRecord.email || lc.employeeId === latestRecord.employeeId);
+            if (cardIdx !== -1) {
+                allCards[cardIdx].forceLeaveSpent = 0;
+                allCards[cardIdx].forceLeaveYear = currentYear;
+                allCards[cardIdx].splSpent = 0;
+                allCards[cardIdx].splYear = currentYear;
+                writeJSON(leavecardsFile, allCards);
+                console.log(`[LEAVE-CREDITS] Year reset persisted for ${latestRecord.email}: FL/SPL spent reset to 0 for ${currentYear}`);
+            }
         }
         
         // Single source of truth: vl/sl summary fields
@@ -4867,6 +4895,11 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
         const ip = getClientIp(req);
 
+        // Validate action against whitelist
+        const VALID_ACTIONS = ['approved', 'returned', 'rejected'];
+        if (!action || !VALID_ACTIONS.includes(action)) {
+            return res.status(400).json({ success: false, error: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}` });
+        }
         
         const applications = readJSONArray(applicationsFile);
         // Handle both string and number applicationId
@@ -5313,8 +5346,15 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
 // Get CTO records for an employee
 app.get('/api/cto-records', requireAuth(), (req, res) => {
     try {
-        const { employeeId } = req.query;
+        let { employeeId } = req.query;
         ensureFile(ctoRecordsFile);
+        
+        // SECURITY: Non-admin users must provide employeeId and can only see their own records
+        const isAdmin = ADMIN_ROLES.includes(req.session.role);
+        if (!employeeId && !isAdmin) {
+            // Default to own records for non-admin users
+            employeeId = req.session.email;
+        }
         
         // SECURITY: Only allow access to own CTO records unless admin role
         if (employeeId && !isSelfOrAdmin(req, employeeId)) {

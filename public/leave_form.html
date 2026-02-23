@@ -1347,8 +1347,13 @@
 
     // Check if user is logged in
     window.addEventListener('DOMContentLoaded', function() {
-        const user = JSON.parse(sessionStorage.getItem('user'));
-        const employee = JSON.parse(sessionStorage.getItem('employee'));
+        let user, employee;
+        try {
+            user = JSON.parse(sessionStorage.getItem('user'));
+        } catch (e) { user = null; }
+        try {
+            employee = JSON.parse(sessionStorage.getItem('employee'));
+        } catch (e) { employee = null; }
         
         if (!user || !user.email) {
             alert('Please login first');
@@ -2331,8 +2336,24 @@
     document.getElementById('leaveForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
+        // Prevent double submission
+        const submitBtn = document.querySelector('button.submit');
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'SUBMITTING...';
+        
         // Get user data
-        const user = JSON.parse(sessionStorage.getItem('user'));
+        let user;
+        try {
+            user = JSON.parse(sessionStorage.getItem('user'));
+        } catch (parseErr) {
+            user = null;
+        }
+        if (!user || !user.email) {
+            alert('Session expired. Please login again.');
+            window.location.href = '/';
+            return;
+        }
         
         // ===== VALIDATION: Inclusive dates are REQUIRED =====
         const dateFrom = document.getElementById('date_from').value;
@@ -2638,6 +2659,10 @@
         } catch (error) {
             console.error('Error:', error);
             alert('❌ Error submitting application. Please try again.');
+        } finally {
+            // Re-enable submit button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'SUBMIT APPLICATION';
         }
     });
 
