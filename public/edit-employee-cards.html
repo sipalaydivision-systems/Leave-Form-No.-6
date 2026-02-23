@@ -637,7 +637,7 @@
         document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Validate AO session before loading data
             const aoUser = sessionStorage.getItem('user');
             if (!aoUser) {
@@ -649,6 +649,17 @@
                 window.location.href = '/ao-login.html';
                 return;
             }
+            
+            // Validate session server-side (cookie-based auth)
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    sessionStorage.removeItem('user');
+                    window.location.href = '/ao-login.html';
+                    return;
+                }
+            } catch(e) { /* Network error — API calls will catch 401 */ }
+            
             if (!employeeEmail) {
                 document.getElementById('empName').textContent = 'No employee selected';
                 document.getElementById('empDetails').textContent = 'Please go back and select an employee.';

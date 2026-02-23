@@ -198,16 +198,10 @@ const SESSION_COOKIE_OPTIONS = {
     maxAge: SESSION_DURATION_MS
 };
 
-// Extract session token from HttpOnly cookie (preferred) or Authorization header (fallback)
+// Extract session token from HttpOnly cookie
 function extractToken(req) {
-    // 1. Try HttpOnly cookie first
     if (req.cookies && req.cookies.session) {
         return req.cookies.session;
-    }
-    // 2. Fall back to Authorization header (backward compatibility during migration)
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        return authHeader.substring(7);
     }
     return null;
 }
@@ -328,7 +322,7 @@ setInterval(() => {
     }
 }, 15 * 60 * 1000);
 
-// Auth middleware - validates session token from HttpOnly cookie or Authorization header
+// Auth middleware - validates session token from HttpOnly cookie
 function requireAuth(...allowedRoles) {
     return (req, res, next) => {
         const token = extractToken(req);
@@ -3786,7 +3780,7 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         // Reject if the same employee already has a pending/approved leave overlapping the same dates
         const dupApp = applications.find(a => {
             if (a.employeeEmail !== employeeEmail) return false;
-            if (a.status === 'rejected') return false;
+            if (a.status === 'rejected' || a.status === 'returned') return false;
             if (a.leaveType !== leaveType) return false;
             // Check date overlap: A.start <= B.end && A.end >= B.start
             const existStart = new Date(a.dateFrom);
@@ -4693,12 +4687,30 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             }
         }
         
+        // Clear stale approval data from previous round to prevent scrambled formulas
+        // These will be re-set by HR when the application is re-processed
+        const staleApprovalFields = [
+            'vlEarned', 'vlLess', 'vlBalance',
+            'slEarned', 'slLess', 'slBalance',
+            'splEarned', 'splLess', 'splBalance',
+            'flEarned', 'flLess', 'flBalance',
+            'ctoEarned', 'ctoLess', 'ctoBalance',
+            'authorizedOfficerName', 'authorizedOfficerSignature',
+            'asdsOfficerName', 'asdsOfficerSignature',
+            'sdsOfficerName', 'sdsOfficerSignature',
+            'aoApprovedAt', 'hrApprovedAt', 'asdsApprovedAt', 'sdsApprovedAt',
+            'finalApprovalAt', 'rejectedAt', 'rejectedBy', 'rejectedByName', 'rejectionReason'
+        ];
+        for (const field of staleApprovalFields) {
+            delete app[field];
+        }
+        
         // Add to approval history
         app.approvalHistory.push({
             portal: 'EMPLOYEE',
             action: 'resubmitted',
             approverName: app.employeeName,
-            remarks: 'Application resubmitted with compliance documents',
+            remarks: updatedData?.remarks || 'Application resubmitted after compliance review',
             timestamp: new Date().toISOString()
         });
         

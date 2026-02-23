@@ -286,20 +286,29 @@
     </div>
 
     <script>
-        // Auth check (cookie-based — no token needed in storage)
-        document.addEventListener('DOMContentLoaded', function() {
+        // Auth check (cookie-based)
+        document.addEventListener('DOMContentLoaded', async function() {
             const itUser = localStorage.getItem('itUser');
             if (!itUser) {
                 window.location.href = '/it-login.html';
                 return;
             }
+            
+            // Validate session server-side
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    localStorage.removeItem('itUser');
+                    window.location.href = '/it-login.html';
+                    return;
+                }
+            } catch(e) { /* Network error — API calls will catch 401 */ }
+            
             loadBackups();
         });
 
         function getAuthHeaders(includeContentType = false) {
-            const headers = {};
-            if (includeContentType) headers['Content-Type'] = 'application/json';
-            return headers;
+            return includeContentType ? { 'Content-Type': 'application/json' } : {};
         }
 
         function showStatus(message, type = 'success') {

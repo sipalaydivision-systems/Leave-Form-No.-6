@@ -1664,7 +1664,7 @@
         }
 
         // Load applications on page load
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', async function() {
             // Validate session before loading data
             const sdsUser = localStorage.getItem('sdsUser');
             if (!sdsUser) {
@@ -1676,6 +1676,17 @@
                 window.location.href = '/sds-login.html';
                 return;
             }
+            
+            // Validate session server-side (cookie-based auth)
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    localStorage.removeItem('sdsUser');
+                    window.location.href = '/sds-login.html';
+                    return;
+                }
+            } catch(e) { /* Network error — API calls will catch 401 */ }
+            
             loadAllApplications();
             loadDemographics();
         });

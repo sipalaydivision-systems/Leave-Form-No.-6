@@ -1027,9 +1027,17 @@
 
         async function loadApplications() {
             try {
+                // Validate session server-side first (cookie-based auth)
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    sessionStorage.removeItem('user');
+                    window.location.href = '/ao-login.html';
+                    return;
+                }
+                
                 const user = JSON.parse(sessionStorage.getItem('user'));
                 if (!user) {
-                    window.location.href = '/ao-login';
+                    window.location.href = '/ao-login.html';
                     return;
                 }
 

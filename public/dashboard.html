@@ -1651,6 +1651,8 @@
                 const result = await response.json();
 
                 if (response.ok && result.applications && result.applications.length > 0) {
+                    // Cache applications for viewReturnedApplication
+                    sessionStorage.setItem('myApplications', JSON.stringify(result.applications));
                     let html = '';
 
                     result.applications.forEach(app => {
@@ -1991,32 +1993,53 @@
 
         // View returned application details
         function viewReturnedApplication(appId) {
-            alert('📋 Application #' + appId + '\n\nThis application was returned for compliance. Please submit a new application with the required corrections.');
+            // Find the application to show return details
+            const apps = JSON.parse(sessionStorage.getItem('myApplications') || '[]');
+            const app = apps.find(a => a.id === appId || a.id === parseInt(appId));
+            if (app) {
+                const returnedBy = app.returnedBy || 'Approver';
+                const returnRemarks = app.returnRemarks || 'No specific reason provided.';
+                const returnedAt = app.returnedAt ? new Date(app.returnedAt).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'N/A';
+                alert('📋 Application #' + appId + '\n\n⚠️ Returned by: ' + returnedBy + '\n📅 Date: ' + returnedAt + '\n📝 Reason: ' + returnRemarks + '\n\nPlease add any required compliance documents or remarks, then click "Resubmit Application" to send it back for review.');
+            } else {
+                alert('📋 Application #' + appId + '\n\nThis application was returned for compliance. Please click "Resubmit Application" to add remarks and send it back for review.');
+            }
         }
 
         // Resubmit returned application
         async function resubmitApplication(appId) {
-            if (!confirm('Are you sure you want to resubmit this application?\n\nMake sure you have addressed the compliance requirements before resubmitting.')) {
+            const remarksInput = prompt('📝 Add remarks or notes about your compliance (optional):\n\nDescribe what corrections or documents you have addressed.');
+            
+            if (remarksInput === null) {
+                return; // User clicked Cancel
+            }
+            
+            if (!confirm('Are you sure you want to resubmit this application?\n\nNote: Previous approval data (leave credit certifications, signatures) will be cleared and re-processed in the new approval cycle.')) {
                 return;
             }
             
             try {
+                const updatedData = {};
+                if (remarksInput && remarksInput.trim()) {
+                    updatedData.remarks = remarksInput.trim();
+                }
+                
                 const response = await fetch('/api/resubmit-leave', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         applicationId: appId,
-                        employeeEmail: currentUser.email
+                        updatedData: updatedData
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✓ Application resubmitted successfully!\n\nYour application has been sent back to AO for review.');
+                    alert('✓ Application resubmitted successfully!\n\nYour application has been sent back to AO for review. Previous approval data has been cleared for fresh processing.');
                     loadApprovalTracker();
                 } else {
-                    alert('Error: ' + result.error);
+                    alert('Error: ' + (result.message || result.error));
                 }
             } catch (error) {
                 console.error('Error:', error);

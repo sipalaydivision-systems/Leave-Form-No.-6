@@ -20,16 +20,27 @@
         return '/login.html'; // Employee default
     }
 
-    // Clear cached user display data on session expiry
+    // Clear cached user display data on session expiry (only for current portal)
     function clearUserData() {
+        var path = window.location.pathname;
+        
+        // Always clear employee/user session data
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('employee');
+        sessionStorage.removeItem('myApplications');
         localStorage.removeItem('user_backup');
         localStorage.removeItem('employee_backup');
-        localStorage.removeItem('hrUser');
-        localStorage.removeItem('asdsUser');
-        localStorage.removeItem('sdsUser');
-        localStorage.removeItem('itUser');
+        
+        // Clear portal-specific storage based on current page
+        if (path.includes('hr-')) {
+            localStorage.removeItem('hrUser');
+        } else if (path.includes('asds-')) {
+            localStorage.removeItem('asdsUser');
+        } else if (path.includes('sds-')) {
+            localStorage.removeItem('sdsUser');
+        } else if (path.includes('it-') || path.includes('data-management') || path.includes('activity-logs')) {
+            localStorage.removeItem('itUser');
+        }
         localStorage.removeItem('userRole');
     }
 

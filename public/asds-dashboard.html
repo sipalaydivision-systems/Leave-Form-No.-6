@@ -1742,7 +1742,7 @@
         }
 
         // Load applications on page load
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', async function() {
             // Validate session before loading data
             const asdsUser = localStorage.getItem('asdsUser');
             if (!asdsUser) {
@@ -1754,6 +1754,17 @@
                 window.location.href = '/asds-login.html';
                 return;
             }
+            
+            // Validate session server-side (cookie-based auth)
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    localStorage.removeItem('asdsUser');
+                    window.location.href = '/asds-login.html';
+                    return;
+                }
+            } catch(e) { /* Network error — API calls will catch 401 */ }
+            
             loadAllApplications();
             loadDemographics();
         });

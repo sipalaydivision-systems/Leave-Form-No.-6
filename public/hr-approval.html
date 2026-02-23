@@ -1189,6 +1189,19 @@
                 window.location.href = '/hr-login.html';
                 return;
             }
+            
+            // Validate session server-side (cookie-based auth)
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    localStorage.removeItem('hrUser');
+                    window.location.href = '/hr-login.html';
+                    return;
+                }
+            } catch(e) {
+                // Network error — proceed with cached data, API calls will catch 401
+            }
+            
             document.getElementById('hrUserDisplay').textContent = user.name + ' (' + user.email + ')';
             
             loadApplications();

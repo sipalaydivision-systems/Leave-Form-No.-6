@@ -741,7 +741,7 @@
         }
 
         // Initialize
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             // Validate IT session before loading data
             const itUser = localStorage.getItem('itUser');
             if (!itUser) {
@@ -753,6 +753,17 @@
                 window.location.href = '/it-login.html';
                 return;
             }
+            
+            // Validate session server-side (cookie-based auth)
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) {
+                    localStorage.removeItem('itUser');
+                    window.location.href = '/it-login.html';
+                    return;
+                }
+            } catch(e) { /* Network error — API calls will catch 401 */ }
+            
             loadStats();
             loadLogs(1);
             populateUserFilter();
