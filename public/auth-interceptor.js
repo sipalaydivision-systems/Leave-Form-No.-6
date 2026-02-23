@@ -12,7 +12,7 @@
     // Detect which portal we're on and return the appropriate login URL
     function getLoginRedirect() {
         var path = window.location.pathname;
-        if (path.includes('ao-')) return '/ao-login.html';
+        if (path.includes('ao-') || path.includes('edit-employee-cards') || path.includes('employee-leavecard')) return '/ao-login.html';
         if (path.includes('hr-')) return '/hr-login.html';
         if (path.includes('asds-')) return '/asds-login.html';
         if (path.includes('sds-')) return '/sds-login.html';

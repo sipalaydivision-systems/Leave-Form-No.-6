@@ -435,7 +435,7 @@ app.use(express.static('public', { index: false, etag: false, lastModified: fals
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // App version — used for cache-busting. Increment on every deploy.
-const APP_VERSION = '2026.02.22.2';
+const APP_VERSION = '2026.02.23.1';
 app.get('/api/version', (req, res) => res.json({ version: APP_VERSION }));
 
 // Data file paths
