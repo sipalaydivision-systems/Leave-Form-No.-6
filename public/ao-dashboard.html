@@ -1737,7 +1737,12 @@
             if (!currentApplicationId || !currentAction) return;
 
             const remarks = document.getElementById('actionReason').value.trim();
-            const user = JSON.parse(sessionStorage.getItem('user'));
+            let user;
+            try { user = JSON.parse(sessionStorage.getItem('user')); } catch(e) { user = null; }
+            if (!user) {
+                window.location.href = '/ao-login.html';
+                return;
+            }
             
             // Validate reason for return/reject
             if ((currentAction === 'return' || currentAction === 'reject') && !remarks) {

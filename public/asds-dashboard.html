@@ -1743,6 +1743,17 @@
 
         // Load applications on page load
         window.addEventListener('DOMContentLoaded', function() {
+            // Validate session before loading data
+            const asdsUser = localStorage.getItem('asdsUser');
+            if (!asdsUser) {
+                window.location.href = '/asds-login.html';
+                return;
+            }
+            try { JSON.parse(asdsUser); } catch(e) {
+                localStorage.removeItem('asdsUser');
+                window.location.href = '/asds-login.html';
+                return;
+            }
             loadAllApplications();
             loadDemographics();
         });

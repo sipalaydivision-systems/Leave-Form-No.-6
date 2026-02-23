@@ -1665,6 +1665,17 @@
 
         // Load applications on page load
         window.addEventListener('DOMContentLoaded', function() {
+            // Validate session before loading data
+            const sdsUser = localStorage.getItem('sdsUser');
+            if (!sdsUser) {
+                window.location.href = '/sds-login.html';
+                return;
+            }
+            try { JSON.parse(sdsUser); } catch(e) {
+                localStorage.removeItem('sdsUser');
+                window.location.href = '/sds-login.html';
+                return;
+            }
             loadAllApplications();
             loadDemographics();
         });

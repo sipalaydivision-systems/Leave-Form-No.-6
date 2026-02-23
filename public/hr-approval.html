@@ -1179,11 +1179,16 @@
             
             const hrUser = localStorage.getItem('hrUser');
             if (!hrUser) {
-                window.location.href = '/';
+                window.location.href = '/hr-login.html';
                 return;
             }
             
-            const user = JSON.parse(hrUser);
+            let user;
+            try { user = JSON.parse(hrUser); } catch(e) {
+                localStorage.removeItem('hrUser');
+                window.location.href = '/hr-login.html';
+                return;
+            }
             document.getElementById('hrUserDisplay').textContent = user.name + ' (' + user.email + ')';
             
             loadApplications();

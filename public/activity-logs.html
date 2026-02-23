@@ -742,6 +742,17 @@
 
         // Initialize
         window.addEventListener('DOMContentLoaded', () => {
+            // Validate IT session before loading data
+            const itUser = localStorage.getItem('itUser');
+            if (!itUser) {
+                window.location.href = '/it-login.html';
+                return;
+            }
+            try { JSON.parse(itUser); } catch(e) {
+                localStorage.removeItem('itUser');
+                window.location.href = '/it-login.html';
+                return;
+            }
             loadStats();
             loadLogs(1);
             populateUserFilter();

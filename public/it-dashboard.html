@@ -1740,7 +1740,12 @@
                 return;
             }
             
-            const user = JSON.parse(itUser);
+            let user;
+            try { user = JSON.parse(itUser); } catch(e) {
+                localStorage.removeItem('itUser');
+                window.location.href = '/it-login.html';
+                return;
+            }
             document.getElementById('userName').textContent = user.fullName || user.email;
             
             loadRegistrations();
@@ -2039,7 +2044,8 @@
 
         async function confirmApprove() {
             const id = pendingApprovalId;
-            const itUser = JSON.parse(localStorage.getItem('itUser'));
+            let itUser;
+            try { itUser = JSON.parse(localStorage.getItem('itUser')); } catch(e) { itUser = {}; }
             
             try {
                 const response = await fetch('/api/approve-registration', {
@@ -2077,7 +2083,8 @@
                 return;
             }
             
-            const itUser = JSON.parse(localStorage.getItem('itUser'));
+            let itUser;
+            try { itUser = JSON.parse(localStorage.getItem('itUser')); } catch(e) { itUser = {}; }
             
             try {
                 const response = await fetch('/api/reject-registration', {
@@ -2171,7 +2178,8 @@
                 return;
             }
             
-            const itUser = JSON.parse(localStorage.getItem('itUser'));
+            let itUser;
+            try { itUser = JSON.parse(localStorage.getItem('itUser')); } catch(e) { itUser = {}; }
             
             try {
                 const response = await fetch('/api/add-it-staff', {
@@ -2495,7 +2503,8 @@
         }
 
         function showProfileModal() {
-            const itUser = JSON.parse(localStorage.getItem('itUser'));
+            let itUser;
+            try { itUser = JSON.parse(localStorage.getItem('itUser')); } catch(e) { itUser = null; }
             if (!itUser) {
                 alert('User session not found. Please login again.');
                 return;
@@ -2544,7 +2553,8 @@
                 return;
             }
 
-            const itUser = JSON.parse(localStorage.getItem('itUser'));
+            let itUser;
+            try { itUser = JSON.parse(localStorage.getItem('itUser')); } catch(e) { itUser = {}; }
             const updateData = {
                 email: itUser.email,
                 fullName: fullName

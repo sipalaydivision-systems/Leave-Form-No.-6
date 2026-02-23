@@ -561,7 +561,11 @@
                 return;
             }
             
-            currentUser = JSON.parse(user);
+            try { currentUser = JSON.parse(user); } catch(e) {
+                sessionStorage.removeItem('user');
+                window.location.href = '/login.html';
+                return;
+            }
             loadLeaveCardData();
             loadCTOCardData();
         });

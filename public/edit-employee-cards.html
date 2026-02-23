@@ -638,6 +638,17 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            // Validate AO session before loading data
+            const aoUser = sessionStorage.getItem('user');
+            if (!aoUser) {
+                window.location.href = '/ao-login.html';
+                return;
+            }
+            try { JSON.parse(aoUser); } catch(e) {
+                sessionStorage.removeItem('user');
+                window.location.href = '/ao-login.html';
+                return;
+            }
             if (!employeeEmail) {
                 document.getElementById('empName').textContent = 'No employee selected';
                 document.getElementById('empDetails').textContent = 'Please go back and select an employee.';
