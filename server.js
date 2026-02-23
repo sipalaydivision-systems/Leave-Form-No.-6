@@ -3526,6 +3526,66 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
             console.log(`All pending registrations for ${email} permanently deleted by ${deletedBy}`);
         }
 
+        // Remove applications and uploaded files for this user
+        let appsDeleted = 0;
+        if (fs.existsSync(applicationsFile)) {
+            let applications = readJSONArray(applicationsFile);
+            const origAppLen = applications.length;
+            const userApps = applications.filter(a => (a.employeeEmail || a.email || '').toLowerCase() === email.toLowerCase());
+            // Delete uploaded SO PDFs and leave form PDFs for this user's applications
+            userApps.forEach(app => {
+                try {
+                    if (app.soFilePath) {
+                        const soFile = path.join(__dirname, 'data', 'uploads', 'so-pdfs', path.basename(app.soFilePath));
+                        if (fs.existsSync(soFile)) fs.unlinkSync(soFile);
+                    }
+                    // Delete generated leave form PDF
+                    const safeId = String(app.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const leaveFormFile = path.join(leaveFormPdfsDir, `${safeId}.pdf`);
+                    if (fs.existsSync(leaveFormFile)) fs.unlinkSync(leaveFormFile);
+                } catch (fileErr) {
+                    console.error(`[DELETE] Error removing uploaded file for app ${app.id}:`, fileErr.message);
+                }
+            });
+            applications = applications.filter(a => (a.employeeEmail || a.email || '').toLowerCase() !== email.toLowerCase());
+            appsDeleted = origAppLen - applications.length;
+            if (appsDeleted > 0) {
+                writeJSON(applicationsFile, applications);
+                console.log(`[DELETE] Removed ${appsDeleted} application(s) for ${email}`);
+            }
+        }
+
+        // Remove CTO records for this user
+        let ctoDeleted = 0;
+        if (fs.existsSync(ctoRecordsFile)) {
+            let ctoRecords = readJSON(ctoRecordsFile);
+            const origCtoLen = ctoRecords.length;
+            ctoRecords = ctoRecords.filter(r => (r.employeeId || '').toLowerCase() !== email.toLowerCase());
+            ctoDeleted = origCtoLen - ctoRecords.length;
+            if (ctoDeleted > 0) {
+                writeJSON(ctoRecordsFile, ctoRecords);
+                console.log(`[DELETE] Removed ${ctoDeleted} CTO record(s) for ${email}`);
+            }
+        }
+
+        // Remove initial credits for this user
+        let icDeleted = false;
+        if (fs.existsSync(initialCreditsFile)) {
+            try {
+                let icData = readJSON(initialCreditsFile);
+                if (icData.credits && Array.isArray(icData.credits)) {
+                    const origLen = icData.credits.length;
+                    icData.credits = icData.credits.filter(c => (c.email || c.employeeId || '').toLowerCase() !== email.toLowerCase());
+                    if (icData.credits.length < origLen) {
+                        // Also clean lookupMap
+                        if (icData.lookupMap) delete icData.lookupMap[email];
+                        writeJSON(initialCreditsFile, icData);
+                        icDeleted = true;
+                    }
+                }
+            } catch(e) { /* initial credits may have different shape */ }
+        }
+
         // Destroy active sessions for the deleted user
         // But NEVER destroy the requesting IT admin's own session
         const requestToken = extractToken(req);
@@ -3543,7 +3603,7 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
             console.log(`[DELETE] Destroyed ${sessionsDestroyed} active session(s) for ${email}`);
         }
 
-        if (userDeleted || regDeleted || otherPortalsDeleted.length > 0 || empDeleted || lcDeleted) {
+        if (userDeleted || regDeleted || otherPortalsDeleted.length > 0 || empDeleted || lcDeleted || appsDeleted > 0) {
             // Log user deletion
             logActivity('DATA_DELETION', 'it', {
                 userEmail: email,
@@ -3554,6 +3614,9 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
                 registrationDeleted: regDeleted,
                 employeeRecordDeleted: empDeleted,
                 leaveCardDeleted: lcDeleted,
+                applicationsDeleted: appsDeleted,
+                ctoRecordsDeleted: ctoDeleted,
+                initialCreditsDeleted: icDeleted,
                 otherPortalsDeleted: otherPortalsDeleted.length > 0 ? otherPortalsDeleted : undefined,
                 sessionsDestroyed,
                 ip: getClientIp(req),
@@ -3595,6 +3658,10 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
         let pendingRegs = readJSON(pendingRegistrationsFile);
         let leavecards = readJSON(leavecardsFile);
         let employees = readJSON(employeesFile);
+        let applications = readJSONArray(applicationsFile);
+        let ctoRecords = fs.existsSync(ctoRecordsFile) ? readJSON(ctoRecordsFile) : [];
+        let icData = null;
+        try { icData = fs.existsSync(initialCreditsFile) ? readJSON(initialCreditsFile) : null; } catch(e) {}
         // Cache portal files: only read each portal file once
         const portalDataCache = {};
 
@@ -3603,7 +3670,14 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
         let pendingRegsModified = false;
         let leavecardsModified = false;
         let employeesModified = false;
+        let applicationsModified = false;
+        let ctoModified = false;
+        let icModified = false;
         const modifiedPortalFiles = new Set();
+        const deletedEmails = new Set();
+
+        // Collect the requesting IT admin's token so we never destroy our own session
+        const requestToken = extractToken(req);
 
         for (const user of deleteList) {
             try {
@@ -3613,6 +3687,7 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
                     continue;
                 }
 
+                const emailLower = email.toLowerCase();
                 const userFile = portalToFile[portal];
                 if (!userFile) {
                     errors.push(`Invalid portal '${portal}' for user ${email}`);
@@ -3625,31 +3700,69 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
                 }
                 let userData = portalDataCache[portal];
                 const originalLength = userData.length;
-                userData = userData.filter(u => u.email !== email);
+                userData = userData.filter(u => (u.email || '').toLowerCase() !== emailLower);
                 portalDataCache[portal] = userData;
 
                 if (userData.length < originalLength) {
                     modifiedPortalFiles.add(portal);
                     deletedCount++;
+                    deletedEmails.add(emailLower);
 
-                    // Mark pending registration as deleted
-                    const regIndex = pendingRegs.findIndex(r => r.email === email);
-                    if (regIndex !== -1) {
-                        pendingRegs[regIndex].status = 'deleted';
-                        pendingRegs[regIndex].deletedAt = new Date().toISOString();
-                        pendingRegs[regIndex].deletedBy = deletedBy;
-                        pendingRegsModified = true;
+                    // Also remove from ALL other portal files (full cross-portal cleanup)
+                    for (const [pName, pFile] of Object.entries(portalToFile)) {
+                        if (pName === portal || pName === 'it') continue;
+                        if (!portalDataCache[pName]) portalDataCache[pName] = readJSON(pFile);
+                        const pBefore = portalDataCache[pName].length;
+                        portalDataCache[pName] = portalDataCache[pName].filter(u => (u.email || '').toLowerCase() !== emailLower);
+                        if (portalDataCache[pName].length < pBefore) modifiedPortalFiles.add(pName);
                     }
+
+                    // Permanently remove pending registrations (not just mark deleted)
+                    const regBefore = pendingRegs.length;
+                    pendingRegs = pendingRegs.filter(r => (r.email || '').toLowerCase() !== emailLower);
+                    if (pendingRegs.length < regBefore) pendingRegsModified = true;
 
                     // Remove leave card
                     const lcBefore = leavecards.length;
-                    leavecards = leavecards.filter(lc => lc.email !== email);
+                    leavecards = leavecards.filter(lc => (lc.email || '').toLowerCase() !== emailLower);
                     if (leavecards.length < lcBefore) leavecardsModified = true;
 
                     // Remove from employees
                     const empBefore = employees.length;
-                    employees = employees.filter(emp => emp.email !== email);
+                    employees = employees.filter(emp => (emp.email || '').toLowerCase() !== emailLower);
                     if (employees.length < empBefore) employeesModified = true;
+
+                    // Remove applications and uploaded files
+                    const userApps = applications.filter(a => (a.employeeEmail || a.email || '').toLowerCase() === emailLower);
+                    userApps.forEach(app => {
+                        try {
+                            if (app.soFilePath) {
+                                const soFile = path.join(__dirname, 'data', 'uploads', 'so-pdfs', path.basename(app.soFilePath));
+                                if (fs.existsSync(soFile)) fs.unlinkSync(soFile);
+                            }
+                            const safeId = String(app.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+                            const leaveFormFile = path.join(leaveFormPdfsDir, `${safeId}.pdf`);
+                            if (fs.existsSync(leaveFormFile)) fs.unlinkSync(leaveFormFile);
+                        } catch(e) { /* non-fatal */ }
+                    });
+                    const appBefore = applications.length;
+                    applications = applications.filter(a => (a.employeeEmail || a.email || '').toLowerCase() !== emailLower);
+                    if (applications.length < appBefore) applicationsModified = true;
+
+                    // Remove CTO records
+                    const ctoBefore = ctoRecords.length;
+                    ctoRecords = ctoRecords.filter(r => (r.employeeId || '').toLowerCase() !== emailLower);
+                    if (ctoRecords.length < ctoBefore) ctoModified = true;
+
+                    // Remove initial credits
+                    if (icData && icData.credits && Array.isArray(icData.credits)) {
+                        const icBefore = icData.credits.length;
+                        icData.credits = icData.credits.filter(c => (c.email || c.employeeId || '').toLowerCase() !== emailLower);
+                        if (icData.credits.length < icBefore) {
+                            if (icData.lookupMap) delete icData.lookupMap[email];
+                            icModified = true;
+                        }
+                    }
 
                     console.log(`[BULK DELETE] Deleted user: ${email} (${portal})`);
                 } else {
@@ -3660,6 +3773,17 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
             }
         }
 
+        // Destroy active sessions for all deleted users
+        let sessionsDestroyed = 0;
+        for (const [token, session] of activeSessions) {
+            if (session.email && deletedEmails.has(session.email.toLowerCase())) {
+                if (token === requestToken) continue;
+                activeSessions.delete(token);
+                sessionsDestroyed++;
+            }
+        }
+        if (sessionsDestroyed > 0) persistSessions();
+
         // Write all modified files ONCE at the end
         for (const portal of modifiedPortalFiles) {
             writeJSON(portalToFile[portal], portalDataCache[portal]);
@@ -3667,6 +3791,9 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
         if (pendingRegsModified) writeJSON(pendingRegistrationsFile, pendingRegs);
         if (leavecardsModified) writeJSON(leavecardsFile, leavecards);
         if (employeesModified) writeJSON(employeesFile, employees);
+        if (applicationsModified) writeJSON(applicationsFile, applications);
+        if (ctoModified) writeJSON(ctoRecordsFile, ctoRecords);
+        if (icModified && icData) writeJSON(initialCreditsFile, icData);
 
         // Log bulk delete activity
         logActivity('BULK_USER_DELETE', 'it', {
