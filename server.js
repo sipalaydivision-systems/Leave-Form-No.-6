@@ -271,7 +271,18 @@ function createSession(user, portal) {
         email: user.email,
         role: user.role || portal,
         portal: portal,
+        name: user.name || user.fullName || '',
+        fullName: user.fullName || user.name || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        middleName: user.middleName || '',
+        suffix: user.suffix || '',
         office: user.office || user.school || null,
+        position: user.position || '',
+        salary: user.salary || '',
+        salaryGrade: user.salaryGrade || '',
+        step: user.step || '',
+        employeeNo: user.employeeNo || '',
         createdAt: now,
         expiresAt: now + SESSION_DURATION_MS
     });
@@ -2118,10 +2129,22 @@ app.get('/api/me', (req, res) => {
     res.json({
         success: true,
         user: {
+            id: session.userId,
             email: session.email,
             role: session.role,
             portal: session.portal,
-            office: session.office
+            name: session.name || '',
+            fullName: session.fullName || '',
+            firstName: session.firstName || '',
+            lastName: session.lastName || '',
+            middleName: session.middleName || '',
+            suffix: session.suffix || '',
+            office: session.office || '',
+            position: session.position || '',
+            salary: session.salary || '',
+            salaryGrade: session.salaryGrade || '',
+            step: session.step || '',
+            employeeNo: session.employeeNo || ''
         }
     });
 });

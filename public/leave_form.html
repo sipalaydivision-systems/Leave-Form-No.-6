@@ -1359,8 +1359,14 @@
         // Display user name on top bar
         document.getElementById('userName').textContent = user.name || user.email.split('@')[0];
 
-        // Populate name fields with user data
-        if (user.name) {
+        // Populate name fields with user data from registration
+        if (user.firstName || user.lastName || user.middleName) {
+            // Use individual name fields directly from registration data
+            document.getElementById('name_last').value = user.lastName || '';
+            document.getElementById('name_first').value = user.firstName || '';
+            document.getElementById('name_middle').value = user.middleName || '';
+        } else if (user.name) {
+            // Fallback: parse full name string
             let lastName = '', firstName = '', middleName = '';
             
             if (user.name.includes(',')) {
@@ -1371,17 +1377,14 @@
                 const nameParts = remaining.split(/\s+/);
                 
                 if (nameParts.length >= 2) {
-                    // Take all but last word as first name, last word as middle
                     firstName = nameParts.slice(0, -1).join(' ');
                     middleName = nameParts[nameParts.length - 1];
                 } else {
                     firstName = remaining;
                 }
             } else {
-                // Format: First Middle Last (no comma)
                 const nameParts = user.name.trim().split(/\s+/);
                 if (nameParts.length >= 3) {
-                    // Last word is last name, second-to-last is middle, rest is first
                     lastName = nameParts[nameParts.length - 1];
                     middleName = nameParts[nameParts.length - 2];
                     firstName = nameParts.slice(0, -2).join(' ');
