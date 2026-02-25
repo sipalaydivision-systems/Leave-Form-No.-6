@@ -17,8 +17,10 @@
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="/libs/html2canvas.min.js"></script>
+    <script>if(typeof html2canvas==='undefined'){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/scr'+'ipt>')}</script>
+    <script src="/libs/jspdf.umd.min.js"></script>
+    <script>if(!window.jspdf){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/scr'+'ipt>')}</script>
     <style>
         * {
             margin: 0;
@@ -939,11 +941,14 @@
 
         .chart-box.expanded {
             grid-column: 1 / -1;
-            min-height: 400px;
+            min-height: 500px;
+            max-height: 80vh;
+            padding: 30px;
             background: white;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             border: 2px solid #6a1b9a;
             cursor: default;
+            overflow-y: auto;
         }
 
         .chart-title .expand-hint {
@@ -982,18 +987,24 @@
         }
 
         .chart-box.expanded .vertical-bars {
-            height: 250px;
+            height: 350px;
             flex-wrap: wrap;
         }
 
         .chart-box.expanded .bar-chart {
-            max-height: 500px;
+            max-height: none;
             overflow-y: auto;
         }
 
         .chart-box.expanded .top-5-list {
-            max-height: 500px;
+            max-height: none;
             overflow-y: auto;
+        }
+
+        .chart-box.expanded .donut-chart {
+            transform: scale(1.3);
+            transform-origin: center center;
+            margin: 30px auto;
         }
 
         .show-more-hint {
@@ -2440,8 +2451,8 @@
                     .action-column { padding: 4px; font-size: 9px; display: flex; flex-direction: column; min-height: 160px; }
                     .action-column:first-child { border-right: 1px solid #000; }
                     .credits-table { width: 100%; border-collapse: collapse; font-size: 8px; margin: 4px 0; }
-                    .credits-table th, .credits-table td { border: 1px solid #000; padding: 2px; text-align: center; }
-                    .credits-table th { background: #f0f0f0; font-weight: bold; }
+                    .credits-table th, .credits-table td { border: 1px solid #000; padding: 2px; text-align: center; word-wrap: break-word; overflow-wrap: break-word; }
+                    .credits-table th { background: #f0f0f0; font-weight: bold; font-size: 7px; line-height: 1.1; }
                     .credits-table td:first-child { text-align: left; font-style: italic; }
                     .officer-signature { text-align: center; margin-top: auto; padding-bottom: 2px; min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
                     .officer-signature img { max-width: 200px; max-height: 70px; display: block; margin: 0 auto -5px auto; position: relative; z-index: 1; border: none; background: transparent; object-fit: contain; }
@@ -2882,8 +2893,122 @@
 
         // ========== PDF GENERATION (jsPDF + html2canvas) — SDS Portal ==========
         let sdsCurrentPdfUrl = null;
+
+        // Helper: Convert all <img> elements in a container to inline base64 data URIs
+        async function convertImagesToBase64(container) {
+            const images = container.querySelectorAll('img');
+            const promises = Array.from(images).map(img => {
+                return new Promise(resolve => {
+                    if (!img.src || img.src.startsWith('data:')) {
+                        resolve();
+                        return;
+                    }
+                    const tempImg = new Image();
+                    tempImg.crossOrigin = 'anonymous';
+                    tempImg.onload = () => {
+                        try {
+                            const cvs = document.createElement('canvas');
+                            cvs.width = tempImg.naturalWidth;
+                            cvs.height = tempImg.naturalHeight;
+                            const ctx = cvs.getContext('2d');
+                            ctx.drawImage(tempImg, 0, 0);
+                            img.src = cvs.toDataURL('image/png');
+                        } catch (e) {
+                            console.warn('Could not convert image to base64:', e);
+                        }
+                        resolve();
+                    };
+                    tempImg.onerror = () => {
+                        console.warn('Could not load image for base64 conversion:', img.src);
+                        resolve();
+                    };
+                    tempImg.src = img.src;
+                });
+            });
+            await Promise.all(promises);
+        }
+
+        // Helper: Render form in an off-screen container for pixel-perfect PDF capture
+        async function captureFormAsCanvas(sourceElement) {
+            // First convert images in the source to base64
+            await convertImagesToBase64(sourceElement);
+
+            // Get the form's current rendered width (matches what user sees in preview)
+            const formWidth = sourceElement.offsetWidth || 860;
+
+            // Get the <style> tag that's a sibling of the form
+            const styleEl = sourceElement.previousElementSibling;
+
+            // Create off-screen container directly on document.body (outside modal)
+            const offscreen = document.createElement('div');
+            offscreen.style.cssText = 'position:fixed; left:-9999px; top:0; width:' + formWidth + 'px; z-index:-1; background:white; overflow:visible;';
+            document.body.appendChild(offscreen);
+
+            // Clone the style element
+            if (styleEl && styleEl.tagName === 'STYLE') {
+                offscreen.appendChild(styleEl.cloneNode(true));
+            }
+
+            // Deep-clone the form element (preserves DOM structure better than outerHTML)
+            const clonedForm = sourceElement.cloneNode(true);
+            clonedForm.id = 'printableFinalFormClone';
+            clonedForm.style.width = formWidth + 'px';
+            clonedForm.style.maxWidth = formWidth + 'px';
+            clonedForm.style.overflow = 'visible';
+            offscreen.appendChild(clonedForm);
+
+            // Sync all input/select/textarea values from original to clone
+            const origInputs = sourceElement.querySelectorAll('input, select, textarea');
+            const cloneInputs = clonedForm.querySelectorAll('input, select, textarea');
+            origInputs.forEach((orig, i) => {
+                if (i >= cloneInputs.length) return;
+                const clone = cloneInputs[i];
+                if (orig.type === 'checkbox' || orig.type === 'radio') {
+                    clone.checked = orig.checked;
+                    if (orig.checked) clone.setAttribute('checked', 'checked');
+                    else clone.removeAttribute('checked');
+                } else {
+                    clone.value = orig.value;
+                    clone.setAttribute('value', orig.value);
+                }
+            });
+
+            // Convert number inputs to text inputs to avoid spinner-button rendering issues
+            clonedForm.querySelectorAll('input[type="number"]').forEach(inp => {
+                const val = inp.value;
+                inp.type = 'text';
+                inp.value = val;
+                inp.setAttribute('value', val);
+                inp.removeAttribute('step');
+            });
+
+            // Wait for layout to settle
+            await new Promise(r => setTimeout(r, 400));
+            void offscreen.offsetHeight;
+
+            // Capture with html2canvas
+            const canvas = await html2canvas(clonedForm, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                windowWidth: formWidth + 40,
+                scrollX: 0,
+                scrollY: 0
+            });
+
+            // Clean up
+            document.body.removeChild(offscreen);
+            return canvas;
+        }
         
         async function generateSdsLeaveFormPDF() {
+            // Check library availability
+            if (typeof html2canvas === 'undefined' || !window.jspdf) {
+                alert('PDF libraries failed to load. Please check your internet connection and reload the page.');
+                return;
+            }
             const formContainer = document.getElementById('printableFinalForm');
             if (!formContainer) {
                 alert('No form content to generate PDF from. Please open the form details first.');
@@ -2898,15 +3023,8 @@
             try {
                 const element = document.getElementById('printableFinalForm');
                 
-                const canvas = await html2canvas(element, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    width: element.scrollWidth,
-                    height: element.scrollHeight
-                });
+                // Capture form in isolated off-screen container for pixel-perfect rendering
+                const canvas = await captureFormAsCanvas(element);
                 
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');

@@ -702,28 +702,31 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="form-group">
                             <label>Last Name <span class="required">*</span></label>
-                            <input type="text" id="regLastName" placeholder="e.g., DELA CRUZ" required>
+                            <input type="text" id="regLastName" placeholder="e.g., DELA CRUZ" required style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
                         </div>
                         <div class="form-group">
                             <label>First Name <span class="required">*</span></label>
-                            <input type="text" id="regFirstName" placeholder="e.g., JUAN" required>
+                            <input type="text" id="regFirstName" placeholder="e.g., JUAN" required style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
                         </div>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="form-group">
                             <label>Middle Name</label>
-                            <input type="text" id="regMiddleName" placeholder="e.g., SANTOS">
+                            <input type="text" id="regMiddleName" placeholder="e.g., SANTOS" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()">
                         </div>
                         <div class="form-group">
                             <label>Suffix (if applicable)</label>
                             <select id="regSuffix">
-                                <option value="">None</option>
-                                <option value="Jr.">Jr.</option>
-                                <option value="Sr.">Sr.</option>
+                                <option value="">-- NONE --</option>
+                                <option value="JR">JR</option>
+                                <option value="SR">SR</option>
                                 <option value="II">II</option>
                                 <option value="III">III</option>
                                 <option value="IV">IV</option>
                                 <option value="V">V</option>
+                                <option value="VI">VI</option>
+                                <option value="VII">VII</option>
+                                <option value="VIII">VIII</option>
                             </select>
                         </div>
                     </div>
@@ -1181,10 +1184,10 @@
         async function handleSDSRegister(e) {
             e.preventDefault();
             const office = (document.getElementById('regOffice')?.value || '').trim();
-            const lastName = (document.getElementById('regLastName')?.value || '').trim();
-            const firstName = (document.getElementById('regFirstName')?.value || '').trim();
-            const middleName = (document.getElementById('regMiddleName')?.value || '').trim();
-            const suffix = (document.getElementById('regSuffix')?.value || '').trim();
+            const lastName = (document.getElementById('regLastName')?.value || '').trim().toUpperCase();
+            const firstName = (document.getElementById('regFirstName')?.value || '').trim().toUpperCase();
+            const middleName = (document.getElementById('regMiddleName')?.value || '').trim().toUpperCase();
+            const suffix = (document.getElementById('regSuffix')?.value || '').trim().toUpperCase();
             const fullName = suffix ? `${lastName}, ${firstName} ${middleName} ${suffix}`.replace(/\s+/g, ' ').trim() : `${lastName}, ${firstName} ${middleName}`.replace(/\s+/g, ' ').trim();
             const email = (document.getElementById('regEmail')?.value || '').trim();
             const password = document.getElementById('regPassword')?.value || '';

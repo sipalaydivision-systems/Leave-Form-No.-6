@@ -779,11 +779,14 @@
 
         .chart-box.expanded {
             grid-column: 1 / -1;
-            min-height: 400px;
+            min-height: 500px;
+            max-height: 80vh;
+            padding: 30px;
             background: white;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             border: 2px solid #667eea;
             cursor: default;
+            overflow-y: auto;
         }
 
         .chart-title {
@@ -839,18 +842,24 @@
         }
 
         .chart-box.expanded .vertical-bars {
-            height: 250px;
+            height: 350px;
             flex-wrap: wrap;
         }
 
         .chart-box.expanded .bar-chart {
-            max-height: 500px;
+            max-height: none;
             overflow-y: auto;
         }
 
         .chart-box.expanded .top-5-list {
-            max-height: 500px;
+            max-height: none;
             overflow-y: auto;
+        }
+
+        .chart-box.expanded .donut-chart {
+            transform: scale(1.3);
+            transform-origin: center center;
+            margin: 30px auto;
         }
 
         .show-more-hint {

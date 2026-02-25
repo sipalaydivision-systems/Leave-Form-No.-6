@@ -392,8 +392,8 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(cookieParser());
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // Security middleware - sanitize all incoming requests (must be AFTER bodyParser)
 app.use((req, res, next) => {
@@ -3021,22 +3021,35 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 if (!existingLeavecard) {
                     // Check if there's a leave card with matching name (name-based auto-assignment)
                     const normalizedRegName = (registration.fullName || registration.name || '').toLowerCase().trim();
-                    const matchingNameCard = leavecards.find(lc => {
+                    let matchingCard = leavecards.find(lc => {
                         const cardName = (lc.name || lc.fullName || '').toLowerCase().trim();
                         return cardName === normalizedRegName;
                     });
                     
-                    if (matchingNameCard) {
+                    // Fallback: match by employeeNo if name match failed and registrant provided one
+                    let matchMethod = 'name';
+                    if (!matchingCard && registration.employeeNo) {
+                        const regEmpNo = String(registration.employeeNo).trim();
+                        if (regEmpNo) {
+                            matchingCard = leavecards.find(lc => {
+                                const cardEmpNo = String(lc.employeeNo || '').trim();
+                                return cardEmpNo && cardEmpNo === regEmpNo && !lc.email;
+                            });
+                            if (matchingCard) matchMethod = 'employeeNo';
+                        }
+                    }
+                    
+                    if (matchingCard) {
                         // Update existing leave card with new user's email and name fields
-                        matchingNameCard.email = registration.email;
-                        matchingNameCard.employeeId = registration.email;
-                        matchingNameCard.firstName = registration.firstName || matchingNameCard.firstName || '';
-                        matchingNameCard.lastName = registration.lastName || matchingNameCard.lastName || '';
-                        matchingNameCard.middleName = registration.middleName || matchingNameCard.middleName || '';
-                        matchingNameCard.suffix = registration.suffix || matchingNameCard.suffix || '';
-                        matchingNameCard.updatedAt = new Date().toISOString();
+                        matchingCard.email = registration.email;
+                        matchingCard.employeeId = registration.email;
+                        matchingCard.firstName = registration.firstName || matchingCard.firstName || '';
+                        matchingCard.lastName = registration.lastName || matchingCard.lastName || '';
+                        matchingCard.middleName = registration.middleName || matchingCard.middleName || '';
+                        matchingCard.suffix = registration.suffix || matchingCard.suffix || '';
+                        matchingCard.updatedAt = new Date().toISOString();
                         writeJSON(leavecardsFile, leavecards);
-                        console.log(`[REGISTRATION] Assigned existing leave card to ${registration.email} (matched by name: ${normalizedRegName})`);
+                        console.log(`[REGISTRATION] Assigned existing leave card to ${registration.email} (matched by ${matchMethod}: ${matchMethod === 'name' ? normalizedRegName : registration.employeeNo})`);
                     } else {
                         // DRY: Use shared helper for default leave card creation
                         const newLeavecard = createDefaultLeaveCard(
@@ -4135,13 +4148,21 @@ app.post('/api/save-leave-form-pdf/:id', requireAuth(), (req, res) => {
         }
         
         // Decode base64 and save to disk
-        const base64Match = pdfData.match(/^data:[^;]+;base64,(.+)$/);
+        // jsPDF datauristring format: data:application/pdf;filename=generated.pdf;base64,...
+        const base64Match = pdfData.match(/;base64,(.+)$/);
         const rawBase64 = base64Match ? base64Match[1] : pdfData;
+        const pdfBuffer = Buffer.from(rawBase64, 'base64');
+        
+        if (pdfBuffer.length < 100) {
+            console.error(`[PDF] Generated buffer too small (${pdfBuffer.length} bytes) — likely a decoding error`);
+            return res.status(400).json({ success: false, error: 'PDF data appears invalid or empty' });
+        }
+        
         const safeId = idParam.replace(/[^a-zA-Z0-9_-]/g, '_');
         const pdfFilename = `${safeId}_leave-form.pdf`;
         const pdfFilePath = path.join(leaveFormPdfsDir, pdfFilename);
         
-        fs.writeFileSync(pdfFilePath, Buffer.from(rawBase64, 'base64'));
+        fs.writeFileSync(pdfFilePath, pdfBuffer);
         
         // Store the path reference in the application record
         applications[appIndex].leaveFormPdfPath = `/api/uploads/leave-forms/${pdfFilename}`;
@@ -4229,7 +4250,7 @@ app.get('/api/approved-applications/:portal', requireAuth('ao', 'hr', 'asds', 's
 });
 
 // Get HR-approved applications (applications that HR has processed and forwarded to next level)
-app.get('/api/hr-approved-applications', requireAuth('asds', 'sds', 'it'), (req, res) => {
+app.get('/api/hr-approved-applications', requireAuth('hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
         
@@ -4245,7 +4266,7 @@ app.get('/api/hr-approved-applications', requireAuth('asds', 'sds', 'it'), (req,
 });
 
 // Get all users for demographics
-app.get('/api/all-users', requireAuth('ao', 'hr', 'it'), (req, res) => {
+app.get('/api/all-users', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         // SECURITY: Strip password hashes before sending to client
@@ -4850,6 +4871,17 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
         writeJSON(applicationsFile, applications);
         
         console.log(`[LEAVE] Application ${applicationId} resubmitted by ${app.employeeName}`);
+        
+        // Log activity for employee resubmission
+        logActivity('LEAVE_APPLICATION_RESUBMITTED', 'employee', {
+            userEmail: employeeEmail,
+            applicationId: applicationId,
+            leaveType: app.leaveType,
+            returnedBy: app.returnedBy,
+            remarks: updatedData?.remarks || 'Resubmitted after compliance review',
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
         
         res.json({ 
             success: true, 
@@ -6207,11 +6239,17 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
 
         for (const entry of results) {
             const normalizedName = entry.name.toUpperCase().replace(/\s+/g, ' ').trim();
+            const entryEmpNo = (entry.employeeNo || '').trim();
 
-            // Check if a card with this name already exists
+            // Check if a card with this name or employeeNo already exists
             const existingIdx = leavecards.findIndex(lc => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
-                return lcName === normalizedName;
+                if (lcName === normalizedName) return true;
+                // Fallback: match by employeeNo if available on both sides
+                if (entryEmpNo && lc.employeeNo) {
+                    return String(lc.employeeNo).trim() === entryEmpNo;
+                }
+                return false;
             });
 
             if (existingIdx !== -1 && !allowOverwrite) {

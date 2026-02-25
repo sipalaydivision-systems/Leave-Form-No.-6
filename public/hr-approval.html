@@ -761,24 +761,43 @@
             </div>
         </div>
         
-        <!-- Charts Section -->
-        <div style="margin-top: 25px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-            <!-- Users by Office -->
+        <!-- Unified Analytics Graph Section -->
+        <div style="margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- Bubble Correlation Chart: Office × Leave Type × Status -->
             <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px;">
-                <div style="font-size: 14px; font-weight: bold; color: #003366; margin-bottom: 15px;">Users by Office/School</div>
-                <canvas id="officeChart" style="max-height: 250px;"></canvas>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-size: 14px; font-weight: bold; color: #003366;">📊 Office × Leave Type Correlation</div>
+                    <div style="font-size: 10px; color: #888;">Bubble size = application count</div>
+                </div>
+                <canvas id="correlationChart" style="max-height: 380px;"></canvas>
             </div>
             
-            <!-- Applications by Status -->
+            <!-- Stacked Bar: Office breakdown by Status + Leave Type -->
             <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px;">
-                <div style="font-size: 14px; font-weight: bold; color: #003366; margin-bottom: 15px;">Applications Status</div>
-                <canvas id="statusChart" style="max-height: 250px;"></canvas>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-size: 14px; font-weight: bold; color: #003366;">📈 Application Volume by Office & Status</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button id="graphViewStatus" onclick="switchGraphView('status')" style="padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid #667eea; background: #667eea; color: white; cursor: pointer; font-weight: 600;">By Status</button>
+                        <button id="graphViewLeave" onclick="switchGraphView('leave')" style="padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid #667eea; background: white; color: #667eea; cursor: pointer; font-weight: 600;">By Leave Type</button>
+                    </div>
+                </div>
+                <canvas id="stackedBarChart" style="max-height: 380px;"></canvas>
             </div>
-            
-            <!-- Leave Types Applied -->
-            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px;">
-                <div style="font-size: 14px; font-weight: bold; color: #003366; margin-bottom: 15px;">Leave Types Applied</div>
-                <canvas id="leaveTypeChart" style="max-height: 250px;"></canvas>
+        </div>
+        
+        <!-- Summary Row: Mini radial gauges -->
+        <div style="margin-top: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 15px; text-align: center;">
+                <div style="font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 8px;">Status Distribution</div>
+                <canvas id="miniStatusGauge" style="max-height: 130px;"></canvas>
+            </div>
+            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 15px; text-align: center;">
+                <div style="font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 8px;">Top Leave Types</div>
+                <canvas id="miniLeaveGauge" style="max-height: 130px;"></canvas>
+            </div>
+            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 15px; text-align: center;">
+                <div style="font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 8px;">Office Activity Index</div>
+                <canvas id="miniOfficeGauge" style="max-height: 130px;"></canvas>
             </div>
         </div>
         
@@ -1168,7 +1187,7 @@
         }
         
         // Initialize
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', async function() {
             // Store the original form HTML for later restoration
             const modalBody = document.querySelector('#approvalModal .form-view-modal-body');
             const modalFooter = document.querySelector('#approvalModal .form-view-modal-footer');
@@ -1310,6 +1329,9 @@
                     'Returned': allApplications.filter(a => a.status === 'returned').length
                 };
                 
+                // Store raw data for cross-chart interactions
+                _chartRawData = { allApplications, allUsers };
+                
                 // Initialize charts
                 initializeCharts(officeData, statusData, leaveTypeData);
                 
@@ -1318,99 +1340,324 @@
             }
         }
         
+        // Store raw chart data for view toggling
+        let _chartRawData = {};
+        let _currentGraphView = 'status';
+        
+        function switchGraphView(view) {
+            _currentGraphView = view;
+            document.getElementById('graphViewStatus').style.background = view === 'status' ? '#667eea' : 'white';
+            document.getElementById('graphViewStatus').style.color = view === 'status' ? 'white' : '#667eea';
+            document.getElementById('graphViewLeave').style.background = view === 'leave' ? '#667eea' : 'white';
+            document.getElementById('graphViewLeave').style.color = view === 'leave' ? 'white' : '#667eea';
+            if (_chartRawData.allApplications && _chartRawData.allUsers) {
+                renderStackedBar(_chartRawData.allApplications, _chartRawData.allUsers, view);
+            }
+        }
+        
+        function showChartEmpty(canvasId, message) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const parent = canvas.parentElement;
+            canvas.style.display = 'none';
+            let emptyDiv = parent.querySelector('.chart-empty-state');
+            if (!emptyDiv) {
+                emptyDiv = document.createElement('div');
+                emptyDiv.className = 'chart-empty-state';
+                emptyDiv.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;color:#bbb;font-size:13px;text-align:center;padding:20px;';
+                parent.appendChild(emptyDiv);
+            }
+            emptyDiv.innerHTML = '<div style="font-size:36px;margin-bottom:8px;opacity:0.4;">📊</div><div>' + message + '</div>';
+        }
+        
+        function hideChartEmpty(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            canvas.style.display = '';
+            const parent = canvas.parentElement;
+            const emptyDiv = parent.querySelector('.chart-empty-state');
+            if (emptyDiv) emptyDiv.remove();
+        }
+        
         function initializeCharts(officeData, statusData, leaveTypeData) {
-            // Colors for consistent styling
             const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a', '#fee140'];
+            const statusColors = { 'Pending': '#ffc107', 'Approved': '#28a745', 'Disapproved': '#dc3545', 'Returned': '#ff6b6b' };
             
-            // Office Chart
-            const officeCtx = document.getElementById('officeChart');
-            if (officeCtx && Object.keys(officeData).length > 0) {
-                if (charts.officeChart) charts.officeChart.destroy();
-                charts.officeChart = new Chart(officeCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(officeData).slice(0, 8),
-                        datasets: [{
-                            data: Object.values(officeData).slice(0, 8),
-                            backgroundColor: colors.slice(0, 8),
-                            borderColor: 'white',
-                            borderWidth: 2
-                        }]
-                    },
+            // Check if Chart.js is loaded
+            const chartAvailable = typeof Chart !== 'undefined';
+            if (!chartAvailable) {
+                console.warn('[CHARTS] Chart.js not loaded (CDN may be unavailable). Showing fallback states.');
+                showChartEmpty('correlationChart', 'Chart library not available.<br><span style="font-size:11px;color:#ccc;">Check your internet connection and reload.</span>');
+                showChartEmpty('stackedBarChart', 'Chart library not available.<br><span style="font-size:11px;color:#ccc;">Check your internet connection and reload.</span>');
+                showChartEmpty('miniStatusGauge', 'Charts unavailable');
+                showChartEmpty('miniLeaveGauge', 'Charts unavailable');
+                showChartEmpty('miniOfficeGauge', 'Charts unavailable');
+                return;
+            }
+            
+            const hasApps = _chartRawData.allApplications && _chartRawData.allApplications.length > 0;
+            const hasUsers = Object.keys(officeData).length > 0;
+            const hasLeaveTypes = Object.keys(leaveTypeData).length > 0;
+            const hasStatusData = Object.values(statusData).some(v => v > 0);
+            
+            // ─── 1) BUBBLE CORRELATION CHART (Office × Leave Type) ───
+            const corrCtx = document.getElementById('correlationChart');
+            if (!hasApps || !hasUsers || !hasLeaveTypes) {
+                showChartEmpty('correlationChart', 'No applications yet.<br><span style="font-size:11px;color:#ccc;">Correlation data will appear once leave applications are filed.</span>');
+            }
+            if (corrCtx && hasApps) {
+              try {
+                hideChartEmpty('correlationChart');
+                if (charts.correlationChart) charts.correlationChart.destroy();
+                
+                // Build cross-tabulation: for each (office, leaveType) pair, count apps
+                const offices = Object.keys(officeData).sort((a,b) => (officeData[b]||0) - (officeData[a]||0)).slice(0, 8);
+                const leaveTypes = Object.entries(leaveTypeData).sort((a,b) => b[1] - a[1]).slice(0, 6).map(d => d[0]);
+                const officeIdx = {}; offices.forEach((o, i) => officeIdx[o] = i);
+                const ltIdx = {}; leaveTypes.forEach((lt, i) => ltIdx[lt] = i);
+                
+                // Group by status for color coding
+                const statusGroups = { 'Pending': [], 'Approved': [], 'Disapproved': [], 'Returned': [] };
+                (_chartRawData.allApplications || []).forEach(app => {
+                    const office = app.office || app.school || 'Unassigned';
+                    const lt = getLeaveTypeLabel(app.leaveType) || 'Other';
+                    const st = app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : 'Pending';
+                    if (officeIdx[office] === undefined || ltIdx[lt] === undefined) return;
+                    if (!statusGroups[st]) statusGroups[st] = [];
+                    statusGroups[st].push({ x: officeIdx[office], y: ltIdx[lt] });
+                });
+                
+                // Aggregate: count per (x, y, status)
+                const datasets = Object.entries(statusGroups).map(([status, pts]) => {
+                    const counts = {};
+                    pts.forEach(p => { const k = p.x + ',' + p.y; counts[k] = (counts[k] || 0) + 1; });
+                    return {
+                        label: status,
+                        data: Object.entries(counts).map(([k, v]) => {
+                            const [x, y] = k.split(',').map(Number);
+                            return { x, y, r: Math.min(4 + v * 4, 30) };
+                        }),
+                        backgroundColor: (statusColors[status] || '#999') + 'AA',
+                        borderColor: statusColors[status] || '#999',
+                        borderWidth: 1
+                    };
+                }).filter(ds => ds.data.length > 0);
+                
+                charts.correlationChart = new Chart(corrCtx, {
+                    type: 'bubble',
+                    data: { datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: true,
+                        scales: {
+                            x: {
+                                title: { display: true, text: 'Office / School', font: { size: 11, weight: 'bold' } },
+                                ticks: {
+                                    callback: function(val) {
+                                        const label = offices[val] || '';
+                                        return label.length > 14 ? label.substring(0, 14) + '…' : label;
+                                    },
+                                    font: { size: 9 },
+                                    maxRotation: 45
+                                },
+                                min: -0.5,
+                                max: offices.length - 0.5,
+                                grid: { color: '#f0f0f0' }
+                            },
+                            y: {
+                                title: { display: true, text: 'Leave Type', font: { size: 11, weight: 'bold' } },
+                                ticks: {
+                                    callback: function(val) { return leaveTypes[val] || ''; },
+                                    font: { size: 10 }
+                                },
+                                min: -0.5,
+                                max: leaveTypes.length - 0.5,
+                                grid: { color: '#f0f0f0' }
+                            }
+                        },
                         plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: { font: { size: 11 }, padding: 10 }
+                            legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, padding: 10 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        const office = offices[ctx.raw.x] || '?';
+                                        const lt = leaveTypes[ctx.raw.y] || '?';
+                                        const count = Math.round((ctx.raw.r - 4) / 4) || 1;
+                                        return `${ctx.dataset.label}: ${office} → ${lt} (${count})`;
+                                    }
+                                }
                             }
                         }
                     }
                 });
+              } catch(e) { console.error('[CHART] Bubble chart error:', e); showChartEmpty('correlationChart', 'Error loading chart'); }
             }
             
-            // Status Chart
-            const statusCtx = document.getElementById('statusChart');
-            if (statusCtx) {
-                if (charts.statusChart) charts.statusChart.destroy();
-                charts.statusChart = new Chart(statusCtx, {
+            // ─── 2) STACKED BAR CHART (Office × Status or Leave Type) ───
+            if (!hasApps) {
+                showChartEmpty('stackedBarChart', 'No applications yet.<br><span style="font-size:11px;color:#ccc;">Volume breakdown will appear here.</span>');
+            } else {
+              try {
+                hideChartEmpty('stackedBarChart');
+                renderStackedBar(_chartRawData.allApplications || [], _chartRawData.allUsers || [], _currentGraphView);
+              } catch(e) { console.error('[CHART] Stacked bar error:', e); showChartEmpty('stackedBarChart', 'Error loading chart'); }
+            }
+            
+            // ─── 3) MINI GAUGE - Status Distribution ───
+            const miniStatusCtx = document.getElementById('miniStatusGauge');
+            if (!hasStatusData) {
+                showChartEmpty('miniStatusGauge', 'No status data yet');
+            } else if (miniStatusCtx) {
+              try {
+                hideChartEmpty('miniStatusGauge');
+                if (charts.miniStatus) charts.miniStatus.destroy();
+                charts.miniStatus = new Chart(miniStatusCtx, {
                     type: 'doughnut',
                     data: {
                         labels: Object.keys(statusData),
-                        datasets: [{
-                            data: Object.values(statusData),
-                            backgroundColor: ['#ffc107', '#28a745', '#dc3545', '#ff6b6b'],
-                            borderColor: 'white',
-                            borderWidth: 2
-                        }]
+                        datasets: [{ data: Object.values(statusData), backgroundColor: ['#ffc107', '#28a745', '#dc3545', '#ff6b6b'], borderWidth: 0 }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: { font: { size: 11 }, padding: 10 }
-                            }
-                        }
+                        responsive: true, maintainAspectRatio: true, cutout: '65%',
+                        plugins: { legend: { position: 'bottom', labels: { font: { size: 9 }, padding: 6, usePointStyle: true } } }
                     }
+                });
+              } catch(e) { console.error('[CHART] Mini status error:', e); showChartEmpty('miniStatusGauge', 'Error loading chart'); }
+            }
+            
+            // ─── 4) MINI GAUGE - Leave Types ───
+            const miniLeaveCtx = document.getElementById('miniLeaveGauge');
+            if (!hasLeaveTypes) {
+                showChartEmpty('miniLeaveGauge', 'No leave types yet');
+            } else if (miniLeaveCtx) {
+              try {
+                hideChartEmpty('miniLeaveGauge');
+                if (charts.miniLeave) charts.miniLeave.destroy();
+                const sortedLT = Object.entries(leaveTypeData).sort((a,b) => b[1] - a[1]).slice(0, 6);
+                charts.miniLeave = new Chart(miniLeaveCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: sortedLT.map(d => d[0]),
+                        datasets: [{ data: sortedLT.map(d => d[1]), backgroundColor: colors.slice(0, sortedLT.length), borderWidth: 0 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true, cutout: '65%',
+                        plugins: { legend: { position: 'bottom', labels: { font: { size: 9 }, padding: 6, usePointStyle: true } } }
+                    }
+                });
+              } catch(e) { console.error('[CHART] Mini leave error:', e); showChartEmpty('miniLeaveGauge', 'Error loading chart'); }
+            }
+            
+            // ─── 5) MINI GAUGE - Office Activity (polar area) ───
+            const miniOfficeCtx = document.getElementById('miniOfficeGauge');
+            if (!hasApps) {
+                showChartEmpty('miniOfficeGauge', 'No office activity yet');
+            } else if (miniOfficeCtx) {
+              try {
+                hideChartEmpty('miniOfficeGauge');
+                if (charts.miniOffice) charts.miniOffice.destroy();
+                // Count applications per office
+                const officeApps = {};
+                (_chartRawData.allApplications || []).forEach(app => {
+                    const o = app.office || app.school || 'Unassigned';
+                    officeApps[o] = (officeApps[o] || 0) + 1;
+                });
+                const topOffices = Object.entries(officeApps).sort((a,b) => b[1] - a[1]).slice(0, 6);
+                charts.miniOffice = new Chart(miniOfficeCtx, {
+                    type: 'polarArea',
+                    data: {
+                        labels: topOffices.map(d => d[0].length > 18 ? d[0].substring(0,18) + '…' : d[0]),
+                        datasets: [{ data: topOffices.map(d => d[1]), backgroundColor: colors.slice(0, topOffices.length).map(c => c + '99') }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true,
+                        scales: { r: { ticks: { display: false }, grid: { color: '#f0f0f0' } } },
+                        plugins: { legend: { position: 'bottom', labels: { font: { size: 9 }, padding: 6, usePointStyle: true } } }
+                    }
+                });
+              } catch(e) { console.error('[CHART] Mini office error:', e); showChartEmpty('miniOfficeGauge', 'Error loading chart'); }
+            }
+        }
+        
+        function renderStackedBar(allApplications, allUsers, view) {
+            const statusColors = { 'Pending': '#ffc107', 'Approved': '#28a745', 'Disapproved': '#dc3545', 'Returned': '#ff6b6b' };
+            const ltColors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'];
+            
+            const barCtx = document.getElementById('stackedBarChart');
+            if (!barCtx) return;
+            if (charts.stackedBar) charts.stackedBar.destroy();
+            
+            // Get top offices by application count
+            const officeApps = {};
+            allApplications.forEach(app => {
+                const o = app.office || app.school || 'Unassigned';
+                officeApps[o] = (officeApps[o] || 0) + 1;
+            });
+            const topOffices = Object.entries(officeApps).sort((a,b) => b[1] - a[1]).slice(0, 8).map(d => d[0]);
+            
+            if (topOffices.length === 0) return;
+            
+            let datasets;
+            if (view === 'status') {
+                const statuses = ['Pending', 'Approved', 'Disapproved', 'Returned'];
+                datasets = statuses.map(st => {
+                    const data = topOffices.map(office => {
+                        return allApplications.filter(a => 
+                            (a.office || a.school || 'Unassigned') === office && 
+                            a.status === st.toLowerCase()
+                        ).length;
+                    });
+                    return { label: st, data, backgroundColor: statusColors[st], borderRadius: 3, borderSkipped: false };
+                });
+            } else {
+                // By leave type
+                const ltCounts = {};
+                allApplications.forEach(a => { const lt = getLeaveTypeLabel(a.leaveType) || 'Other'; ltCounts[lt] = (ltCounts[lt] || 0) + 1; });
+                const topLT = Object.entries(ltCounts).sort((a,b) => b[1] - a[1]).slice(0, 6).map(d => d[0]);
+                datasets = topLT.map((lt, i) => {
+                    const data = topOffices.map(office => {
+                        return allApplications.filter(a => 
+                            (a.office || a.school || 'Unassigned') === office &&
+                            (getLeaveTypeLabel(a.leaveType) || 'Other') === lt
+                        ).length;
+                    });
+                    return { label: lt, data, backgroundColor: ltColors[i % ltColors.length], borderRadius: 3, borderSkipped: false };
                 });
             }
             
-            // Leave Type Chart
-            const leaveTypeCtx = document.getElementById('leaveTypeChart');
-            if (leaveTypeCtx && Object.keys(leaveTypeData).length > 0) {
-                if (charts.leaveTypeChart) charts.leaveTypeChart.destroy();
-                
-                // Get top 6 leave types
-                const sortedLeaveTypes = Object.entries(leaveTypeData)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 6);
-                
-                charts.leaveTypeChart = new Chart(leaveTypeCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: sortedLeaveTypes.map(d => d[0]),
-                        datasets: [{
-                            data: sortedLeaveTypes.map(d => d[1]),
-                            backgroundColor: colors.slice(0, sortedLeaveTypes.length),
-                            borderColor: 'white',
-                            borderWidth: 2
-                        }]
+            charts.stackedBar = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: topOffices.map(o => o.length > 16 ? o.substring(0, 16) + '…' : o),
+                    datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: { font: { size: 9 }, maxRotation: 45 },
+                            grid: { display: false }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: { display: true, text: 'Applications', font: { size: 11, weight: 'bold' } },
+                            ticks: { stepSize: 1, font: { size: 10 } },
+                            grid: { color: '#f5f5f5' }
+                        }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: { font: { size: 11 }, padding: 10 }
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, padding: 8 } },
+                        tooltip: {
+                            callbacks: {
+                                title: function(items) { return topOffices[items[0].dataIndex] || ''; }
                             }
                         }
                     }
-                });
-            }
+                }
+            });
         }
         
         function switchApplicationsTab(tab) {
