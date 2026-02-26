@@ -715,7 +715,7 @@
                             <span style="color: #fff; font-size: 13px;">🆕 LC Created: <strong>${data.created}</strong></span>
                             <span style="color: #fff; font-size: 13px;">🔄 LC Updated: <strong>${data.updated}</strong></span>
                             <span style="color: #fff; font-size: 13px;">⏭️ Skipped: <strong>${data.skipped}</strong></span>
-                            <span style="color: #fff; font-size: 13px;">📋 CTO Records: <strong>${data.ctoCreated || 0}</strong></span>
+                            <span style="color: #fff; font-size: 13px;">📋 CTO Records: <strong>${data.ctoCreated || 0}</strong>${data.ctoRemoved ? ` (${data.ctoRemoved} replaced)` : ''}</span>
                             ${data.teachingCount ? `<span style="color: #ce93d8; font-size: 13px;">🎓 Teaching: <strong>${data.teachingCount}</strong></span>` : ''}
                             <span style="color: #fff; font-size: 13px;">📊 Total cards: <strong>${data.totalCards}</strong></span>
                         </div>

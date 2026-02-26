@@ -3372,6 +3372,7 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
             deleteSDSUsers: sdsUsersFile,
             deleteApplications: applicationsFile,
             deleteLeavecards: leavecardsFile,
+            deleteCtoRecords: ctoRecordsFile,
             deletePendingRegistrations: pendingRegistrationsFile,
             deleteSchools: schoolsFile
         };
@@ -3437,6 +3438,7 @@ app.post('/api/delete-all-data', requireAuth('it'), loginRateLimiter, (req, res)
             sdsUsersFile,               // SDS users
             applicationsFile,           // Leave applications
             leavecardsFile,             // Leave cards
+            ctoRecordsFile,             // CTO records
             pendingRegistrationsFile,   // Pending registrations
             schoolsFile                 // Schools data
         ];
@@ -6548,17 +6550,38 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
         // === CTO Records Import ===
         ensureFile(ctoRecordsFile);
         let ctoRecordsAll = readJSON(ctoRecordsFile);
+        let ctoRemoved = 0;
 
         for (const ctoEntry of ctoResults) {
             const normalizedName = ctoEntry.name.toUpperCase().replace(/\s+/g, ' ').trim();
+            const entryParts = parseFullNameIntoParts(ctoEntry.name);
+            const entryFirst = (entryParts.firstName || '').toUpperCase().trim();
+            const entryLast = (entryParts.lastName || '').toUpperCase().trim();
+
+            // When overwrite is enabled, remove previously-migrated CTO records
+            // for this person so we don't create duplicates on re-import
+            if (allowOverwrite) {
+                const beforeCount = ctoRecordsAll.length;
+                ctoRecordsAll = ctoRecordsAll.filter(r => {
+                    // Only remove excel-migration records; keep manually-added ones
+                    if (r.source !== 'excel-migration') return true;
+                    const rName = (r.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                    if (rName === normalizedName) return false;
+                    // Also match by first+last name components
+                    const rParts = parseFullNameIntoParts(r.name || '');
+                    const rFirst = (rParts.firstName || '').toUpperCase().trim();
+                    const rLast = (rParts.lastName || '').toUpperCase().trim();
+                    if (entryFirst && entryLast && rFirst && rLast &&
+                        entryFirst === rFirst && entryLast === rLast) return false;
+                    return true;
+                });
+                ctoRemoved += (beforeCount - ctoRecordsAll.length);
+            }
 
             // Find matching leave card to get employeeId/email
             const matchedCard = leavecards.find(lc => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                 if (lcName === normalizedName) return true;
-                const entryParts = parseFullNameIntoParts(ctoEntry.name);
-                const entryFirst = (entryParts.firstName || '').toUpperCase().trim();
-                const entryLast = (entryParts.lastName || '').toUpperCase().trim();
                 const lcFirst = (lc.firstName || '').toUpperCase().trim();
                 const lcLast = (lc.lastName || '').toUpperCase().trim();
                 return (entryFirst && entryLast && lcFirst && lcLast &&
@@ -6588,7 +6611,7 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             }
         }
 
-        if (ctoCreated > 0) {
+        if (ctoCreated > 0 || ctoRemoved > 0) {
             writeJSON(ctoRecordsFile, ctoRecordsAll);
         }
 
@@ -6602,22 +6625,24 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 leaveCardsUpdated: updated,
                 leaveCardsSkipped: skipped,
                 ctoRecordsCreated: ctoCreated,
+                ctoRecordsRemoved: ctoRemoved,
                 teachingPersonnel: teachingDetected.length,
                 errors: errors.length
             }
         });
 
-        console.log(`[MIGRATION] Excel import complete: ${created} LC created, ${updated} LC updated, ${skipped} LC skipped, ${ctoCreated} CTO records, ${teachingDetected.length} teaching, ${errors.length} errors`);
+        console.log(`[MIGRATION] Excel import complete: ${created} LC created, ${updated} LC updated, ${skipped} LC skipped, ${ctoCreated} CTO created${ctoRemoved > 0 ? `, ${ctoRemoved} CTO replaced` : ''}, ${teachingDetected.length} teaching, ${errors.length} errors`);
 
         res.json({
             success: true,
             mode: 'import',
-            message: `Migration complete: ${created} leave cards created, ${updated} updated, ${skipped} skipped, ${ctoCreated} CTO records imported`,
+            message: `Migration complete: ${created} leave cards created, ${updated} updated, ${skipped} skipped, ${ctoCreated} CTO records imported${ctoRemoved > 0 ? ` (${ctoRemoved} replaced)` : ''}`,
             safetyBackup: `pre-migration-${safetyTimestamp}`,
             created,
             updated,
             skipped,
             ctoCreated,
+            ctoRemoved,
             teachingCount: teachingDetected.length,
             errors,
             details: importDetails,

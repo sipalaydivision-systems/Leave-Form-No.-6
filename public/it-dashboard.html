@@ -1570,6 +1570,13 @@
                             </label>
                             <button class="select-specific-btn" onclick="openSelectSpecificModal('leavecards', '🎫 Leave Cards')">Select Specific</button>
                         </div>
+                        <!-- CTO Records -->
+                        <div class="delete-category-row">
+                            <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                                <input type="checkbox" id="deleteCtoRecords" checked style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;">
+                                <span style="color: #333; font-weight: 500;">📋 CTO Records</span>
+                            </label>
+                        </div>
                         <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
                         <!-- Pending Registrations -->
                         <div class="delete-category-row">
@@ -2632,6 +2639,7 @@
                 deleteSDSUsers: document.getElementById('deleteSDSUsers').checked,
                 deleteApplications: document.getElementById('deleteApplications').checked,
                 deleteLeavecards: document.getElementById('deleteLeavecards').checked,
+                deleteCtoRecords: document.getElementById('deleteCtoRecords').checked,
                 deletePendingRegistrations: document.getElementById('deletePendingRegistrations').checked,
                 deleteSchools: document.getElementById('deleteSchools').checked
             };
@@ -2654,6 +2662,7 @@
             if (selectedData.deleteSDSUsers) selectedItems.push('SDS User Accounts');
             if (selectedData.deleteApplications) selectedItems.push('Leave Applications');
             if (selectedData.deleteLeavecards) selectedItems.push('Leave Cards');
+            if (selectedData.deleteCtoRecords) selectedItems.push('CTO Records');
             if (selectedData.deletePendingRegistrations) selectedItems.push('Pending Registrations');
             if (selectedData.deleteSchools) selectedItems.push('School/Office Data');
 
