@@ -3050,6 +3050,36 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                         matchingCard.updatedAt = new Date().toISOString();
                         writeJSON(leavecardsFile, leavecards);
                         console.log(`[REGISTRATION] Assigned existing leave card to ${registration.email} (matched by ${matchMethod}: ${matchMethod === 'name' ? normalizedRegName : registration.employeeNo})`);
+
+                        // Also link any unlinked CTO records matching this employee's name
+                        try {
+                            ensureFile(ctoRecordsFile);
+                            const ctoRecords = readJSON(ctoRecordsFile);
+                            let ctoLinked = 0;
+                            ctoRecords.forEach(rec => {
+                                if (rec.employeeId || rec.email) return; // Already linked
+                                const recName = (rec.name || '').toLowerCase().trim();
+                                if (recName === normalizedRegName) {
+                                    rec.employeeId = registration.email;
+                                    rec.email = registration.email;
+                                    ctoLinked++;
+                                }
+                                // Also try matching by employeeNo
+                                if (!rec.employeeId && registration.employeeNo && rec.employeeNo) {
+                                    if (String(rec.employeeNo).trim() === String(registration.employeeNo).trim()) {
+                                        rec.employeeId = registration.email;
+                                        rec.email = registration.email;
+                                        ctoLinked++;
+                                    }
+                                }
+                            });
+                            if (ctoLinked > 0) {
+                                writeJSON(ctoRecordsFile, ctoRecords);
+                                console.log(`[REGISTRATION] Linked ${ctoLinked} CTO records to ${registration.email}`);
+                            }
+                        } catch (ctoLinkErr) {
+                            console.error(`[REGISTRATION] CTO linking failed for ${registration.email}:`, ctoLinkErr.message);
+                        }
                     } else {
                         // DRY: Use shared helper for default leave card creation
                         const newLeavecard = createDefaultLeaveCard(
@@ -6167,6 +6197,166 @@ function findHeaderRow(data) {
 }
 
 /**
+ * Extract CTO records from an Excel workbook buffer.
+ * Looks for a sheet named "CTO", "CTO Card", "CTO Records", or the second sheet.
+ * CTO layout (DepEd standard):
+ *   Header row contains: SO/Special Order, Period, Days Granted/Earned, Days Used, Balance
+ *   Data rows follow the header.
+ */
+function extractCtoFromBuffer(buffer, fileName) {
+    try {
+        const wb = xlsx.read(buffer, { type: 'buffer' });
+        const baseName = path.basename(fileName, path.extname(fileName));
+
+        // Find the CTO sheet — try named sheets first, then fall back to 2nd sheet
+        let ctoSheet = null;
+        let ctoSheetName = null;
+        const ctoSheetNames = ['CTO', 'CTO CARD', 'CTO RECORDS', 'COMPENSATORY', 'CTO_CARD'];
+        for (const sn of wb.SheetNames) {
+            if (ctoSheetNames.includes(sn.toUpperCase().trim())) {
+                ctoSheet = wb.Sheets[sn];
+                ctoSheetName = sn;
+                break;
+            }
+        }
+        // Fallback: if no named match, check if 2nd sheet has CTO-like content
+        if (!ctoSheet && wb.SheetNames.length >= 2) {
+            const secondSheet = wb.Sheets[wb.SheetNames[1]];
+            const testData = xlsx.utils.sheet_to_json(secondSheet, { header: 1 });
+            for (let i = 0; i < Math.min(15, testData.length); i++) {
+                const rowStr = (testData[i] || []).map(c => String(c || '').toUpperCase()).join(' ');
+                if (rowStr.includes('CTO') || rowStr.includes('COMPENSATORY') || rowStr.includes('SPECIAL ORDER')) {
+                    ctoSheet = secondSheet;
+                    ctoSheetName = wb.SheetNames[1];
+                    break;
+                }
+            }
+        }
+        // Also check if the first (only) sheet IS a CTO card
+        if (!ctoSheet) {
+            const firstData = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+            for (let i = 0; i < Math.min(15, firstData.length); i++) {
+                const rowStr = (firstData[i] || []).map(c => String(c || '').toUpperCase()).join(' ');
+                if (rowStr.includes('CTO') || rowStr.includes('COMPENSATORY TIME')) {
+                    ctoSheet = wb.Sheets[wb.SheetNames[0]];
+                    ctoSheetName = wb.SheetNames[0];
+                    break;
+                }
+            }
+        }
+
+        if (!ctoSheet) return null;
+
+        const data = xlsx.utils.sheet_to_json(ctoSheet, { header: 1 });
+
+        // Find the header row for CTO data
+        let headerIdx = null;
+        let colMap = {};
+        for (let i = 0; i < Math.min(20, data.length); i++) {
+            const row = data[i];
+            if (!row) continue;
+            const rowUpper = row.map(c => String(c || '').toUpperCase().trim());
+            // Look for headers like SO, PERIOD, DAYS GRANTED, DAYS USED, BALANCE
+            let soCol = -1, periodCol = -1, grantedCol = -1, usedCol = -1;
+            for (let j = 0; j < rowUpper.length; j++) {
+                const cell = rowUpper[j];
+                if (cell.includes('SPECIAL ORDER') || cell.includes('SO NO') || cell === 'SO' || cell.includes('S.O.')) soCol = j;
+                if (cell.includes('PERIOD') || cell.includes('DATE') || cell.includes('INCLUSIVE')) periodCol = j;
+                if (cell.includes('GRANTED') || cell.includes('EARNED') || cell.includes('DAYS GRANTED')) grantedCol = j;
+                if (cell.includes('USED') || cell.includes('SPENT') || cell.includes('DAYS USED')) usedCol = j;
+            }
+            // If we found at least granted column, treat as header
+            if (grantedCol !== -1) {
+                headerIdx = i;
+                colMap = { so: soCol, period: periodCol, granted: grantedCol, used: usedCol };
+                break;
+            }
+        }
+
+        // Fallback: scan for numeric columns that look like CTO data
+        if (headerIdx === null) {
+            for (let i = 0; i < data.length; i++) {
+                const row = data[i];
+                if (!row) continue;
+                // Find first row with at least one numeric value after some text
+                let hasText = false, hasNum = false;
+                for (let j = 0; j < row.length; j++) {
+                    if (typeof row[j] === 'string' && row[j].trim()) hasText = true;
+                    if (typeof row[j] === 'number') hasNum = true;
+                }
+                if (hasText && hasNum && i > 3) {
+                    headerIdx = i - 1;
+                    // Guess column positions
+                    colMap = { so: 0, period: 1, granted: 2, used: 3 };
+                    break;
+                }
+            }
+        }
+
+        const ctoRecords = [];
+        const startRow = headerIdx !== null ? headerIdx + 1 : 5;
+
+        for (let i = startRow; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 2) continue;
+
+            const soDetails = colMap.so >= 0 && row[colMap.so] ? String(row[colMap.so]).trim() : '';
+            const periodCovered = colMap.period >= 0 && row[colMap.period] ? String(row[colMap.period]).trim() : '';
+            const daysGranted = colMap.granted >= 0 ? (parseFloat(row[colMap.granted]) || 0) : 0;
+            const daysUsed = colMap.used >= 0 ? (parseFloat(row[colMap.used]) || 0) : 0;
+
+            // Skip rows with no meaningful data
+            if (!soDetails && !periodCovered && daysGranted === 0 && daysUsed === 0) continue;
+            // Skip total/summary rows
+            const rowText = row.map(c => String(c || '').toUpperCase()).join(' ');
+            if (rowText.includes('TOTAL') || rowText.includes('GRAND TOTAL')) continue;
+
+            ctoRecords.push({
+                soDetails,
+                periodCovered,
+                daysGranted: Math.round(daysGranted * 1000) / 1000,
+                daysUsed: Math.round(daysUsed * 1000) / 1000,
+                source: 'excel-migration'
+            });
+        }
+
+        if (ctoRecords.length === 0) return null;
+
+        return {
+            name: baseName,
+            sheetName: ctoSheetName,
+            records: ctoRecords,
+            totalGranted: ctoRecords.reduce((sum, r) => sum + r.daysGranted, 0),
+            totalUsed: ctoRecords.reduce((sum, r) => sum + r.daysUsed, 0)
+        };
+    } catch (err) {
+        console.error(`  Error parsing CTO from ${fileName}: ${err.message}`);
+        return null;
+    }
+}
+
+/**
+ * Detect if an Excel file is for a teaching employee.
+ * Looks for VSC header, teaching position keywords, or CTO-only content.
+ */
+function detectTeachingFromExcel(buffer) {
+    try {
+        const wb = xlsx.read(buffer, { type: 'buffer' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = xlsx.utils.sheet_to_json(ws, { header: 1 });
+
+        for (let i = 0; i < Math.min(20, data.length); i++) {
+            if (!data[i]) continue;
+            const rowStr = data[i].map(c => String(c || '').toUpperCase()).join(' ');
+            if (rowStr.includes('VSC') || rowStr.includes('VACATION SERVICE CREDIT')) return true;
+            // Check for teaching position field
+            if (/\bTEACHER\b/.test(rowStr) || /\bHEAD\s*TEACHER\b/.test(rowStr) || /\bMASTER\s*TEACHER\b/.test(rowStr)) return true;
+        }
+        return false;
+    } catch { return false; }
+}
+
+/**
  * POST /api/migrate-leave-cards
  * Accepts multipart upload of Excel leave-card files.
  * Each file becomes a leave card entry in leavecards.json.
@@ -6198,16 +6388,43 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
         const mode = req.query.mode || 'preview';
         const allowOverwrite = req.query.overwrite === 'true';
         const results = [];
+        const ctoResults = [];
         const errors = [];
+        const teachingDetected = [];
 
         for (const file of req.files) {
             // Multer decodes filenames as latin1; re-decode as UTF-8 to handle Ñ, accents, etc.
             const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+            const isTeaching = detectTeachingFromExcel(file.buffer);
             const extracted = extractCreditsFromBuffer(file.buffer, originalName);
+            const ctoExtracted = extractCtoFromBuffer(file.buffer, originalName);
+
+            if (isTeaching) teachingDetected.push(originalName);
+
             if (extracted) {
+                extracted.isTeaching = isTeaching;
+                extracted.hasCto = !!ctoExtracted;
                 results.push(extracted);
+            } else if (isTeaching || ctoExtracted) {
+                // Teaching personnel or CTO-only file — create empty leave card placeholder
+                const baseName = path.basename(originalName, path.extname(originalName));
+                results.push({
+                    name: baseName,
+                    employeeNo: '',
+                    vacationLeave: 0,
+                    sickLeave: 0,
+                    transactions: [],
+                    isTeaching: isTeaching,
+                    hasCto: !!ctoExtracted,
+                    emptyLeaveCard: true
+                });
             } else {
-                errors.push({ file: originalName, error: 'Could not parse VL/SL balance from file' });
+                errors.push({ file: originalName, error: 'Could not parse VL/SL balance or CTO records from file' });
+            }
+
+            if (ctoExtracted) {
+                ctoExtracted.isTeaching = isTeaching;
+                ctoResults.push(ctoExtracted);
             }
         }
 
@@ -6215,16 +6432,20 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             return res.json({
                 success: true,
                 mode: 'preview',
-                message: `Parsed ${results.length} leave cards from ${req.files.length} files`,
+                message: `Parsed ${results.length} leave cards and ${ctoResults.length} CTO records from ${req.files.length} files`,
                 parsed: results,
+                ctoRecords: ctoResults,
+                teachingDetected,
                 errors,
                 totalFiles: req.files.length,
                 successCount: results.length,
+                ctoCount: ctoResults.length,
+                teachingCount: teachingDetected.length,
                 errorCount: errors.length
             });
         }
 
-        // Import mode — write to leavecards.json
+        // Import mode — write to leavecards.json AND cto-records.json
         // Create safety backup first
         const safetyTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const safetyFolder = path.join(backupDir, `pre-migration-${safetyTimestamp}`);
@@ -6232,20 +6453,34 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
         if (fs.existsSync(leavecardsFile)) {
             fs.copyFileSync(leavecardsFile, path.join(safetyFolder, 'leavecards.json'));
         }
+        if (fs.existsSync(ctoRecordsFile)) {
+            fs.copyFileSync(ctoRecordsFile, path.join(safetyFolder, 'cto-records.json'));
+        }
 
         let leavecards = readJSON(leavecardsFile);
         let created = 0, updated = 0, skipped = 0;
+        let ctoCreated = 0;
         const importDetails = [];
 
         for (const entry of results) {
             const normalizedName = entry.name.toUpperCase().replace(/\s+/g, ' ').trim();
             const entryEmpNo = (entry.employeeNo || '').trim();
 
-            // Check if a card with this name or employeeNo already exists
+            // Primary matching: first name + last name from filename
+            // Secondary fallback: employee number from Leave Card data
             const existingIdx = leavecards.findIndex(lc => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                // Primary: match by normalized full name (LASTNAME, FIRSTNAME)
                 if (lcName === normalizedName) return true;
-                // Fallback: match by employeeNo if available on both sides
+                // Extended primary: match by firstName + lastName components
+                const entryParts = parseFullNameIntoParts(entry.name);
+                const entryFirst = (entryParts.firstName || '').toUpperCase().trim();
+                const entryLast = (entryParts.lastName || '').toUpperCase().trim();
+                const lcFirst = (lc.firstName || '').toUpperCase().trim();
+                const lcLast = (lc.lastName || '').toUpperCase().trim();
+                if (entryFirst && entryLast && lcFirst && lcLast &&
+                    entryFirst === lcFirst && entryLast === lcLast) return true;
+                // Secondary fallback: match by employeeNo
                 if (entryEmpNo && lc.employeeNo) {
                     return String(lc.employeeNo).trim() === entryEmpNo;
                 }
@@ -6254,7 +6489,7 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
 
             if (existingIdx !== -1 && !allowOverwrite) {
                 skipped++;
-                importDetails.push({ name: entry.name, action: 'skipped', reason: 'Already exists (use overwrite to replace)' });
+                importDetails.push({ name: entry.name, action: 'skipped', reason: 'Already exists (use overwrite to replace)', isTeaching: entry.isTeaching });
                 continue;
             }
 
@@ -6288,7 +6523,9 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 transactions: entry.transactions || [],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                initialCreditsSource: 'excel-migration'
+                initialCreditsSource: entry.emptyLeaveCard ? 'excel-migration-empty' : 'excel-migration',
+                isTeaching: entry.isTeaching || false,
+                emptyLeaveCard: entry.emptyLeaveCard || false
             };
 
             if (existingIdx !== -1) {
@@ -6298,36 +6535,94 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 newCard.email = existing.email || '';
                 leavecards[existingIdx] = newCard;
                 updated++;
-                importDetails.push({ name: entry.name, action: 'updated', vl: entry.vacationLeave, sl: entry.sickLeave });
+                importDetails.push({ name: entry.name, action: 'updated', vl: entry.vacationLeave, sl: entry.sickLeave, isTeaching: entry.isTeaching, emptyLeaveCard: entry.emptyLeaveCard });
             } else {
                 leavecards.push(newCard);
                 created++;
-                importDetails.push({ name: entry.name, action: 'created', vl: entry.vacationLeave, sl: entry.sickLeave });
+                importDetails.push({ name: entry.name, action: 'created', vl: entry.vacationLeave, sl: entry.sickLeave, isTeaching: entry.isTeaching, emptyLeaveCard: entry.emptyLeaveCard });
             }
         }
 
         writeJSON(leavecardsFile, leavecards);
 
+        // === CTO Records Import ===
+        ensureFile(ctoRecordsFile);
+        let ctoRecordsAll = readJSON(ctoRecordsFile);
+
+        for (const ctoEntry of ctoResults) {
+            const normalizedName = ctoEntry.name.toUpperCase().replace(/\s+/g, ' ').trim();
+
+            // Find matching leave card to get employeeId/email
+            const matchedCard = leavecards.find(lc => {
+                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                if (lcName === normalizedName) return true;
+                const entryParts = parseFullNameIntoParts(ctoEntry.name);
+                const entryFirst = (entryParts.firstName || '').toUpperCase().trim();
+                const entryLast = (entryParts.lastName || '').toUpperCase().trim();
+                const lcFirst = (lc.firstName || '').toUpperCase().trim();
+                const lcLast = (lc.lastName || '').toUpperCase().trim();
+                return (entryFirst && entryLast && lcFirst && lcLast &&
+                    entryFirst === lcFirst && entryLast === lcLast);
+            });
+
+            const employeeId = matchedCard ? (matchedCard.email || matchedCard.employeeId || '') : '';
+
+            for (const rec of ctoEntry.records) {
+                const newCtoRecord = {
+                    id: crypto.randomUUID(),
+                    employeeId: employeeId,
+                    email: employeeId,
+                    name: ctoEntry.name,
+                    type: 'ADD',
+                    soDetails: rec.soDetails || '',
+                    periodCovered: rec.periodCovered || '',
+                    daysGranted: rec.daysGranted,
+                    daysUsed: rec.daysUsed,
+                    balance: 0,
+                    soImage: '',
+                    source: 'excel-migration',
+                    createdAt: new Date().toISOString()
+                };
+                ctoRecordsAll.push(newCtoRecord);
+                ctoCreated++;
+            }
+        }
+
+        if (ctoCreated > 0) {
+            writeJSON(ctoRecordsFile, ctoRecordsAll);
+        }
+
         logActivity('EXCEL_MIGRATION', 'it', {
             userEmail: req.session.email,
             userId: req.session.userId,
             ip: getClientIp(req),
-            details: { totalFiles: req.files.length, created, updated, skipped, errors: errors.length }
+            details: {
+                totalFiles: req.files.length,
+                leaveCardsCreated: created,
+                leaveCardsUpdated: updated,
+                leaveCardsSkipped: skipped,
+                ctoRecordsCreated: ctoCreated,
+                teachingPersonnel: teachingDetected.length,
+                errors: errors.length
+            }
         });
 
-        console.log(`[MIGRATION] Excel leave card import complete: ${created} created, ${updated} updated, ${skipped} skipped, ${errors.length} errors`);
+        console.log(`[MIGRATION] Excel import complete: ${created} LC created, ${updated} LC updated, ${skipped} LC skipped, ${ctoCreated} CTO records, ${teachingDetected.length} teaching, ${errors.length} errors`);
 
         res.json({
             success: true,
             mode: 'import',
-            message: `Migration complete: ${created} created, ${updated} updated, ${skipped} skipped`,
+            message: `Migration complete: ${created} leave cards created, ${updated} updated, ${skipped} skipped, ${ctoCreated} CTO records imported`,
             safetyBackup: `pre-migration-${safetyTimestamp}`,
             created,
             updated,
             skipped,
+            ctoCreated,
+            teachingCount: teachingDetected.length,
             errors,
             details: importDetails,
-            totalCards: leavecards.length
+            totalCards: leavecards.length,
+            totalCtoRecords: ctoRecordsAll.length
         });
     } catch (error) {
         console.error('[MIGRATION] Error:', error);
@@ -6458,6 +6753,277 @@ app.post('/api/migrate-leave-card-json', requireAuth('it'), (req, res) => {
         });
     } catch (error) {
         console.error('[JSON MIGRATION] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ========== MIGRATION VALIDATION ==========
+/**
+ * POST /api/validate-migration
+ * Validates migrated data by comparing uploaded Excel source files against
+ * what's currently in leavecards.json and cto-records.json.
+ *
+ * Returns a detailed report of:
+ *  - Matched records (source ↔ system)
+ *  - Missing records (in source but not in system)
+ *  - Balance discrepancies
+ *  - Unlinked records (migrated but not yet associated with a registered employee)
+ *  - Transaction count mismatches
+ *  - Teaching personnel status
+ */
+app.post('/api/validate-migration', requireAuth('it'), (req, res, next) => {
+    migrationUpload.array('files', 500)(req, res, (err) => {
+        if (err) return res.status(400).json({ success: false, error: err.message || 'File upload error' });
+        next();
+    });
+}, (req, res) => {
+    try {
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ success: false, error: 'No Excel files uploaded for validation' });
+        }
+
+        const leavecards = readJSON(leavecardsFile);
+        ensureFile(ctoRecordsFile);
+        const ctoRecords = readJSON(ctoRecordsFile);
+        const employees = readJSON(employeesFile);
+
+        const validationResults = [];
+        let matched = 0, missing = 0, discrepancies = 0, unlinked = 0;
+        let ctoMatched = 0, ctoMissing = 0;
+
+        for (const file of req.files) {
+            const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+            const baseName = path.basename(originalName, path.extname(originalName));
+            const isTeaching = detectTeachingFromExcel(file.buffer);
+            const extracted = extractCreditsFromBuffer(file.buffer, originalName);
+            const ctoExtracted = extractCtoFromBuffer(file.buffer, originalName);
+
+            const normalizedName = baseName.toUpperCase().replace(/\s+/g, ' ').trim();
+            const nameParts = parseFullNameIntoParts(baseName);
+            const entryFirst = (nameParts.firstName || '').toUpperCase().trim();
+            const entryLast = (nameParts.lastName || '').toUpperCase().trim();
+            const entryEmpNo = extracted ? (extracted.employeeNo || '').trim() : '';
+
+            // Find matching leave card in system
+            const matchedCard = leavecards.find(lc => {
+                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                if (lcName === normalizedName) return true;
+                const lcFirst = (lc.firstName || '').toUpperCase().trim();
+                const lcLast = (lc.lastName || '').toUpperCase().trim();
+                if (entryFirst && entryLast && lcFirst && lcLast &&
+                    entryFirst === lcFirst && entryLast === lcLast) return true;
+                if (entryEmpNo && lc.employeeNo && String(lc.employeeNo).trim() === entryEmpNo) return true;
+                return false;
+            });
+
+            // Find matching employee profile
+            const matchedEmployee = employees.find(emp => {
+                const empName = (emp.fullName || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                if (empName === normalizedName) return true;
+                const empFirst = (emp.firstName || '').toUpperCase().trim();
+                const empLast = (emp.lastName || '').toUpperCase().trim();
+                if (entryFirst && entryLast && empFirst && empLast &&
+                    entryFirst === empFirst && entryLast === empLast) return true;
+                return false;
+            });
+
+            const result = {
+                fileName: originalName,
+                name: baseName,
+                isTeaching,
+                matchMethod: null,
+                status: 'missing',
+                issues: []
+            };
+
+            // Leave Card validation
+            if (extracted) {
+                result.sourceVL = extracted.vacationLeave;
+                result.sourceSL = extracted.sickLeave;
+                result.sourceTransactions = (extracted.transactions || []).length;
+                result.sourceEmpNo = extracted.employeeNo || '';
+            } else if (!isTeaching) {
+                result.issues.push('Could not parse Leave Card data from Excel');
+            }
+
+            if (matchedCard) {
+                result.status = 'matched';
+                result.matchMethod = matchedCard.email ? 'email-linked' : 'name';
+                matched++;
+
+                result.systemVL = matchedCard.vl;
+                result.systemSL = matchedCard.sl;
+                result.systemTransactions = (matchedCard.transactions || []).length;
+                result.systemLinkedEmail = matchedCard.email || '';
+                result.systemEmpNo = matchedCard.employeeNo || '';
+
+                // Check for balance discrepancies
+                if (extracted) {
+                    const vlDiff = Math.abs((matchedCard.vl || 0) - extracted.vacationLeave);
+                    const slDiff = Math.abs((matchedCard.sl || 0) - extracted.sickLeave);
+                    if (vlDiff > 0.01) {
+                        result.issues.push(`VL mismatch: Excel=${extracted.vacationLeave}, System=${matchedCard.vl}`);
+                        discrepancies++;
+                    }
+                    if (slDiff > 0.01) {
+                        result.issues.push(`SL mismatch: Excel=${extracted.sickLeave}, System=${matchedCard.sl}`);
+                        discrepancies++;
+                    }
+                    // Check transaction count
+                    const srcTx = (extracted.transactions || []).length;
+                    const sysTx = (matchedCard.transactions || []).filter(t => t.source === 'excel-migration').length;
+                    if (srcTx > 0 && sysTx === 0) {
+                        result.issues.push(`No migrated transactions in system (source has ${srcTx})`);
+                    } else if (srcTx > 0 && Math.abs(srcTx - sysTx) > 2) {
+                        result.issues.push(`Transaction count differs: Excel=${srcTx}, System=${sysTx}`);
+                    }
+                }
+
+                // Check if linked to a registered employee
+                if (!matchedCard.email) {
+                    result.issues.push('Leave card not yet linked to a registered employee');
+                    unlinked++;
+                }
+
+                // Teaching personnel check
+                if (isTeaching && !matchedCard.isTeaching && !matchedCard.emptyLeaveCard) {
+                    result.issues.push('Detected as teaching in Excel but not flagged in system');
+                }
+            } else {
+                missing++;
+                result.issues.push('No matching Leave Card found in system');
+            }
+
+            // CTO validation
+            if (ctoExtracted) {
+                result.sourceCtoRecords = ctoExtracted.records.length;
+                result.sourceCtoGranted = ctoExtracted.totalGranted;
+                result.sourceCtoUsed = ctoExtracted.totalUsed;
+
+                // Find matching CTO records in system
+                const systemCto = ctoRecords.filter(r => {
+                    const rName = (r.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                    if (rName === normalizedName) return true;
+                    if (matchedCard && (r.employeeId === matchedCard.email || r.email === matchedCard.email) && matchedCard.email) return true;
+                    return false;
+                });
+
+                result.systemCtoRecords = systemCto.length;
+                result.systemCtoGranted = systemCto.reduce((sum, r) => sum + (parseFloat(r.daysGranted) || 0), 0);
+                result.systemCtoUsed = systemCto.reduce((sum, r) => sum + (parseFloat(r.daysUsed) || 0), 0);
+
+                if (systemCto.length > 0) {
+                    ctoMatched++;
+                    if (Math.abs(result.sourceCtoGranted - result.systemCtoGranted) > 0.01) {
+                        result.issues.push(`CTO days granted mismatch: Excel=${result.sourceCtoGranted}, System=${result.systemCtoGranted}`);
+                    }
+                    if (Math.abs(result.sourceCtoUsed - result.systemCtoUsed) > 0.01) {
+                        result.issues.push(`CTO days used mismatch: Excel=${result.sourceCtoUsed}, System=${result.systemCtoUsed}`);
+                    }
+                } else {
+                    ctoMissing++;
+                    result.issues.push(`CTO records not found in system (source has ${ctoExtracted.records.length} records)`);
+                }
+            }
+
+            // Employee profile check
+            result.hasEmployeeProfile = !!matchedEmployee;
+            if (matchedEmployee) {
+                result.employeeEmail = matchedEmployee.email;
+                result.employeePosition = matchedEmployee.position;
+            }
+
+            validationResults.push(result);
+        }
+
+        const summary = {
+            totalFiles: req.files.length,
+            leaveCards: { matched, missing, discrepancies, unlinked },
+            ctoRecords: { matched: ctoMatched, missing: ctoMissing },
+            systemTotals: {
+                totalLeaveCards: leavecards.length,
+                linkedLeaveCards: leavecards.filter(lc => lc.email).length,
+                unlinkedLeaveCards: leavecards.filter(lc => !lc.email).length,
+                totalCtoRecords: ctoRecords.length,
+                totalEmployees: employees.length
+            }
+        };
+
+        console.log(`[VALIDATION] Migration validation: ${matched} LC matched, ${missing} LC missing, ${discrepancies} discrepancies, ${ctoMatched} CTO matched, ${ctoMissing} CTO missing`);
+
+        res.json({
+            success: true,
+            summary,
+            results: validationResults
+        });
+    } catch (error) {
+        console.error('[VALIDATION] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/migration-status
+ * Returns a summary of the current migration state without requiring file uploads.
+ * Shows how many leave cards are migrated, linked, unlinked, teaching, and CTO records.
+ */
+app.get('/api/migration-status', requireAuth('it'), (req, res) => {
+    try {
+        const leavecards = readJSON(leavecardsFile);
+        ensureFile(ctoRecordsFile);
+        const ctoRecords = readJSON(ctoRecordsFile);
+        const employees = readJSON(employeesFile);
+
+        const migratedCards = leavecards.filter(lc => lc.initialCreditsSource === 'excel-migration' || lc.initialCreditsSource === 'excel-migration-empty');
+        const linkedCards = migratedCards.filter(lc => lc.email);
+        const unlinkedCards = migratedCards.filter(lc => !lc.email);
+        const teachingCards = migratedCards.filter(lc => lc.isTeaching);
+        const emptyCards = migratedCards.filter(lc => lc.emptyLeaveCard);
+        const migratedCto = ctoRecords.filter(r => r.source === 'excel-migration');
+        const linkedCto = migratedCto.filter(r => r.email);
+        const unlinkedCto = migratedCto.filter(r => !r.email);
+
+        res.json({
+            success: true,
+            leaveCards: {
+                total: leavecards.length,
+                migrated: migratedCards.length,
+                linked: linkedCards.length,
+                unlinked: unlinkedCards.length,
+                teaching: teachingCards.length,
+                emptyPlaceholders: emptyCards.length,
+                unlinkedNames: unlinkedCards.map(lc => ({
+                    name: lc.name,
+                    employeeNo: lc.employeeNo || '',
+                    vl: lc.vl,
+                    sl: lc.sl,
+                    isTeaching: lc.isTeaching || false
+                }))
+            },
+            ctoRecords: {
+                total: ctoRecords.length,
+                migrated: migratedCto.length,
+                linked: linkedCto.length,
+                unlinked: unlinkedCto.length,
+                unlinkedNames: unlinkedCto.map(r => ({
+                    name: r.name || '',
+                    soDetails: r.soDetails || '',
+                    daysGranted: r.daysGranted,
+                    daysUsed: r.daysUsed
+                }))
+            },
+            employees: {
+                total: employees.length,
+                withLeaveCards: employees.filter(emp =>
+                    leavecards.some(lc => lc.email === emp.email)
+                ).length,
+                withoutLeaveCards: employees.filter(emp =>
+                    !leavecards.some(lc => lc.email === emp.email)
+                ).length
+            }
+        });
+    } catch (error) {
+        console.error('[MIGRATION STATUS] Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

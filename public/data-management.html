@@ -150,7 +150,17 @@
             <div class="action-card" onclick="document.getElementById('migrationSection').style.display='block'; document.getElementById('migrationSection').scrollIntoView({behavior:'smooth'})">
                 <div class="icon">📊</div>
                 <h3>Migrate from Excel</h3>
-                <p>Import employee leave cards from Excel files</p>
+                <p>Import Leave Cards &amp; CTO records from Excel</p>
+            </div>
+            <div class="action-card" onclick="document.getElementById('validationSection').style.display='block'; document.getElementById('validationSection').scrollIntoView({behavior:'smooth'})">
+                <div class="icon">✅</div>
+                <h3>Validate Migration</h3>
+                <p>Verify Excel data matches system records</p>
+            </div>
+            <div class="action-card" onclick="loadMigrationStatus()">
+                <div class="icon">📋</div>
+                <h3>Migration Status</h3>
+                <p>View linked/unlinked migrated records</p>
             </div>
             <div class="action-card" onclick="loadBackups()">
                 <div class="icon">🔄</div>
@@ -176,14 +186,19 @@
 
         <!-- Excel Migration Section (hidden by default) -->
         <div class="section" id="migrationSection" style="display: none;">
-            <h2>📊 Migrate Leave Cards from Excel</h2>
+            <h2>📊 Migrate Leave Cards &amp; CTO Records from Excel</h2>
             <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 6px;">
-                Upload the Excel leave card files from the old manual system. Each file should be one employee's leave card
+                Upload employee Excel files from the old manual system. Each file should be one employee's data
                 (filename = <strong style="color:#fff">"LASTNAME, FIRSTNAME.xlsx"</strong>).
             </p>
-            <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 16px;">
-                The system will extract the latest VL and SL balances and transaction history from each file. 
-                A safety backup is created automatically before importing.
+            <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 6px;">
+                <strong>Non-teaching:</strong> Leave Card (Sheet 1) + CTO Card (Sheet 2, if present) will both be migrated.<br>
+                <strong>Teaching:</strong> CTO records are expected; an empty Leave Card placeholder will be created if no Leave Card data exists.
+            </p>
+            <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-bottom: 16px;">
+                All historical transaction rows are migrated for full data continuity. Employee matching uses 
+                <strong style="color:rgba(255,255,255,0.6)">first name + last name</strong> (from filename) as the primary key, 
+                with <strong style="color:rgba(255,255,255,0.6)">employee number</strong> (from Leave Card) as fallback.
             </p>
 
             <div class="file-input-wrapper">
@@ -217,6 +232,8 @@
                                 <th style="padding: 10px 8px; text-align: right; color: #4fc3f7;">VL Balance</th>
                                 <th style="padding: 10px 8px; text-align: right; color: #81c784;">SL Balance</th>
                                 <th style="padding: 10px 8px; text-align: right; color: rgba(255,255,255,0.6);">Transactions</th>
+                                <th style="padding: 10px 8px; text-align: center; color: #ffab40;">CTO</th>
+                                <th style="padding: 10px 8px; text-align: center; color: #ce93d8;">Type</th>
                             </tr>
                         </thead>
                         <tbody id="migrationTableBody"></tbody>
@@ -228,6 +245,42 @@
             <!-- Import Results -->
             <div id="migrationResults" style="display: none; margin-top: 20px;">
                 <div id="migrationResultContent"></div>
+            </div>
+        </div>
+
+        <!-- Migration Validation Section -->
+        <div class="section" id="validationSection" style="display: none;">
+            <h2>✅ Validate Migration (Excel vs System)</h2>
+            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 6px;">
+                Upload the same Excel source files to verify they match the data in the system.
+                The system will compare Leave Card balances, transaction history, and CTO records.
+            </p>
+            <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-bottom: 16px;">
+                This is a <strong style="color:rgba(255,255,255,0.6)">read-only</strong> check — no data is modified.
+            </p>
+
+            <div class="file-input-wrapper">
+                <input type="file" id="validationFiles" accept=".xlsx,.xls" multiple />
+                <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 4px;">Select the Excel source files to validate against</p>
+            </div>
+
+            <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-primary btn-lg" onclick="runValidation()">🔍 Run Validation</button>
+                <button class="btn btn-warning" onclick="document.getElementById('validationSection').style.display='none'">Cancel</button>
+            </div>
+
+            <!-- Validation Results -->
+            <div id="validationResults" style="display: none; margin-top: 20px;">
+                <div id="validationSummary"></div>
+                <div id="validationDetails" style="margin-top: 14px;"></div>
+            </div>
+        </div>
+
+        <!-- Migration Status Section -->
+        <div class="section" id="migrationStatusSection" style="display: none;">
+            <h2>📋 Migration Status</h2>
+            <div id="migrationStatusContent">
+                <div class="loading"><span class="spinner"></span> Loading migration status...</div>
             </div>
         </div>
 
@@ -555,17 +608,36 @@
                         📁 <strong>${data.totalFiles}</strong> files uploaded
                     </div>
                     <div style="padding: 10px 16px; background: rgba(46,125,50,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
-                        ✅ <strong>${data.successCount}</strong> parsed successfully
+                        ✅ <strong>${data.successCount}</strong> leave cards
                     </div>
+                    ${data.ctoCount > 0 ? `<div style="padding: 10px 16px; background: rgba(255,152,0,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
+                        📋 <strong>${data.ctoCount}</strong> CTO records
+                    </div>` : ''}
+                    ${data.teachingCount > 0 ? `<div style="padding: 10px 16px; background: rgba(156,39,176,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
+                        🎓 <strong>${data.teachingCount}</strong> teaching
+                    </div>` : ''}
                     ${data.errorCount > 0 ? `<div style="padding: 10px 16px; background: rgba(198,40,40,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
                         ❌ <strong>${data.errorCount}</strong> failed
                     </div>` : ''}
                 `;
                 document.getElementById('migrationStats').innerHTML = statsHtml;
 
+                // Build CTO lookup by name for preview table
+                const ctoByName = {};
+                if (data.ctoRecords) {
+                    for (const cto of data.ctoRecords) {
+                        ctoByName[cto.name.toUpperCase().replace(/\s+/g, ' ').trim()] = cto;
+                    }
+                }
+
                 // Show table
                 let tableHtml = '';
                 for (const p of data.parsed) {
+                    const pKey = p.name.toUpperCase().replace(/\s+/g, ' ').trim();
+                    const cto = ctoByName[pKey];
+                    const ctoInfo = cto ? `${cto.records.length} (${cto.totalGranted}d)` : '—';
+                    const typeLabel = p.isTeaching ? '<span style="color:#ce93d8">Teaching</span>' :
+                                     p.emptyLeaveCard ? '<span style="color:#ffab91">Empty LC</span>' : 'Non-teaching';
                     tableHtml += `
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                             <td style="padding: 8px 12px; color: #fff;">${escapeHtml(p.name)}</td>
@@ -573,6 +645,8 @@
                             <td style="padding: 8px; text-align: right; color: #4fc3f7; font-weight: 600;">${p.vacationLeave.toFixed(3)}</td>
                             <td style="padding: 8px; text-align: right; color: #81c784; font-weight: 600;">${p.sickLeave.toFixed(3)}</td>
                             <td style="padding: 8px; text-align: right; color: rgba(255,255,255,0.5);">${p.transactions ? p.transactions.length : 0}</td>
+                            <td style="padding: 8px; text-align: center; color: #ffab40; font-size: 12px;">${ctoInfo}</td>
+                            <td style="padding: 8px; text-align: center; font-size: 11px;">${typeLabel}</td>
                         </tr>
                     `;
                 }
@@ -594,7 +668,7 @@
                 document.getElementById('migrationPreview').style.display = 'block';
                 document.getElementById('migrationImportBtn').disabled = false;
                 document.getElementById('migrationResults').style.display = 'none';
-                showStatus(`✅ Preview complete: ${data.successCount} leave cards parsed from ${data.totalFiles} files`, 'success');
+                showStatus(`✅ Preview complete: ${data.successCount} leave cards, ${data.ctoCount || 0} CTO records from ${data.totalFiles} files`, 'success');
             } catch (err) {
                 showStatus('❌ Preview failed: ' + err.message, 'error');
             }
@@ -611,7 +685,7 @@
                 return;
             }
 
-            if (!confirm('This will import the leave card data into the system. A safety backup will be created first. Continue?')) {
+            if (!confirm('This will import Leave Card and CTO data into the system. A safety backup will be created first. Continue?')) {
                 return;
             }
 
@@ -638,9 +712,11 @@
                     <div style="background: rgba(46,125,50,0.2); border-radius: 10px; padding: 16px; border: 1px solid rgba(46,125,50,0.3);">
                         <h4 style="color: #81c784; font-size: 14px; margin-bottom: 10px;">✅ Migration Complete</h4>
                         <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px;">
-                            <span style="color: #fff; font-size: 13px;">🆕 Created: <strong>${data.created}</strong></span>
-                            <span style="color: #fff; font-size: 13px;">🔄 Updated: <strong>${data.updated}</strong></span>
+                            <span style="color: #fff; font-size: 13px;">🆕 LC Created: <strong>${data.created}</strong></span>
+                            <span style="color: #fff; font-size: 13px;">🔄 LC Updated: <strong>${data.updated}</strong></span>
                             <span style="color: #fff; font-size: 13px;">⏭️ Skipped: <strong>${data.skipped}</strong></span>
+                            <span style="color: #fff; font-size: 13px;">📋 CTO Records: <strong>${data.ctoCreated || 0}</strong></span>
+                            ${data.teachingCount ? `<span style="color: #ce93d8; font-size: 13px;">🎓 Teaching: <strong>${data.teachingCount}</strong></span>` : ''}
                             <span style="color: #fff; font-size: 13px;">📊 Total cards: <strong>${data.totalCards}</strong></span>
                         </div>
                         <p style="color: rgba(255,255,255,0.5); font-size: 11px;">Safety backup: ${data.safetyBackup}</p>
@@ -649,10 +725,11 @@
 
                 if (data.details && data.details.length > 0) {
                     resultHtml += '<div style="max-height: 300px; overflow-y: auto; margin-top: 12px;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-                    resultHtml += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: center; color: #fff;">Action</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL</th><th style="padding: 8px; text-align: right; color: #81c784;">SL</th></tr></thead><tbody>';
+                    resultHtml += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: center; color: #fff;">Action</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL</th><th style="padding: 8px; text-align: right; color: #81c784;">SL</th><th style="padding: 8px; text-align: center; color: #ce93d8;">Type</th></tr></thead><tbody>';
                     for (const d of data.details) {
                         const actionColor = d.action === 'created' ? '#81c784' : d.action === 'updated' ? '#4fc3f7' : '#ffab91';
-                        resultHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(d.name)}</td><td style="padding: 6px 8px; text-align: center; color: ${actionColor};">${escapeHtml(d.action)}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${d.vl !== undefined ? d.vl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${d.sl !== undefined ? d.sl.toFixed(3) : '—'}</td></tr>`;
+                        const typeLabel = d.isTeaching ? '🎓' : (d.emptyLeaveCard ? '📭' : '');
+                        resultHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(d.name)}</td><td style="padding: 6px 8px; text-align: center; color: ${actionColor};">${escapeHtml(d.action)}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${d.vl !== undefined ? d.vl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${d.sl !== undefined ? d.sl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: center;">${typeLabel}</td></tr>`;
                     }
                     resultHtml += '</tbody></table></div>';
                 }
@@ -661,7 +738,7 @@
                 document.getElementById('migrationResults').style.display = 'block';
                 document.getElementById('migrationPreview').style.display = 'none';
                 document.getElementById('migrationImportBtn').disabled = true;
-                showStatus(`✅ Migration complete: ${data.created} created, ${data.updated} updated, ${data.skipped} skipped`, 'success');
+                showStatus(`✅ Migration complete: ${data.created} LC created, ${data.updated} updated, ${data.ctoCreated || 0} CTO records`, 'success');
                 loadBackups();
             } catch (err) {
                 showStatus('❌ Migration failed: ' + err.message, 'error');
@@ -719,6 +796,198 @@
                 }
             } catch (err) {
                 showStatus('❌ Error: ' + err.message, 'error');
+            }
+        }
+
+        // ========== MIGRATION VALIDATION ==========
+        async function runValidation() {
+            const fileInput = document.getElementById('validationFiles');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showStatus('⚠️ Please select Excel files first', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            for (const file of fileInput.files) {
+                formData.append('files', file);
+            }
+
+            try {
+                showStatus('🔍 Validating migration data...', 'info');
+                const resp = await fetch('/api/validate-migration', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                if (!data.success) {
+                    showStatus('❌ ' + (data.error || 'Validation failed'), 'error');
+                    return;
+                }
+
+                const s = data.summary;
+                let summaryHtml = `
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="padding: 12px 16px; background: rgba(46,125,50,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
+                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.matched}</div>
+                            <div style="font-size: 11px; opacity: 0.7;">Leave Cards Matched</div>
+                        </div>
+                        <div style="padding: 12px 16px; background: rgba(198,40,40,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
+                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.missing}</div>
+                            <div style="font-size: 11px; opacity: 0.7;">Missing in System</div>
+                        </div>
+                        <div style="padding: 12px 16px; background: rgba(255,152,0,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
+                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.discrepancies}</div>
+                            <div style="font-size: 11px; opacity: 0.7;">Balance Discrepancies</div>
+                        </div>
+                        <div style="padding: 12px 16px; background: rgba(156,39,176,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
+                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.unlinked}</div>
+                            <div style="font-size: 11px; opacity: 0.7;">Not Yet Linked</div>
+                        </div>
+                        <div style="padding: 12px 16px; background: rgba(0,150,136,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
+                            <div style="font-size: 22px; font-weight: 700;">${s.ctoRecords.matched}</div>
+                            <div style="font-size: 11px; opacity: 0.7;">CTO Matched</div>
+                        </div>
+                        ${s.ctoRecords.missing > 0 ? `<div style="padding: 12px 16px; background: rgba(198,40,40,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
+                            <div style="font-size: 22px; font-weight: 700;">${s.ctoRecords.missing}</div>
+                            <div style="font-size: 11px; opacity: 0.7;">CTO Missing</div>
+                        </div>` : ''}
+                    </div>
+                    <div style="margin-top: 10px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 11px; color: rgba(255,255,255,0.5);">
+                        System totals: ${s.systemTotals.totalLeaveCards} leave cards (${s.systemTotals.linkedLeaveCards} linked, ${s.systemTotals.unlinkedLeaveCards} unlinked) · ${s.systemTotals.totalCtoRecords} CTO records · ${s.systemTotals.totalEmployees} employees
+                    </div>
+                `;
+                document.getElementById('validationSummary').innerHTML = summaryHtml;
+
+                // Detailed results table
+                let detailsHtml = '<div style="max-height: 500px; overflow-y: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+                detailsHtml += '<thead><tr style="background: rgba(255,255,255,0.1); position: sticky; top: 0;"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: center; color: #fff;">Status</th><th style="padding: 8px; text-align: center; color: #fff;">Match</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL (Src/Sys)</th><th style="padding: 8px; text-align: right; color: #81c784;">SL (Src/Sys)</th><th style="padding: 8px; text-align: center; color: #ffab40;">CTO</th><th style="padding: 8px; text-align: left; color: #ffab91;">Issues</th></tr></thead><tbody>';
+
+                for (const r of data.results) {
+                    const statusColor = r.status === 'matched' ? '#81c784' : '#ef9a9a';
+                    const statusIcon = r.status === 'matched' ? '✅' : '❌';
+                    const vlSrc = r.sourceVL !== undefined ? r.sourceVL.toFixed(3) : '—';
+                    const vlSys = r.systemVL !== undefined ? r.systemVL.toFixed(3) : '—';
+                    const slSrc = r.sourceSL !== undefined ? r.sourceSL.toFixed(3) : '—';
+                    const slSys = r.systemSL !== undefined ? r.systemSL.toFixed(3) : '—';
+                    const ctoCol = r.sourceCtoRecords ? `${r.sourceCtoRecords}/${r.systemCtoRecords || 0}` : '—';
+                    const matchCol = r.matchMethod || '—';
+                    const issuesCol = r.issues.length > 0
+                        ? '<span style="color:#ffab91;font-size:11px;">' + r.issues.map(i => escapeHtml(i)).join('<br>') + '</span>'
+                        : '<span style="color:#81c784;">OK</span>';
+                    const typeIcon = r.isTeaching ? ' 🎓' : '';
+
+                    detailsHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <td style="padding: 6px 12px; color: #fff;">${escapeHtml(r.name)}${typeIcon}</td>
+                        <td style="padding: 6px 8px; text-align: center; color: ${statusColor};">${statusIcon}</td>
+                        <td style="padding: 6px 8px; text-align: center; color: rgba(255,255,255,0.5); font-size: 11px;">${matchCol}</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${vlSrc} / ${vlSys}</td>
+                        <td style="padding: 6px 8px; text-align: right; color: #81c784;">${slSrc} / ${slSys}</td>
+                        <td style="padding: 6px 8px; text-align: center; color: #ffab40;">${ctoCol}</td>
+                        <td style="padding: 6px 8px;">${issuesCol}</td>
+                    </tr>`;
+                }
+                detailsHtml += '</tbody></table></div>';
+
+                document.getElementById('validationDetails').innerHTML = detailsHtml;
+                document.getElementById('validationResults').style.display = 'block';
+
+                const issueCount = data.results.filter(r => r.issues.length > 0).length;
+                if (issueCount === 0) {
+                    showStatus(`✅ Validation passed: All ${data.results.length} records match the system data`, 'success');
+                } else {
+                    showStatus(`⚠️ Validation found issues in ${issueCount} of ${data.results.length} records`, 'error');
+                }
+            } catch (err) {
+                showStatus('❌ Validation failed: ' + err.message, 'error');
+            }
+        }
+
+        // ========== MIGRATION STATUS ==========
+        async function loadMigrationStatus() {
+            const section = document.getElementById('migrationStatusSection');
+            section.style.display = 'block';
+            section.scrollIntoView({ behavior: 'smooth' });
+            const container = document.getElementById('migrationStatusContent');
+            container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading migration status...</div>';
+
+            try {
+                const resp = await fetch('/api/migration-status', { headers: getAuthHeaders() });
+                const data = await resp.json();
+                if (!data.success) {
+                    container.innerHTML = `<p style="color:#ef9a9a;">Error: ${data.error}</p>`;
+                    return;
+                }
+
+                const lc = data.leaveCards;
+                const cto = data.ctoRecords;
+                const emp = data.employees;
+
+                let html = `
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <div style="padding: 14px 18px; background: rgba(25,118,210,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
+                            <div style="font-size: 28px; font-weight: 700;">${lc.total}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">Total Leave Cards</div>
+                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${lc.migrated} migrated from Excel</div>
+                        </div>
+                        <div style="padding: 14px 18px; background: rgba(46,125,50,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
+                            <div style="font-size: 28px; font-weight: 700;">${lc.linked}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">Linked to Employees</div>
+                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">Employee registered &amp; matched</div>
+                        </div>
+                        <div style="padding: 14px 18px; background: rgba(255,152,0,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
+                            <div style="font-size: 28px; font-weight: 700;">${lc.unlinked}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">Awaiting Registration</div>
+                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">Migrated but no account yet</div>
+                        </div>
+                        <div style="padding: 14px 18px; background: rgba(156,39,176,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
+                            <div style="font-size: 28px; font-weight: 700;">${lc.teaching}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">Teaching Personnel</div>
+                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${lc.emptyPlaceholders} empty placeholders</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <div style="padding: 14px 18px; background: rgba(0,150,136,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
+                            <div style="font-size: 28px; font-weight: 700;">${cto.total}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">CTO Records</div>
+                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${cto.migrated} from Excel, ${cto.linked} linked</div>
+                        </div>
+                        <div style="padding: 14px 18px; background: rgba(63,81,181,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
+                            <div style="font-size: 28px; font-weight: 700;">${emp.total}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">Registered Employees</div>
+                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${emp.withLeaveCards} with LC, ${emp.withoutLeaveCards} without</div>
+                        </div>
+                    </div>
+                `;
+
+                // Show unlinked leave cards
+                if (lc.unlinkedNames && lc.unlinkedNames.length > 0) {
+                    html += '<h3 style="color: #ffab40; font-size: 14px; margin: 16px 0 8px;">⏳ Unlinked Leave Cards (awaiting registration)</h3>';
+                    html += '<div style="max-height: 300px; overflow-y: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+                    html += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: right; color: #fff;">Emp No.</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL</th><th style="padding: 8px; text-align: right; color: #81c784;">SL</th><th style="padding: 8px; text-align: center; color: #ce93d8;">Type</th></tr></thead><tbody>';
+                    for (const u of lc.unlinkedNames) {
+                        const typeLabel = u.isTeaching ? '🎓 Teaching' : '';
+                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(u.name)}</td><td style="padding: 6px 8px; text-align: right; color: rgba(255,255,255,0.5);">${escapeHtml(u.employeeNo || '—')}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${(u.vl || 0).toFixed(3)}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${(u.sl || 0).toFixed(3)}</td><td style="padding: 6px 8px; text-align: center; font-size: 11px;">${typeLabel}</td></tr>`;
+                    }
+                    html += '</tbody></table></div>';
+                }
+
+                // Show unlinked CTO records
+                if (cto.unlinkedNames && cto.unlinkedNames.length > 0) {
+                    html += '<h3 style="color: #ffab40; font-size: 14px; margin: 16px 0 8px;">⏳ Unlinked CTO Records</h3>';
+                    html += '<div style="max-height: 200px; overflow-y: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+                    html += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: left; color: #fff;">SO Details</th><th style="padding: 8px; text-align: right; color: #ffab40;">Granted</th><th style="padding: 8px; text-align: right; color: rgba(255,255,255,0.6);">Used</th></tr></thead><tbody>';
+                    for (const c of cto.unlinkedNames) {
+                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(c.name || '—')}</td><td style="padding: 6px 8px; color: rgba(255,255,255,0.5);">${escapeHtml(c.soDetails || '—')}</td><td style="padding: 6px 8px; text-align: right; color: #ffab40;">${c.daysGranted}</td><td style="padding: 6px 8px; text-align: right; color: rgba(255,255,255,0.5);">${c.daysUsed}</td></tr>`;
+                    }
+                    html += '</tbody></table></div>';
+                }
+
+                html += `<div style="margin-top: 14px;"><button class="btn btn-warning" onclick="document.getElementById('migrationStatusSection').style.display='none'">Close</button></div>`;
+
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = `<p style="color:#ef9a9a;">Error loading status: ${err.message}</p>`;
             }
         }
     </script>
