@@ -752,9 +752,12 @@
                     // Render Excel-migrated transactions first (historical data from Excel leave cards)
                     if (hasTransactions) {
                         credits.transactions.forEach(txn => {
-                            const type = (txn.type || 'ADD').toUpperCase();
                             const periodCovered = txn.periodCovered || '-';
-                            const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
+                            // Derive actual type from periodCovered (type field is unreliable in migrated data)
+                            const isLess = periodCovered.toUpperCase().trimStart().startsWith('LESS');
+                            const isAdd = !isLess;
+                            // Use periodCovered directly as display (it already contains the ADD:/LESS: prefix)
+                            const periodDisplay = periodCovered;
                             
                             const tVlEarned = parseFloat(txn.vlEarned) || 0;
                             const tSlEarned = parseFloat(txn.slEarned) || 0;
@@ -766,19 +769,17 @@
                             const tSlBalance = parseFloat(txn.slBalance) || 0;
                             const tTotal = parseFloat(txn.total) || 0;
                             
-                            const isAdd = type === 'ADD';
-                            
                             html += `
                                 <tr>
                                     <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
                                         ${periodDisplay}
                                     </td>
-                                    <td>${tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
-                                    <td>${tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
-                                    <td style="color: ${tVlSpent > 0 ? '#d32f2f' : '#999'};">${tVlSpent > 0 ? tVlSpent.toFixed(3) : '-'}</td>
-                                    <td style="color: ${tSlSpent > 0 ? '#d32f2f' : '#999'};">${tSlSpent > 0 ? tSlSpent.toFixed(3) : '-'}</td>
-                                    <td style="color: ${tForcedLeave > 0 ? '#d32f2f' : '#999'};">${tForcedLeave > 0 ? tForcedLeave.toFixed(3) : '-'}</td>
-                                    <td style="color: ${tSplUsed > 0 ? '#d32f2f' : '#999'};">${tSplUsed > 0 ? tSplUsed.toFixed(3) : '-'}</td>
+                                    <td>${isAdd && tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
+                                    <td>${isAdd && tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
+                                    <td style="color: ${isLess && tVlSpent > 0 ? '#d32f2f' : '#999'};">${isLess && tVlSpent > 0 ? tVlSpent.toFixed(3) : '-'}</td>
+                                    <td style="color: ${isLess && tSlSpent > 0 ? '#d32f2f' : '#999'};">${isLess && tSlSpent > 0 ? tSlSpent.toFixed(3) : '-'}</td>
+                                    <td style="color: ${isLess && tForcedLeave > 0 ? '#d32f2f' : '#999'};">${isLess && tForcedLeave > 0 ? tForcedLeave.toFixed(3) : '-'}</td>
+                                    <td style="color: ${isLess && tSplUsed > 0 ? '#d32f2f' : '#999'};">${isLess && tSplUsed > 0 ? tSplUsed.toFixed(3) : '-'}</td>
                                     <td class="balance">${tVlBalance.toFixed(3)}</td>
                                     <td class="balance">${tSlBalance.toFixed(3)}</td>
                                     <td class="balance">${tTotal.toFixed(3)}</td>
