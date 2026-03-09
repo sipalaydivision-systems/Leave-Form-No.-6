@@ -429,7 +429,7 @@ app.use(express.static('public', { index: false, etag: false, lastModified: fals
 app.use('/filled', express.static(path.join(__dirname, 'filled')));
 
 // App version — used for cache-busting. Increment on every deploy.
-const APP_VERSION = '2026.02.23.1';
+const APP_VERSION = '2026.03.09.2';
 app.get('/api/version', (req, res) => res.json({ version: APP_VERSION }));
 
 // Data file paths
@@ -990,6 +990,16 @@ function createAccrualTransaction(month, year, runningVL, runningSL, source, acc
     };
 }
 
+function hasMonthlyAccrualTransaction(card, month, year) {
+    const expectedPeriod = `${MONTH_NAMES[month]} ${year} (Monthly Accrual)`;
+    const transactions = Array.isArray(card?.transactions) ? card.transactions : [];
+    return transactions.some(tx => {
+        const period = String(tx?.periodCovered || '').trim();
+        const source = String(tx?.source || '').toLowerCase();
+        return period === expectedPeriod && source.startsWith('system-accrual');
+    });
+}
+
 function normalizeLeaveCardTransactions(transactions) {
     const normalized = [];
     let runningVL = 0;
@@ -1258,15 +1268,9 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 if (monthsToAccrue <= 0) return;
             }
 
-            const totalAccrual = accrualPerMonth * monthsToAccrue;
-
-            // Update earned values
+            // Prepare earned values and accrual dedupe
             const prevVL = parseFloat(lc.vacationLeaveEarned) || parseFloat(lc.vl) || 0;
             const prevSL = parseFloat(lc.sickLeaveEarned) || parseFloat(lc.sl) || 0;
-            lc.vacationLeaveEarned = +(prevVL + totalAccrual).toFixed(3);
-            lc.sickLeaveEarned = +(prevSL + totalAccrual).toFixed(3);
-            lc.vl = lc.vacationLeaveEarned;
-            lc.sl = lc.sickLeaveEarned;
 
             // Add transaction entries
             if (!lc.transactions) lc.transactions = [];
@@ -1292,10 +1296,15 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 if (startMonth > 12) { startMonth = 1; startYear++; }
             }
 
+            let actualMonthsAdded = 0;
             for (let m = 0; m < monthsToAccrue; m++) {
                 let entryMonth = startMonth + m;
                 let entryYear = startYear;
                 while (entryMonth > 12) { entryMonth -= 12; entryYear++; }
+
+                if (hasMonthlyAccrualTransaction(lc, entryMonth, entryYear)) {
+                    continue;
+                }
 
                 runningVL = +(runningVL + accrualPerMonth).toFixed(3);
                 runningSL = +(runningSL + accrualPerMonth).toFixed(3);
@@ -1303,12 +1312,25 @@ function catchUpNewCards(globalLastAccruedMonth, now) {
                 lc.transactions.push(
                     createAccrualTransaction(entryMonth, entryYear, runningVL, runningSL, 'system-accrual-catchup')
                 );
+                actualMonthsAdded++;
             }
+
+            if (actualMonthsAdded <= 0) {
+                lc.lastAccrualDate = globalLastAccruedMonth;
+                lc.updatedAt = now.toISOString();
+                return;
+            }
+
+            const totalAccrual = accrualPerMonth * actualMonthsAdded;
+            lc.vacationLeaveEarned = +(prevVL + totalAccrual).toFixed(3);
+            lc.sickLeaveEarned = +(prevSL + totalAccrual).toFixed(3);
+            lc.vl = lc.vacationLeaveEarned;
+            lc.sl = lc.sickLeaveEarned;
 
             lc.lastAccrualDate = globalLastAccruedMonth;
             lc.updatedAt = now.toISOString();
             updatedCount++;
-            console.log(`[ACCRUAL CATCH-UP] ${lc.email || lc.name}: +${totalAccrual.toFixed(3)} VL/SL (${monthsToAccrue} month(s))`);
+            console.log(`[ACCRUAL CATCH-UP] ${lc.email || lc.name}: +${totalAccrual.toFixed(3)} VL/SL (${actualMonthsAdded} month(s))`);
         });
 
         if (updatedCount > 0) {
@@ -1432,13 +1454,6 @@ function runMonthlyAccrual() {
             const prevVL = parseFloat(lc.vacationLeaveEarned) || parseFloat(lc.vl) || 0;
             const prevSL = parseFloat(lc.sickLeaveEarned) || parseFloat(lc.sl) || 0;
 
-            lc.vacationLeaveEarned = +(prevVL + totalAccrual).toFixed(3);
-            lc.sickLeaveEarned = +(prevSL + totalAccrual).toFixed(3);
-
-            // Also update the shorthand fields for consistency
-            lc.vl = lc.vacationLeaveEarned;
-            lc.sl = lc.sickLeaveEarned;
-
             // Add transaction entries so accrual shows as "ADD" rows in leave card tables
             if (!lc.transactions) lc.transactions = [];
 
@@ -1451,13 +1466,18 @@ function runMonthlyAccrual() {
                 runningSL = parseFloat(lastTx.slBalance) || prevSL;
             }
 
-            // Add one transaction per accrued month
+            // Add one transaction per accrued month (deduped)
+            let actualMonthsAdded = 0;
             for (let m = 1; m <= monthsToAccrue; m++) {
                 // Calculate which month this entry is for
                 const parts = (lastAccruedMonth || lastCompletedKey).split('-').map(Number);
                 let entryYear = parts[0];
                 let entryMonth = parts[1] + (lastAccruedMonth ? m : m - 1);
                 while (entryMonth > 12) { entryMonth -= 12; entryYear++; }
+
+                if (hasMonthlyAccrualTransaction(lc, entryMonth, entryYear)) {
+                    continue;
+                }
 
                 // Running balance after this month's accrual
                 runningVL = +(runningVL + accrualPerMonth).toFixed(3);
@@ -1466,7 +1486,16 @@ function runMonthlyAccrual() {
                 lc.transactions.push(
                     createAccrualTransaction(entryMonth, entryYear, runningVL, runningSL, 'system-accrual')
                 );
+                actualMonthsAdded++;
             }
+
+            const totalAccrualForCard = accrualPerMonth * actualMonthsAdded;
+            lc.vacationLeaveEarned = +(prevVL + totalAccrualForCard).toFixed(3);
+            lc.sickLeaveEarned = +(prevSL + totalAccrualForCard).toFixed(3);
+
+            // Also update the shorthand fields for consistency
+            lc.vl = lc.vacationLeaveEarned;
+            lc.sl = lc.sickLeaveEarned;
 
             lc.updatedAt = now.toISOString();
             lc.lastAccrualDate = lastCompletedKey;

@@ -8,7 +8,7 @@
     // Force clear service worker cache for this page to prevent stale code
     if ('caches' in window) { caches.keys().then(function(k) { k.forEach(function(n) { caches.delete(n); }); }); }
     // Auto-reload if browser is serving a stale cached version
-    var PAGE_VERSION = '2026.02.23.1';
+    var PAGE_VERSION = '2026.03.09.2';
     fetch('/api/version').then(function(r){return r.json()}).then(function(d){
         if(d.version && d.version !== PAGE_VERSION && !sessionStorage.getItem('_reloaded_'+PAGE_VERSION)){
             sessionStorage.setItem('_reloaded_'+PAGE_VERSION,'1');
