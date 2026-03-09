@@ -2114,7 +2114,7 @@
                             const bg = idx % 2 === 0 ? '#fff' : '#f9f9f9';
                             
                             html += '<tr style="border-bottom: 1px solid #ddd; background: ' + bg + ';">';
-                            html += '<td style="padding: 12px; border-right: 1px solid #ddd; color: ' + (isAdd ? '#2e7d32' : '#c62828') + '; font-weight: 600;">' + periodDisplay + (pvpDeductionDays > 0 ? '<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ' + pvpDeductionDays.toFixed(3) + '</small>' : '') + '<br><div style="margin-top:6px;"><button onclick="aoEditTransaction(\'' + (txn.id || '') + '\')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="aoDeleteTransaction(\'' + (txn.id || '') + '\')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div></td>';
+                            html += '<td style="padding: 12px; border-right: 1px solid #ddd; color: ' + (isAdd ? '#2e7d32' : '#c62828') + '; font-weight: 600;">' + periodDisplay + (pvpDeductionDays > 0 ? '<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ' + pvpDeductionDays.toFixed(3) + '</small>' : '') + '<br><div class="leave-entry-actions" style="margin-top:6px;"><button onclick="aoEditTransaction(\'' + (txn.id || '') + '\')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="aoDeleteTransaction(\'' + (txn.id || '') + '\')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div></td>';
                             html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">' + (tVlEarned > 0 ? tVlEarned.toFixed(3) : '-') + '</td>';
                             html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">' + (tSlEarned > 0 ? tSlEarned.toFixed(3) : '-') + '</td>';
                             html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (tVlSpent > 0 ? '#d32f2f' : '#999') + ';">' + (tVlSpent > 0 ? tVlSpent.toFixed(3) : '-') + '</td>';
@@ -2484,8 +2484,10 @@
 
             const originalAddBtn = document.getElementById('aoAddLeaveRowBtn');
             const originalDownloadBtn = document.getElementById('aoDownloadLeaveCardBtn');
+            const rowActionEls = Array.from(document.querySelectorAll('.leave-entry-actions'));
             if (originalAddBtn) originalAddBtn.style.display = 'none';
             if (originalDownloadBtn) originalDownloadBtn.style.display = 'none';
+            rowActionEls.forEach(el => { el.dataset.prevDisplay = el.style.display || ''; el.style.display = 'none'; });
 
             try {
                 const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
@@ -2518,6 +2520,7 @@
             } finally {
                 if (originalAddBtn) originalAddBtn.style.display = '';
                 if (originalDownloadBtn) originalDownloadBtn.style.display = '';
+                rowActionEls.forEach(el => { el.style.display = el.dataset.prevDisplay || ''; delete el.dataset.prevDisplay; });
             }
         }
 

@@ -785,7 +785,7 @@
                                     <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
                                         ${periodDisplay}
                                         ${pvpDeductionDays > 0 ? `<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ${pvpDeductionDays.toFixed(3)}</small>` : ''}
-                                        <br><div style="margin-top:6px;"><button onclick="editLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="deleteLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div>
+                                        <br><div class="leave-entry-actions" style="margin-top:6px;"><button onclick="editLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="deleteLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div>
                                     </td>
                                     <td>${isAdd && tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
                                     <td>${isAdd && tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
@@ -1266,7 +1266,7 @@
             const printWindow = window.open('', '', 'height=600,width=900');
             printWindow.document.write(
                 '<!DOCTYPE html><html><head><title>Service Leave Card</title>' +
-                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form{display:none;}</style>' +
+                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form,.leave-entry-actions{display:none !important;}</style>' +
                 '</head><body>' + printContent + '</body></html>'
             );
             printWindow.document.close();
@@ -1282,8 +1282,10 @@
 
             const addBtn = document.getElementById('addLeaveRowBtn');
             const downloadBtn = document.getElementById('downloadLeaveCardBtn');
+            const rowActionEls = Array.from(document.querySelectorAll('.leave-entry-actions'));
             if (addBtn) addBtn.style.display = 'none';
             if (downloadBtn) downloadBtn.style.display = 'none';
+            rowActionEls.forEach(el => { el.dataset.prevDisplay = el.style.display || ''; el.style.display = 'none'; });
 
             try {
                 const canvas = await html2canvas(cardSection, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
@@ -1317,6 +1319,7 @@
             } finally {
                 if (addBtn) addBtn.style.display = '';
                 if (downloadBtn) downloadBtn.style.display = '';
+                rowActionEls.forEach(el => { el.style.display = el.dataset.prevDisplay || ''; delete el.dataset.prevDisplay; });
             }
         }
 
@@ -1325,7 +1328,7 @@
             const printWindow = window.open('', '', 'height=600,width=900');
             printWindow.document.write(
                 '<!DOCTYPE html><html><head><title>CTO Card</title>' +
-                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form{display:none;}</style>' +
+                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form,.leave-entry-actions{display:none !important;}</style>' +
                 '</head><body>' + printContent + '</body></html>'
             );
             printWindow.document.close();
