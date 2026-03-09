@@ -1000,6 +1000,83 @@ function hasMonthlyAccrualTransaction(card, month, year) {
     });
 }
 
+function dedupeMonthlyAccrualEntries(dryRun = true) {
+    ensureFile(leavecardsFile);
+    const leavecards = readJSON(leavecardsFile);
+    const nowIso = new Date().toISOString();
+
+    let cardsScanned = 0;
+    let cardsChanged = 0;
+    let duplicatesRemoved = 0;
+    const changedCards = [];
+
+    for (const card of leavecards) {
+        cardsScanned++;
+        const txns = Array.isArray(card.transactions) ? card.transactions : [];
+        if (txns.length === 0) continue;
+
+        const seenAccrualPeriods = new Set();
+        const filtered = [];
+        let removedForCard = 0;
+
+        for (const tx of txns) {
+            const periodCovered = String(tx?.periodCovered || '').trim();
+            const source = String(tx?.source || '').toLowerCase();
+            const isMonthlyAccrual = /\(monthly accrual\)$/i.test(periodCovered) && source.startsWith('system-accrual');
+
+            if (!isMonthlyAccrual) {
+                filtered.push(tx);
+                continue;
+            }
+
+            const key = periodCovered.toUpperCase();
+            if (seenAccrualPeriods.has(key)) {
+                removedForCard++;
+                continue;
+            }
+
+            seenAccrualPeriods.add(key);
+            filtered.push(tx);
+        }
+
+        if (removedForCard <= 0) continue;
+
+        const normalized = normalizeLeaveCardTransactions(filtered);
+        duplicatesRemoved += removedForCard;
+        cardsChanged++;
+        changedCards.push({
+            employee: card.email || card.employeeId || card.name || 'unknown',
+            duplicatesRemoved: removedForCard
+        });
+
+        if (!dryRun) {
+            card.transactions = normalized.transactions;
+            card.vl = normalized.summary.vl;
+            card.sl = normalized.summary.sl;
+            card.vacationLeaveEarned = normalized.summary.vacationLeaveEarned;
+            card.sickLeaveEarned = normalized.summary.sickLeaveEarned;
+            card.vacationLeaveSpent = normalized.summary.vacationLeaveSpent;
+            card.sickLeaveSpent = normalized.summary.sickLeaveSpent;
+            card.forceLeaveSpent = normalized.summary.forceLeaveSpent;
+            card.splSpent = normalized.summary.splSpent;
+            card.pvpDeductionTotal = normalized.summary.pvpDeductionTotal;
+            card.updatedAt = nowIso;
+        }
+    }
+
+    if (!dryRun && cardsChanged > 0) {
+        writeJSON(leavecardsFile, leavecards);
+    }
+
+    return {
+        dryRun,
+        cardsScanned,
+        cardsChanged,
+        duplicatesRemoved,
+        changedCards
+    };
+}
+
 function normalizeLeaveCardTransactions(transactions) {
     const normalized = [];
     let runningVL = 0;
@@ -1711,6 +1788,33 @@ app.post('/api/run-reconciliation', requireAuth('it'), (req, res) => {
         message: discrepancies.length === 0 ? 'All balances are consistent.' : `Found ${discrepancies.length} discrepancies.`,
         discrepancies 
     });
+});
+
+// IT endpoint to dedupe duplicate monthly accrual rows in leave cards
+app.post('/api/cleanup-accrual-duplicates', requireAuth('it'), (req, res) => {
+    try {
+        const dryRun = req.query.dryRun !== 'false';
+        const result = dedupeMonthlyAccrualEntries(dryRun);
+
+        logActivity('ACCRUAL_DUPLICATES_CLEANUP', 'it', {
+            userEmail: req.session.email,
+            dryRun: result.dryRun,
+            cardsChanged: result.cardsChanged,
+            duplicatesRemoved: result.duplicatesRemoved,
+            ip: getClientIp(req)
+        });
+
+        return res.json({
+            success: true,
+            message: result.cardsChanged > 0
+                ? `${result.duplicatesRemoved} duplicate monthly accrual entr${result.duplicatesRemoved === 1 ? 'y' : 'ies'} ${result.dryRun ? 'would be removed' : 'removed'} across ${result.cardsChanged} leave card(s).`
+                : `No duplicate monthly accrual entries ${result.dryRun ? 'found' : 'remaining'}.`,
+            result
+        });
+    } catch (error) {
+        console.error('[CLEANUP ACCRUAL DUPLICATES] Error:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to cleanup duplicates' });
+    }
 });
 
 // Parse fullName ("LASTNAME, FIRSTNAME MIDDLENAME SUFFIX") into segregated parts
