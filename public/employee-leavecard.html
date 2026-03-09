@@ -680,11 +680,13 @@
                 if (hasTransactions) {
                     card.transactions.forEach(txn => {
                         const periodCovered = txn.periodCovered || '-';
-                        // Derive actual type from periodCovered (type field is unreliable in migrated data)
-                        const isLess = periodCovered.toUpperCase().trimStart().startsWith('LESS');
+                        const txType = ((txn.type || '').toUpperCase() === 'LESS')
+                            ? 'LESS'
+                            : (periodCovered.toUpperCase().trimStart().startsWith('LESS') ? 'LESS' : 'ADD');
+                        const isLess = txType === 'LESS';
                         const isAdd = !isLess;
-                        // Use periodCovered directly as display (it already contains the ADD:/LESS: prefix)
-                        const periodDisplay = periodCovered;
+                        const hasPrefix = /^(ADD|LESS)\s*:/i.test(periodCovered);
+                        const periodDisplay = hasPrefix ? periodCovered : `${txType}: ${periodCovered}`;
                         
                         const tVlEarned = parseFloat(txn.vlEarned) || 0;
                         const tSlEarned = parseFloat(txn.slEarned) || 0;
