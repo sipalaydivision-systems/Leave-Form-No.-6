@@ -973,6 +973,7 @@ function createDefaultLeaveCard(email, name, nameFields, vlCredits, slCredits) {
 function createAccrualTransaction(month, year, runningVL, runningSL, source, accrual) {
     const amt = accrual || 1.25;
     return {
+        id: crypto.randomUUID(),
         type: 'ADD',
         periodCovered: `${MONTH_NAMES[month]} ${year} (Monthly Accrual)`,
         vlEarned: amt,
@@ -986,6 +987,87 @@ function createAccrualTransaction(month, year, runningVL, runningSL, source, acc
         total: +(runningVL + runningSL).toFixed(3),
         source: source,
         date: new Date().toISOString()
+    };
+}
+
+function normalizeLeaveCardTransactions(transactions) {
+    const normalized = [];
+    let runningVL = 0;
+    let runningSL = 0;
+    let vlEarnedTotal = 0;
+    let slEarnedTotal = 0;
+    let vlSpentTotal = 0;
+    let slSpentTotal = 0;
+    let forceSpentTotal = 0;
+    let splSpentTotal = 0;
+    let pvpDeductionTotal = 0;
+
+    for (const rawTx of (transactions || [])) {
+        const tx = {
+            id: rawTx.id || crypto.randomUUID(),
+            type: String(rawTx.type || '').toUpperCase() === 'LESS' ? 'LESS' : 'ADD',
+            periodCovered: rawTx.periodCovered || '-',
+            vlEarned: Math.max(0, parseFloat(rawTx.vlEarned) || 0),
+            slEarned: Math.max(0, parseFloat(rawTx.slEarned) || 0),
+            vlSpent: Math.max(0, parseFloat(rawTx.vlSpent) || 0),
+            slSpent: Math.max(0, parseFloat(rawTx.slSpent) || 0),
+            forcedLeave: Math.max(0, parseFloat(rawTx.forcedLeave) || 0),
+            splUsed: Math.max(0, parseFloat(rawTx.splUsed) || 0),
+            source: rawTx.source || '',
+            dateRecorded: rawTx.dateRecorded || rawTx.date || new Date().toISOString()
+        };
+
+        let pvpDeductionDays = 0;
+
+        if (tx.type === 'ADD') {
+            runningVL += tx.vlEarned;
+            runningSL += tx.slEarned;
+            vlEarnedTotal += tx.vlEarned;
+            slEarnedTotal += tx.slEarned;
+        } else {
+            const requestedVlLess = tx.vlSpent;
+            const requestedSlLess = tx.slSpent;
+
+            const actualVlLess = Math.min(requestedVlLess, runningVL);
+            const actualSlLess = Math.min(requestedSlLess, runningSL);
+
+            const vlOverflow = Math.max(0, requestedVlLess - actualVlLess);
+            const slOverflow = Math.max(0, requestedSlLess - actualSlLess);
+            pvpDeductionDays = +(vlOverflow + slOverflow).toFixed(3);
+
+            runningVL = +(runningVL - actualVlLess).toFixed(3);
+            runningSL = +(runningSL - actualSlLess).toFixed(3);
+            tx.vlSpent = actualVlLess;
+            tx.slSpent = actualSlLess;
+
+            vlSpentTotal += actualVlLess;
+            slSpentTotal += actualSlLess;
+            pvpDeductionTotal += pvpDeductionDays;
+        }
+
+        forceSpentTotal += tx.forcedLeave;
+        splSpentTotal += tx.splUsed;
+
+        tx.pvpDeductionDays = pvpDeductionDays;
+        tx.vlBalance = +runningVL.toFixed(3);
+        tx.slBalance = +runningSL.toFixed(3);
+        tx.total = +(runningVL + runningSL).toFixed(3);
+        normalized.push(tx);
+    }
+
+    return {
+        transactions: normalized,
+        summary: {
+            vl: +runningVL.toFixed(3),
+            sl: +runningSL.toFixed(3),
+            vacationLeaveEarned: +vlEarnedTotal.toFixed(3),
+            sickLeaveEarned: +slEarnedTotal.toFixed(3),
+            vacationLeaveSpent: +vlSpentTotal.toFixed(3),
+            sickLeaveSpent: +slSpentTotal.toFixed(3),
+            forceLeaveSpent: +forceSpentTotal.toFixed(3),
+            splSpent: +splSpentTotal.toFixed(3),
+            pvpDeductionTotal: +pvpDeductionTotal.toFixed(3)
+        }
     };
 }
 
@@ -3965,12 +4047,6 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
             return res.status(409).json({ success: false, error: 'Duplicate leave application', message: `You already have a ${dupApp.status} ${leaveType.replace('leave_', '').toUpperCase()} leave application (${dupApp.id}) covering overlapping dates. Please check your existing applications.` });
         }
         
-        // ===== COMPREHENSIVE LEAVE BALANCE VALIDATION (DRY: uses shared validateLeaveBalance) =====
-        const validation = validateLeaveBalance(leaveType, numDays, employeeEmail, null);
-        if (!validation.valid) {
-            return res.status(400).json({ success: false, error: validation.error, message: validation.message });
-        }
-        
         // Determine initial status and current approver based on office
         const office = applicationData.office || '';
         const schoolBased = isSchoolBased(office);
@@ -4618,61 +4694,8 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         let vacationLeaveSpent = Math.max(0, vacationLeaveEarned - vlBalance);
         let sickLeaveSpent = Math.max(0, sickLeaveEarned - slBalance);
         
-        // Also account for pending/approved applications that haven't been reflected in leave card yet
-        // This ensures the dashboard shows the same balance as the leave card
-        try {
-            const applications = readJSONArray(applicationsFile);
-            const employeeApps = applications.filter(a => 
-                (a.employeeEmail === employeeId || a.email === employeeId) &&
-                (a.status === 'pending' || a.status === 'approved')
-            );
-            
-            // Track which application IDs are already reflected in leaveUsageHistory
-            const reflectedAppIds = new Set();
-            if (latestRecord.leaveUsageHistory && Array.isArray(latestRecord.leaveUsageHistory)) {
-                latestRecord.leaveUsageHistory.forEach(h => {
-                    if (h.applicationId) reflectedAppIds.add(h.applicationId);
-                });
-            }
-            // Also check transactions
-            if (latestRecord.transactions && Array.isArray(latestRecord.transactions)) {
-                latestRecord.transactions.forEach(t => {
-                    if (t.applicationId) reflectedAppIds.add(t.applicationId);
-                });
-            }
-            
-            employeeApps.forEach(app => {
-                // Skip if already reflected in leave card history
-                if (reflectedAppIds.has(app.id)) return;
-                
-                const numDays = parseFloat(app.numDays) || 0;
-                if (numDays <= 0) return;
-                
-                const leaveType = (app.leaveType || '').toLowerCase();
-                
-                // Deduct from appropriate balance based on leave type
-                if (leaveType.includes('vl') || leaveType.includes('vacation')) {
-                    vlBalance = Math.max(0, vlBalance - numDays);
-                } else if (leaveType.includes('mfl') || leaveType.includes('mandatory') || leaveType.includes('forced')) {
-                    totalForceSpent += numDays;
-                } else if (leaveType.includes('sl') || leaveType.includes('sick')) {
-                    slBalance = Math.max(0, slBalance - numDays);
-                } else if (leaveType.includes('spl') || leaveType.includes('special')) {
-                    totalSplSpent += numDays;
-                }
-                // Other leave types - don't deduct from VL/SL (they use their own allocation)
-            });
-            
-            // Recompute spent after app deductions
-            vacationLeaveSpent = Math.max(0, vacationLeaveEarned - vlBalance);
-            sickLeaveSpent = Math.max(0, sickLeaveEarned - slBalance);
-            
-            if (employeeApps.length > 0) {
-
-            }
-        } catch (appErr) {
-            console.log('[LEAVE-CREDITS API] Could not read applications for deduction:', appErr.message);
-        }
+        // Leave card balances are now strictly based on leave card entries.
+        // Leave applications no longer auto-adjust balances.
         
         // Ensure the credits object has all required fields with defaults
         const enrichedCredits = {
@@ -4849,14 +4872,6 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Application is not awaiting resubmission' });
         }
         
-        // ===== VALIDATION: Check leave balance (DRY: uses shared validateLeaveBalance) =====
-        const leaveType = app.leaveType;
-        const numDays = parseFloat(updatedData?.numDays || app.numDays) || 0;
-        const validation = validateLeaveBalance(leaveType, numDays, employeeEmail, applicationId);
-        if (!validation.valid) {
-            return res.status(400).json({ success: false, error: validation.error, message: validation.message });
-        }
-        
         // Update application with only allowed fields from resubmission (prevent mass assignment)
         if (updatedData) {
             const allowedResubmitFields = ['complianceDocuments', 'supportingDocuments', 'soFileData', 'soFileName', 'remarks'];
@@ -4934,6 +4949,7 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
             employeeId,
             employeeEmail,
             transactions,
+            replaceTransactions,
             vacationLeaveEarned, 
             sickLeaveEarned, 
             forceLeaveEarned, 
@@ -5012,18 +5028,38 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
+
+            const normalized = normalizeLeaveCardTransactions(employeeLeave.transactions);
+            employeeLeave.transactions = normalized.transactions;
+            employeeLeave.vl = normalized.summary.vl;
+            employeeLeave.sl = normalized.summary.sl;
+            employeeLeave.vacationLeaveEarned = normalized.summary.vacationLeaveEarned;
+            employeeLeave.sickLeaveEarned = normalized.summary.sickLeaveEarned;
+            employeeLeave.vacationLeaveSpent = normalized.summary.vacationLeaveSpent;
+            employeeLeave.sickLeaveSpent = normalized.summary.sickLeaveSpent;
+            employeeLeave.forceLeaveSpent = normalized.summary.forceLeaveSpent;
+            employeeLeave.splSpent = normalized.summary.splSpent;
+            employeeLeave.pvpDeductionTotal = normalized.summary.pvpDeductionTotal;
             leavecards.push(employeeLeave);
             console.log('[UPDATE LEAVE] Created new leave card record for:', employeeEmail);
         } else {
             // Update with new transactions
             if (transactions && Array.isArray(transactions)) {
-                // Add new transactions to history with the date the entry was made
                 employeeLeave.transactions = employeeLeave.transactions || [];
                 const editDate = new Date().toISOString();
-                transactions.forEach(txn => {
-                    txn.dateRecorded = editDate; // Date the AO entered this transaction
-                });
-                employeeLeave.transactions.push(...transactions);
+                const incoming = transactions.map(txn => ({ ...txn, dateRecorded: txn.dateRecorded || editDate }));
+                const mergedTransactions = replaceTransactions ? incoming : [...employeeLeave.transactions, ...incoming];
+                const normalized = normalizeLeaveCardTransactions(mergedTransactions);
+                employeeLeave.transactions = normalized.transactions;
+                employeeLeave.vl = normalized.summary.vl;
+                employeeLeave.sl = normalized.summary.sl;
+                employeeLeave.vacationLeaveEarned = normalized.summary.vacationLeaveEarned;
+                employeeLeave.sickLeaveEarned = normalized.summary.sickLeaveEarned;
+                employeeLeave.vacationLeaveSpent = normalized.summary.vacationLeaveSpent;
+                employeeLeave.sickLeaveSpent = normalized.summary.sickLeaveSpent;
+                employeeLeave.forceLeaveSpent = normalized.summary.forceLeaveSpent;
+                employeeLeave.splSpent = normalized.summary.splSpent;
+                employeeLeave.pvpDeductionTotal = normalized.summary.pvpDeductionTotal;
 
             }
             
@@ -5341,13 +5377,8 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
  */
 function updateEmployeeLeaveBalance(application) {
     try {
-        // Update leave card with leave usage history (single source of truth)
-        const vlLess = parseFloat(application.vlLess) || 0;
-        const slLess = parseFloat(application.slLess) || 0;
-        updateLeaveCardWithUsage(application, vlLess, slLess);
-        
         const leaveType = application.typeOfLeave || application.leaveType || '';
-        console.log(`[LEAVE] Updated leave balance for ${application.employeeEmail}: vlLess=${vlLess}, slLess=${slLess}, LeaveType=${leaveType}`);
+        console.log(`[LEAVE] Auto leave-card update skipped for ${application.employeeEmail} (${leaveType}). AO manual encoding is required.`);
     } catch (error) {
         console.error('Error updating leave balance:', error);
     }

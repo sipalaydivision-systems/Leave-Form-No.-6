@@ -1505,11 +1505,20 @@
             console.warn('Leave credits not found in sessionStorage or input elements missing');
         }
 
-        // ===== Auto-Calculate Balance =====
+        // ===== Leave credit certification fields are AO-managed (no auto-calculation here) =====
         const vlLessInput = document.querySelector('input[name="vl_less"]');
         const slLessInput = document.querySelector('input[name="sl_less"]');
         const vlBalanceInput = document.querySelector('input[name="vl_balance"]');
         const slBalanceInput = document.querySelector('input[name="sl_balance"]');
+
+        function clearCertificationFields() {
+            if (vlLessInput) vlLessInput.value = '';
+            if (slLessInput) slLessInput.value = '';
+            if (vlBalanceInput) vlBalanceInput.value = '';
+            if (slBalanceInput) slBalanceInput.value = '';
+        }
+
+        clearCertificationFields();
 
         // ===== INITIALIZE: Disable Force/SPL checkboxes if exhausted =====
         function initializeLeaveCheckboxes() {
@@ -1580,37 +1589,8 @@
         initializeLeaveCheckboxes();
 
         function calculateBalances() {
-            // Always calculate both VL and SL balances: Balance = Total Earned - Less this application
-            
-            // Calculate Vacation Leave Balance
-            if (vlEarnedInput && vlLessInput && vlBalanceInput) {
-                const earned = parseFloat(vlEarnedInput.value) || 0;
-                const less = parseFloat(vlLessInput.value) || 0;
-                const balance = earned - less;
-                vlBalanceInput.value = balance >= 0 ? balance.toFixed(3) : '0.000';
-            }
-            
-            // Calculate Sick Leave Balance
-            if (slEarnedInput && slLessInput && slBalanceInput) {
-                const earned = parseFloat(slEarnedInput.value) || 0;
-                const less = parseFloat(slLessInput.value) || 0;
-                const balance = earned - less;
-                slBalanceInput.value = balance >= 0 ? balance.toFixed(3) : '0.000';
-            }
+            return;
         }
-
-        // Add event listeners to "Less this application" fields to trigger balance calculation
-        if (vlLessInput) {
-            vlLessInput.addEventListener('change', calculateBalances);
-            vlLessInput.addEventListener('input', calculateBalances);
-        }
-        if (slLessInput) {
-            slLessInput.addEventListener('change', calculateBalances);
-            slLessInput.addEventListener('input', calculateBalances);
-        }
-
-        // Calculate balances on page load
-        calculateBalances();
 
         // ===== Working Days Calculation =====
         function calculateWorkingDays(fromDate, toDate) {
@@ -1699,12 +1679,8 @@
                 if (dateFromISO.value && dateToISO.value) {
                     const workingDays = calculateWorkingDays(dateFromISO.value, dateToISO.value);
                     numDaysInput.value = workingDays;
-                    
-                    // Auto-populate "Less this application" based on selected leave type
-                    updateLessThisApplication(workingDays);
                 } else {
                     numDaysInput.value = '';
-                    clearLessThisApplication();
                 }
             };
 
@@ -1712,58 +1688,14 @@
             dateToInput.addEventListener('change', updateWorkingDays);
         }
 
-        // Recalculate balances when earned values change
-        if (vlEarnedInput) {
-            vlEarnedInput.addEventListener('change', calculateBalances);
-            vlEarnedInput.addEventListener('input', calculateBalances);
-        }
-        if (slEarnedInput) {
-            slEarnedInput.addEventListener('change', calculateBalances);
-            slEarnedInput.addEventListener('input', calculateBalances);
-        }
-
         // Function to update "Less this application" fields
         function updateLessThisApplication(workingDays) {
-            const vlLessInput = document.querySelector('input[name="vl_less"]');
-            const slLessInput = document.querySelector('input[name="sl_less"]');
-            
-            // Get currently selected leave type
-            const selectedLeaveType = getSelectedLeaveType();
-            
-            if (vlLessInput && slLessInput) {
-                // Populate based on selected leave type
-                // Put working days in selected type, put 0 in the other
-                if (selectedLeaveType === 'leave_vl' || selectedLeaveType === 'leave_spl') {
-                    // Vacation or Special Privilege Leave
-                    vlLessInput.value = workingDays;
-                    slLessInput.value = 0;  // Put 0 in sick leave
-                } else if (selectedLeaveType === 'leave_sl') {
-                    // Sick Leave
-                    vlLessInput.value = 0;  // Put 0 in vacation leave
-                    slLessInput.value = workingDays;
-                } else {
-                    // No leave type selected - clear both
-                    vlLessInput.value = '';
-                    slLessInput.value = '';
-                }
-                
-                // Recalculate balances after updating less fields
-                calculateBalances();
-            }
+            return;
         }
 
         // Function to clear "Less this application" fields
         function clearLessThisApplication() {
-            const vlLessInput = document.querySelector('input[name="vl_less"]');
-            const slLessInput = document.querySelector('input[name="sl_less"]');
-            
-            if (vlLessInput && slLessInput) {
-                vlLessInput.value = '';
-                slLessInput.value = '';
-                
-                // Recalculate balances after clearing
-                calculateBalances();
-            }
+            clearCertificationFields();
         }
 
         // Function to get the currently selected leave type
@@ -1854,8 +1786,7 @@
                 if (slEarnedInput) slEarnedInput.value = '';
             }
             
-            // Recalculate balances after updating Total Earned display
-            calculateBalances();
+            clearCertificationFields();
         }
 
         // ===== VALIDATE FORCE & SPL LEAVE BALANCE =====
@@ -1982,19 +1913,12 @@
                         // Update Total Earned display based on selected leave type
                         updateTotalEarnedDisplay();
                         
-                        // Update "Less this application" based on selected leave type and current working days
-                        const workingDaysValue = document.getElementById('num_days').value;
-                        if (workingDaysValue) {
-                            updateLessThisApplication(parseFloat(workingDaysValue));
-                        } else {
-                            clearLessThisApplication();
-                        }
+                        clearLessThisApplication();
                     } else {
                         // If unchecking, enable only "Other purpose" fields
                         enableOnlyOtherPurpose();
                         // Update Total Earned display when unchecking leave type
                         updateTotalEarnedDisplay();
-                        // Clear "Less this application" fields when unchecking leave type
                         clearLessThisApplication();
                         // Also disable the "Others" text field when unchecking
                         const otherLeaveInput = document.getElementById('other_leave_specify');
@@ -2509,33 +2433,6 @@
         // Commutation checkboxes are available but not mandatory for submission
         
         // ===== VALIDATION: Prevent Force/SPL submission if exhausted =====
-        // ===== VALIDATION: Check VL/SL balance before submission =====
-        if (selectedLeaveType === 'leave_vl' || selectedLeaveType === 'leave_sl') {
-            const numDaysValue = parseFloat(document.getElementById('num_days').value) || 0;
-            const leaveCreditsStr = sessionStorage.getItem('leaveCredits');
-            if (leaveCreditsStr) {
-                try {
-                    const credits = JSON.parse(leaveCreditsStr);
-                    if (selectedLeaveType === 'leave_vl') {
-                        const vlBalance = credits.vacationLeave || 0;
-                        if (numDaysValue > vlBalance) {
-                            alert('❌ Insufficient Vacation Leave Balance\n\nYou are applying for ' + numDaysValue + ' day(s) but your current Vacation Leave balance is only ' + vlBalance.toFixed(3) + ' day(s).\n\nThe leave card balance cannot go negative. Please reduce the number of days or choose a different leave type.');
-                            return;
-                        }
-                    }
-                    if (selectedLeaveType === 'leave_sl') {
-                        const slBalance = credits.sickLeave || 0;
-                        if (numDaysValue > slBalance) {
-                            alert('❌ Insufficient Sick Leave Balance\n\nYou are applying for ' + numDaysValue + ' day(s) but your current Sick Leave balance is only ' + slBalance.toFixed(3) + ' day(s).\n\nThe leave card balance cannot go negative. Please reduce the number of days or choose a different leave type.');
-                            return;
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error checking VL/SL balance:', e);
-                }
-            }
-        }
-        
         if (selectedLeaveType === 'leave_mfl' || selectedLeaveType === 'leave_spl') {
             const leaveCardStr = sessionStorage.getItem('leaveCardData');
             if (leaveCardStr) {

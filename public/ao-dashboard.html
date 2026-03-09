@@ -19,6 +19,8 @@
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
+    <script src="/libs/html2canvas.min.js"></script>
+    <script src="/libs/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1800,6 +1802,8 @@
         let currentCardTab = 'leave';
         let currentApplicantEmail = null;
         let currentApplicantName = null;
+        let currentLeaveTransactions = [];
+        let currentEditingTransactionId = null;
 
         function switchCardTab(tab) {
             currentCardTab = tab;
@@ -2080,7 +2084,11 @@
                                 <tbody id="aoLeaveHistoryBody">
                     `;
                     
-                    // Render Excel-migrated transactions - if transactions exist, they carry their own running balance
+                    currentLeaveTransactions = Array.isArray(credits.transactions)
+                        ? credits.transactions.map((tx, idx) => ({ ...tx, id: tx.id || ('tx-' + idx + '-' + Date.now()) }))
+                        : [];
+
+                    // Render Excel-migrated/manual transactions - if transactions exist, they carry their own running balance
                     let hasTransactions = credits.transactions && credits.transactions.length > 0;
                     let vlBalance = hasTransactions ? 0 : (credits.vl || 0);
                     let slBalance = hasTransactions ? 0 : (credits.sl || 0);
@@ -2100,12 +2108,13 @@
                             const tVlBalance = parseFloat(txn.vlBalance) || 0;
                             const tSlBalance = parseFloat(txn.slBalance) || 0;
                             const tTotal = parseFloat(txn.total) || 0;
+                            const pvpDeductionDays = parseFloat(txn.pvpDeductionDays) || 0;
                             
                             const isAdd = type === 'ADD';
                             const bg = idx % 2 === 0 ? '#fff' : '#f9f9f9';
                             
                             html += '<tr style="border-bottom: 1px solid #ddd; background: ' + bg + ';">';
-                            html += '<td style="padding: 12px; border-right: 1px solid #ddd; color: ' + (isAdd ? '#2e7d32' : '#c62828') + '; font-weight: 600;">' + periodDisplay + '</td>';
+                            html += '<td style="padding: 12px; border-right: 1px solid #ddd; color: ' + (isAdd ? '#2e7d32' : '#c62828') + '; font-weight: 600;">' + periodDisplay + (pvpDeductionDays > 0 ? '<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ' + pvpDeductionDays.toFixed(3) + '</small>' : '') + '<br><div style="margin-top:6px;"><button onclick="aoEditTransaction(\'' + (txn.id || '') + '\')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="aoDeleteTransaction(\'' + (txn.id || '') + '\')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div></td>';
                             html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">' + (tVlEarned > 0 ? tVlEarned.toFixed(3) : '-') + '</td>';
                             html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">' + (tSlEarned > 0 ? tSlEarned.toFixed(3) : '-') + '</td>';
                             html += '<td style="padding: 12px; text-align: center; border-right: 1px solid #ddd; color: ' + (tVlSpent > 0 ? '#d32f2f' : '#999') + ';">' + (tVlSpent > 0 ? tVlSpent.toFixed(3) : '-') + '</td>';
@@ -2184,7 +2193,8 @@
                         </div>
                         
                         <div style="text-align: center; margin-top: 15px;">
-                            <button id="aoAddLeaveRowBtn" onclick="aoAddEditableLeaveRow()" style="padding: 8px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 13px;">➕ Add Leave Entry</button>
+                            <button id="aoAddLeaveRowBtn" onclick="aoAddEditableLeaveRow()" style="padding: 8px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 8px;">➕ Add Leave Entry</button>
+                            <button id="aoDownloadLeaveCardBtn" onclick="aoDownloadLeaveCardPdf()" style="padding: 8px 20px; background: #1565c0; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 13px;">⬇ Download PDF</button>
                         </div>
                     </div>
                 `;
@@ -2262,7 +2272,7 @@
             printWindow.document.close();
         }
 
-        function aoAddEditableLeaveRow() {
+        function aoAddEditableLeaveRow(existingTx = null) {
             const tbody = document.getElementById('aoLeaveHistoryBody');
             if (!tbody) return;
 
@@ -2274,6 +2284,8 @@
 
             const rows = tbody.querySelectorAll('tr');
             const balanceRow = rows[rows.length - 1];
+            currentEditingTransactionId = existingTx?.id || null;
+            const typeValue = (existingTx?.type || 'ADD').toUpperCase() === 'LESS' ? 'LESS' : 'ADD';
 
             const editRow = document.createElement('tr');
             editRow.id = 'aoEditableLeaveRow';
@@ -2282,17 +2294,17 @@
             editRow.innerHTML = `
                 <td style="padding: 8px; border-right: 1px solid #ddd;">
                     <select id="ao_edit_leave_type" style="width: 70px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 4px;">
-                        <option value="ADD">ADD</option>
-                        <option value="LESS">LESS</option>
+                        <option value="ADD" ${typeValue === 'ADD' ? 'selected' : ''}>ADD</option>
+                        <option value="LESS" ${typeValue === 'LESS' ? 'selected' : ''}>LESS</option>
                     </select><br>
-                    <input type="text" id="ao_edit_leave_period" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 10px; box-sizing: border-box;">
+                    <input type="text" id="ao_edit_leave_period" value="${existingTx?.periodCovered || ''}" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 10px; box-sizing: border-box;">
                 </td>
-                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_vl_earned" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_sl_earned" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_vl_spent" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_sl_spent" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_force" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
-                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_special" step="0.001" min="0" value="0" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_vl_earned" step="0.001" min="0" value="${parseFloat(existingTx?.vlEarned || 0)}" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_sl_earned" step="0.001" min="0" value="${parseFloat(existingTx?.slEarned || 0)}" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_vl_spent" step="0.001" min="0" value="${parseFloat(existingTx?.vlSpent || 0)}" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_sl_spent" step="0.001" min="0" value="${parseFloat(existingTx?.slSpent || 0)}" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_force" step="0.001" min="0" value="${parseFloat(existingTx?.forcedLeave || 0)}" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
+                <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd;"><input type="number" id="ao_edit_special" step="0.001" min="0" value="${parseFloat(existingTx?.splUsed || 0)}" style="width: 60px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; text-align: center;"></td>
                 <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;" id="ao_edit_vl_bal">-</td>
                 <td style="padding: 8px; text-align: center; border-right: 1px solid #ddd; color: #667eea; font-weight: 600;" id="ao_edit_sl_bal">-</td>
                 <td style="padding: 8px; text-align: center; color: #667eea; font-weight: 600;" id="ao_edit_total">-</td>
@@ -2304,7 +2316,7 @@
             actionRow.style.background = '#e8f5e9';
             actionRow.innerHTML = `
                 <td colspan="10" style="padding: 8px; text-align: center; border-bottom: 1px solid #ddd;">
-                    <button onclick="aoSaveLeaveTransaction()" style="padding: 5px 18px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 12px; margin-right: 8px;">💾 Save Entry</button>
+                    <button onclick="aoSaveLeaveTransaction()" style="padding: 5px 18px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 12px; margin-right: 8px;">💾 ${existingTx ? 'Update Entry' : 'Save Entry'}</button>
                     <button onclick="aoRemoveEditableLeaveRow()" style="padding: 5px 18px; background: #999; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 12px;">✖ Cancel</button>
                 </td>
             `;
@@ -2367,8 +2379,47 @@
             if (editRow) editRow.remove();
             const actionRow = document.getElementById('aoEditableLeaveActions');
             if (actionRow) actionRow.remove();
+            currentEditingTransactionId = null;
             const btn = document.getElementById('aoAddLeaveRowBtn');
             if (btn) btn.style.display = '';
+        }
+
+        function aoEditTransaction(transactionId) {
+            const tx = currentLeaveTransactions.find(t => String(t.id) === String(transactionId));
+            if (!tx) {
+                showError('Transaction not found');
+                return;
+            }
+            aoAddEditableLeaveRow(tx);
+        }
+
+        async function aoDeleteTransaction(transactionId) {
+            if (!currentApplicantEmail) return;
+            if (!confirm('Delete this leave entry?')) return;
+
+            const nextTransactions = currentLeaveTransactions.filter(t => String(t.id) !== String(transactionId));
+
+            try {
+                const response = await fetch('/api/update-leave-credits', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employeeEmail: currentApplicantEmail,
+                        replaceTransactions: true,
+                        transactions: nextTransactions
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    await editLeaveCard();
+                    showSuccess('Leave entry deleted successfully');
+                } else {
+                    showError(result.error || 'Failed to delete leave entry');
+                }
+            } catch (error) {
+                showError('Error deleting leave entry: ' + error.message);
+            }
         }
 
         async function aoSaveLeaveTransaction() {
@@ -2382,6 +2433,7 @@
             }
 
             const transaction = {
+                id: currentEditingTransactionId || ('tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)),
                 type: document.getElementById('ao_edit_leave_type').value,
                 periodCovered: periodCovered,
                 vlEarned: parseFloat(document.getElementById('ao_edit_vl_earned').value) || 0,
@@ -2395,13 +2447,18 @@
                 total: parseFloat(document.getElementById('ao_edit_total').textContent) || 0
             };
 
+            const nextTransactions = currentEditingTransactionId
+                ? currentLeaveTransactions.map(tx => String(tx.id) === String(currentEditingTransactionId) ? transaction : tx)
+                : [...currentLeaveTransactions, transaction];
+
             try {
                 const response = await fetch('/api/update-leave-credits', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         employeeEmail: currentApplicantEmail,
-                        transactions: [transaction]
+                        replaceTransactions: true,
+                        transactions: nextTransactions
                     })
                 });
 
@@ -2409,12 +2466,58 @@
                 if (result.success) {
                     // Reload the leave card modal first, then show success
                     await editLeaveCard();
-                    showSuccess('Leave entry saved successfully');
+                    showSuccess(currentEditingTransactionId ? 'Leave entry updated successfully' : 'Leave entry saved successfully');
                 } else {
                     showError(result.error || 'Failed to save leave entry');
                 }
             } catch (error) {
                 showError('Error saving leave entry: ' + error.message);
+            }
+        }
+
+        async function aoDownloadLeaveCardPdf() {
+            const container = document.getElementById('leaveEditContent');
+            if (!container) {
+                showError('Leave card view not ready for download');
+                return;
+            }
+
+            const originalAddBtn = document.getElementById('aoAddLeaveRowBtn');
+            const originalDownloadBtn = document.getElementById('aoDownloadLeaveCardBtn');
+            if (originalAddBtn) originalAddBtn.style.display = 'none';
+            if (originalDownloadBtn) originalDownloadBtn.style.display = 'none';
+
+            try {
+                const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = pageWidth - 10;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                let heightLeft = imgHeight;
+                let position = 5;
+
+                pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+                heightLeft -= (pageHeight - 10);
+
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight + 5;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+                    heightLeft -= (pageHeight - 10);
+                }
+
+                const safeName = (currentApplicantName || currentApplicantEmail || 'leave-card').replace(/[^a-zA-Z0-9_-]/g, '_');
+                pdf.save(`${safeName}-leave-card.pdf`);
+                showSuccess('Leave card PDF downloaded');
+            } catch (error) {
+                showError('Failed to generate PDF: ' + error.message);
+            } finally {
+                if (originalAddBtn) originalAddBtn.style.display = '';
+                if (originalDownloadBtn) originalDownloadBtn.style.display = '';
             }
         }
 

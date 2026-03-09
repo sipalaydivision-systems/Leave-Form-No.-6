@@ -692,6 +692,7 @@
                         const tSlSpent = parseFloat(txn.slSpent) || 0;
                         const tForcedLeave = parseFloat(txn.forcedLeave) || 0;
                         const tSplUsed = parseFloat(txn.splUsed) || 0;
+                        const pvpDeductionDays = parseFloat(txn.pvpDeductionDays) || 0;
                         const tVlBalance = parseFloat(txn.vlBalance) || 0;
                         const tSlBalance = parseFloat(txn.slBalance) || 0;
                         const tTotal = parseFloat(txn.total) || 0;
@@ -699,7 +700,7 @@
                         htmlContent += `
                             <tr>
                                 <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
-                                    ${periodDisplay}
+                                    ${periodDisplay}${pvpDeductionDays > 0 ? `<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ${pvpDeductionDays.toFixed(3)}</small>` : ''}
                                 </td>
                                 <td style="text-align: center;">${isAdd && tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
                                 <td style="text-align: center;">${isAdd && tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
