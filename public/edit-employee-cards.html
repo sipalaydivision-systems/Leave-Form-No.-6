@@ -11,7 +11,7 @@
     // Force clear service worker cache for this page to prevent stale code
     if ('caches' in window) { caches.keys().then(function(k) { k.forEach(function(n) { caches.delete(n); }); }); }
     // Auto-reload if browser is serving a stale cached version
-    var PAGE_VERSION = '2026.02.23.1';
+    var PAGE_VERSION = '2026.03.09.3';
     fetch('/api/version').then(function(r){return r.json()}).then(function(d){
         if(d.version && d.version !== PAGE_VERSION && !sessionStorage.getItem('_reloaded_'+PAGE_VERSION)){
             sessionStorage.setItem('_reloaded_'+PAGE_VERSION,'1');
@@ -22,6 +22,8 @@
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
+    <script src="/libs/html2canvas.min.js"></script>
+    <script src="/libs/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -482,6 +484,7 @@
                 <div class="action-buttons">
                     <button class="btn btn-primary" onclick="printLeaveCard()">🖨️ Print Leave Card</button>
                     <button class="btn btn-success" id="addLeaveRowBtn" onclick="addEditableLeaveRow()">➕ Add Leave Entry</button>
+                    <button class="btn btn-primary" id="downloadLeaveCardBtn" onclick="downloadLeaveCardPdf()">⬇️ Download PDF</button>
                 </div>
             </div>
         </div>
@@ -626,6 +629,8 @@
 
         let employeeEmail = '';
         let employeeData = null;
+        let currentLeaveTransactions = [];
+        let currentEditingTransactionId = null;
 
         // Get employee email from URL params
         const urlParams = new URLSearchParams(window.location.search);
@@ -735,6 +740,9 @@
 
                 if (data.success && data.credits) {
                     const credits = data.credits;
+                    currentLeaveTransactions = Array.isArray(credits.transactions)
+                        ? credits.transactions.map((txn, idx) => ({ ...txn, id: txn.id || (`tx-${idx}-${Date.now()}`) }))
+                        : [];
                     
                     // Get earned values
                     const vlEarned = parseFloat(credits.vacationLeaveEarned) || parseFloat(credits.vl) || 0;
@@ -765,6 +773,7 @@
                             const tSlSpent = parseFloat(txn.slSpent) || 0;
                             const tForcedLeave = parseFloat(txn.forcedLeave) || 0;
                             const tSplUsed = parseFloat(txn.splUsed) || 0;
+                            const pvpDeductionDays = parseFloat(txn.pvpDeductionDays) || 0;
                             const tVlBalance = parseFloat(txn.vlBalance) || 0;
                             const tSlBalance = parseFloat(txn.slBalance) || 0;
                             const tTotal = parseFloat(txn.total) || 0;
@@ -773,6 +782,8 @@
                                 <tr>
                                     <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
                                         ${periodDisplay}
+                                        ${pvpDeductionDays > 0 ? `<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ${pvpDeductionDays.toFixed(3)}</small>` : ''}
+                                        <br><div style="margin-top:6px;"><button onclick="editLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="deleteLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div>
                                     </td>
                                     <td>${isAdd && tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
                                     <td>${isAdd && tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
@@ -949,7 +960,12 @@
         }
 
         function addEditableLeaveRow() {
+            addEditableLeaveRowInternal(null);
+        }
+
+        function addEditableLeaveRowInternal(existingTransaction) {
             const tbody = document.getElementById('leaveHistoryBody');
+            currentEditingTransactionId = existingTransaction?.id || null;
             // Remove any existing editable row
             const existingRow = document.getElementById('editableLeaveRow');
             if (existingRow) existingRow.remove();
@@ -967,17 +983,17 @@
             editRow.innerHTML = `
                 <td style="padding: 6px;">
                     <select id="edit_leave_type" style="width: 70px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
-                        <option value="ADD">ADD</option>
-                        <option value="LESS">LESS</option>
+                        <option value="ADD" ${(existingTransaction?.type || 'ADD') === 'ADD' ? 'selected' : ''}>ADD</option>
+                        <option value="LESS" ${(existingTransaction?.type || 'ADD') === 'LESS' ? 'selected' : ''}>LESS</option>
                     </select><br>
-                    <input type="text" id="edit_leave_period" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
+                    <input type="text" id="edit_leave_period" value="${existingTransaction?.periodCovered || ''}" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
                 </td>
-                <td style="padding: 6px;"><input type="number" id="edit_leave_vl_earned" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
-                <td style="padding: 6px;"><input type="number" id="edit_leave_sl_earned" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
-                <td style="padding: 6px;"><input type="number" id="edit_leave_vl_spent" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
-                <td style="padding: 6px;"><input type="number" id="edit_leave_sl_spent" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
-                <td style="padding: 6px;"><input type="number" id="edit_leave_force" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
-                <td style="padding: 6px;"><input type="number" id="edit_leave_special" step="0.001" min="0" value="0" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_vl_earned" step="0.001" min="0" value="${parseFloat(existingTransaction?.vlEarned || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_sl_earned" step="0.001" min="0" value="${parseFloat(existingTransaction?.slEarned || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_vl_spent" step="0.001" min="0" value="${parseFloat(existingTransaction?.vlSpent || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_sl_spent" step="0.001" min="0" value="${parseFloat(existingTransaction?.slSpent || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_force" step="0.001" min="0" value="${parseFloat(existingTransaction?.forcedLeave || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_special" step="0.001" min="0" value="${parseFloat(existingTransaction?.splUsed || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
                 <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_vl_bal">-</td>
                 <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_sl_bal">-</td>
                 <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_total">-</td>
@@ -992,7 +1008,7 @@
             actionRow.style.background = '#e8f5e9';
             actionRow.innerHTML = `
                 <td colspan="10" style="padding: 8px; text-align: center;">
-                    <button onclick="saveLeaveTransaction()" style="padding: 6px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; margin-right: 8px;">💾 Save Entry</button>
+                    <button onclick="saveLeaveTransaction()" style="padding: 6px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; margin-right: 8px;">💾 ${existingTransaction ? 'Update Entry' : 'Save Entry'}</button>
                     <button onclick="removeEditableLeaveRow()" style="padding: 6px 20px; background: #999; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">✖ Cancel</button>
                 </td>
             `;
@@ -1065,7 +1081,43 @@
             if (editRow) editRow.remove();
             const actionRow = document.getElementById('editableLeaveActions');
             if (actionRow) actionRow.remove();
+            currentEditingTransactionId = null;
             document.getElementById('addLeaveRowBtn').style.display = '';
+        }
+
+        function editLeaveTransaction(transactionId) {
+            const tx = currentLeaveTransactions.find(t => String(t.id) === String(transactionId));
+            if (!tx) {
+                alertError('Transaction not found');
+                return;
+            }
+            addEditableLeaveRowInternal(tx);
+        }
+
+        async function deleteLeaveTransaction(transactionId) {
+            if (!employeeEmail) return;
+            if (!confirm('Delete this leave entry?')) return;
+            const nextTransactions = currentLeaveTransactions.filter(t => String(t.id) !== String(transactionId));
+            try {
+                const response = await fetch('/api/update-leave-credits', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        employeeEmail: employeeEmail,
+                        replaceTransactions: true,
+                        transactions: nextTransactions
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    await loadLeaveCardData();
+                    alertSuccess('Leave entry deleted successfully!');
+                } else {
+                    alertError(result.error || 'Failed to delete leave entry');
+                }
+            } catch (error) {
+                alertError('Error deleting leave entry: ' + error.message);
+            }
         }
 
         async function saveLeaveTransaction() {
@@ -1094,6 +1146,7 @@
                 const total = parseFloat(document.getElementById('edit_leave_total').textContent) || 0;
 
                 const transaction = {
+                    id: currentEditingTransactionId || (`tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                     type: type,
                     periodCovered: periodCovered,
                     vlEarned: vlEarned,
@@ -1107,12 +1160,17 @@
                     total: total
                 };
 
+                const nextTransactions = currentEditingTransactionId
+                    ? currentLeaveTransactions.map(tx => String(tx.id) === String(currentEditingTransactionId) ? transaction : tx)
+                    : [...currentLeaveTransactions, transaction];
+
                 const response = await fetch('/api/update-leave-credits', {
                     method: 'POST',
                     headers: authHeaders(),
                     body: JSON.stringify({
                         employeeEmail: employeeEmail,
-                        transactions: [transaction]
+                        replaceTransactions: true,
+                        transactions: nextTransactions
                     })
                 });
 
@@ -1120,7 +1178,7 @@
                 if (result.success) {
                     removeEditableLeaveRow();
                     await loadLeaveCardData();
-                    alertSuccess('Leave entry saved successfully!');
+                    alertSuccess(currentEditingTransactionId ? 'Leave entry updated successfully!' : 'Leave entry saved successfully!');
                 } else {
                     alertError(result.error || 'Failed to save leave entry');
                 }
@@ -1211,6 +1269,53 @@
             );
             printWindow.document.close();
             printWindow.print();
+        }
+
+        async function downloadLeaveCardPdf() {
+            const cardSection = document.querySelector('#leaveTab .card-section');
+            if (!cardSection) {
+                alertError('Leave card view not ready for download.');
+                return;
+            }
+
+            const addBtn = document.getElementById('addLeaveRowBtn');
+            const downloadBtn = document.getElementById('downloadLeaveCardBtn');
+            if (addBtn) addBtn.style.display = 'none';
+            if (downloadBtn) downloadBtn.style.display = 'none';
+
+            try {
+                const canvas = await html2canvas(cardSection, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = pageWidth - 10;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                let heightLeft = imgHeight;
+                let position = 5;
+
+                pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+                heightLeft -= (pageHeight - 10);
+
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight + 5;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+                    heightLeft -= (pageHeight - 10);
+                }
+
+                const safeName = (employeeData?.name || employeeEmail || 'leave-card').replace(/[^a-zA-Z0-9_-]/g, '_');
+                pdf.save(`${safeName}-leave-card.pdf`);
+                alertSuccess('Leave card PDF downloaded successfully!');
+            } catch (error) {
+                alertError('Failed to generate PDF: ' + error.message);
+            } finally {
+                if (addBtn) addBtn.style.display = '';
+                if (downloadBtn) downloadBtn.style.display = '';
+            }
         }
 
         function printCTOCard() {
