@@ -212,17 +212,21 @@
                                     <table id="ctoTable">
                                         <thead>
                                             <tr>
-                                                <th>Period Covered</th>
+                                                <th rowspan="2">PERIOD COVERED</th>
+                                                <th colspan="4">LEAVE EARNED</th>
+                                                <th rowspan="2">TOTAL</th>
+                                                <th rowspan="2" class="cto-view-col" style="width:60px">View</th>
+                                            </tr>
+                                            <tr>
                                                 <th>Special Order No. and Date Issued</th>
                                                 <th>No. of Days Granted</th>
                                                 <th>No. of Days Used</th>
                                                 <th>Balance</th>
-                                                <th style="width:60px">View</th>
                                             </tr>
                                         </thead>
                                         <tbody id="ctoTableBody">
                                             <tr>
-                                                <td colspan="6" style="text-align:center;padding:40px;color:var(--color-gray-400)">
+                                                <td colspan="7" style="text-align:center;padding:40px;color:var(--color-gray-400)">
                                                     Loading CTO records...
                                                 </td>
                                             </tr>
@@ -265,18 +269,15 @@
         let sidebar = null;
 
         window.addEventListener('load', async () => {
-            // Auth check
-            const user = sessionStorage.getItem('user');
-            if (!user) { window.location.href = '/login.html'; return; }
-            try { currentUser = JSON.parse(user); } catch(e) {
-                sessionStorage.removeItem('user');
-                window.location.href = '/login.html';
-                return;
-            }
+            // Auth check — use HttpOnly cookie via /api/me
             try {
                 const meResp = await fetch('/api/me');
-                if (!meResp.ok) { sessionStorage.clear(); window.location.href = '/login.html'; return; }
-            } catch(e) { /* Network error — API calls will catch 401 */ }
+                if (!meResp.ok) { window.location.href = '/login'; return; }
+                const meData = await meResp.json();
+                currentUser = meData.user || meData;
+                const role = (currentUser.role || currentUser.portal || '').toLowerCase();
+                if (role !== 'user' && role !== 'employee') { window.location.href = '/login'; return; }
+            } catch(e) { window.location.href = '/login'; return; }
 
             // Sidebar
             const firstName = currentUser.firstName || currentUser.first_name || (currentUser.name || '').split(' ')[0] || 'Employee';
@@ -493,7 +494,7 @@
 
                 const tbody = document.getElementById('ctoTableBody');
                 if (ctoRecords.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--color-gray-400)">No CTO records found.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--color-gray-400)">No CTO records found.</td></tr>`;
                 } else {
                     let runningBalance = 0;
                     window._ctoSOImages = [];
@@ -512,6 +513,7 @@
                         const viewBtn = soImageData
                             ? `<button onclick="viewSOImage(${idx})" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;">View</button>`
                             : `<span style="color:var(--color-gray-300);font-size:11px;">—</span>`;
+                        const totalStyle = runningBalance <= 0 ? 'background:#d32f2f;color:white;font-weight:700;' : 'font-weight:700;';
 
                         return `<tr>
                             <td style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;text-align:left;">${periodDisplay}</td>
@@ -519,13 +521,14 @@
                             <td style="text-align:center;font-weight:600;">${type === 'ADD' ? granted : ''}</td>
                             <td style="text-align:center;font-weight:600;color:#c62828;">${(type === 'LESS' || (type === 'ADD' && used > 0)) ? used : ''}</td>
                             <td style="text-align:center;font-weight:600;">${runningBalance}</td>
-                            <td style="text-align:center;">${viewBtn}</td>
+                            <td style="text-align:center;${totalStyle}">${runningBalance}</td>
+                            <td class="cto-view-col" style="text-align:center;">${viewBtn}</td>
                         </tr>`;
                     }).join('');
                 }
             } catch (error) {
                 console.error('Error loading CTO records:', error);
-                document.getElementById('ctoTableBody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--color-gray-400)">Unable to load CTO records. Please try again later.</td></tr>`;
+                document.getElementById('ctoTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--color-gray-400)">Unable to load CTO records. Please try again later.</td></tr>`;
             }
         }
 
@@ -588,7 +591,7 @@
                     .doc-note { margin-top: 15px; padding: 8px; background: #fff8e1; border: 1px solid #f0e0a0; font-size: 11px; font-style: italic; }
                     .doc-signature { margin-top: 30px; text-align: center; }
                     .doc-signature-line { margin-top: 40px; border-top: 1px solid #333; display: inline-block; padding-top: 5px; min-width: 250px; }
-                    .section-header-actions, .btn { display: none !important; }
+                    .section-header-actions, .btn, .cto-view-col { display: none !important; }
                 </style></head>
                 <body>${printContent}</body></html>`);
             printWindow.document.close();

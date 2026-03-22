@@ -236,18 +236,22 @@
                                     <table>
                                         <thead>
                                             <tr>
-                                                <th>PERIOD COVERED</th>
+                                                <th rowspan="2">PERIOD COVERED</th>
+                                                <th colspan="4">LEAVE EARNED</th>
+                                                <th rowspan="2">TOTAL</th>
+                                                <th rowspan="2" class="cto-view-col" style="width:60px">View</th>
+                                                <th rowspan="2" class="cto-entry-actions" style="width:80px">Actions</th>
+                                            </tr>
+                                            <tr>
                                                 <th>Special Order No. and Date Issued</th>
                                                 <th>No. of Days Granted</th>
                                                 <th>No. of Days Used</th>
                                                 <th>Balance</th>
-                                                <th style="width:60px">View</th>
-                                                <th class="cto-entry-actions" style="width:80px">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody id="ctoHistoryBody">
                                             <tr>
-                                                <td colspan="6" style="text-align:center;padding:40px;color:var(--color-gray-400)">
+                                                <td colspan="8" style="text-align:center;padding:40px;color:var(--color-gray-400)">
                                                     Loading CTO records...
                                                 </td>
                                             </tr>
@@ -344,19 +348,19 @@
         let sidebar = null;
 
         window.addEventListener('load', async () => {
-            // Auth check — AO session
-            const aoUser = sessionStorage.getItem('user');
-            if (!aoUser) { window.location.href = '/ao-login.html'; return; }
-            let parsed;
-            try { parsed = JSON.parse(aoUser); } catch(e) {
-                sessionStorage.removeItem('user');
-                window.location.href = '/ao-login.html';
-                return;
-            }
+            // Auth check — use HttpOnly cookie via /api/me (not sessionStorage)
+            let parsed = null;
             try {
                 const meResp = await fetch('/api/me');
-                if (!meResp.ok) { sessionStorage.removeItem('user'); window.location.href = '/ao-login.html'; return; }
-            } catch(e) { /* Network error */ }
+                if (!meResp.ok) { window.location.href = '/ao-login.html'; return; }
+                const meData = await meResp.json();
+                parsed = meData.user || meData;
+                // Verify this is an AO/IT session (not an employee)
+                const role = (parsed.role || parsed.portal || '').toLowerCase();
+                if (role !== 'ao' && role !== 'it' && role !== 'hr') {
+                    window.location.href = '/ao-login.html'; return;
+                }
+            } catch(e) { window.location.href = '/ao-login.html'; return; }
 
             // Sidebar — AO role
             sidebar = initSidebar({
@@ -387,14 +391,16 @@
             document.getElementById('topbar-title').textContent = empNameFromUrl ? `Edit Cards — ${empNameFromUrl}` : 'Edit Employee Cards';
             document.getElementById('btn-back')?.addEventListener('click', () => { window.location.href = '/ao-dashboard'; });
 
-            // Tabs
+            // Tabs — check URL for tab param
+            const urlTab = new URLSearchParams(window.location.search).get('tab');
+            const initialTab = (urlTab === 'ctocard') ? 'ctocard' : 'leavecard';
             createTabs({
                 el: '#page-tabs',
                 tabs: [
                     { id: 'leavecard', label: 'Leave Card' },
                     { id: 'ctocard', label: 'CTO Card' },
                 ],
-                activeTab: 'leavecard',
+                activeTab: initialTab,
             });
 
             // Set current date
@@ -663,6 +669,7 @@
                             ? `<button onclick="viewSOImage(${idx})" style="padding:3px 10px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;white-space:nowrap;">View</button>`
                             : `<span style="color:var(--color-gray-300);font-size:11px;">—</span>`;
 
+                        const totalStyle = runningBalance <= 0 ? 'background:var(--color-red-600);color:white;font-weight:700;' : 'font-weight:700;';
                         html += `
                             <tr>
                                 <td style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;text-align:left;padding-left:10px;">${periodDisplay}</td>
@@ -670,7 +677,8 @@
                                 <td style="text-align:center;">${type === 'ADD' ? granted : ''}</td>
                                 <td style="text-align:center;">${type === 'LESS' ? used : ''}</td>
                                 <td style="text-align:center;color:var(--color-primary-600);font-weight:600;">${runningBalance}</td>
-                                <td style="text-align:center;">${viewBtn}</td>
+                                <td style="text-align:center;${totalStyle}">${runningBalance}</td>
+                                <td class="cto-view-col" style="text-align:center;">${viewBtn}</td>
                                 <td class="cto-entry-actions" style="text-align:center;">
                                     <div style="display:flex;gap:4px;justify-content:center;">
                                         <button onclick="editCTORecord('${recordId}', ${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;" title="Edit">Edit</button>
@@ -684,7 +692,7 @@
                 } else {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="7" style="padding:40px;text-align:center;">
+                            <td colspan="8" style="padding:40px;text-align:center;">
                                 <div style="font-size:48px;margin-bottom:var(--space-3)">📑</div>
                                 <p style="font-weight:600;color:var(--color-gray-900);margin-bottom:var(--space-1)">No CTO Records</p>
                                 <p style="color:var(--color-gray-400);font-size:12px">No CTO records found for this employee.</p>
@@ -695,7 +703,7 @@
             } catch (error) {
                 console.error('Error loading CTO card:', error);
                 document.getElementById('ctoHistoryBody').innerHTML = `
-                    <tr><td colspan="7" style="color:#d32f2f;text-align:center;padding:40px;">Error loading CTO card data</td></tr>
+                    <tr><td colspan="8" style="color:#d32f2f;text-align:center;padding:40px;">Error loading CTO card data</td></tr>
                 `;
             }
         }
@@ -1133,7 +1141,7 @@
             printWindow.document.write(
                 '<!DOCTYPE html><html><head><title>CTO Card</title>' +
                 '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
-                '<style>body{font-family:"Inter",sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;font-size:12px;} th{background:#f0f0f0;font-size:10px;} .edit-form,.cto-entry-actions{display:none !important;}</style>' +
+                '<style>body{font-family:"Inter",sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;font-size:12px;} th{background:#f0f0f0;font-size:10px;} .edit-form,.cto-entry-actions,.cto-view-col{display:none !important;}</style>' +
                 '</head><body>' + panel.innerHTML + '</body></html>'
             );
             printWindow.document.close();

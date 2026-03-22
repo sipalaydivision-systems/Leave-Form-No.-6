@@ -1358,29 +1358,24 @@
     // Check if user is logged in
     window.addEventListener('DOMContentLoaded', async function() {
         let user, employee;
-        try {
-            user = JSON.parse(sessionStorage.getItem('user'));
-        } catch (e) { user = null; }
-        try {
-            employee = JSON.parse(sessionStorage.getItem('employee'));
-        } catch (e) { employee = null; }
-        
-        if (!user || !user.email) {
-            alert('Please login first');
-            window.location.href = '/';
-            return;
-        }
-        
-        // Validate session server-side (cookie-based auth)
+        // Auth check — use HttpOnly cookie via /api/me
         try {
             const meResp = await fetch('/api/me');
             if (!meResp.ok) {
-                sessionStorage.clear();
                 alert('Session expired. Please login again.');
                 window.location.href = '/';
                 return;
             }
-        } catch(e) { /* Network error — will be caught by API calls */ }
+            const meData = await meResp.json();
+            user = meData.user || meData;
+        } catch(e) {
+            alert('Please login first');
+            window.location.href = '/';
+            return;
+        }
+        try {
+            employee = JSON.parse(sessionStorage.getItem('employee'));
+        } catch (e) { employee = null; }
 
         // Display user name on top bar
         document.getElementById('userName').textContent = user.name || user.email.split('@')[0];
@@ -2287,13 +2282,7 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'SUBMITTING...';
         
-        // Get user data
-        let user;
-        try {
-            user = JSON.parse(sessionStorage.getItem('user'));
-        } catch (parseErr) {
-            user = null;
-        }
+        // Re-validate session
         if (!user || !user.email) {
             alert('Session expired. Please login again.');
             window.location.href = '/';

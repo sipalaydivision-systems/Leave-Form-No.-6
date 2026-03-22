@@ -58,11 +58,22 @@ export function statusBadge(status, approver) {
 // ---------------------------------------------------------------------------
 // Fetch user
 // ---------------------------------------------------------------------------
-export async function fetchUser() {
+export async function fetchUser(opts) {
     const res = await fetch('/api/me');
-    if (!res.ok) return null;
+    if (!res.ok) {
+        if (opts?.loginUrl) window.location.href = opts.loginUrl;
+        return null;
+    }
     const data = await res.json();
-    return data.user || data;
+    const u = data.user || data;
+    if (opts?.allowedRoles) {
+        const role = (u.role || u.portal || '').toLowerCase();
+        if (!opts.allowedRoles.includes(role)) {
+            if (opts.loginUrl) window.location.href = opts.loginUrl;
+            return null;
+        }
+    }
+    return u;
 }
 
 // ---------------------------------------------------------------------------

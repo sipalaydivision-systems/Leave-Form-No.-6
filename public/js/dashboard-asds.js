@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     try {
-        user = await fetchUser();
+        user = await fetchUser({ allowedRoles: ['asds', 'it'], loginUrl: '/asds-login' });
         if (!user) return;
 
         initLogoutSystem({ storage: 'local', redirectUrl: '/asds-login' });

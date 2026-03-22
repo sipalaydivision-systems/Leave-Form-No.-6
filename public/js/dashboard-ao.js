@@ -60,9 +60,12 @@ async function init() {
 // ---------------------------------------------------------------------------
 async function fetchUser() {
     const res = await fetch('/api/me');
-    if (!res.ok) return null;
+    if (!res.ok) { window.location.href = '/ao-login'; return null; }
     const data = await res.json();
-    return data.user || data;
+    const u = data.user || data;
+    const role = (u.role || u.portal || '').toLowerCase();
+    if (role !== 'ao' && role !== 'it') { window.location.href = '/ao-login'; return null; }
+    return u;
 }
 
 // ---------------------------------------------------------------------------
@@ -643,66 +646,10 @@ async function loadEmployees() {
 
         document.getElementById('employees-table')?.addEventListener('click', (e) => {
             const btn = e.target.closest('.btn-open-card');
-            if (btn) openLeaveCardModal(btn.dataset.email);
+            if (btn) window.location.href = `/edit-employee-cards.html?email=${encodeURIComponent(btn.dataset.email)}`;
         });
     } catch (err) {
         toast.error('Failed to load employee list.');
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Leave Card Modal
-// ---------------------------------------------------------------------------
-async function openLeaveCardModal(email) {
-    toast.info('Loading leave card...');
-
-    try {
-        const res = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`);
-        if (!res.ok) throw new Error('Failed');
-        const data = await res.json();
-        const credits = data.credits;
-
-        if (!credits) {
-            toast.warning('No leave card found for this employee.');
-            return;
-        }
-
-        const vlEarned = toNum(credits.vacationLeaveEarned || credits.vacation_leave_earned);
-        const vlSpent = toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
-        const slEarned = toNum(credits.sickLeaveEarned || credits.sick_leave_earned);
-        const slSpent = toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
-
-        const content = `
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-3);margin-bottom:var(--space-4)">
-                <div class="stat-card" style="text-align:center;padding:var(--space-3)">
-                    <div style="font-size:var(--text-2xl);font-weight:bold;color:var(--color-info)">${fmt(vlEarned - vlSpent)}</div>
-                    <div style="font-size:var(--text-xs);color:var(--color-text-muted)">VL Balance</div>
-                </div>
-                <div class="stat-card" style="text-align:center;padding:var(--space-3)">
-                    <div style="font-size:var(--text-2xl);font-weight:bold;color:var(--color-danger)">${fmt(slEarned - slSpent)}</div>
-                    <div style="font-size:var(--text-xs);color:var(--color-text-muted)">SL Balance</div>
-                </div>
-                <div class="stat-card" style="text-align:center;padding:var(--space-3)">
-                    <div style="font-size:var(--text-2xl);font-weight:bold;color:var(--color-warning)">${fmt(toNum(credits.forceLeaveEarned || credits.force_leave_earned || 5) - toNum(credits.forceLeaveSpent || credits.force_leave_spent))}</div>
-                    <div style="font-size:var(--text-xs);color:var(--color-text-muted)">FL Balance</div>
-                </div>
-                <div class="stat-card" style="text-align:center;padding:var(--space-3)">
-                    <div style="font-size:var(--text-2xl);font-weight:bold;color:var(--color-role-sds)">${fmt(toNum(credits.splEarned || credits.spl_earned || 3) - toNum(credits.splSpent || credits.spl_spent))}</div>
-                    <div style="font-size:var(--text-xs);color:var(--color-text-muted)">SPL Balance</div>
-                </div>
-            </div>
-            <div><strong>Email:</strong> ${esc(email)}</div>
-            <div style="margin-top:var(--space-2)"><strong>VL:</strong> ${fmt(vlEarned)} earned / ${fmt(vlSpent)} spent</div>
-            <div><strong>SL:</strong> ${fmt(slEarned)} earned / ${fmt(slSpent)} spent</div>
-        `;
-
-        openModal({
-            title: `Leave Card — ${esc(credits.name || email)}`,
-            content,
-            size: 'lg',
-        });
-    } catch (err) {
-        toast.error('Failed to load leave card.');
     }
 }
 
@@ -746,44 +693,10 @@ async function loadEmployeesForCTO() {
         emptyMessage: 'No employees found.',
     });
 
-    document.getElementById('cto-table')?.addEventListener('click', async (e) => {
+    document.getElementById('cto-table')?.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-open-cto');
         if (btn) {
-            const email = btn.dataset.email;
-            try {
-                const res = await fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`);
-                if (!res.ok) throw new Error('Failed');
-                const data = await res.json();
-                const records = data.records || [];
-                const total = records.reduce((sum, r) => sum + toNum(r.balance || (toNum(r.daysGranted || r.days_granted) - toNum(r.daysUsed || r.days_used))), 0);
-
-                let html = `<p><strong>Total CTO Balance:</strong> ${fmt(total)} days</p>`;
-                if (records.length > 0) {
-                    html += '<div class="table-container" style="margin-top:var(--space-3)"><table class="data-table"><thead><tr>';
-                    html += '<th>SO Details</th><th>Period</th><th>Granted</th><th>Used</th><th>Balance</th>';
-                    html += '</tr></thead><tbody>';
-                    for (const r of records) {
-                        html += `<tr>
-                            <td>${esc(r.soDetails || r.so_details || '')}</td>
-                            <td>${esc(r.periodCovered || r.period_covered || '')}</td>
-                            <td>${fmt(toNum(r.daysGranted || r.days_granted))}</td>
-                            <td>${fmt(toNum(r.daysUsed || r.days_used))}</td>
-                            <td>${fmt(toNum(r.balance || (toNum(r.daysGranted || r.days_granted) - toNum(r.daysUsed || r.days_used))))}</td>
-                        </tr>`;
-                    }
-                    html += '</tbody></table></div>';
-                } else {
-                    html += '<p style="color:var(--color-text-muted);margin-top:var(--space-3)">No CTO records found.</p>';
-                }
-
-                openModal({
-                    title: `CTO Records — ${esc(email)}`,
-                    content: html,
-                    size: 'lg',
-                });
-            } catch (err) {
-                toast.error('Failed to load CTO records.');
-            }
+            window.location.href = `/edit-employee-cards.html?email=${encodeURIComponent(btn.dataset.email)}&tab=ctocard`;
         }
     });
 }

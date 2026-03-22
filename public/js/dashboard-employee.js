@@ -26,6 +26,9 @@ let usageChart = null;
 let balanceChart = null;
 let applications = [];
 let leaveCredits = null;
+let calendarYear = new Date().getFullYear();
+let calendarMonth = new Date().getMonth() + 1; // 1-based
+let calendarLoaded = false;
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -56,9 +59,12 @@ async function init() {
 // ---------------------------------------------------------------------------
 async function fetchUser() {
     const res = await fetch('/api/me');
-    if (!res.ok) return null;
+    if (!res.ok) { window.location.href = '/login'; return null; }
     const data = await res.json();
-    return data.user || data;
+    const u = data.user || data;
+    const role = (u.role || u.portal || '').toLowerCase();
+    if (role !== 'user' && role !== 'employee') { window.location.href = '/login'; return null; }
+    return u;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +145,9 @@ function onTabChange(tabId) {
             break;
         case 'leavecard':
             if (!transactionsTable) loadLeaveCard();
+            break;
+        case 'calendar':
+            loadCalendar();
             break;
     }
 }
@@ -702,6 +711,273 @@ function showProfileModal() {
         content,
         size: 'md',
     });
+}
+
+// ---------------------------------------------------------------------------
+// Leave Calendar
+// ---------------------------------------------------------------------------
+async function loadCalendar() {
+    if (!user) return;
+
+    // Ensure we have applications data
+    if (applications.length === 0) {
+        const res = await fetch(`/api/my-applications/${encodeURIComponent(user.email)}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) applications = data.applications || [];
+        }
+    }
+
+    if (!calendarLoaded) {
+        renderCalendarNav();
+        renderCalendarLegend();
+        calendarLoaded = true;
+    }
+    renderCalendarGrid();
+    renderCalendarSummary();
+}
+
+function renderCalendarNav() {
+    const nav = document.getElementById('calendar-nav');
+    if (!nav) return;
+
+    nav.innerHTML = `
+        <button class="cal-nav-btn" id="cal-prev">&laquo; Prev</button>
+        <div class="cal-month-label" id="cal-month-label"></div>
+        <button class="cal-nav-btn" id="cal-next">Next &raquo;</button>
+        <button class="cal-nav-btn today-btn" id="cal-today">Today</button>
+    `;
+
+    nav.querySelector('#cal-prev').addEventListener('click', () => {
+        calendarMonth--;
+        if (calendarMonth < 1) { calendarMonth = 12; calendarYear--; }
+        renderCalendarGrid();
+        renderCalendarSummary();
+    });
+    nav.querySelector('#cal-next').addEventListener('click', () => {
+        calendarMonth++;
+        if (calendarMonth > 12) { calendarMonth = 1; calendarYear++; }
+        renderCalendarGrid();
+        renderCalendarSummary();
+    });
+    nav.querySelector('#cal-today').addEventListener('click', () => {
+        const now = new Date();
+        calendarYear = now.getFullYear();
+        calendarMonth = now.getMonth() + 1;
+        renderCalendarGrid();
+        renderCalendarSummary();
+    });
+}
+
+function renderCalendarLegend() {
+    const legend = document.getElementById('calendar-legend');
+    if (!legend) return;
+
+    const items = [
+        { label: 'Vacation', cls: 'type-vl' },
+        { label: 'Sick', cls: 'type-sl' },
+        { label: 'Mandatory/Forced', cls: 'type-mfl' },
+        { label: 'Special Privilege', cls: 'type-spl' },
+        { label: 'Maternity/Paternity', cls: 'type-ml' },
+        { label: 'Wellness', cls: 'type-wl' },
+        { label: 'CTO/Others', cls: 'type-cto' },
+    ];
+
+    legend.innerHTML = items.map(i =>
+        `<div class="cal-legend-item"><div class="cal-legend-dot cal-chip ${i.cls}" style="width:12px;height:12px;display:inline-block"></div> ${i.label}</div>`
+    ).join('');
+}
+
+function renderCalendarGrid() {
+    const grid = document.getElementById('calendar-grid');
+    const label = document.getElementById('cal-month-label');
+    if (!grid) return;
+
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    if (label) label.textContent = `${MONTHS[calendarMonth - 1]} ${calendarYear}`;
+
+    // Only show approved + pending leaves
+    const visibleApps = applications.filter(a =>
+        a.status === 'approved' || a.status === 'pending'
+    );
+
+    const firstDay = new Date(calendarYear, calendarMonth - 1, 1).getDay();
+    const daysInMonth = new Date(calendarYear, calendarMonth, 0).getDate();
+    const today = new Date();
+
+    let html = '';
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayNames.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+
+    // Previous month padding
+    const prevDays = new Date(calendarYear, calendarMonth - 1, 0).getDate();
+    for (let i = firstDay - 1; i >= 0; i--) {
+        html += `<div class="cal-day-cell other-month"><div class="cal-day-number">${prevDays - i}</div></div>`;
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(calendarYear, calendarMonth - 1, day);
+        const isToday = date.toDateString() === today.toDateString();
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const dateStr = `${calendarYear}-${String(calendarMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        const dayLeaves = visibleApps.filter(a => {
+            const from = a.dateFrom || a.date_from;
+            const to = a.dateTo || a.date_to;
+            return dateStr >= from && dateStr <= to;
+        });
+
+        let cls = 'cal-day-cell';
+        if (isToday) cls += ' today';
+        if (isWeekend) cls += ' weekend';
+
+        html += `<div class="${cls}"><div class="cal-day-number">${day}</div>`;
+
+        const maxChips = 3;
+        dayLeaves.slice(0, maxChips).forEach(a => {
+            const leaveType = a.leaveType || a.leave_type || '';
+            const chipCls = getCalChipClass(leaveType);
+            const shortName = getCalShortName(leaveType);
+            const statusLabel = a.status === 'approved' ? '' : ' (P)';
+            html += `<div class="cal-chip ${chipCls}" data-app-id="${escapeHtml(a.id)}" title="${escapeHtml(getLeaveTypeLabel(leaveType))} — ${a.status}">${shortName}${statusLabel}</div>`;
+        });
+
+        if (dayLeaves.length > maxChips) {
+            html += `<div class="cal-more" data-date="${dateStr}">+${dayLeaves.length - maxChips} more</div>`;
+        }
+
+        html += '</div>';
+    }
+
+    // Next month padding
+    const totalCells = firstDay + daysInMonth;
+    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= remaining; i++) {
+        html += `<div class="cal-day-cell other-month"><div class="cal-day-number">${i}</div></div>`;
+    }
+
+    grid.innerHTML = html;
+
+    // Bind chip clicks (only once)
+    if (!grid._calBound) {
+        grid._calBound = true;
+        grid.addEventListener('click', (e) => {
+            const chip = e.target.closest('.cal-chip[data-app-id]');
+            if (chip) {
+                showApplicationDetail(chip.dataset.appId);
+                return;
+            }
+            const more = e.target.closest('.cal-more[data-date]');
+            if (more) {
+                showDayLeaves(more.dataset.date);
+            }
+        });
+    }
+}
+
+function showDayLeaves(dateStr) {
+    const visibleApps = applications.filter(a =>
+        (a.status === 'approved' || a.status === 'pending') &&
+        dateStr >= (a.dateFrom || a.date_from) &&
+        dateStr <= (a.dateTo || a.date_to)
+    );
+
+    if (visibleApps.length === 0) return;
+
+    const rows = visibleApps.map(a => {
+        const type = getLeaveTypeLabel(a.leaveType || a.leave_type);
+        const days = toNum(a.numDays || a.num_days);
+        const status = a.status || 'pending';
+        return `<div style="padding:var(--space-2) 0;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center;cursor:pointer" data-app-id="${escapeHtml(a.id)}">
+            <span>${escapeHtml(type)} (${fmt(days)} day${days !== 1 ? 's' : ''})</span>
+            <span>${statusBadge(status, a.currentApprover || a.current_approver)}</span>
+        </div>`;
+    }).join('');
+
+    const d = new Date(dateStr);
+    const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    openModal({
+        title: `Leaves on ${dateLabel}`,
+        content: rows,
+        size: 'sm',
+    });
+
+    // Bind clicks inside modal
+    setTimeout(() => {
+        document.querySelectorAll('[data-app-id]').forEach(el => {
+            if (el.closest('.modal')) {
+                el.addEventListener('click', () => showApplicationDetail(el.dataset.appId));
+            }
+        });
+    }, 100);
+}
+
+function renderCalendarSummary() {
+    const summary = document.getElementById('calendar-summary');
+    if (!summary) return;
+
+    const monthApps = applications.filter(a => {
+        const from = a.dateFrom || a.date_from;
+        if (!from) return false;
+        const d = new Date(from);
+        return d.getFullYear() === calendarYear && d.getMonth() === calendarMonth - 1;
+    });
+
+    const approved = monthApps.filter(a => a.status === 'approved').length;
+    const pending = monthApps.filter(a => a.status === 'pending').length;
+    const totalDays = monthApps.reduce((sum, a) => sum + toNum(a.numDays || a.num_days), 0);
+
+    // Count by type
+    const typeCounts = {};
+    monthApps.forEach(a => {
+        const name = getLeaveTypeLabel(a.leaveType || a.leave_type);
+        typeCounts[name] = (typeCounts[name] || 0) + 1;
+    });
+
+    let html = `
+        <div class="cal-stat"><div class="cal-stat-value">${monthApps.length}</div><div class="cal-stat-label">Total This Month</div></div>
+        <div class="cal-stat" style="border-color:var(--color-success)"><div class="cal-stat-value" style="color:var(--color-success)">${approved}</div><div class="cal-stat-label">Approved</div></div>
+        <div class="cal-stat" style="border-color:var(--color-warning)"><div class="cal-stat-value" style="color:var(--color-warning)">${pending}</div><div class="cal-stat-label">Pending</div></div>
+        <div class="cal-stat" style="border-color:var(--color-info)"><div class="cal-stat-value" style="color:var(--color-info)">${totalDays.toFixed(1)}</div><div class="cal-stat-label">Total Days</div></div>
+    `;
+
+    Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).forEach(([type, count]) => {
+        html += `<div class="cal-stat"><div class="cal-stat-value">${count}</div><div class="cal-stat-label">${escapeHtml(type)}</div></div>`;
+    });
+
+    summary.innerHTML = html;
+}
+
+function getCalChipClass(leaveType) {
+    const t = (leaveType || '').toLowerCase();
+    if (t.includes('vl') || t.includes('vacation')) return 'type-vl';
+    if (t.includes('sl') || t.includes('sick')) return 'type-sl';
+    if (t.includes('mfl') || t.includes('mandatory') || t.includes('force')) return 'type-mfl';
+    if (t.includes('spl') || t.includes('special')) return 'type-spl';
+    if (t.includes('ml') || t.includes('maternity') || t.includes('paternity')) return 'type-ml';
+    if (t.includes('wellness') || t === 'leave_wl') return 'type-wl';
+    if (t.includes('cto') || t.includes('others')) return 'type-cto';
+    return 'type-other';
+}
+
+function getCalShortName(leaveType) {
+    const map = {
+        'leave_vl': 'VL', 'leave_vacation': 'VL',
+        'leave_sl': 'SL', 'leave_sick': 'SL',
+        'leave_mfl': 'MFL', 'leave_mandatory': 'MFL',
+        'leave_spl': 'SPL',
+        'leave_ml': 'Mat', 'leave_maternity': 'Mat',
+        'leave_paternity': 'Pat',
+        'leave_cto': 'CTO', 'leave_others': 'CTO',
+        'leave_soloparent': 'SP', 'leave_solo_parent': 'SP',
+        'leave_study': 'Study', 'leave_vawc': 'VAWC',
+        'leave_rehab': 'Rehab', 'leave_women': 'Women',
+        'leave_calamity': 'Cal', 'leave_adoption': 'Adopt',
+        'leave_wl': 'WL', 'leave_wellness': 'WL', 'wellness': 'WL',
+    };
+    return map[leaveType] || 'Leave';
 }
 
 // ---------------------------------------------------------------------------

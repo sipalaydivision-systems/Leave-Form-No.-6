@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     try {
-        user = await fetchUser();
+        user = await fetchUser({ allowedRoles: ['sds', 'it'], loginUrl: '/sds-login' });
         if (!user) return;
 
         initLogoutSystem({ storage: 'local', redirectUrl: '/sds-login' });

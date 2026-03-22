@@ -40,26 +40,23 @@
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
-        // Auth check
-        try { user = JSON.parse(sessionStorage.getItem('user')); } catch (e) { user = null; }
-        try { employee = JSON.parse(sessionStorage.getItem('employee')); } catch (e) { employee = null; }
-
-        if (!user || !user.email) {
-            alert('Please login first');
-            window.location.href = '/';
-            return;
-        }
-
-        // Validate session
+        // Auth check — use HttpOnly cookie via /api/me
         try {
             const meResp = await fetch('/api/me');
             if (!meResp.ok) {
-                sessionStorage.clear();
                 alert('Session expired. Please login again.');
                 window.location.href = '/';
                 return;
             }
-        } catch (e) { /* network error caught by API calls */ }
+            const meData = await meResp.json();
+            user = meData.user || meData;
+        } catch (e) {
+            alert('Please login first');
+            window.location.href = '/';
+            return;
+        }
+        // Try to get supplementary employee data from sessionStorage
+        try { employee = JSON.parse(sessionStorage.getItem('employee')); } catch (e) { employee = null; }
 
         populateEmployeeInfo();
         loadLeaveBalances();

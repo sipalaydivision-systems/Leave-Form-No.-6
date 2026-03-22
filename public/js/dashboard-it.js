@@ -52,9 +52,12 @@ async function init() {
 
 async function fetchUser() {
     const res = await fetch('/api/me');
-    if (!res.ok) return null;
+    if (!res.ok) { window.location.href = '/it-login'; return null; }
     const data = await res.json();
-    return data.user || data;
+    const u = data.user || data;
+    const role = (u.role || u.portal || '').toLowerCase();
+    if (role !== 'it') { window.location.href = '/it-login'; return null; }
+    return u;
 }
 
 // ---------------------------------------------------------------------------
