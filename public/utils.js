@@ -66,6 +66,9 @@ const LEAVE_TYPE_LABELS = {
     'leave_calamity': 'Special Emergency (Calamity) Leave',
     'adoption': 'Adoption Leave',
     'leave_adoption': 'Adoption Leave',
+    'wellness': 'Wellness Leave',
+    'leave_wl': 'Wellness Leave',
+    'leave_wellness': 'Wellness Leave',
     'others': 'Other Leave'
 };
 

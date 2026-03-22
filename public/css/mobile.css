@@ -119,6 +119,18 @@
 
 /* --- Mobile Breakpoint (≤ 768px) --- */
 @media (max-width: 768px) {
+  /* Section headers */
+  .section-header {
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+  .section-header-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .section-header-icon svg { width: 18px; height: 18px; }
+  .section-header-title { font-size: var(--text-md); }
+
   /* General layout */
   body {
     padding: 0 !important;

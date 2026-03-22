@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#003366">
+    <title>File Leave Application — SDO Sipalay Leave System</title>
+
+    <!-- Design System -->
+    <link rel="stylesheet" href="/css/design-tokens.css">
+    <link rel="stylesheet" href="/css/dashboard-layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icons/icon-192.png" type="image/png">
+
+    <style>
+        /* ---- Page Shell ---- */
+        body {
+            font-family: var(--font-family);
+            background: var(--color-bg);
+            margin: 0;
+            color: var(--color-text);
+            min-height: 100vh;
+            font-size: 14px;
+        }
+
+        .page-shell {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: var(--space-6) var(--space-5) var(--space-16);
+        }
+
+        /* ---- Top Navigation Bar ---- */
+        .form-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-4) var(--space-6);
+            background: var(--color-primary);
+            border-bottom: 1px solid var(--color-border-light);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--shadow-md);
+        }
+        .form-topbar-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+        }
+        .form-topbar-left a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+        }
+        .form-topbar-left a:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+        .form-topbar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.01em;
+        }
+        .form-topbar-right {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        .form-topbar-user {
+            font-size: 13px;
+            color: rgba(255,255,255,0.75);
+        }
+        .form-topbar-user strong {
+            color: #fff;
+        }
+
+        /* ---- Section Cards ---- */
+        .form-section {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-5);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        .form-section-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            padding: var(--space-5) var(--space-6);
+            background: var(--color-primary-50);
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        .form-section-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: var(--radius-md);
+            background: var(--color-primary);
+            color: var(--color-text-inverse);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .form-section-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+        .form-section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-primary);
+        }
+        .form-section-subtitle {
+            font-size: 12px;
+            color: var(--color-text-muted);
+            margin-top: 2px;
+        }
+        .form-section-body {
+            padding: var(--space-6);
+        }
+
+        /* ---- Form Layout ---- */
+        .form-grid {
+            display: grid;
+            gap: var(--space-5);
+        }
+        .form-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+        .form-grid-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            letter-spacing: 0.01em;
+        }
+        .form-label .required {
+            color: var(--color-danger);
+            margin-left: 2px;
+        }
+        .form-input,
+        .form-select,
+        .form-textarea {
+            padding: 10px 14px;
+            font-size: 14px;
+            font-family: var(--font-family);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background: var(--color-surface);
+            color: var(--color-text);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+            min-height: 44px;
+        }
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
+        }
+        .form-input:disabled,
+        .form-select:disabled {
+            background: var(--color-gray-100);
+            color: var(--color-text-secondary);
+            cursor: not-allowed;
+        }
+        .form-input[readonly] {
+            background: var(--color-gray-50);
+            color: var(--color-text);
+            cursor: default;
+            border-color: var(--color-border-light);
+        }
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23757575' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+        }
+        .form-hint {
+            font-size: 11px;
+            color: var(--color-text-muted);
+        }
+        .form-error-text {
+            font-size: 12px;
+            color: var(--color-danger);
+            display: none;
+            font-weight: 500;
+        }
+        .form-group.has-error .form-input,
+        .form-group.has-error .form-select {
+            border-color: var(--color-danger);
+        }
+        .form-group.has-error .form-error-text {
+            display: block;
+        }
+
+        /* ---- Leave Type Selector ---- */
+        .leave-type-dropdown {
+            position: relative;
+        }
+        .leave-type-selected {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            min-height: 44px;
+            background: var(--color-surface);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+        .leave-type-selected:hover {
+            border-color: var(--color-gray-400);
+        }
+        .leave-type-selected.open {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .leave-type-selected .placeholder {
+            color: var(--color-text-muted);
+            font-size: 14px;
+        }
+        .leave-type-selected .value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+        .leave-type-selected .chevron {
+            transition: transform 0.2s;
+            color: var(--color-text-muted);
+            flex-shrink: 0;
+        }
+        .leave-type-selected.open .chevron {
+            transform: rotate(180deg);
+        }
+        .leave-type-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--color-surface);
+            border: 1px solid var(--color-primary);
+            border-top: none;
+            border-bottom-left-radius: var(--radius-lg);
+            border-bottom-right-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            z-index: 100;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .leave-type-panel.open {
+            display: block;
+        }
+        .leave-type-search {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--color-border-light);
+            position: sticky;
+            top: 0;
+            background: var(--color-surface);
+            z-index: 1;
+        }
+        .leave-type-search input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            outline: none;
+            font-family: var(--font-family);
+            background: var(--color-gray-50);
+        }
+        .leave-type-search input:focus {
+            border-color: var(--color-primary);
+            background: var(--color-surface);
+            box-shadow: 0 0 0 2px rgba(0, 51, 102, 0.08);
+        }
+        .leave-type-option {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: 14px 18px;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        .leave-type-option:last-child {
+            border-bottom: none;
+        }
+        .leave-type-option:hover {
+            background: var(--color-primary-50);
+        }
+        .leave-type-option.selected {
+            background: var(--color-info-light);
+            border-left: 3px solid var(--color-primary);
+        }
+        .leave-type-option.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .leave-type-option .lt-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+        .leave-type-option .lt-legal {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            margin-top: 2px;
+            line-height: 1.3;
+        }
+        .leave-type-option .lt-badge {
+            margin-left: auto;
+            flex-shrink: 0;
+            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-weight: 600;
+            white-space: nowrap;
+            letter-spacing: 0.02em;
+        }
+        .lt-badge.avail { background: var(--color-success-light); color: var(--color-success); }
+        .lt-badge.exhausted { background: var(--color-danger-light); color: var(--color-danger); }
+        .lt-badge.na { background: var(--color-gray-100); color: var(--color-text-muted); }
+
+        /* ---- Conditional Detail Sections ---- */
+        .detail-panel {
+            display: none;
+            margin-top: var(--space-5);
+            padding: var(--space-5);
+            background: var(--color-gray-50);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border-light);
+            border-left: 3px solid var(--color-primary);
+        }
+        .detail-panel.visible {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .detail-panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: var(--space-4);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            border: 1px solid transparent;
+        }
+        .radio-option:hover {
+            background: var(--color-gray-100);
+            border-color: var(--color-border-light);
+        }
+        .radio-option input[type="radio"],
+        .radio-option input[type="checkbox"] {
+            accent-color: var(--color-primary);
+            margin: 0;
+            width: 16px;
+            height: 16px;
+        }
+        .radio-option label {
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* ---- Leave Balance Cards ---- */
+        .balance-strip {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: var(--space-3);
+            margin-top: var(--space-5);
+            padding-top: var(--space-5);
+            border-top: 1px solid var(--color-border-light);
+        }
+        .balance-strip-title {
+            grid-column: 1 / -1;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-1);
+        }
+        .balance-chip {
+            text-align: center;
+            padding: var(--space-4) var(--space-2);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border-light);
+            background: var(--color-surface);
+            transition: all var(--transition-fast);
+        }
+        .balance-chip:hover {
+            border-color: var(--color-gray-400);
+            box-shadow: var(--shadow-sm);
+        }
+        .balance-chip-value {
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .balance-chip-label {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        .balance-chip.vl .balance-chip-value { color: var(--color-info); }
+        .balance-chip.sl .balance-chip-value { color: var(--color-danger); }
+        .balance-chip.fl .balance-chip-value { color: var(--color-warning); }
+        .balance-chip.spl .balance-chip-value { color: var(--color-role-sds); }
+        .balance-chip.wl .balance-chip-value { color: #00838f; }
+        .balance-chip.cto .balance-chip-value { color: var(--color-role-it); }
+        .balance-chip.active {
+            border-color: var(--color-primary);
+            background: var(--color-primary-50);
+            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.08);
+            transform: translateY(-2px);
+        }
+
+        /* ---- Date Range ---- */
+        .date-range-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto;
+            gap: var(--space-4);
+            align-items: end;
+        }
+        .date-range-separator {
+            font-size: 14px;
+            color: var(--color-text-muted);
+            padding-bottom: 12px;
+            font-weight: 600;
+        }
+        .days-computed {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: 10px 16px;
+            background: var(--color-info-light);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            color: var(--color-info);
+            font-weight: 600;
+            border: 1px solid rgba(21, 101, 192, 0.15);
+        }
+        .days-computed .days-num {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* ---- Signature Area ---- */
+        .signature-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-4);
+        }
+        .signature-canvas-wrap {
+            position: relative;
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-lg);
+            background: var(--color-gray-50);
+            padding: 6px;
+            transition: all var(--transition-fast);
+        }
+        .signature-canvas-wrap:hover {
+            border-color: var(--color-gray-400);
+        }
+        .signature-canvas-wrap.has-signature {
+            border-style: solid;
+            border-color: var(--color-success);
+            background: var(--color-surface);
+        }
+        .signature-canvas-wrap canvas {
+            display: block;
+            cursor: crosshair;
+            border-radius: var(--radius-md);
+        }
+        .signature-hint {
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+        .signature-actions {
+            display: flex;
+            gap: var(--space-3);
+        }
+        .signature-error-msg {
+            font-size: 12px;
+            color: var(--color-danger);
+            display: none;
+            font-weight: 500;
+        }
+        .signature-error-msg.show {
+            display: block;
+        }
+
+        /* ---- Others / SO Upload ---- */
+        .file-upload-area {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            padding: var(--space-4);
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-lg);
+            background: var(--color-gray-50);
+            transition: border-color var(--transition-fast);
+        }
+        .file-upload-area:hover {
+            border-color: var(--color-gray-400);
+        }
+        .file-upload-area label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: var(--color-primary);
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            transition: background var(--transition-fast);
+        }
+        .file-upload-area label:hover {
+            background: var(--color-primary-light);
+        }
+        .file-upload-info {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        .file-upload-name {
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        /* ---- Commutation ---- */
+        .commutation-row {
+            display: flex;
+            gap: var(--space-4);
+        }
+        .commutation-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border: 2px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            flex: 1;
+            transition: all var(--transition-fast);
+        }
+        .commutation-option:hover {
+            border-color: var(--color-gray-400);
+            background: var(--color-gray-50);
+        }
+        .commutation-option.selected {
+            border-color: var(--color-primary);
+            background: var(--color-primary-50);
+            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.08);
+        }
+        .commutation-option input[type="radio"] {
+            accent-color: var(--color-primary);
+            width: 18px;
+            height: 18px;
+        }
+        .commutation-option span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* ---- Submit Bar ---- */
+        .submit-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-5) var(--space-6);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .submit-bar-info {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        .submit-bar-actions {
+            display: flex;
+            gap: var(--space-3);
+        }
+
+        /* ---- Status Tracker Modal ---- */
+        .tracker-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .tracker-overlay.open {
+            display: flex;
+        }
+        .tracker-card {
+            background: var(--color-surface);
+            border-radius: var(--radius-xl);
+            padding: 40px;
+            max-width: 660px;
+            width: 92%;
+            box-shadow: var(--shadow-xl);
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .tracker-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--color-primary);
+            text-align: center;
+            margin-bottom: var(--space-1);
+        }
+        .tracker-app-id {
+            text-align: center;
+            font-size: 13px;
+            color: var(--color-text-muted);
+            margin-bottom: var(--space-8);
+        }
+        .tracker-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-8);
+        }
+        .tracker-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+        }
+        .tracker-step-dot {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--color-gray-200);
+            border: 3px solid var(--color-gray-300);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: var(--space-2);
+            transition: all 0.4s ease;
+        }
+        .tracker-step-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-align: center;
+        }
+        .tracker-step-line {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            width: 100%;
+            height: 3px;
+            background: var(--color-gray-200);
+            z-index: -1;
+        }
+        .tracker-step:last-child .tracker-step-line { display: none; }
+        .tracker-step.completed .tracker-step-dot {
+            background: var(--color-success);
+            border-color: var(--color-success);
+        }
+        .tracker-step.completed .tracker-step-line {
+            background: var(--color-success);
+        }
+        .tracker-step.active .tracker-step-dot {
+            background: var(--color-info);
+            border-color: var(--color-info);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(21, 101, 192, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(21, 101, 192, 0); }
+        }
+        .tracker-status-text {
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--color-primary);
+            padding: var(--space-4);
+            background: var(--color-gray-50);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-6);
+        }
+        .tracker-actions {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-3);
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 768px) {
+            .page-shell { padding: var(--space-4) var(--space-3) var(--space-12); }
+            .form-section-body { padding: var(--space-5) var(--space-4); }
+            .form-section-header { padding: var(--space-4); }
+            .balance-strip { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .page-shell { padding: var(--space-3) var(--space-2) var(--space-10); }
+            .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+            .date-range-row { grid-template-columns: 1fr; }
+            .date-range-separator { display: none; }
+            .commutation-row { flex-direction: column; }
+            .submit-bar { flex-direction: column; gap: var(--space-4); text-align: center; }
+            .submit-bar-info { max-width: 100%; }
+            .submit-bar-actions { width: 100%; }
+            .submit-bar-actions .btn { flex: 1; }
+            .balance-strip { grid-template-columns: repeat(3, 1fr); }
+            .tracker-steps { gap: var(--space-1); }
+            .tracker-step-name { font-size: 10px; }
+            .tracker-card { padding: 24px 16px; }
+            .form-topbar-title { font-size: 15px; }
+        }
+
+        @media print {
+            body { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="form-topbar">
+    <div class="form-topbar-left">
+        <a href="/dashboard" id="btn-back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Dashboard
+        </a>
+        <span class="form-topbar-title">File Leave Application</span>
+    </div>
+    <div class="form-topbar-right">
+        <span class="form-topbar-user">Welcome, <strong id="topbar-user-name">User</strong></span>
+    </div>
+</div>
+
+<div class="page-shell">
+
+    <!-- Section 1: Employee Information (auto-filled, read-only) -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <div class="form-section-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div>
+                <div class="form-section-title">Employee Information</div>
+                <div class="form-section-subtitle">Auto-filled from your profile</div>
+            </div>
+        </div>
+        <div class="form-section-body">
+            <div class="form-grid form-grid-2">
+                <div class="form-group">
+                    <label class="form-label">Office / Department / School</label>
+                    <input type="text" class="form-input" id="field-office" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" id="field-fullname" readonly>
+                    <!-- Hidden fields for individual name parts -->
+                    <input type="hidden" id="field-name-last">
+                    <input type="hidden" id="field-name-first">
+                    <input type="hidden" id="field-name-middle">
+                </div>
+            </div>
+            <div class="form-grid form-grid-3" style="margin-top: var(--space-4)">
+                <div class="form-group">
+                    <label class="form-label">Date of Filing</label>
+                    <input type="text" class="form-input" id="field-date-filing" readonly>
+                    <input type="hidden" id="field-date-filing-iso">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Position</label>
+                    <input type="text" class="form-input" id="field-position" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Salary</label>
+                    <input type="text" class="form-input" id="field-salary" readonly>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Leave Type & Details -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <div class="form-section-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div>
+                <div class="form-section-title">Leave Details</div>
+                <div class="form-section-subtitle">CS Form No. 6 — Section 6</div>
+            </div>
+        </div>
+        <div class="form-section-body">
+            <!-- 6A: Leave Type Dropdown -->
+            <div class="form-group">
+                <label class="form-label">Type of Leave <span class="required">*</span></label>
+                <div class="leave-type-dropdown" id="leave-type-dropdown">
+                    <div class="leave-type-selected" id="leave-type-trigger">
+                        <span class="placeholder">Select leave type...</span>
+                        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <div class="leave-type-panel" id="leave-type-panel">
+                        <div class="leave-type-search">
+                            <input type="text" placeholder="Search leave type..." id="leave-type-search-input">
+                        </div>
+                        <div id="leave-type-options">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="field-leave-type" value="">
+                <div class="form-error-text" id="leave-type-error">Please select a leave type</div>
+            </div>
+
+            <!-- 6B: Conditional Detail Panels -->
+
+            <!-- Vacation / SPL: Location -->
+            <div class="detail-panel" id="panel-location">
+                <div class="detail-panel-title">In case of Vacation / Special Privilege Leave:</div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="location" id="loc-ph" value="ph">
+                        <label for="loc-ph">Within the Philippines</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="location" id="loc-abroad" value="abroad">
+                        <label for="loc-abroad">Abroad (Specify)</label>
+                    </div>
+                </div>
+                <div class="form-group" id="abroad-specify-group" style="margin-top: var(--space-3); display: none;">
+                    <input type="text" class="form-input" id="field-abroad-specify" placeholder="Specify country / destination">
+                </div>
+            </div>
+
+            <!-- Sick Leave: Hospital / Outpatient -->
+            <div class="detail-panel" id="panel-sick">
+                <div class="detail-panel-title">In case of Sick Leave:</div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="sick_type" id="sick-hospital" value="hospital">
+                        <label for="sick-hospital">In Hospital (Specify Illness)</label>
+                    </div>
+                    <div class="form-group" id="hospital-illness-group" style="margin-left: var(--space-8); display: none;">
+                        <input type="text" class="form-input" id="field-hospital-illness" placeholder="Specify illness">
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="sick_type" id="sick-outpatient" value="outpatient">
+                        <label for="sick-outpatient">Out Patient (Specify Illness)</label>
+                    </div>
+                    <div class="form-group" id="outpatient-illness-group" style="margin-left: var(--space-8); display: none;">
+                        <input type="text" class="form-input" id="field-outpatient-illness" placeholder="Specify illness">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Women's Special Leave -->
+            <div class="detail-panel" id="panel-women">
+                <div class="detail-panel-title">In case of Special Leave Benefits for Women:</div>
+                <div class="form-group">
+                    <label class="form-label">Specify Illness</label>
+                    <input type="text" class="form-input" id="field-women-illness" placeholder="Specify illness">
+                </div>
+            </div>
+
+            <!-- Study Leave -->
+            <div class="detail-panel" id="panel-study">
+                <div class="detail-panel-title">In case of Study Leave:</div>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" name="study_type" id="study-masters" value="masters">
+                        <label for="study-masters">Completion of Master's Degree</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" name="study_type" id="study-bar" value="bar">
+                        <label for="study-bar">BAR / Board Examination Review</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Others -->
+            <div class="detail-panel" id="panel-others">
+                <div class="detail-panel-title">Others — Please specify leave type:</div>
+                <div class="form-group">
+                    <input type="text" class="form-input" id="field-other-specify" placeholder="e.g. CTO - SO #12345">
+                </div>
+                <div class="form-group" style="margin-top: var(--space-3)">
+                    <label class="form-label">Upload Special Order (PDF only) <span class="required">*</span></label>
+                    <div class="file-upload-area">
+                        <label for="field-so-upload">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Choose PDF
+                            <input type="file" id="field-so-upload" accept="application/pdf,.pdf" style="display:none">
+                        </label>
+                        <div class="file-upload-info">
+                            <span id="so-file-name" class="file-upload-name">No file selected</span>
+                            <button type="button" class="btn btn-ghost btn-sm" id="so-remove-btn" style="display:none">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Balance Preview -->
+            <div class="balance-strip" id="balance-strip">
+                <div class="balance-chip vl" data-type="vl">
+                    <div class="balance-chip-value" id="bal-vl">--</div>
+                    <div class="balance-chip-label">Vacation</div>
+                </div>
+                <div class="balance-chip sl" data-type="sl">
+                    <div class="balance-chip-value" id="bal-sl">--</div>
+                    <div class="balance-chip-label">Sick</div>
+                </div>
+                <div class="balance-chip fl" data-type="fl">
+                    <div class="balance-chip-value" id="bal-fl">--</div>
+                    <div class="balance-chip-label">Force</div>
+                </div>
+                <div class="balance-chip spl" data-type="spl">
+                    <div class="balance-chip-value" id="bal-spl">--</div>
+                    <div class="balance-chip-label">Special Priv.</div>
+                </div>
+                <div class="balance-chip wl" data-type="wl">
+                    <div class="balance-chip-value" id="bal-wl">--</div>
+                    <div class="balance-chip-label">Wellness</div>
+                </div>
+                <div class="balance-chip cto" data-type="cto">
+                    <div class="balance-chip-value" id="bal-cto">--</div>
+                    <div class="balance-chip-label">CTO</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Period of Leave & Commutation -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <div class="form-section-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div>
+                <div class="form-section-title">Period & Commutation</div>
+                <div class="form-section-subtitle">CS Form No. 6 — Sections 6C & 6D</div>
+            </div>
+        </div>
+        <div class="form-section-body">
+            <!-- 6C: Inclusive Dates -->
+            <div class="form-group">
+                <label class="form-label">Inclusive Dates <span class="required">*</span></label>
+            </div>
+            <div class="date-range-row">
+                <div class="form-group">
+                    <label class="form-label">From</label>
+                    <input type="date" class="form-input" id="field-date-from">
+                </div>
+                <div class="date-range-separator">to</div>
+                <div class="form-group">
+                    <label class="form-label">To</label>
+                    <input type="date" class="form-input" id="field-date-to">
+                </div>
+                <div class="days-computed" id="days-computed" style="visibility: hidden;">
+                    <span class="days-num" id="days-count">0</span>
+                    <span>working days</span>
+                </div>
+            </div>
+            <div class="form-error-text" id="date-error" style="margin-top: var(--space-1);">Please select valid dates</div>
+
+            <!-- 6D: Commutation -->
+            <div class="form-group" style="margin-top: var(--space-5)">
+                <label class="form-label">Commutation</label>
+                <div class="commutation-row">
+                    <label class="commutation-option" id="comm-not-requested">
+                        <input type="radio" name="commutation" value="not-requested">
+                        <span>Not Requested</span>
+                    </label>
+                    <label class="commutation-option" id="comm-requested">
+                        <input type="radio" name="commutation" value="requested">
+                        <span>Requested</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 4: Signature -->
+    <div class="form-section">
+        <div class="form-section-header">
+            <div class="form-section-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+            </div>
+            <div>
+                <div class="form-section-title">Applicant Signature</div>
+                <div class="form-section-subtitle">Draw or upload your signature</div>
+            </div>
+        </div>
+        <div class="form-section-body">
+            <div class="signature-container">
+                <div class="signature-canvas-wrap" id="sig-canvas-wrap">
+                    <canvas id="signaturePad" width="360" height="100"></canvas>
+                </div>
+                <div class="signature-actions">
+                    <button type="button" class="btn btn-outline btn-sm" id="btn-clear-sig">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        Clear
+                    </button>
+                    <button type="button" class="btn btn-outline btn-sm" id="btn-upload-sig">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Upload Image
+                    </button>
+                    <input type="file" id="sig-upload-input" accept="image/*" style="display:none">
+                </div>
+                <div class="signature-error-msg" id="sig-error">Signature is required to submit</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Bar -->
+    <div class="submit-bar">
+        <div class="submit-bar-info">
+            All fields marked <span style="color:var(--color-danger)">*</span> are required. Your application will be routed to AO for initial approval.
+        </div>
+        <div class="submit-bar-actions">
+            <button type="button" class="btn btn-outline" id="btn-reset-form">Clear Form</button>
+            <button type="button" class="btn btn-success btn-lg" id="btn-submit">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                Submit Application
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Status Tracker Modal -->
+<div class="tracker-overlay" id="tracker-overlay">
+    <div class="tracker-card">
+        <div class="tracker-title">Application Submitted</div>
+        <div class="tracker-app-id">Application ID: <strong id="tracker-app-id"></strong></div>
+        <div class="tracker-steps">
+            <div class="tracker-step" id="ts-submitted">
+                <div class="tracker-step-dot">&#x1F4DD;</div>
+                <div class="tracker-step-name">Submitted</div>
+                <div class="tracker-step-line"></div>
+            </div>
+            <div class="tracker-step" id="ts-ao">
+                <div class="tracker-step-dot">&#x1F464;</div>
+                <div class="tracker-step-name">AO</div>
+                <div class="tracker-step-line"></div>
+            </div>
+            <div class="tracker-step" id="ts-hr">
+                <div class="tracker-step-dot">&#x1F465;</div>
+                <div class="tracker-step-name">HR</div>
+                <div class="tracker-step-line"></div>
+            </div>
+            <div class="tracker-step" id="ts-asds">
+                <div class="tracker-step-dot">&#x1F4CA;</div>
+                <div class="tracker-step-name">ASDS</div>
+                <div class="tracker-step-line"></div>
+            </div>
+            <div class="tracker-step" id="ts-sds">
+                <div class="tracker-step-dot">&#x1F3DB;</div>
+                <div class="tracker-step-name">SDS</div>
+                <div class="tracker-step-line"></div>
+            </div>
+            <div class="tracker-step" id="ts-done">
+                <div class="tracker-step-dot">&#x2705;</div>
+                <div class="tracker-step-name">Approved</div>
+            </div>
+        </div>
+        <div class="tracker-status-text" id="tracker-status-text">Processing...</div>
+        <div class="tracker-actions">
+            <button class="btn btn-outline" id="btn-tracker-refresh">Refresh Status</button>
+            <button class="btn btn-primary" id="btn-tracker-dashboard">Go to Dashboard</button>
+        </div>
+    </div>
+</div>
+
+<!-- Shared Utilities -->
+<script src="/utils.js"></script>
+<script src="/auth-interceptor.js"></script>
+<script src="/modal-alert.js"></script>
+
+<!-- Leave Application Logic -->
+<script src="/js/leave-application.js"></script>
+
+<!-- PWA -->
+<script src="/pwa.js"></script>
+
+</body>
+</html>
