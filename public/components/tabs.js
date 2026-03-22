@@ -100,8 +100,10 @@ export function createTabs(config) {
     }
 
     function setActive(tabId) {
+        if (tabId === state.activeTab) return;
         state.activeTab = tabId;
         render();
+        if (config.onChange) config.onChange(tabId);
     }
 
     function updateBadge(tabId, count) {

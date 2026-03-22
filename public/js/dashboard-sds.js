@@ -9,7 +9,7 @@ import {
     fetchUser, setupApprovalSidebar, createApprovalTabs,
     showApprovalModal, showDetailModal, renderActivityBarChart,
     renderTypesDoughnut, renderReportCharts, destroyChart,
-    toast, esc, fmtDate, fmtDateRange, fmt, toNum, setText, statusBadge,
+    toast, esc, fmtDate, fmtDateRange, fmt, fmtDays, toNum, setText, statusBadge,
     createDataTable, renderEmptyState, openModal,
 } from './dashboard-approval-shared.js';
 
@@ -60,8 +60,16 @@ async function init() {
             tabs,
         });
 
+        const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'SDS';
         const title = document.getElementById('topbar-title');
-        if (title) title.textContent = `SDS Dashboard — ${(user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'SDS')}`;
+        if (title) title.textContent = `SDS Dashboard — ${firstName}`;
+
+        // Hero
+        const h = new Date().getHours();
+        const greeting = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+        setText('hero-greeting', `${greeting}, ${firstName}`);
+        const dateParts = [user.office, new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })];
+        setText('hero-date', dateParts.filter(Boolean).join(' · '));
 
         document.getElementById('btn-refresh')?.addEventListener('click', refreshAll);
         document.getElementById('btn-view-all-pending')?.addEventListener('click', () => {
@@ -118,6 +126,9 @@ async function loadOverviewData() {
     setText('stat-disapproved', disapproved);
     setText('stat-total', allApps.length);
 
+    // Hero metric
+    setText('hero-metric', pending.length);
+
     tabs.updateBadge('pending', pending.length);
     sidebar.updateBadge('pending', pending.length);
 
@@ -147,7 +158,7 @@ function renderRecentPending(apps) {
             <td>${esc(app.employeeName || app.employee_name || '')}</td>
             <td>${esc(getLeaveTypeLabel(app.leaveType || app.leave_type))}</td>
             <td>${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</td>
-            <td>${fmt(toNum(app.numDays || app.num_days))}</td>
+            <td>${fmtDays(app)}</td>
             <td><div class="cell-actions">
                 <button class="btn btn-success btn-sm btn-approve" data-id="${esc(app.id)}">Approve</button>
                 <button class="btn btn-ghost btn-sm btn-view" data-id="${esc(app.id)}">View</button>

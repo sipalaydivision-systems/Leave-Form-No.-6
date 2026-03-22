@@ -151,12 +151,20 @@ function onTabChange(tabId) {
 // ---------------------------------------------------------------------------
 // Topbar
 // ---------------------------------------------------------------------------
+function getGreeting() {
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
 function setupTopbar() {
     const title = document.getElementById('topbar-title');
-    if (title) {
-        const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'AO';
-        title.textContent = `AO Dashboard — ${firstName}`;
-    }
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'AO';
+    if (title) title.textContent = `AO Dashboard — ${firstName}`;
+
+    // Hero
+    setText('hero-greeting', `${getGreeting()}, ${firstName}`);
+    const dateParts = [user.office, new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })];
+    setText('hero-date', dateParts.filter(Boolean).join(' · '));
 
     document.getElementById('btn-refresh')?.addEventListener('click', refreshAll);
 
@@ -204,6 +212,9 @@ async function loadOverviewData() {
     setText('stat-approved', thisMonth.length);
     setText('stat-total', allApplications.length);
 
+    // Hero metric
+    setText('hero-metric', pending.length);
+
     // Badges
     tabs.updateBadge('pending', pending.length);
     sidebar.updateBadge('pending', pending.length);
@@ -243,13 +254,11 @@ function renderRecentPending(pending) {
         const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
         const from = fmtDate(app.dateFrom || app.date_from);
         const to = fmtDate(app.dateTo || app.date_to);
-        const days = toNum(app.numDays || app.num_days);
-
         html += `<tr>`;
         html += `<td>${esc(name)}</td>`;
         html += `<td>${esc(type)}</td>`;
         html += `<td>${esc(from)} - ${esc(to)}</td>`;
-        html += `<td>${fmt(days)}</td>`;
+        html += `<td>${fmtDays(app)}</td>`;
         html += `<td><div class="cell-actions">
             <button class="btn btn-success btn-sm btn-quick-approve" data-id="${esc(app.id)}">Approve</button>
             <button class="btn btn-ghost btn-sm btn-quick-view" data-id="${esc(app.id)}">View</button>
@@ -474,7 +483,7 @@ function showApprovalModal(appId, action) {
             <p><strong>Employee:</strong> ${esc(employee)}</p>
             <p><strong>Leave Type:</strong> ${esc(type)}</p>
             <p><strong>Period:</strong> ${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</p>
-            <p><strong>Days:</strong> ${fmt(toNum(app.numDays || app.num_days))}</p>
+            <p><strong>Days:</strong> ${fmtDays(app)}</p>
         </div>
         <div class="form-group">
             <label class="form-label">Remarks (optional)</label>
@@ -541,7 +550,6 @@ function showApplicationDetail(appId) {
     const employee = app.employeeName || app.employee_name || '';
     const from = fmtDate(app.dateFrom || app.date_from);
     const to = fmtDate(app.dateTo || app.date_to);
-    const days = toNum(app.numDays || app.num_days);
     const filed = fmtDate(app.submittedAt || app.created_at || app.createdAt);
 
     const history = app.approvalHistory || app.approval_history || [];
@@ -566,7 +574,7 @@ function showApplicationDetail(appId) {
             <div><label class="form-label">Employee</label><div>${esc(employee)}</div></div>
             <div><label class="form-label">Leave Type</label><div>${esc(type)}</div></div>
             <div><label class="form-label">Period</label><div>${esc(from)} to ${esc(to)}</div></div>
-            <div><label class="form-label">Days</label><div>${fmt(days)}</div></div>
+            <div><label class="form-label">Days</label><div>${fmtDays(app)}</div></div>
             <div><label class="form-label">Office</label><div>${esc(app.office || '')}</div></div>
             <div><label class="form-label">Filed</label><div>${esc(filed)}</div></div>
         </div>
@@ -799,6 +807,14 @@ function showProfileModal() {
 // ---------------------------------------------------------------------------
 function toNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 function fmt(v) { const n = toNum(v); return n % 1 === 0 ? String(n) : n.toFixed(3); }
+function fmtDays(app) {
+    const d = toNum(app.numDays || app.num_days);
+    if (app.leaveHours != null && app.leaveHours > 0 && app.leaveHours < 8) {
+        return `${fmt(d)} (${app.leaveHours} hr${app.leaveHours > 1 ? 's' : ''})`;
+    }
+    if (app.isHalfDay) return '0.5 (4 hrs)';
+    return fmt(d);
+}
 
 function fmtDate(dateStr) {
     if (!dateStr) return '--';

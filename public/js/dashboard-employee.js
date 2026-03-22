@@ -146,6 +146,23 @@ function onTabChange(tabId) {
 // ---------------------------------------------------------------------------
 // Topbar
 // ---------------------------------------------------------------------------
+function getGreeting() {
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+function populateHero() {
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || '';
+    const el = id => document.getElementById(id);
+    const g = el('hero-greeting');
+    if (g) g.textContent = `${getGreeting()}, ${firstName}`;
+    const ctx = el('hero-date');
+    if (ctx) {
+        const parts = [user.office, new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })];
+        ctx.textContent = parts.filter(Boolean).join(' · ');
+    }
+}
+
 function setupTopbar() {
     // Update title with user name
     const title = document.getElementById('topbar-title');
@@ -153,6 +170,8 @@ function setupTopbar() {
         const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'Dashboard';
         title.textContent = `Welcome, ${firstName}`;
     }
+
+    populateHero();
 
     // File Leave button
     const btn = document.getElementById('btn-file-leave');
@@ -232,6 +251,11 @@ function renderBalanceCards(credits) {
     setBalanceCard('fl', fl, `${fmt(flEarned)} allotted / ${fmt(flSpent)} used`);
     setBalanceCard('spl', spl, `${fmt(splEarned)} allotted / ${fmt(splSpent)} used`);
     setBalanceCard('wl', wl, `${fmt(wlEarned)} allotted / ${fmt(wlSpent)} used`);
+
+    // Hero metric — total balance
+    const totalBal = vl + sl + fl + spl + wl;
+    const heroMetric = document.getElementById('hero-metric');
+    if (heroMetric) heroMetric.textContent = fmt(totalBal);
 
     // As-of date
     const asOf = document.getElementById('balance-as-of');

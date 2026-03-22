@@ -495,6 +495,64 @@
             font-weight: 700;
         }
 
+        /* ---- Partial Day (Hours) ---- */
+        .partial-day-row {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            margin-top: var(--space-3);
+            padding: var(--space-2) var(--space-3);
+            background: var(--color-gray-50);
+            border-radius: var(--radius-md);
+            flex-wrap: wrap;
+        }
+        .partial-day-toggle {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--color-gray-700);
+        }
+        .partial-day-toggle input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--color-primary-600);
+            cursor: pointer;
+        }
+        .hours-input-group {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        .hours-input-group input[type="number"] {
+            width: 64px;
+            padding: var(--space-1) var(--space-2);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-sm);
+            text-align: center;
+            font-weight: 600;
+        }
+        .hours-input-group input[type="number"]:focus {
+            outline: none;
+            border-color: var(--color-primary-400);
+            box-shadow: 0 0 0 2px var(--color-primary-100);
+        }
+        .hours-input-group .hours-label {
+            font-size: var(--text-sm);
+            color: var(--color-gray-600);
+        }
+        .hours-input-group .hours-conversion {
+            font-size: var(--text-xs);
+            color: var(--color-primary-600);
+            font-weight: 500;
+            padding: var(--space-1) var(--space-2);
+            background: var(--color-primary-50);
+            border-radius: var(--radius-sm);
+        }
+
         /* ---- Signature Area ---- */
         .signature-container {
             display: flex;
@@ -1028,6 +1086,19 @@
                     <span>working days</span>
                 </div>
             </div>
+            <!-- Partial Day (Hours Input) -->
+            <div class="partial-day-row" id="partial-day-row">
+                <label class="partial-day-toggle">
+                    <input type="checkbox" id="field-partial-day">
+                    <span>Partial Day</span>
+                </label>
+                <div class="hours-input-group" id="hours-input-group" style="display:none">
+                    <input type="number" id="field-leave-hours" min="1" max="7" step="1" value="4">
+                    <span class="hours-label">hour(s)</span>
+                    <span class="hours-conversion" id="hours-to-days">= 0.500 day(s)</span>
+                </div>
+            </div>
+
             <div class="form-error-text" id="date-error" style="margin-top: var(--space-1);">Please select valid dates</div>
 
             <!-- 6D: Commutation -->

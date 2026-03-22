@@ -132,12 +132,20 @@ function onTabChange(tabId) {
 // ---------------------------------------------------------------------------
 // Topbar
 // ---------------------------------------------------------------------------
+function getGreeting() {
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
 function setupTopbar() {
     const title = document.getElementById('topbar-title');
-    if (title) {
-        const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'IT';
-        title.textContent = `IT Admin — ${firstName}`;
-    }
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'IT';
+    if (title) title.textContent = `IT Admin — ${firstName}`;
+
+    // Hero
+    setText('hero-greeting', `${getGreeting()}, ${firstName}`);
+    const dateParts = [user.office, new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })];
+    setText('hero-date', dateParts.filter(Boolean).join(' · '));
 
     document.getElementById('btn-refresh')?.addEventListener('click', async () => {
         toast.info('Refreshing...');
@@ -176,6 +184,9 @@ async function loadOverviewData() {
     // System state — endpoint returns { state: { maintenanceMode } }
     const maintenance = stateRes?.state?.maintenanceMode || stateRes?.maintenanceMode || false;
     setText('stat-maintenance', maintenance ? 'Maintenance' : 'Online');
+
+    // Hero metric
+    setText('hero-metric', maintenance ? 'Maint.' : 'Online');
 
     // Charts
     renderRolesChart(allUsers);

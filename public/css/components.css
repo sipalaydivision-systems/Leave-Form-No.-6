@@ -1032,6 +1032,307 @@
     border-radius: var(--radius-full);
 }
 
+/* ---- Z-Pattern Hero Banner ---- */
+.z-hero {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--space-6);
+    padding: var(--space-8) var(--space-6);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+    border-radius: var(--radius-xl);
+    color: #fff;
+    margin-bottom: var(--space-6);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    position: relative;
+}
+
+.z-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.z-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -60%;
+    left: -10%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* Role-specific hero gradients */
+.z-hero-employee { background: linear-gradient(135deg, #003366 0%, #0059b3 100%); }
+.z-hero-ao       { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+.z-hero-hr       { background: linear-gradient(135deg, #b71c1c 0%, #e53935 100%); }
+.z-hero-asds     { background: linear-gradient(135deg, #e65100 0%, #ff8f00 100%); }
+.z-hero-sds      { background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%); }
+.z-hero-it       { background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%); }
+
+.z-hero-content {
+    position: relative;
+    z-index: 1;
+}
+
+.z-hero-greeting {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    line-height: 1.2;
+    margin-bottom: var(--space-1);
+}
+
+.z-hero-context {
+    font-size: var(--text-sm);
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.z-hero-context svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+.z-hero-highlight {
+    position: relative;
+    z-index: 1;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2);
+}
+
+.z-hero-metric {
+    font-size: 3rem;
+    font-weight: var(--font-bold);
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.z-hero-metric-label {
+    font-size: var(--text-sm);
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.z-hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+}
+
+.z-hero-cta:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.z-hero-cta svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Stats row (used under hero) */
+.z-stats-row {
+    display: grid;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.z-stats-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.z-stats-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.z-stats-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+/* ---- Official Document (CS Form No. 6) ---- */
+.official-document {
+    padding: var(--space-6);
+}
+.official-document .doc-header {
+    text-align: center;
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
+    border-bottom: 2px solid var(--color-gray-300);
+}
+.official-document .doc-header img {
+    height: 60px;
+    margin-bottom: var(--space-3);
+}
+.official-document .doc-header p {
+    font-size: 12px;
+    margin: 4px 0;
+    color: var(--color-gray-700);
+}
+.official-document .doc-header h2 {
+    margin-top: var(--space-3);
+    margin-bottom: 0;
+    font-size: var(--text-lg);
+    color: var(--color-gray-900);
+}
+.official-document .doc-info {
+    border: 2px solid #333;
+    padding: var(--space-4);
+    margin-bottom: var(--space-5);
+    background: var(--color-gray-50);
+}
+.official-document .doc-info-grid {
+    display: grid;
+    gap: var(--space-4);
+}
+.official-document .doc-info-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.official-document .doc-info-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.official-document .doc-field {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+}
+.official-document .doc-field-label {
+    font-weight: var(--font-semibold);
+    min-width: 60px;
+    font-size: var(--text-xs);
+    color: var(--color-gray-900);
+}
+.official-document .doc-field-value {
+    font-size: var(--text-xs);
+    flex: 1;
+    border-bottom: 1px solid #333;
+    padding: 0 var(--space-1);
+    color: var(--color-gray-700);
+    min-height: 18px;
+}
+.official-document .doc-table-wrap {
+    overflow-x: auto;
+    margin-bottom: var(--space-4);
+}
+.official-document table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.official-document th {
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: var(--font-semibold);
+    color: var(--color-gray-900);
+    border: 1px solid var(--color-gray-300);
+    background: var(--color-gray-100);
+    font-size: 10px;
+    text-transform: uppercase;
+}
+.official-document td {
+    padding: 8px;
+    border: 1px solid var(--color-gray-300);
+    color: var(--color-gray-600);
+    text-align: right;
+}
+.official-document td:first-child {
+    text-align: left;
+    font-weight: var(--font-medium);
+}
+.official-document tbody tr:hover {
+    background: var(--color-gray-50);
+}
+.official-document .doc-note {
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-warning-light);
+    border: 1px solid #f0e0a0;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    color: #8b4513;
+    font-style: italic;
+}
+.official-document .doc-signature {
+    margin-top: var(--space-6);
+    text-align: center;
+}
+.official-document .doc-signature-line {
+    margin-top: var(--space-8);
+    border-top: 1px solid #333;
+    display: inline-block;
+    padding-top: var(--space-1);
+    min-width: 250px;
+}
+.official-document .doc-as-of {
+    text-align: right;
+    font-size: var(--text-xs);
+    color: var(--color-gray-500);
+    margin-top: var(--space-4);
+    font-style: italic;
+}
+
+/* Edit form (AO portal) */
+.official-document .edit-form {
+    background: var(--color-gray-50);
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    margin-top: var(--space-4);
+    display: none;
+}
+.official-document .edit-form.active { display: block; }
+.official-document .edit-form .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+.official-document .edit-form .form-group { display: flex; flex-direction: column; }
+.official-document .edit-form .form-group label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-gray-900);
+    margin-bottom: var(--space-2);
+}
+.official-document .edit-form .form-group input,
+.official-document .edit-form .form-group select {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    transition: border-color 0.2s;
+}
+.official-document .edit-form .form-group input:focus,
+.official-document .edit-form .form-group select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-50);
+}
+
+/* Print: hide shell chrome */
+@media print {
+    .dashboard-shell .sidebar,
+    .dashboard-shell .sidebar-overlay,
+    .dashboard-shell .topbar,
+    .dashboard-shell .tabs,
+    .official-document .action-buttons,
+    .official-document .leave-entry-actions { display: none !important; }
+    .dashboard-shell .main-content { margin-left: 0 !important; }
+    .official-document { padding: 10px; }
+}
+
 /* ---- Responsive overrides ---- */
 @media (max-width: 768px) {
     .modal-overlay {

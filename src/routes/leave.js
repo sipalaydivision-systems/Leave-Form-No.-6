@@ -31,6 +31,7 @@ const {
 } = require('../utils/helpers');
 const { ADMIN_ROLES } = require('../config/constants');
 
+const HOURS_PER_DAY = 8;
 const soPdfsDir = path.join(dataDir, 'uploads', 'so-pdfs');
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,16 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
         // ===== DATE RANGE VALIDATION: dateTo must be >= dateFrom =====
         if (new Date(applicationData.dateTo) < new Date(applicationData.dateFrom)) {
             return res.status(400).json({ success: false, error: 'Invalid date range', message: 'End date must be on or after start date.' });
+        }
+
+        // ===== PARTIAL-DAY (HOUR-BASED) VALIDATION =====
+        if (applicationData.leaveHours != null) {
+            const hrs = Number(applicationData.leaveHours);
+            if (!Number.isInteger(hrs) || hrs < 1 || hrs > 7) {
+                return res.status(400).json({ success: false, error: 'leaveHours must be an integer between 1 and 7' });
+            }
+            // Server-side recomputation to prevent client-side tampering
+            applicationData.numDays = String((hrs / HOURS_PER_DAY).toFixed(3));
         }
 
         // ===== DUPLICATE SUBMISSION DETECTION =====
@@ -140,6 +151,9 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             studyBar: applicationData.studyBar || false,
             womenIllness: applicationData.womenIllness || '',
             otherLeaveSpecify: applicationData.otherLeaveSpecify || '',
+            leaveHours: applicationData.leaveHours != null ? Number(applicationData.leaveHours) : null,
+            isHalfDay: applicationData.isHalfDay || false,       // deprecated — kept for backward compat
+            halfDayPeriod: applicationData.isHalfDay ? (applicationData.halfDayPeriod || null) : null, // deprecated
             soFileData: null,  // No longer stored inline — saved to disk below
             soFileName: applicationData.soFileName || '',
             soFilePath: null,  // Will be set if SO file was uploaded

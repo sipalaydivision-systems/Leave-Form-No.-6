@@ -5849,7 +5849,7 @@ app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
 app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
     try {
         const recordId = req.params.recordId;
-        const { daysUsed } = req.body;
+        const { daysUsed, fullUpdate, type, soDetails, periodCovered, daysGranted, soImage } = req.body;
 
         ensureFile(ctoRecordsFile);
         let ctoRecords = readJSON(ctoRecordsFile);
@@ -5864,16 +5864,64 @@ app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
-        ctoRecords[index].daysUsed = (ctoRecords[index].daysUsed || 0) + Number(daysUsed);
+        if (fullUpdate) {
+            // Full record replacement (AO edit form)
+            if (type !== undefined) ctoRecords[index].type = type;
+            if (soDetails !== undefined) ctoRecords[index].soDetails = soDetails;
+            if (periodCovered !== undefined) ctoRecords[index].periodCovered = periodCovered;
+            if (daysGranted !== undefined) ctoRecords[index].daysGranted = Number(daysGranted);
+            if (daysUsed !== undefined) ctoRecords[index].daysUsed = Number(daysUsed);
+            if (soImage !== undefined) ctoRecords[index].soImage = soImage;
+            ctoRecords[index].updatedAt = new Date().toISOString();
+        } else {
+            // Legacy additive behavior
+            ctoRecords[index].daysUsed = (ctoRecords[index].daysUsed || 0) + Number(daysUsed);
+        }
+
         writeJSON(ctoRecordsFile, ctoRecords);
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             message: 'CTO record updated successfully',
             record: ctoRecords[index]
         });
     } catch (error) {
         console.error('Error updating CTO record:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/cto-records/:recordId — Remove a CTO record
+app.delete('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
+    try {
+        const recordId = req.params.recordId;
+
+        ensureFile(ctoRecordsFile);
+        let ctoRecords = readJSON(ctoRecordsFile);
+        const index = ctoRecords.findIndex(r => String(r.id) === String(recordId));
+
+        if (index === -1) {
+            return res.status(404).json({ success: false, error: 'Record not found' });
+        }
+
+        if (!isAoAccessAllowed(req, ctoRecords[index].employeeId || ctoRecords[index].email)) {
+            return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
+        }
+
+        const deleted = ctoRecords.splice(index, 1)[0];
+        writeJSON(ctoRecordsFile, ctoRecords);
+
+        logActivity('CTO_RECORD_DELETED', 'ao', {
+            userEmail: req.session?.email || 'unknown',
+            ip: getClientIp(req),
+            recordId,
+            employeeId: deleted.employeeId,
+            soDetails: deleted.soDetails
+        });
+
+        res.json({ success: true, message: 'CTO record deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting CTO record:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

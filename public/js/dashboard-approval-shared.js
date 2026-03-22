@@ -20,6 +20,14 @@ export { ICONS, toast, openModal, closeModal, createDataTable, createBarChart, c
 // ---------------------------------------------------------------------------
 export function toNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 export function fmt(v) { const n = toNum(v); return n % 1 === 0 ? String(n) : n.toFixed(3); }
+export function fmtDays(app) {
+    const d = toNum(app.numDays || app.num_days);
+    if (app.leaveHours != null && app.leaveHours > 0 && app.leaveHours < 8) {
+        return `${fmt(d)} (${app.leaveHours} hr${app.leaveHours > 1 ? 's' : ''})`;
+    }
+    if (app.isHalfDay) return '0.5 (4 hrs)';
+    return fmt(d);
+}
 export function esc(s) { return escapeHtml(s); }
 export function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 
@@ -117,7 +125,7 @@ export function showApprovalModal(app, portal, user, onDone) {
     const appId = app.id;
     const employee = app.employeeName || app.employee_name || '';
     const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
-    const days = fmt(toNum(app.numDays || app.num_days));
+    const days = fmtDays(app);
 
     const content = `
         <div style="margin-bottom:var(--space-4)">
@@ -204,7 +212,7 @@ export function showDetailModal(app) {
                 <div><label class="form-label">Employee</label><div>${esc(app.employeeName || app.employee_name || '')}</div></div>
                 <div><label class="form-label">Leave Type</label><div>${esc(getLeaveTypeLabel(app.leaveType || app.leave_type))}</div></div>
                 <div><label class="form-label">Period</label><div>${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</div></div>
-                <div><label class="form-label">Days</label><div>${fmt(toNum(app.numDays || app.num_days))}</div></div>
+                <div><label class="form-label">Days</label><div>${fmtDays(app)}</div></div>
                 <div><label class="form-label">Office</label><div>${esc(app.office || '')}</div></div>
                 <div><label class="form-label">Filed</label><div>${esc(fmtDate(app.submittedAt || app.created_at))}</div></div>
             </div>

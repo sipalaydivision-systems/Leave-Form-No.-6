@@ -141,12 +141,20 @@ function onTabChange(tabId) {
 // ---------------------------------------------------------------------------
 // Topbar
 // ---------------------------------------------------------------------------
+function getGreeting() {
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
 function setupTopbar() {
     const title = document.getElementById('topbar-title');
-    if (title) {
-        const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'HR';
-        title.textContent = `HR Dashboard — ${firstName}`;
-    }
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'HR';
+    if (title) title.textContent = `HR Dashboard — ${firstName}`;
+
+    // Hero
+    setText('hero-greeting', `${getGreeting()}, ${firstName}`);
+    const dateParts = [user.office, new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })];
+    setText('hero-date', dateParts.filter(Boolean).join(' · '));
 
     document.getElementById('btn-refresh')?.addEventListener('click', refreshAll);
     document.getElementById('btn-view-all-pending')?.addEventListener('click', () => {
@@ -187,6 +195,9 @@ async function loadOverviewData() {
     setText('stat-certified', thisMonthCertified.length);
     setText('stat-returned', returned);
     setText('stat-total', allApps.length);
+
+    // Hero metric
+    setText('hero-metric', pendingApps.length);
 
     tabs.updateBadge('pending', pendingApps.length);
     sidebar.updateBadge('pending', pendingApps.length);

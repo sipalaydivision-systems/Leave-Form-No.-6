@@ -6,6 +6,8 @@
 (function () {
     'use strict';
 
+    const HOURS_PER_DAY = 8;
+
     // ===== Leave Type Definitions (CS Form No. 6 — 14 official + Wellness) =====
     const LEAVE_TYPES = [
         { id: 'leave_vl',       name: 'Vacation Leave',                       legal: 'Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292',                panel: 'location',  balanceKey: 'vl' },
@@ -353,9 +355,24 @@
     function setupDateRange() {
         const dateFrom = document.getElementById('field-date-from');
         const dateTo = document.getElementById('field-date-to');
+        const partialDayCheckbox = document.getElementById('field-partial-day');
+        const hoursInputGroup = document.getElementById('hours-input-group');
+        const hoursInput = document.getElementById('field-leave-hours');
+        const hoursConversion = document.getElementById('hours-to-days');
 
         function updateDays() {
-            if (dateFrom.value && dateTo.value) {
+            const isPartial = partialDayCheckbox && partialDayCheckbox.checked;
+
+            if (isPartial && dateFrom.value) {
+                // Partial day: snap dateTo = dateFrom, compute from hours
+                dateTo.value = dateFrom.value;
+                const hrs = clampHours(parseInt(hoursInput.value, 10) || 4);
+                hoursInput.value = hrs;
+                const fracDays = (hrs / HOURS_PER_DAY).toFixed(3);
+                hoursConversion.textContent = `= ${fracDays} day(s)`;
+                document.getElementById('days-count').textContent = fracDays;
+                document.getElementById('days-computed').style.visibility = 'visible';
+            } else if (dateFrom.value && dateTo.value) {
                 const days = calculateWorkingDays(dateFrom.value, dateTo.value);
                 document.getElementById('days-count').textContent = days;
                 document.getElementById('days-computed').style.visibility = 'visible';
@@ -370,8 +387,32 @@
             document.getElementById('date-error').style.display = 'none';
         }
 
+        function clampHours(h) {
+            return Math.max(1, Math.min(7, isNaN(h) ? 4 : h));
+        }
+
         dateFrom.addEventListener('change', updateDays);
         dateTo.addEventListener('change', updateDays);
+
+        // Partial-day checkbox handler
+        if (partialDayCheckbox) {
+            partialDayCheckbox.addEventListener('change', () => {
+                const checked = partialDayCheckbox.checked;
+                if (hoursInputGroup) hoursInputGroup.style.display = checked ? 'flex' : 'none';
+                if (checked) {
+                    if (dateFrom.value) dateTo.value = dateFrom.value;
+                    dateTo.disabled = true;
+                } else {
+                    dateTo.disabled = false;
+                }
+                updateDays();
+            });
+        }
+
+        // Hours input handler
+        if (hoursInput) {
+            hoursInput.addEventListener('input', updateDays);
+        }
     }
 
     function calculateWorkingDays(fromStr, toStr) {
@@ -388,7 +429,7 @@
     }
 
     function validateForceLeaveDays() {
-        const days = parseInt(document.getElementById('days-count').textContent) || 0;
+        const days = parseFloat(document.getElementById('days-count').textContent) || 0;
         if (selectedLeaveType === 'leave_mfl' && days >= 5) {
             alert('Force Leave cannot be taken for 5 or more consecutive working days.\nMaximum: 4 days per application.');
             return false;
@@ -563,7 +604,17 @@
             return;
         }
 
-        const numDays = calculateWorkingDays(dateFrom, dateTo);
+        const isPartialDay = document.getElementById('field-partial-day')?.checked || false;
+        let leaveHours = null;
+        if (isPartialDay) {
+            leaveHours = parseInt(document.getElementById('field-leave-hours').value, 10);
+            if (!Number.isInteger(leaveHours) || leaveHours < 1 || leaveHours > 7) {
+                alert('Please enter a valid number of hours (1–7).');
+                document.getElementById('field-leave-hours').focus();
+                return;
+            }
+        }
+        const numDays = isPartialDay ? (leaveHours / HOURS_PER_DAY) : calculateWorkingDays(dateFrom, dateTo);
         if (numDays <= 0) {
             alert('Invalid date range. "To" date must be on or after "From" date, and must include at least 1 working day.');
             return;
@@ -680,7 +731,11 @@
             // Others
             otherLeaveSpecify: document.getElementById('field-other-specify').value || '',
             soFileData: null,
-            soFileName: ''
+            soFileName: '',
+            // Partial-day (hour-based)
+            leaveHours: leaveHours,
+            isHalfDay: leaveHours === 4,       // backward compat
+            halfDayPeriod: null                 // deprecated
         };
 
         // Read SO PDF as base64 if uploaded

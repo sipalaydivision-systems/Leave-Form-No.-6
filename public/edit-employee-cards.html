@@ -2,16 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Edit Employee Cards - AO Portal</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1e3c72">
+    <title>Edit Employee Cards — AO Portal</title>
+
+    <link rel="stylesheet" href="/css/design-tokens.css">
+    <link rel="stylesheet" href="/css/dashboard-layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/charts.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icons/icon-192.png" type="image/png">
+
     <script>
-    // Force clear service worker cache for this page to prevent stale code
     if ('caches' in window) { caches.keys().then(function(k) { k.forEach(function(n) { caches.delete(n); }); }); }
-    // Auto-reload if browser is serving a stale cached version
-    var PAGE_VERSION = '2026.03.09.3';
+    var PAGE_VERSION = '2026.03.22.2';
     fetch('/api/version').then(function(r){return r.json()}).then(function(d){
         if(d.version && d.version !== PAGE_VERSION && !sessionStorage.getItem('_reloaded_'+PAGE_VERSION)){
             sessionStorage.setItem('_reloaded_'+PAGE_VERSION,'1');
@@ -19,610 +32,388 @@
         }
     }).catch(function(){});
     </script>
+</head>
+<body>
+    <div class="dashboard-shell">
+        <aside id="sidebar"></aside>
+        <div class="sidebar-overlay"></div>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="topbar-hamburger" id="hamburger-btn" aria-label="Menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <h1 class="topbar-title" id="topbar-title">Edit Employee Cards</h1>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-outline btn-sm" id="btn-back" title="Back to AO Dashboard">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        Dashboard
+                    </button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <!-- Employee summary bar -->
+                <div class="card" style="margin-bottom:var(--space-4)">
+                    <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-3)">
+                        <div>
+                            <h2 id="empName" style="font-size:var(--text-lg);font-weight:var(--font-semibold);color:var(--color-gray-900)">Loading...</h2>
+                            <p id="empDetails" style="font-size:var(--text-sm);color:var(--color-gray-500)">Loading employee details...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="page-tabs"></div>
+
+                <!-- Leave Card Tab -->
+                <div data-tab-panel="leavecard">
+                    <div class="card">
+                        <div class="section-header">
+                            <div class="section-header-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                            </div>
+                            <div class="section-header-text">
+                                <div class="section-header-title">Service Leave Card</div>
+                                <div class="section-header-subtitle">Leave credits and transaction history</div>
+                            </div>
+                            <div class="section-header-actions">
+                                <button class="btn btn-primary btn-sm" onclick="printLeaveCard()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                    Print
+                                </button>
+                                <button class="btn btn-outline btn-sm" id="downloadLeaveCardBtn" onclick="downloadLeaveCardPdf()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    PDF
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="official-document">
+                                <div class="doc-header">
+                                    <img src="/sipalay_logo.png" alt="DepEd Logo">
+                                    <p>Republic of the Philippines</p>
+                                    <p><strong>Department of Education</strong></p>
+                                    <p style="font-size:11px">REGION VI-WESTERN VISAYAS</p>
+                                    <p><strong>SCHOOLS DIVISION OF SIPALAY CITY</strong></p>
+                                    <h2>SERVICE LEAVE CARD</h2>
+                                </div>
+
+                                <div class="doc-info">
+                                    <div class="doc-info-grid cols-3" style="margin-bottom:var(--space-3)">
+                                        <div class="doc-field">
+                                            <span class="doc-field-label">Name:</span>
+                                            <span class="doc-field-value" id="leaveEmpName">-</span>
+                                        </div>
+                                        <div class="doc-field">
+                                            <span class="doc-field-label" style="min-width:80px">DISTRICT:</span>
+                                            <span class="doc-field-value" id="leaveEmpDistrict">-</span>
+                                        </div>
+                                        <div class="doc-field">
+                                            <span class="doc-field-label" style="min-width:70px">EMP. NO :</span>
+                                            <span class="doc-field-value" id="leaveEmpNo">-</span>
+                                        </div>
+                                    </div>
+                                    <div class="doc-info-grid cols-2">
+                                        <div class="doc-field">
+                                            <span class="doc-field-label">POSITION:</span>
+                                            <span class="doc-field-value" id="leaveEmpPosition">-</span>
+                                        </div>
+                                        <div class="doc-field">
+                                            <span class="doc-field-label" style="min-width:90px">STATION :</span>
+                                            <span class="doc-field-value" id="leaveEmpStation">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h3 style="margin-bottom:var(--space-4);color:var(--color-gray-900);font-size:var(--text-md)">Leave Card History</h3>
+
+                                <div class="doc-table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th rowspan="2">PERIOD COVERED</th>
+                                                <th colspan="2">LEAVE EARNED</th>
+                                                <th colspan="5">LEAVE SPENT</th>
+                                                <th colspan="2">BALANCE</th>
+                                                <th rowspan="2">TOTAL</th>
+                                            </tr>
+                                            <tr>
+                                                <th>VACATION</th>
+                                                <th>SICK</th>
+                                                <th>VACATION</th>
+                                                <th>SICK</th>
+                                                <th>FORCED</th>
+                                                <th>SPECIAL PRIVILEGE LEAVE</th>
+                                                <th>WELLNESS</th>
+                                                <th>VACATION</th>
+                                                <th>SICK</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="leaveHistoryBody">
+                                            <tr>
+                                                <td colspan="11" style="text-align:center;padding:40px;color:var(--color-gray-400)">
+                                                    Loading leave card data...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div style="margin-top:var(--space-5);display:flex;gap:var(--space-3);flex-wrap:wrap">
+                                    <button class="btn btn-success btn-sm" id="addLeaveRowBtn" onclick="addEditableLeaveRow()">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        Add Leave Entry
+                                    </button>
+                                </div>
+
+                                <div class="doc-as-of">As of: <span id="currentDate"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CTO Card Tab -->
+                <div data-tab-panel="ctocard" style="display:none">
+                    <div class="card">
+                        <div class="section-header">
+                            <div class="section-header-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            </div>
+                            <div class="section-header-text">
+                                <div class="section-header-title">CTO Card</div>
+                                <div class="section-header-subtitle">Compensatory Time-Off records</div>
+                            </div>
+                            <div class="section-header-actions">
+                                <button class="btn btn-primary btn-sm" onclick="printCTOCard()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                    Print
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="official-document">
+                                <div class="doc-header">
+                                    <img src="/sipalay_logo.png" alt="DepEd Logo">
+                                    <p>Republic of the Philippines</p>
+                                    <p><strong>Department of Education</strong></p>
+                                    <p style="font-size:11px">REGION VI-WESTERN VISAYAS</p>
+                                    <p><strong>SCHOOLS DIVISION OF SIPALAY CITY</strong></p>
+                                    <h2>COMPENSATORY TIME-OFF (CTO) CARD</h2>
+                                </div>
+
+                                <div class="doc-info">
+                                    <div class="doc-info-grid cols-3" style="margin-bottom:var(--space-3)">
+                                        <div class="doc-field">
+                                            <span class="doc-field-label">Name:</span>
+                                            <span class="doc-field-value" id="ctoEmpName">-</span>
+                                        </div>
+                                        <div class="doc-field">
+                                            <span class="doc-field-label" style="min-width:80px">EMP. NO :</span>
+                                            <span class="doc-field-value" id="ctoEmpNo">-</span>
+                                        </div>
+                                        <div class="doc-field">
+                                            <span class="doc-field-label">Position:</span>
+                                            <span class="doc-field-value" id="ctoEmpPosition">-</span>
+                                        </div>
+                                    </div>
+                                    <div class="doc-info-grid cols-2">
+                                        <div class="doc-field">
+                                            <span class="doc-field-label" style="min-width:90px">School/Office:</span>
+                                            <span class="doc-field-value" id="ctoEmpOffice">-</span>
+                                        </div>
+                                        <div class="doc-field">
+                                            <span class="doc-field-label">Station:</span>
+                                            <span class="doc-field-value" id="ctoEmpStation">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h3 style="margin-bottom:var(--space-4);color:var(--color-gray-900);font-size:var(--text-md)">CTO Records</h3>
+
+                                <div class="doc-table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>PERIOD COVERED</th>
+                                                <th>Special Order No. and Date Issued</th>
+                                                <th>No. of Days Granted</th>
+                                                <th>No. of Days Used</th>
+                                                <th>Balance</th>
+                                                <th style="width:60px">View</th>
+                                                <th class="cto-entry-actions" style="width:80px">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ctoHistoryBody">
+                                            <tr>
+                                                <td colspan="6" style="text-align:center;padding:40px;color:var(--color-gray-400)">
+                                                    Loading CTO records...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="doc-note">
+                                    <strong>NOTE:</strong> Valid for one (1) year only
+                                </div>
+
+                                <div class="doc-signature">
+                                    <p style="font-size:11px;color:var(--color-gray-900);margin-bottom:var(--space-1)">Certified Correct:</p>
+                                    <div class="doc-signature-line">
+                                        <p style="font-size:12px;font-weight:600;margin:0">MA. LUISA B. CATIGAN</p>
+                                        <p style="font-size:10px;color:var(--color-gray-600);margin:0">Administrative Officer IV, HRMO</p>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top:var(--space-5);display:flex;gap:var(--space-3);flex-wrap:wrap">
+                                    <button class="btn btn-success btn-sm" onclick="toggleEditForm('cto')">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        Add CTO Record
+                                    </button>
+                                </div>
+
+                                <!-- CTO Edit Form -->
+                                <div class="edit-form" id="ctoEditForm">
+                                    <h3 style="margin-bottom:var(--space-4);color:var(--color-gray-900);font-size:var(--text-md)">Add/Edit CTO Record</h3>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Type</label>
+                                            <select id="edit_cto_type">
+                                                <option value="ADD">ADD (Earned)</option>
+                                                <option value="LESS">LESS (Used)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Period Covered</label>
+                                            <input type="text" id="edit_cto_period" placeholder="e.g., JULY 13, 2022">
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:var(--space-4)">
+                                        <label>Special Order No. and Date Issued</label>
+                                        <input type="text" id="edit_cto_so_details" placeholder="e.g., S.O. # 052, S. 2022. 124TH PHILIPPINE INDEPENDENCE DAY CELEBRATION">
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>No. of Days Granted</label>
+                                            <input type="number" id="edit_cto_granted" step="0.5" placeholder="Enter days granted">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>No. of Days Used</label>
+                                            <input type="number" id="edit_cto_used" step="0.5" placeholder="Enter days used">
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:var(--space-4)">
+                                        <label>Upload Special Order Image (optional)</label>
+                                        <div style="display:flex;align-items:center;gap:var(--space-3)">
+                                            <input type="file" id="edit_cto_so_image" accept="image/*" onchange="previewCTOSOImage(this)" style="font-size:12px">
+                                            <span id="ctoSOImageName" style="font-size:11px;color:var(--color-gray-500)"></span>
+                                            <button type="button" id="ctoSORemoveBtn" class="btn btn-sm" style="display:none;background:var(--color-red-50);border:1px solid var(--color-red-200);color:var(--color-red-600)" onclick="removeCTOSOImage()">Remove</button>
+                                        </div>
+                                        <img id="ctoSOImagePreview" style="display:none;margin-top:var(--space-2);max-width:200px;max-height:120px;border:1px solid var(--color-gray-200);border-radius:var(--radius-md)">
+                                    </div>
+                                    <div style="display:flex;gap:var(--space-3)">
+                                        <button class="btn btn-success btn-sm" onclick="saveCTORecord()">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                            Save CTO Record
+                                        </button>
+                                        <button class="btn btn-outline btn-sm" onclick="resetCTOForm(); toggleEditForm('cto')">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
     <script src="/libs/html2canvas.min.js"></script>
     <script src="/libs/jspdf.umd.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
-        }
+    <script src="/components/sidebar.js" type="module"></script>
+    <script src="/components/tabs.js" type="module"></script>
 
-        body {
-            background: linear-gradient(135deg, #e8f4f8 0%, #d0e8f0 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+    <script type="module">
+        import { initSidebar, ICONS } from '/components/sidebar.js';
+        import { createTabs } from '/components/tabs.js';
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        let sidebar = null;
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 25px 30px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-
-        .back-btn {
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            border: 1px solid rgba(255,255,255,0.3);
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .back-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .employee-info {
-            background: white;
-            padding: 20px 25px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .employee-info h2 {
-            color: #333;
-            font-size: 20px;
-        }
-
-        .employee-info p {
-            color: #666;
-            font-size: 13px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 25px;
-            background: white;
-            padding: 8px;
-            border-radius: 10px;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
-        }
-
-        .tab-btn {
-            padding: 12px 25px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            color: #666;
-            border-radius: 8px;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .tab-btn:hover {
-            background: #f0f0f0;
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .card-section {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
-            margin-bottom: 25px;
-        }
-
-        .card-header {
-            text-align: center;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .card-header img {
-            width: 70px;
-            height: 70px;
-            margin-bottom: 10px;
-        }
-
-        .card-header h2 {
-            color: #333;
-            font-size: 22px;
-            margin-bottom: 5px;
-        }
-
-        .card-header p {
-            color: #666;
-            font-size: 12px;
-            margin: 3px 0;
-        }
-
-        .employee-details {
-            border: 2px solid #333;
-            padding: 20px;
-            margin-bottom: 25px;
-        }
-
-        .details-row {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 15px;
-        }
-
-        .details-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .detail-item label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #333;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .detail-item .value {
-            border-bottom: 1px solid #000;
-            padding: 5px 0;
-            font-size: 13px;
-            color: #666;
-            min-height: 25px;
-        }
-
-        .history-section h3 {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .history-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-
-        .history-table thead {
-            background: #f5f5f5;
-        }
-
-        .history-table th {
-            padding: 12px 10px;
-            text-align: center;
-            font-weight: 600;
-            color: #333;
-            border: 1px solid #ddd;
-        }
-
-        .history-table td {
-            padding: 10px;
-            text-align: center;
-            border: 1px solid #ddd;
-            color: #666;
-        }
-
-        .history-table .balance {
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-        }
-
-        .btn-success {
-            background: #4caf50;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #43a047;
-        }
-
-        .btn-secondary {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .btn-secondary:hover {
-            background: #d0d0d0;
-        }
-
-        .edit-form {
-            background: #f9f9f9;
-            padding: 25px;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .edit-form.active {
-            display: block;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .form-group input {
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .footer {
-            text-align: right;
-            color: #999;
-            font-size: 12px;
-            padding: 15px 0;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-
-        @media (max-width: 768px) {
-            .details-row {
-                grid-template-columns: 1fr;
+        window.addEventListener('load', async () => {
+            // Auth check — AO session
+            const aoUser = sessionStorage.getItem('user');
+            if (!aoUser) { window.location.href = '/ao-login.html'; return; }
+            let parsed;
+            try { parsed = JSON.parse(aoUser); } catch(e) {
+                sessionStorage.removeItem('user');
+                window.location.href = '/ao-login.html';
+                return;
             }
-            .form-row {
-                grid-template-columns: 1fr;
+            try {
+                const meResp = await fetch('/api/me');
+                if (!meResp.ok) { sessionStorage.removeItem('user'); window.location.href = '/ao-login.html'; return; }
+            } catch(e) { /* Network error */ }
+
+            // Sidebar — AO role
+            sidebar = initSidebar({
+                el: '#sidebar',
+                profile: { name: parsed.name || parsed.fullName || 'Admin Officer', role: 'Administrative Officer' },
+                roleColor: '#1e3c72',
+                activeId: 'employee-cards',
+                sections: [{
+                    title: 'AO Dashboard',
+                    links: [
+                        { id: 'overview', label: 'Overview', icon: ICONS.home, href: '/ao-dashboard' },
+                        { id: 'employee-cards', label: 'Employee Cards', icon: ICONS.creditCard },
+                    ],
+                }],
+                footerLinks: [
+                    { id: 'logout', label: 'Logout', icon: ICONS.logout },
+                ],
+                onNavigate: (id) => {
+                    if (id === 'logout') { window.logout && window.logout(); return; }
+                },
+            });
+
+            document.getElementById('hamburger-btn')?.addEventListener('click', () => sidebar.toggleMobile());
+            document.querySelector('.sidebar-overlay')?.addEventListener('click', () => sidebar.toggleMobile(false));
+
+            // Topbar
+            const empNameFromUrl = new URLSearchParams(window.location.search).get('name') || '';
+            document.getElementById('topbar-title').textContent = empNameFromUrl ? `Edit Cards — ${empNameFromUrl}` : 'Edit Employee Cards';
+            document.getElementById('btn-back')?.addEventListener('click', () => { window.location.href = '/ao-dashboard'; });
+
+            // Tabs
+            createTabs({
+                el: '#page-tabs',
+                tabs: [
+                    { id: 'leavecard', label: 'Leave Card' },
+                    { id: 'ctocard', label: 'CTO Card' },
+                ],
+                activeTab: 'leavecard',
+            });
+
+            // Set current date
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
+
+            // Load data
+            if (window._employeeEmail) {
+                loadEmployeeData();
+                loadLeaveCardData();
+                loadCTOCardData();
+            } else {
+                document.getElementById('empName').textContent = 'No employee selected';
+                document.getElementById('empDetails').textContent = 'Please go back and select an employee.';
             }
-            .header {
-                flex-direction: column;
-                text-align: center;
-                gap: 15px;
-            }
-        }
-    </style>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#003366">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Leave Portal">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <link rel="stylesheet" href="/css/mobile.css">
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <h1>📋 Edit Employee Cards</h1>
-                <p>Manage Leave Card and CTO Card</p>
-            </div>
-            <a href="/ao-dashboard.html" class="back-btn">← Return to Dashboard</a>
-        </div>
-
-        <div class="employee-info" id="employeeInfo">
-            <div>
-                <h2 id="empName">Loading...</h2>
-                <p id="empDetails">Loading employee details...</p>
-            </div>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('leave', event)">📋 Leave Card</button>
-            <button class="tab-btn" onclick="switchTab('cto', event)">📑 CTO Card</button>
-        </div>
-
-        <!-- Leave Card Tab -->
-        <div id="leaveTab" class="tab-content active">
-            <div class="card-section">
-                <div class="card-header">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Seal_of_the_Department_of_Education_of_the_Philippines.png/1200px-Seal_of_the_Department_of_Education_of_the_Philippines.png" alt="DepEd Logo">
-                    <p style="color: #667eea;">Republic of the Philippines</p>
-                    <p style="font-weight: 600;">Department of Education</p>
-                    <p style="color: #667eea; font-size: 11px;">REGION VI-WESTERN VISAYAS</p>
-                    <p style="font-weight: 600; font-size: 13px;">SCHOOLS DIVISION OF SIPALAY CITY</p>
-                    <h2 style="margin-top: 20px;">SERVICE LEAVE CARD</h2>
-                </div>
-
-                <div class="employee-details">
-                    <div class="details-row">
-                        <div class="detail-item">
-                            <label>Name:</label>
-                            <div class="value" id="leaveEmpName">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>DISTRICT:</label>
-                            <div class="value" id="leaveEmpDistrict">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>EMP. NO.:</label>
-                            <div class="value" id="leaveEmpNo">-</div>
-                        </div>
-                    </div>
-                    <div class="details-row" style="grid-template-columns: 1.5fr 1fr;">
-                        <div class="detail-item">
-                            <label>POSITION:</label>
-                            <div class="value" id="leaveEmpPosition">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>STATION:</label>
-                            <div class="value" id="leaveEmpStation">-</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="history-section">
-                    <h3>Leave Card History</h3>
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th rowspan="2">PERIOD COVERED</th>
-                                <th colspan="2">LEAVE EARNED</th>
-                                <th colspan="4">LEAVE SPENT</th>
-                                <th colspan="2">BALANCE</th>
-                                <th rowspan="2">TOTAL</th>
-                            </tr>
-                            <tr>
-                                <th>VACATION</th>
-                                <th>SICK</th>
-                                <th>VACATION</th>
-                                <th>SICK</th>
-                                <th>FORCE</th>
-                                <th>SPECIAL</th>
-                                <th>VACATION</th>
-                                <th>SICK</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaveHistoryBody">
-                            <tr>
-                                <td colspan="10" class="loading">Loading leave card data...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="printLeaveCard()">🖨️ Print Leave Card</button>
-                    <button class="btn btn-success" id="addLeaveRowBtn" onclick="addEditableLeaveRow()">➕ Add Leave Entry</button>
-                    <button class="btn btn-primary" id="downloadLeaveCardBtn" onclick="downloadLeaveCardPdf()">⬇️ Download PDF</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- CTO Card Tab -->
-        <div id="ctoTab" class="tab-content">
-            <div class="card-section">
-                <div class="card-header">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Seal_of_the_Department_of_Education_of_the_Philippines.png/1200px-Seal_of_the_Department_of_Education_of_the_Philippines.png" alt="DepEd Logo">
-                    <p style="color: #667eea;">Republic of the Philippines</p>
-                    <p style="font-weight: 600;">Department of Education</p>
-                    <p style="color: #667eea; font-size: 11px;">REGION VI-WESTERN VISAYAS</p>
-                    <p style="font-weight: 600; font-size: 13px;">SCHOOLS DIVISION OF SIPALAY CITY</p>
-                    <h2 style="margin-top: 20px;">COMPENSATORY TIME-OFF (CTO) CARD</h2>
-                </div>
-
-                <div class="employee-details">
-                    <div class="details-row">
-                        <div class="detail-item">
-                            <label>Name:</label>
-                            <div class="value" id="ctoEmpName">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>EMP. NO.:</label>
-                            <div class="value" id="ctoEmpNo">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>Position:</label>
-                            <div class="value" id="ctoEmpPosition">-</div>
-                        </div>
-                    </div>
-                    <div class="details-row" style="grid-template-columns: 1.5fr 1fr;">
-                        <div class="detail-item">
-                            <label>School/Office:</label>
-                            <div class="value" id="ctoEmpOffice">-</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>Station:</label>
-                            <div class="value" id="ctoEmpStation">-</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="history-section">
-                    <h3>CTO Records</h3>
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th style="background: #f8e1e1; color: #8b4513;">PERIOD COVERED</th>
-                                <th style="background: #e1e8f8; color: #333;">Special Order No. and Date Issued</th>
-                                <th style="background: #f8f0e1; color: #333;">No. of Days Granted</th>
-                                <th style="background: #e8e1f8; color: #333;">No. of Days Used</th>
-                                <th style="background: #e1f0f8; color: #333;">Balance</th>
-                                <th style="background: #e1f8e8; color: #333; width: 60px;">View</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ctoHistoryBody">
-                            <tr>
-                                <td colspan="6" class="loading">Loading CTO card data...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div style="margin-top: 15px; padding: 10px; background: #fff8e1; border: 1px solid #f0e0a0; border-radius: 5px;">
-                    <p style="font-size: 11px; color: #8b4513; font-style: italic; margin: 0;"><strong>NOTE:</strong> Valid for one (1) year only</p>
-                </div>
-
-                <div style="margin-top: 25px; text-align: center;">
-                    <p style="font-size: 11px; color: #333; margin-bottom: 5px;">Certified Correct:</p>
-                    <div style="margin-top: 30px; border-top: 1px solid #333; display: inline-block; padding-top: 5px; min-width: 250px;">
-                        <p style="font-size: 12px; font-weight: 600; margin: 0;">MA. LUISA B. CATIGAN</p>
-                        <p style="font-size: 10px; color: #666; margin: 0;">Administrative Officer IV, HRMO</p>
-                    </div>
-                </div>
-
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="printCTOCard()">🖨️ Print CTO Card</button>
-                    <button class="btn btn-success" onclick="toggleEditForm('cto')">➕ Add CTO Record</button>
-                </div>
-
-                <div class="edit-form" id="ctoEditForm">
-                    <h3 style="margin-bottom: 20px; color: #333;">Add/Edit CTO Record</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Type</label>
-                            <select id="edit_cto_type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
-                                <option value="ADD">ADD (Earned)</option>
-                                <option value="LESS">LESS (Used)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Period Covered</label>
-                            <input type="text" id="edit_cto_period" placeholder="e.g., JULY 13, 2022">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label>Special Order No. and Date Issued</label>
-                            <input type="text" id="edit_cto_so_details" placeholder="e.g., S.O. # 052, S. 2022. 124TH PHILIPPINE INDEPENDENCE DAY CELEBRATION">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>No. of Days Granted</label>
-                            <input type="number" id="edit_cto_granted" step="0.5" placeholder="Enter days granted">
-                        </div>
-                        <div class="form-group">
-                            <label>No. of Days Used</label>
-                            <input type="number" id="edit_cto_used" step="0.5" placeholder="Enter days used">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label>📎 Upload Special Order Image (optional)</label>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="file" id="edit_cto_so_image" accept="image/*" onchange="previewCTOSOImage(this)" style="font-size: 12px;">
-                                <span id="ctoSOImageName" style="font-size: 11px; color: #666;"></span>
-                                <button type="button" id="ctoSORemoveBtn" style="display: none; background: #fee; border: 1px solid #c99; border-radius: 4px; padding: 4px 10px; font-size: 11px; color: #c33; cursor: pointer;" onclick="removeCTOSOImage()">✕ Remove</button>
-                            </div>
-                            <img id="ctoSOImagePreview" style="display: none; margin-top: 8px; max-width: 200px; max-height: 120px; border: 1px solid #ddd; border-radius: 5px;">
-                        </div>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="btn btn-success" onclick="saveCTORecord()">💾 Save CTO Record</button>
-                        <button class="btn btn-secondary" onclick="toggleEditForm('cto')">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="footer">
-            As of: <span id="currentDate"></span>
-        </div>
-    </div>
+        });
+    </script>
 
     <script>
-        // Cookie-based auth — no manual token/header management needed
+        // ========== Global state & URL params ==========
         function authHeaders() {
             return { 'Content-Type': 'application/json' };
         }
@@ -632,71 +423,19 @@
         let currentLeaveTransactions = [];
         let currentEditingTransactionId = null;
 
-        // Get employee email from URL params
         const urlParams = new URLSearchParams(window.location.search);
         employeeEmail = urlParams.get('email') || '';
         const employeeName = urlParams.get('name') || '';
         const employeeNo = urlParams.get('empNo') || '';
+        window._employeeEmail = employeeEmail;
 
-        // Set current date
-        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
-
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Validate AO session before loading data
-            const aoUser = sessionStorage.getItem('user');
-            if (!aoUser) {
-                window.location.href = '/ao-login.html';
-                return;
-            }
-            try { JSON.parse(aoUser); } catch(e) {
-                sessionStorage.removeItem('user');
-                window.location.href = '/ao-login.html';
-                return;
-            }
-            
-            // Validate session server-side (cookie-based auth)
-            try {
-                const meResp = await fetch('/api/me');
-                if (!meResp.ok) {
-                    sessionStorage.removeItem('user');
-                    window.location.href = '/ao-login.html';
-                    return;
-                }
-            } catch(e) { /* Network error — API calls will catch 401 */ }
-            
-            if (!employeeEmail) {
-                document.getElementById('empName').textContent = 'No employee selected';
-                document.getElementById('empDetails').textContent = 'Please go back and select an employee.';
-                return;
-            }
-            loadEmployeeData();
-            loadLeaveCardData();
-            loadCTOCardData();
-        });
-
-        function switchTab(tab, evt) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            if (evt && evt.target) evt.target.classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.getElementById(tab + 'Tab').classList.add('active');
-        }
-
-        function toggleEditForm(type) {
-            const form = document.getElementById(type + 'EditForm');
-            form.classList.toggle('active');
-        }
-
+        // ========== Employee Data ==========
         async function loadEmployeeData() {
             try {
                 const response = await fetch('/api/all-employees', { headers: authHeaders() });
                 const result = await response.json();
-                
+
                 if (result.success && result.employees) {
-                    // Try matching by email first, then by name, then by employee number
                     employeeData = result.employees.find(e => e.email && e.email === employeeEmail)
                         || result.employees.find(e => (e.name || '').toUpperCase() === employeeEmail.toUpperCase())
                         || (employeeName ? result.employees.find(e => (e.name || '').toUpperCase() === employeeName.toUpperCase()) : null)
@@ -710,14 +449,12 @@
                         document.getElementById('empName').textContent = name;
                         document.getElementById('empDetails').textContent = `${position} | ${office} | ${employeeEmail}`;
 
-                        // Update leave card employee details
                         document.getElementById('leaveEmpName').textContent = name;
                         document.getElementById('leaveEmpDistrict').textContent = office;
                         document.getElementById('leaveEmpNo').textContent = empNo;
                         document.getElementById('leaveEmpPosition').textContent = position;
                         document.getElementById('leaveEmpStation').textContent = '-';
 
-                        // Update CTO card employee details
                         document.getElementById('ctoEmpName').textContent = name;
                         document.getElementById('ctoEmpNo').textContent = empNo;
                         document.getElementById('ctoEmpPosition').textContent = position;
@@ -730,6 +467,7 @@
             }
         }
 
+        // ========== Leave Card ==========
         async function loadLeaveCardData() {
             try {
                 const response = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(employeeEmail)}`, { headers: authHeaders() });
@@ -743,12 +481,10 @@
                     currentLeaveTransactions = Array.isArray(credits.transactions)
                         ? credits.transactions.map((txn, idx) => ({ ...txn, id: txn.id || (`tx-${idx}-${Date.now()}`) }))
                         : [];
-                    
-                    // Get earned values
+
                     const vlEarned = parseFloat(credits.vacationLeaveEarned) || parseFloat(credits.vl) || 0;
                     const slEarned = parseFloat(credits.sickLeaveEarned) || parseFloat(credits.sl) || 0;
-                    
-                    // Track running balance - if transactions exist, they carry their own running balance
+
                     const hasTransactions = credits.transactions && credits.transactions.length > 0;
                     let vlBalance = hasTransactions ? 0 : vlEarned;
                     let slBalance = hasTransactions ? 0 : slEarned;
@@ -756,8 +492,7 @@
                     let slTotalSpent = 0;
 
                     let html = '';
-                    
-                    // Render Excel-migrated transactions first (historical data from Excel leave cards)
+
                     if (hasTransactions) {
                         credits.transactions.forEach(txn => {
                             const periodCovered = txn.periodCovered || '-';
@@ -768,18 +503,19 @@
                             const isAdd = !isLess;
                             const hasPrefix = /^(ADD|LESS)\s*:/i.test(periodCovered);
                             const periodDisplay = hasPrefix ? periodCovered : `${txType}: ${periodCovered}`;
-                            
+
                             const tVlEarned = parseFloat(txn.vlEarned) || 0;
                             const tSlEarned = parseFloat(txn.slEarned) || 0;
                             const tVlSpent = parseFloat(txn.vlSpent) || 0;
                             const tSlSpent = parseFloat(txn.slSpent) || 0;
                             const tForcedLeave = parseFloat(txn.forcedLeave) || 0;
                             const tSplUsed = parseFloat(txn.splUsed) || 0;
+                            const tWellnessUsed = parseFloat(txn.wellnessUsed) || 0;
                             const pvpDeductionDays = parseFloat(txn.pvpDeductionDays) || 0;
                             const tVlBalance = parseFloat(txn.vlBalance) || 0;
                             const tSlBalance = parseFloat(txn.slBalance) || 0;
                             const tTotal = parseFloat(txn.total) || 0;
-                            
+
                             html += `
                                 <tr>
                                     <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
@@ -793,49 +529,43 @@
                                     <td style="color: ${isLess && tSlSpent > 0 ? '#d32f2f' : '#999'};">${isLess && tSlSpent > 0 ? tSlSpent.toFixed(3) : '-'}</td>
                                     <td style="color: ${isLess && tForcedLeave > 0 ? '#d32f2f' : '#999'};">${isLess && tForcedLeave > 0 ? tForcedLeave.toFixed(3) : '-'}</td>
                                     <td style="color: ${isLess && tSplUsed > 0 ? '#d32f2f' : '#999'};">${isLess && tSplUsed > 0 ? tSplUsed.toFixed(3) : '-'}</td>
-                                    <td class="balance">${tVlBalance.toFixed(3)}</td>
-                                    <td class="balance">${tSlBalance.toFixed(3)}</td>
-                                    <td class="balance">${tTotal.toFixed(3)}</td>
-                                </tr>
-                            `;
+                                    <td style="color: ${isLess && tWellnessUsed > 0 ? '#d32f2f' : '#999'};">${isLess && tWellnessUsed > 0 ? tWellnessUsed.toFixed(3) : '-'}</td>
+                                    <td style="color:var(--color-primary-600); font-weight:600;">${tVlBalance.toFixed(3)}</td>
+                                    <td style="color:var(--color-primary-600); font-weight:600;">${tSlBalance.toFixed(3)}</td>
+                                    <td style="color:var(--color-primary-600); font-weight:600;">${tTotal.toFixed(3)}</td>
+                                </tr>`;
                         });
-                        
-                        // Use the last transaction's balance as the starting point
+
                         const lastTxn = credits.transactions[credits.transactions.length - 1];
                         vlBalance = parseFloat(lastTxn.vlBalance) || 0;
                         slBalance = parseFloat(lastTxn.slBalance) || 0;
                     }
-                    
-                    // Then add system leave usage history (from approved leave applications)
+
                     if (credits.leaveUsageHistory && credits.leaveUsageHistory.length > 0) {
                         credits.leaveUsageHistory.forEach(usage => {
                             const periodFrom = usage.periodFrom ? new Date(usage.periodFrom).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '-';
                             const periodTo = usage.periodTo ? new Date(usage.periodTo).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : '';
                             const periodDisplay = periodTo && periodTo !== periodFrom ? `LESS: ${periodFrom} - ${periodTo}` : `LESS: ${periodFrom}`;
-                            
+
                             const daysUsed = parseFloat(usage.daysUsed) || 0;
                             const leaveType = (usage.leaveType || '').toLowerCase();
-                            
-                            let vlSpent = 0, slSpent = 0, forceSpent = 0, specialSpent = 0;
-                            
+
+                            let vlSpent = 0, slSpent = 0, forceSpent = 0, specialSpent = 0, wellnessSpent = 0;
+
                             if (leaveType.includes('vacation') || leaveType.includes('vl')) {
-                                vlSpent = daysUsed;
-                                vlBalance -= daysUsed;
-                                vlTotalSpent += daysUsed;
+                                vlSpent = daysUsed; vlBalance -= daysUsed; vlTotalSpent += daysUsed;
                             } else if (leaveType.includes('sick') || leaveType.includes('sl')) {
-                                slSpent = daysUsed;
-                                slBalance -= daysUsed;
-                                slTotalSpent += daysUsed;
+                                slSpent = daysUsed; slBalance -= daysUsed; slTotalSpent += daysUsed;
                             } else if (leaveType.includes('force') || leaveType.includes('mandatory')) {
                                 forceSpent = daysUsed;
+                            } else if (leaveType.includes('wellness') || leaveType === 'leave_wl') {
+                                wellnessSpent = daysUsed;
                             } else if (leaveType.includes('special')) {
                                 specialSpent = daysUsed;
                             } else {
-                                vlSpent = daysUsed;
-                                vlBalance -= daysUsed;
-                                vlTotalSpent += daysUsed;
+                                vlSpent = daysUsed; vlBalance -= daysUsed; vlTotalSpent += daysUsed;
                             }
-                            
+
                             html += `
                                 <tr style="background: #fff8e1;">
                                     <td style="color: #c62828; font-weight: 600;">
@@ -848,55 +578,59 @@
                                     <td style="color: ${slSpent > 0 ? '#d32f2f' : '#999'};">${slSpent > 0 ? slSpent.toFixed(3) : '-'}</td>
                                     <td style="color: ${forceSpent > 0 ? '#d32f2f' : '#999'};">${forceSpent > 0 ? forceSpent.toFixed(3) : '-'}</td>
                                     <td style="color: ${specialSpent > 0 ? '#d32f2f' : '#999'};">${specialSpent > 0 ? specialSpent.toFixed(3) : '-'}</td>
-                                    <td class="balance">${vlBalance.toFixed(3)}</td>
-                                    <td class="balance">${slBalance.toFixed(3)}</td>
-                                    <td class="balance">${(vlBalance + slBalance).toFixed(3)}</td>
+                                    <td style="color: ${wellnessSpent > 0 ? '#d32f2f' : '#999'};">${wellnessSpent > 0 ? wellnessSpent.toFixed(3) : '-'}</td>
+                                    <td style="color:var(--color-primary-600); font-weight:600;">${vlBalance.toFixed(3)}</td>
+                                    <td style="color:var(--color-primary-600); font-weight:600;">${slBalance.toFixed(3)}</td>
+                                    <td style="color:var(--color-primary-600); font-weight:600;">${(vlBalance + slBalance).toFixed(3)}</td>
                                 </tr>
                             `;
                         });
                     }
 
-                    // Final row: Current balance summary
                     html += `
-                        <tr style="background: #e3f2fd; font-weight: 600;">
-                            <td style="color: #1565c0;"><strong>${today}</strong><br><small>Current Balance</small></td>
+                        <tr style="background: var(--color-primary-50); font-weight: 600;">
+                            <td style="color: var(--color-primary-700);"><strong>${today}</strong><br><small>Current Balance</small></td>
                             <td>${hasTransactions ? '-' : vlEarned.toFixed(3)}</td>
                             <td>${hasTransactions ? '-' : slEarned.toFixed(3)}</td>
                             <td style="color: #d32f2f;">${vlTotalSpent.toFixed(3)}</td>
                             <td style="color: #d32f2f;">${slTotalSpent.toFixed(3)}</td>
                             <td>-</td>
                             <td>-</td>
-                            <td class="balance" style="font-size: 14px;">${vlBalance.toFixed(3)}</td>
-                            <td class="balance" style="font-size: 14px;">${slBalance.toFixed(3)}</td>
-                            <td class="balance" style="font-size: 14px; color: #1565c0;">${(vlBalance + slBalance).toFixed(3)}</td>
+                            <td>-</td>
+                            <td style="font-size:14px;color:var(--color-primary-600);font-weight:700;">${vlBalance.toFixed(3)}</td>
+                            <td style="font-size:14px;color:var(--color-primary-600);font-weight:700;">${slBalance.toFixed(3)}</td>
+                            <td style="font-size:14px;color:var(--color-primary-700);font-weight:700;">${(vlBalance + slBalance).toFixed(3)}</td>
                         </tr>
                     `;
 
                     tbody.innerHTML = html;
                 } else {
-                    // No credits found - show default values with current balance only
                     tbody.innerHTML = `
-                        <tr style="background: #e3f2fd; font-weight: 600;">
-                            <td style="color: #1565c0;"><strong>${today}</strong><br><small>Current Balance</small></td>
+                        <tr style="background: var(--color-primary-50); font-weight: 600;">
+                            <td style="color: var(--color-primary-700);"><strong>${today}</strong><br><small>Current Balance</small></td>
                             <td>100.000</td>
                             <td>100.000</td>
                             <td style="color: #d32f2f;">0.000</td>
                             <td style="color: #d32f2f;">0.000</td>
                             <td>0.000</td>
                             <td>0.000</td>
-                            <td class="balance" style="font-size: 14px;">100.000</td>
-                            <td class="balance" style="font-size: 14px;">100.000</td>
-                            <td class="balance" style="font-size: 14px; color: #1565c0;">200.000</td>
+                            <td>0.000</td>
+                            <td style="font-size:14px;color:var(--color-primary-600);font-weight:700;">100.000</td>
+                            <td style="font-size:14px;color:var(--color-primary-600);font-weight:700;">100.000</td>
+                            <td style="font-size:14px;color:var(--color-primary-700);font-weight:700;">200.000</td>
                         </tr>
                     `;
                 }
             } catch (error) {
                 console.error('Error loading leave card:', error);
                 document.getElementById('leaveHistoryBody').innerHTML = `
-                    <tr><td colspan="10" style="color: #d32f2f;">Error loading leave card data</td></tr>
+                    <tr><td colspan="11" style="color: #d32f2f; text-align:center; padding:40px;">Error loading leave card data</td></tr>
                 `;
             }
         }
+
+        // ========== CTO Card ==========
+        let currentEditingCtoId = null;
 
         async function loadCTOCardData() {
             try {
@@ -905,39 +639,44 @@
 
                 const tbody = document.getElementById('ctoHistoryBody');
                 window._ctoSOImages = [];
+                window._ctoRecords = [];
 
                 if (data.success && data.records && data.records.length > 0) {
+                    window._ctoRecords = data.records;
                     let html = '';
                     let runningBalance = 0;
-                    
+
                     data.records.forEach((cto, idx) => {
                         const type = (cto.type || 'ADD').toUpperCase();
                         const periodCovered = cto.periodCovered || '-';
                         const soDetails = cto.soDetails || cto.soNumber || 'N/A';
                         const granted = parseFloat(cto.daysGranted) || 0;
                         const used = parseFloat(cto.daysUsed) || 0;
-                        
-                        if (type === 'ADD') {
-                            runningBalance += granted;
-                        } else {
-                            runningBalance -= used;
-                        }
-                        
+                        const recordId = cto.id || cto._id || '';
+
+                        if (type === 'ADD') { runningBalance += granted; } else { runningBalance -= used; }
+
                         const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
                         const soImageData = cto.soImage || '';
                         window._ctoSOImages[idx] = soImageData;
                         const viewBtn = soImageData
-                            ? `<button onclick="viewSOImage(${idx})" style="padding: 3px 10px; font-size: 11px; background: #e8f0fe; border: 1px solid #4285f4; border-radius: 4px; color: #1a73e8; cursor: pointer; white-space: nowrap;">🔍 View</button>`
-                            : `<span style="color: #ccc; font-size: 11px;">—</span>`;
-                        
+                            ? `<button onclick="viewSOImage(${idx})" style="padding:3px 10px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;white-space:nowrap;">View</button>`
+                            : `<span style="color:var(--color-gray-300);font-size:11px;">—</span>`;
+
                         html += `
                             <tr>
-                                <td style="color: ${type === 'ADD' ? '#2e7d32' : '#c62828'}; font-weight: 600; text-align: left; padding-left: 10px;">${periodDisplay}</td>
-                                <td style="text-align: left; padding-left: 10px; font-size: 11px;">${soDetails}</td>
-                                <td style="text-align: center;">${type === 'ADD' ? granted : ''}</td>
-                                <td style="text-align: center;">${type === 'LESS' ? used : ''}</td>
-                                <td class="balance" style="text-align: center;">${runningBalance}</td>
-                                <td style="text-align: center;">${viewBtn}</td>
+                                <td style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;text-align:left;padding-left:10px;">${periodDisplay}</td>
+                                <td style="text-align:left;padding-left:10px;font-size:11px;">${soDetails}</td>
+                                <td style="text-align:center;">${type === 'ADD' ? granted : ''}</td>
+                                <td style="text-align:center;">${type === 'LESS' ? used : ''}</td>
+                                <td style="text-align:center;color:var(--color-primary-600);font-weight:600;">${runningBalance}</td>
+                                <td style="text-align:center;">${viewBtn}</td>
+                                <td class="cto-entry-actions" style="text-align:center;">
+                                    <div style="display:flex;gap:4px;justify-content:center;">
+                                        <button onclick="editCTORecord('${recordId}', ${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;" title="Edit">Edit</button>
+                                        <button onclick="deleteCTORecord('${recordId}')" style="padding:3px 8px;font-size:11px;background:var(--color-red-50);border:1px solid var(--color-red-200);border-radius:var(--radius-sm);color:var(--color-red-600);cursor:pointer;" title="Delete">Del</button>
+                                    </div>
+                                </td>
                             </tr>
                         `;
                     });
@@ -945,10 +684,10 @@
                 } else {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="6" style="padding: 40px; text-align: center;">
-                                <div style="font-size: 48px; margin-bottom: 15px;">📑</div>
-                                <p style="font-weight: 600; color: #333; margin-bottom: 5px;">No CTO Records</p>
-                                <p style="color: #999; font-size: 12px;">No CTO records found for this employee.</p>
+                            <td colspan="7" style="padding:40px;text-align:center;">
+                                <div style="font-size:48px;margin-bottom:var(--space-3)">📑</div>
+                                <p style="font-weight:600;color:var(--color-gray-900);margin-bottom:var(--space-1)">No CTO Records</p>
+                                <p style="color:var(--color-gray-400);font-size:12px">No CTO records found for this employee.</p>
                             </td>
                         </tr>
                     `;
@@ -956,9 +695,77 @@
             } catch (error) {
                 console.error('Error loading CTO card:', error);
                 document.getElementById('ctoHistoryBody').innerHTML = `
-                    <tr><td colspan="6" style="color: #d32f2f;">Error loading CTO card data</td></tr>
+                    <tr><td colspan="7" style="color:#d32f2f;text-align:center;padding:40px;">Error loading CTO card data</td></tr>
                 `;
             }
+        }
+
+        function editCTORecord(recordId, idx) {
+            const record = window._ctoRecords && window._ctoRecords[idx];
+            if (!record) { alertError('Record not found'); return; }
+
+            currentEditingCtoId = recordId;
+
+            // Populate form fields
+            document.getElementById('edit_cto_type').value = (record.type || 'ADD').toUpperCase();
+            document.getElementById('edit_cto_period').value = record.periodCovered || '';
+            document.getElementById('edit_cto_so_details').value = record.soDetails || record.soNumber || '';
+            document.getElementById('edit_cto_granted').value = record.daysGranted || '';
+            document.getElementById('edit_cto_used').value = record.daysUsed || '';
+
+            // Handle SO image
+            if (record.soImage) {
+                ctoSOImageBase64 = record.soImage;
+                document.getElementById('ctoSOImagePreview').src = record.soImage;
+                document.getElementById('ctoSOImagePreview').style.display = 'block';
+                document.getElementById('ctoSOImageName').textContent = 'Existing image';
+                document.getElementById('ctoSORemoveBtn').style.display = '';
+            } else {
+                removeCTOSOImage();
+            }
+
+            // Update form title and button text
+            const formTitle = document.querySelector('#ctoEditForm h3');
+            if (formTitle) formTitle.textContent = 'Edit CTO Record';
+            const saveBtn = document.querySelector('#ctoEditForm .btn-success');
+            if (saveBtn) {
+                const svgIcon = saveBtn.querySelector('svg');
+                saveBtn.textContent = '';
+                if (svgIcon) saveBtn.appendChild(svgIcon);
+                saveBtn.append(' Update CTO Record');
+            }
+
+            // Show form
+            const form = document.getElementById('ctoEditForm');
+            if (!form.classList.contains('active')) form.classList.add('active');
+            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        async function deleteCTORecord(recordId) {
+            if (!recordId) { alertError('Invalid record'); return; }
+            if (!confirm('Are you sure you want to delete this CTO record? This action cannot be undone.')) return;
+
+            try {
+                const response = await fetch(`/api/cto-records/${recordId}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alertSuccess('CTO record deleted successfully');
+                    loadCTOCardData();
+                } else {
+                    alertError('Error: ' + (result.error || 'Failed to delete CTO record'));
+                }
+            } catch (error) {
+                alertError('Error deleting CTO record: ' + error.message);
+            }
+        }
+
+        // ========== Leave Entry Editing ==========
+        function toggleEditForm(type) {
+            const form = document.getElementById(type + 'EditForm');
+            form.classList.toggle('active');
         }
 
         function addEditableLeaveRow() {
@@ -968,17 +775,14 @@
         function addEditableLeaveRowInternal(existingTransaction) {
             const tbody = document.getElementById('leaveHistoryBody');
             currentEditingTransactionId = existingTransaction?.id || null;
-            // Remove any existing editable row
             const existingRow = document.getElementById('editableLeaveRow');
             if (existingRow) existingRow.remove();
             const existingActionRow = document.getElementById('editableLeaveActions');
             if (existingActionRow) existingActionRow.remove();
 
-            // Find the current balance row and insert before it
             const rows = tbody.querySelectorAll('tr');
-            const balanceRow = rows[rows.length - 1]; // last row is Current Balance
+            const balanceRow = rows[rows.length - 1];
 
-            // Create editable row
             const editRow = document.createElement('tr');
             editRow.id = 'editableLeaveRow';
             editRow.style.background = '#e8f5e9';
@@ -996,56 +800,46 @@
                 <td style="padding: 6px;"><input type="number" id="edit_leave_sl_spent" step="0.001" min="0" value="${parseFloat(existingTransaction?.slSpent || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
                 <td style="padding: 6px;"><input type="number" id="edit_leave_force" step="0.001" min="0" value="${parseFloat(existingTransaction?.forcedLeave || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
                 <td style="padding: 6px;"><input type="number" id="edit_leave_special" step="0.001" min="0" value="${parseFloat(existingTransaction?.splUsed || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
-                <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_vl_bal">-</td>
-                <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_sl_bal">-</td>
-                <td style="padding: 6px; color: #667eea; font-weight: 700; text-align: center;" id="edit_leave_total">-</td>
+                <td style="padding: 6px;"><input type="number" id="edit_leave_wellness" step="0.001" min="0" value="${parseFloat(existingTransaction?.wellnessUsed || 0)}" style="width: 65px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; text-align: center;"></td>
+                <td style="padding: 6px; color: var(--color-primary-600); font-weight: 700; text-align: center;" id="edit_leave_vl_bal">-</td>
+                <td style="padding: 6px; color: var(--color-primary-600); font-weight: 700; text-align: center;" id="edit_leave_sl_bal">-</td>
+                <td style="padding: 6px; color: var(--color-primary-600); font-weight: 700; text-align: center;" id="edit_leave_total">-</td>
             `;
 
-            // Insert before the balance row
             tbody.insertBefore(editRow, balanceRow);
 
-            // Create action buttons row
             const actionRow = document.createElement('tr');
             actionRow.id = 'editableLeaveActions';
             actionRow.style.background = '#e8f5e9';
             actionRow.innerHTML = `
-                <td colspan="10" style="padding: 8px; text-align: center;">
-                    <button onclick="saveLeaveTransaction()" style="padding: 6px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; margin-right: 8px;">💾 ${existingTransaction ? 'Update Entry' : 'Save Entry'}</button>
-                    <button onclick="removeEditableLeaveRow()" style="padding: 6px 20px; background: #999; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">✖ Cancel</button>
+                <td colspan="11" style="padding: 8px; text-align: center;">
+                    <button onclick="saveLeaveTransaction()" style="padding: 6px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; margin-right: 8px;">${existingTransaction ? 'Update Entry' : 'Save Entry'}</button>
+                    <button onclick="removeEditableLeaveRow()" style="padding: 6px 20px; background: #999; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">Cancel</button>
                 </td>
             `;
             tbody.insertBefore(actionRow, balanceRow);
 
-            // Auto-calculate balance as inputs change
             const inputs = editRow.querySelectorAll('input[type=number]');
             inputs.forEach(inp => inp.addEventListener('input', recalcEditableLeaveRow));
             document.getElementById('edit_leave_type').addEventListener('change', recalcEditableLeaveRow);
 
-            // Hide the add button while editing
             document.getElementById('addLeaveRowBtn').style.display = 'none';
-
-            // Scroll to the new row
             editRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-            // Initial calc
             recalcEditableLeaveRow();
         }
 
         function recalcEditableLeaveRow() {
-            // Get the previous balance from the row above the editable row
             const tbody = document.getElementById('leaveHistoryBody');
             const editRow = document.getElementById('editableLeaveRow');
             if (!editRow) return;
 
             let prevVlBal = 0, prevSlBal = 0;
-
-            // Walk backwards to find the last data row with balance values
             let prevRow = editRow.previousElementSibling;
             while (prevRow) {
                 const cells = prevRow.querySelectorAll('td');
-                if (cells.length >= 10) {
-                    const vlText = cells[7].textContent.trim();
-                    const slText = cells[8].textContent.trim();
+                if (cells.length >= 11) {
+                    const vlText = cells[8].textContent.trim();
+                    const slText = cells[9].textContent.trim();
                     if (vlText !== '-' && vlText !== '' && !isNaN(parseFloat(vlText))) {
                         prevVlBal = parseFloat(vlText);
                         prevSlBal = parseFloat(slText);
@@ -1060,15 +854,12 @@
             const slEarned = parseFloat(document.getElementById('edit_leave_sl_earned').value) || 0;
             const vlSpent = parseFloat(document.getElementById('edit_leave_vl_spent').value) || 0;
             const slSpent = parseFloat(document.getElementById('edit_leave_sl_spent').value) || 0;
-            const forceLeave = parseFloat(document.getElementById('edit_leave_force').value) || 0;
-            const splUsed = parseFloat(document.getElementById('edit_leave_special').value) || 0;
 
             let newVlBal, newSlBal;
             if (type === 'ADD') {
                 newVlBal = prevVlBal + vlEarned;
                 newSlBal = prevSlBal + slEarned;
             } else {
-                // Force Leave and SPL are separate allocations — NOT deducted from VL/SL
                 newVlBal = prevVlBal - vlSpent;
                 newSlBal = prevSlBal - slSpent;
             }
@@ -1089,10 +880,7 @@
 
         function editLeaveTransaction(transactionId) {
             const tx = currentLeaveTransactions.find(t => String(t.id) === String(transactionId));
-            if (!tx) {
-                alertError('Transaction not found');
-                return;
-            }
+            if (!tx) { alertError('Transaction not found'); return; }
             addEditableLeaveRowInternal(tx);
         }
 
@@ -1124,10 +912,7 @@
 
         async function saveLeaveTransaction() {
             try {
-                if (!employeeEmail) {
-                    alert('Error: Employee email not found');
-                    return;
-                }
+                if (!employeeEmail) { alert('Error: Employee email not found'); return; }
 
                 const type = document.getElementById('edit_leave_type').value;
                 const periodCovered = document.getElementById('edit_leave_period').value.trim();
@@ -1143,23 +928,15 @@
                 const slSpent = parseFloat(document.getElementById('edit_leave_sl_spent').value) || 0;
                 const forcedLeave = parseFloat(document.getElementById('edit_leave_force').value) || 0;
                 const splUsed = parseFloat(document.getElementById('edit_leave_special').value) || 0;
+                const wellnessUsed = parseFloat(document.getElementById('edit_leave_wellness').value) || 0;
                 const vlBalance = parseFloat(document.getElementById('edit_leave_vl_bal').textContent) || 0;
                 const slBalance = parseFloat(document.getElementById('edit_leave_sl_bal').textContent) || 0;
                 const total = parseFloat(document.getElementById('edit_leave_total').textContent) || 0;
 
                 const transaction = {
                     id: currentEditingTransactionId || (`tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                    type: type,
-                    periodCovered: periodCovered,
-                    vlEarned: vlEarned,
-                    slEarned: slEarned,
-                    vlSpent: vlSpent,
-                    slSpent: slSpent,
-                    forcedLeave: forcedLeave,
-                    splUsed: splUsed,
-                    vlBalance: vlBalance,
-                    slBalance: slBalance,
-                    total: total
+                    type, periodCovered, vlEarned, slEarned, vlSpent, slSpent,
+                    forcedLeave, splUsed, wellnessUsed, vlBalance, slBalance, total
                 };
 
                 const nextTransactions = currentEditingTransactionId
@@ -1189,6 +966,7 @@
             }
         }
 
+        // ========== CTO SO Image ==========
         let ctoSOImageBase64 = '';
 
         function previewCTOSOImage(input) {
@@ -1197,11 +975,7 @@
             const removeBtn = document.getElementById('ctoSORemoveBtn');
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('Image must be under 5MB');
-                    input.value = '';
-                    return;
-                }
+                if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); input.value = ''; return; }
                 nameSpan.textContent = file.name;
                 removeBtn.style.display = 'inline-block';
                 const reader = new FileReader();
@@ -1235,56 +1009,84 @@
                     soImage: ctoSOImageBase64
                 };
 
-                const response = await fetch('/api/update-cto-records', {
-                    method: 'POST',
-                    headers: authHeaders(),
-                    body: JSON.stringify(ctoData)
-                });
+                let response;
+                if (currentEditingCtoId) {
+                    // Edit mode — PUT with fullUpdate
+                    response = await fetch(`/api/cto-records/${currentEditingCtoId}`, {
+                        method: 'PUT',
+                        headers: authHeaders(),
+                        body: JSON.stringify({ ...ctoData, fullUpdate: true })
+                    });
+                } else {
+                    // Add mode — POST
+                    response = await fetch('/api/update-cto-records', {
+                        method: 'POST',
+                        headers: authHeaders(),
+                        body: JSON.stringify(ctoData)
+                    });
+                }
 
                 const result = await response.json();
                 if (result.success) {
-                    alert('CTO record saved successfully!');
+                    alertSuccess(currentEditingCtoId ? 'CTO record updated successfully!' : 'CTO record saved successfully!');
+                    currentEditingCtoId = null;
                     toggleEditForm('cto');
                     loadCTOCardData();
-                    // Clear form
-                    document.getElementById('edit_cto_type').value = 'ADD';
-                    document.getElementById('edit_cto_period').value = '';
-                    document.getElementById('edit_cto_so_details').value = '';
-                    document.getElementById('edit_cto_granted').value = '';
-                    document.getElementById('edit_cto_used').value = '';
-                    removeCTOSOImage();
+                    resetCTOForm();
                 } else {
-                    alert('Error: ' + (result.error || 'Failed to save CTO record'));
+                    alertError('Error: ' + (result.error || 'Failed to save CTO record'));
                 }
             } catch (error) {
-                alert('Error saving CTO record: ' + error.message);
+                alertError('Error saving CTO record: ' + error.message);
             }
         }
 
+        function resetCTOForm() {
+            currentEditingCtoId = null;
+            document.getElementById('edit_cto_type').value = 'ADD';
+            document.getElementById('edit_cto_period').value = '';
+            document.getElementById('edit_cto_so_details').value = '';
+            document.getElementById('edit_cto_granted').value = '';
+            document.getElementById('edit_cto_used').value = '';
+            removeCTOSOImage();
+            // Reset form title and button text
+            const formTitle = document.querySelector('#ctoEditForm h3');
+            if (formTitle) formTitle.textContent = 'Add/Edit CTO Record';
+            const saveBtn = document.querySelector('#ctoEditForm .btn-success');
+            if (saveBtn) {
+                const svgIcon = saveBtn.querySelector('svg');
+                saveBtn.textContent = '';
+                if (svgIcon) saveBtn.appendChild(svgIcon);
+                saveBtn.append(' Save CTO Record');
+            }
+        }
+
+        // ========== Print & PDF ==========
         function printLeaveCard() {
-            const printContent = document.getElementById('leaveTab').innerHTML;
+            const panel = document.querySelector('[data-tab-panel="leavecard"] .official-document');
+            if (!panel) return;
             const printWindow = window.open('', '', 'height=600,width=900');
             printWindow.document.write(
                 '<!DOCTYPE html><html><head><title>Service Leave Card</title>' +
-                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form,.leave-entry-actions{display:none !important;}</style>' +
-                '</head><body>' + printContent + '</body></html>'
+                '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+                '<style>body{font-family:"Inter",sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;font-size:12px;} th{background:#f0f0f0;font-size:10px;} .leave-entry-actions,.edit-form{display:none !important;}</style>' +
+                '</head><body>' + panel.innerHTML + '</body></html>'
             );
             printWindow.document.close();
             printWindow.print();
         }
 
         async function downloadLeaveCardPdf() {
-            const cardSection = document.querySelector('#leaveTab .card-section');
-            if (!cardSection) {
-                alertError('Leave card view not ready for download.');
-                return;
-            }
+            const cardSection = document.querySelector('[data-tab-panel="leavecard"] .card');
+            if (!cardSection) { alertError('Leave card view not ready for download.'); return; }
 
             const addBtn = document.getElementById('addLeaveRowBtn');
             const downloadBtn = document.getElementById('downloadLeaveCardBtn');
             const rowActionEls = Array.from(document.querySelectorAll('.leave-entry-actions'));
+            const sectionHeader = cardSection.querySelector('.section-header');
             if (addBtn) addBtn.style.display = 'none';
             if (downloadBtn) downloadBtn.style.display = 'none';
+            if (sectionHeader) sectionHeader.style.display = 'none';
             rowActionEls.forEach(el => { el.dataset.prevDisplay = el.style.display || ''; el.style.display = 'none'; });
 
             try {
@@ -1319,17 +1121,20 @@
             } finally {
                 if (addBtn) addBtn.style.display = '';
                 if (downloadBtn) downloadBtn.style.display = '';
+                if (sectionHeader) sectionHeader.style.display = '';
                 rowActionEls.forEach(el => { el.style.display = el.dataset.prevDisplay || ''; delete el.dataset.prevDisplay; });
             }
         }
 
         function printCTOCard() {
-            const printContent = document.getElementById('ctoTab').innerHTML;
+            const panel = document.querySelector('[data-tab-panel="ctocard"] .official-document');
+            if (!panel) return;
             const printWindow = window.open('', '', 'height=600,width=900');
             printWindow.document.write(
                 '<!DOCTYPE html><html><head><title>CTO Card</title>' +
-                '<style>body{font-family:Arial,sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;} th{background:#f0f0f0;} .balance{color:#667eea;font-weight:bold;} .action-buttons,.edit-form,.leave-entry-actions{display:none !important;}</style>' +
-                '</head><body>' + printContent + '</body></html>'
+                '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+                '<style>body{font-family:"Inter",sans-serif;padding:20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:8px;text-align:center;font-size:12px;} th{background:#f0f0f0;font-size:10px;} .edit-form,.cto-entry-actions{display:none !important;}</style>' +
+                '</head><body>' + panel.innerHTML + '</body></html>'
             );
             printWindow.document.close();
             printWindow.print();
@@ -1345,9 +1150,9 @@
                 modal.id = 'soImageModal';
                 modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; justify-content:center; align-items:center;';
                 modal.innerHTML = `
-                    <div style="position:relative; max-width:90vw; max-height:90vh; background:white; border-radius:10px; padding:10px; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                    <div style="position:relative; max-width:90vw; max-height:90vh; background:white; border-radius:var(--radius-lg); padding:var(--space-3); box-shadow:0 8px 32px rgba(0,0,0,0.3);">
                         <button onclick="closeSOImageModal()" style="position:absolute; top:-12px; right:-12px; width:32px; height:32px; border-radius:50%; border:none; background:#d32f2f; color:white; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.3);">✕</button>
-                        <img id="soImageModalImg" style="max-width:85vw; max-height:85vh; border-radius:6px; display:block;">
+                        <img id="soImageModalImg" style="max-width:85vw; max-height:85vh; border-radius:var(--radius-md); display:block;">
                     </div>
                 `;
                 modal.addEventListener('click', function(e) { if (e.target === modal) closeSOImageModal(); });
@@ -1356,10 +1161,21 @@
             document.getElementById('soImageModalImg').src = imgData;
             modal.style.display = 'flex';
         }
+
         function closeSOImageModal() {
             const modal = document.getElementById('soImageModal');
             if (modal) modal.style.display = 'none';
         }
+
+        // Expose functions globally for inline onclick handlers
+        Object.assign(window, {
+            toggleEditForm, addEditableLeaveRow, saveLeaveTransaction, removeEditableLeaveRow,
+            editLeaveTransaction, deleteLeaveTransaction, recalcEditableLeaveRow,
+            saveCTORecord, editCTORecord, deleteCTORecord, resetCTOForm,
+            previewCTOSOImage, removeCTOSOImage,
+            printLeaveCard, downloadLeaveCardPdf, printCTOCard,
+            viewSOImage, closeSOImageModal
+        });
     </script>
     <script src="/pwa.js"></script>
 </body>
