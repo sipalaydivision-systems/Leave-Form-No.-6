@@ -3178,12 +3178,15 @@ app.get('/api/registration-stats', requireAuth('it'), (req, res) => {
 // ========== APPROVAL / REJECTION / DELETION ==========
 app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
     try {
-        const { id, processedBy } = req.body;
+        const { id, email, processedBy } = req.body;
         // SECURITY: Use session email for audit trail instead of trusting client
         const actualProcessedBy = req.session.email || processedBy;
 
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
+        const regIndex = pendingRegs.findIndex(r =>
+            (id && String(r.id) === String(id)) ||
+            (email && r.email === email)
+        );
 
         if (regIndex === -1) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
@@ -3423,12 +3426,15 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
 
 app.post('/api/reject-registration', requireAuth('it'), (req, res) => {
     try {
-        const { id, reason, processedBy } = req.body;
+        const { id, email, reason, processedBy } = req.body;
         // SECURITY: Use session email for audit trail instead of trusting client
         const actualProcessedBy = req.session.email || processedBy;
 
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
+        const regIndex = pendingRegs.findIndex(r =>
+            (id && String(r.id) === String(id)) ||
+            (email && r.email === email)
+        );
 
         if (regIndex === -1) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
@@ -5285,7 +5291,8 @@ app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
 // Approve, return, or reject application
 app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res) => {
     try {
-        const { applicationId, action, approverPortal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
+        const { applicationId, action, approverPortal: _approverPortal, portal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
+        const approverPortal = _approverPortal || portal;
         const ip = getClientIp(req);
 
         // Validate action against whitelist
@@ -5293,19 +5300,19 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         if (!action || !VALID_ACTIONS.includes(action)) {
             return res.status(400).json({ success: false, error: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}` });
         }
-        
+
         const applications = readJSONArray(applicationsFile);
         // Handle both string and number applicationId
         const appIndex = applications.findIndex(a => a.id === applicationId || a.id === parseInt(applicationId));
-        
+
         if (appIndex === -1) {
             console.error('[APPROVE-LEAVE] Application not found:', applicationId);
             return res.status(404).json({ success: false, error: 'Application not found' });
         }
-        
+
         const app = applications[appIndex];
 
-        
+
         // AO school-based filtering
         if (!isAoAccessAllowed(req, app.employeeEmail || app.email)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });

@@ -506,12 +506,15 @@ router.get('/api/registration-stats', requireAuth('it'), (req, res) => {
 
 router.post('/api/approve-registration', requireAuth('it'), (req, res) => {
     try {
-        const { id, processedBy } = req.body;
+        const { id, email, processedBy } = req.body;
         // SECURITY: Use session email for audit trail instead of trusting client
         const actualProcessedBy = req.session.email || processedBy;
 
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
+        const regIndex = pendingRegs.findIndex(r =>
+            (id && String(r.id) === String(id)) ||
+            (email && r.email === email)
+        );
 
         if (regIndex === -1) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
@@ -755,12 +758,15 @@ router.post('/api/approve-registration', requireAuth('it'), (req, res) => {
 
 router.post('/api/reject-registration', requireAuth('it'), (req, res) => {
     try {
-        const { id, reason, processedBy } = req.body;
+        const { id, email, reason, processedBy } = req.body;
         // SECURITY: Use session email for audit trail instead of trusting client
         const actualProcessedBy = req.session.email || processedBy;
 
         let pendingRegs = readJSON(pendingRegistrationsFile);
-        const regIndex = pendingRegs.findIndex(r => String(r.id) === String(id));
+        const regIndex = pendingRegs.findIndex(r =>
+            (id && String(r.id) === String(id)) ||
+            (email && r.email === email)
+        );
 
         if (regIndex === -1) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
