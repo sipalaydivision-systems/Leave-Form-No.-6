@@ -581,6 +581,54 @@ async function loadLeaveCard() {
         emptyTitle: 'No Usage History',
         emptyMessage: 'No leave usage recorded yet.',
     });
+
+    // CTO records
+    loadCtoRecords();
+}
+
+async function loadCtoRecords() {
+    const container = document.getElementById('cto-table');
+    if (!container) return;
+
+    try {
+        const res = await fetch(`/api/cto-records?employeeId=${encodeURIComponent(user.email)}`);
+        if (!res.ok) {
+            renderEmptyState(container, { icon: 'document', title: 'No CTO Records', description: 'No compensatory time-off records found.' });
+            return;
+        }
+        const data = await res.json();
+        const records = data.records || [];
+        if (records.length === 0) {
+            renderEmptyState(container, { icon: 'document', title: 'No CTO Records', description: 'No compensatory time-off records found.' });
+            return;
+        }
+
+        createDataTable({
+            el: '#cto-table',
+            columns: [
+                { key: 'soDetails', label: 'Special Order', sortable: true },
+                { key: 'periodCovered', label: 'Period Covered', sortable: true },
+                { key: 'daysGranted', label: 'Days Granted', sortable: true, type: 'number' },
+                { key: 'daysUsed', label: 'Days Used', sortable: true, type: 'number' },
+                { key: 'balance', label: 'Balance', sortable: true, type: 'number' },
+                { key: 'source', label: 'Source', sortable: false },
+            ],
+            data: records.map((r, i) => ({
+                id: i,
+                soDetails: r.soDetails || r.specialOrder || '--',
+                periodCovered: r.periodCovered || '--',
+                daysGranted: toNum(r.daysGranted),
+                daysUsed: toNum(r.daysUsed),
+                balance: fmt(toNum(r.daysGranted) - toNum(r.daysUsed)),
+                source: r.source === 'excel-migration' ? 'Excel Import' : (r.source || 'Manual'),
+            })),
+            pageSize: 10,
+            emptyTitle: 'No CTO Records',
+            emptyMessage: 'No compensatory time-off records found.',
+        });
+    } catch {
+        renderEmptyState(container, { icon: 'document', title: 'Error', description: 'Failed to load CTO records.' });
+    }
 }
 
 // ---------------------------------------------------------------------------

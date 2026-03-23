@@ -92,7 +92,7 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
         const type = (app.leaveType || '').toLowerCase();
         if (type.includes('vl') || type.includes('vacation')) vl = Math.max(0, vl - days);
         else if (type.includes('sl') || type.includes('sick')) sl = Math.max(0, sl - days);
-        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) pendingForceSpent += days;
+        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) { pendingForceSpent += days; vl = Math.max(0, vl - days); }
         else if (type.includes('spl') || type.includes('special')) pendingSplSpent += days;
         else if (type.includes('wellness') || type === 'leave_wl') pendingWellnessSpent += days;
     });
@@ -210,6 +210,11 @@ function validateLeaveBalance(leaveType, numDays, employeeEmail, excludeAppId) {
             }
             if (numDays >= 5) {
                 return { valid: false, error: 'Force Leave filing restriction', message: 'Force Leave should not be filed as 5 consecutive days. Please file fewer days per application.' };
+            }
+            // FL draws from VL balance — check VL sufficiency
+            if (numDays > bal.vlBalance) {
+                console.log(`[VALIDATION] FL rejected for ${employeeEmail}: VL balance insufficient (${bal.vlBalance.toFixed(3)}) for ${numDays} FL days`);
+                return { valid: false, error: 'Insufficient Vacation Leave balance for Force Leave', message: `Force Leave is deducted from your Vacation Leave balance. You need ${numDays} day(s) but only have ${bal.vlBalance.toFixed(3)} VL day(s) available.` };
             }
         }
         if (leaveType === 'leave_spl') {
