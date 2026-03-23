@@ -282,9 +282,11 @@ function normalizeLeaveCardTransactions(transactions) {
     let pvpDeductionTotal = 0;
 
     for (const rawTx of (transactions || [])) {
+        const rawTypeUpper = String(rawTx.type || '').toUpperCase();
+        const txTypeResolved = rawTypeUpper === 'LAWOP' ? 'LAWOP' : (rawTypeUpper === 'LESS' ? 'LESS' : 'ADD');
         const tx = {
             id: rawTx.id || crypto.randomUUID(),
-            type: String(rawTx.type || '').toUpperCase() === 'LESS' ? 'LESS' : 'ADD',
+            type: txTypeResolved,
             periodCovered: rawTx.periodCovered || '-',
             vlEarned: Math.max(0, parseFloat(rawTx.vlEarned) || 0),
             slEarned: Math.max(0, parseFloat(rawTx.slEarned) || 0),
@@ -299,7 +301,9 @@ function normalizeLeaveCardTransactions(transactions) {
 
         let pvpDeductionDays = 0;
 
-        if (tx.type === 'ADD') {
+        if (tx.type === 'LAWOP') {
+            // LAWOP is record-keeping only — no balance impact
+        } else if (tx.type === 'ADD') {
             runningVL += tx.vlEarned;
             runningSL += tx.slEarned;
             vlEarnedTotal += tx.vlEarned;
@@ -325,9 +329,11 @@ function normalizeLeaveCardTransactions(transactions) {
             pvpDeductionTotal += pvpDeductionDays;
         }
 
-        forceSpentTotal += tx.forcedLeave;
-        splSpentTotal += tx.splUsed;
-        wellnessSpentTotal += tx.wellnessUsed;
+        if (tx.type !== 'LAWOP') {
+            forceSpentTotal += tx.forcedLeave;
+            splSpentTotal += tx.splUsed;
+            wellnessSpentTotal += tx.wellnessUsed;
+        }
 
         tx.pvpDeductionDays = pvpDeductionDays;
         tx.vlBalance = +runningVL.toFixed(3);

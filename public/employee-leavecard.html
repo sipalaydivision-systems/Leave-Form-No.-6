@@ -378,9 +378,15 @@
                 if (hasTransactions) {
                     card.transactions.forEach(txn => {
                         const periodCovered = txn.periodCovered || '-';
-                        const txType = ((txn.type || '').toUpperCase() === 'LESS') ? 'LESS' : (periodCovered.toUpperCase().trimStart().startsWith('LESS') ? 'LESS' : 'ADD');
+                        const rawType = (txn.type || '').toUpperCase();
+                        const txType = rawType === 'LAWOP' ? 'LAWOP'
+                            : rawType === 'LESS' ? 'LESS'
+                            : (periodCovered.toUpperCase().trimStart().startsWith('LESS') ? 'LESS'
+                            : (periodCovered.toUpperCase().trimStart().startsWith('LAWOP') ? 'LAWOP' : 'ADD'));
+                        const isLawop = txType === 'LAWOP';
                         const isLess = txType === 'LESS';
-                        const hasPrefix = /^(ADD|LESS)\s*:/i.test(periodCovered);
+                        const isAdd = txType === 'ADD';
+                        const hasPrefix = /^(ADD|LESS|LAWOP)\s*:/i.test(periodCovered);
                         const periodDisplay = hasPrefix ? periodCovered : `${txType}: ${periodCovered}`;
                         const tVlEarned = parseFloat(txn.vlEarned) || 0;
                         const tSlEarned = parseFloat(txn.slEarned) || 0;
@@ -395,9 +401,9 @@
                         const tTotal = parseFloat(txn.total) || 0;
 
                         htmlContent += `<tr>
-                            <td style="color:${!isLess ? '#2e7d32' : '#c62828'};font-weight:600;">${periodDisplay}${pvpDeductionDays > 0 ? `<br><small style="color:#d32f2f;font-weight:600;">PVP Deduction (LWOP): ${pvpDeductionDays.toFixed(3)}</small>` : ''}</td>
-                            <td style="text-align:center;">${!isLess && tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
-                            <td style="text-align:center;">${!isLess && tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
+                            <td style="color:${isLawop ? '#e65100' : (isAdd ? '#2e7d32' : '#c62828')};font-weight:600;">${periodDisplay}${pvpDeductionDays > 0 ? `<br><small style="color:#d32f2f;font-weight:600;">PVP Deduction (LWOP): ${pvpDeductionDays.toFixed(3)}</small>` : ''}</td>
+                            <td style="text-align:center;">${isAdd && tVlEarned > 0 ? tVlEarned.toFixed(3) : '-'}</td>
+                            <td style="text-align:center;">${isAdd && tSlEarned > 0 ? tSlEarned.toFixed(3) : '-'}</td>
                             <td style="text-align:center;color:${isLess && tVlSpent > 0 ? '#d32f2f' : '#999'};">${isLess && tVlSpent > 0 ? tVlSpent.toFixed(3) : '-'}</td>
                             <td style="text-align:center;color:${isLess && tSlSpent > 0 ? '#d32f2f' : '#999'};">${isLess && tSlSpent > 0 ? tSlSpent.toFixed(3) : '-'}</td>
                             <td style="text-align:center;color:${isLess && tForcedLeave > 0 ? '#d32f2f' : '#999'};">${isLess && tForcedLeave > 0 ? tForcedLeave.toFixed(3) : '-'}</td>

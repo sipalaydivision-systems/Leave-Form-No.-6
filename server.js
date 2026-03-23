@@ -1093,9 +1093,11 @@ function normalizeLeaveCardTransactions(transactions) {
     let pvpDeductionTotal = 0;
 
     for (const rawTx of (transactions || [])) {
+        const rawTypeUpper = String(rawTx.type || '').toUpperCase();
+        const txTypeResolved = rawTypeUpper === 'LAWOP' ? 'LAWOP' : (rawTypeUpper === 'LESS' ? 'LESS' : 'ADD');
         const tx = {
             id: rawTx.id || crypto.randomUUID(),
-            type: String(rawTx.type || '').toUpperCase() === 'LESS' ? 'LESS' : 'ADD',
+            type: txTypeResolved,
             periodCovered: rawTx.periodCovered || '-',
             vlEarned: Math.max(0, parseFloat(rawTx.vlEarned) || 0),
             slEarned: Math.max(0, parseFloat(rawTx.slEarned) || 0),
@@ -1109,7 +1111,9 @@ function normalizeLeaveCardTransactions(transactions) {
 
         let pvpDeductionDays = 0;
 
-        if (tx.type === 'ADD') {
+        if (tx.type === 'LAWOP') {
+            // LAWOP is record-keeping only — no balance impact
+        } else if (tx.type === 'ADD') {
             runningVL += tx.vlEarned;
             runningSL += tx.slEarned;
             vlEarnedTotal += tx.vlEarned;
@@ -1135,8 +1139,10 @@ function normalizeLeaveCardTransactions(transactions) {
             pvpDeductionTotal += pvpDeductionDays;
         }
 
-        forceSpentTotal += tx.forcedLeave;
-        splSpentTotal += tx.splUsed;
+        if (tx.type !== 'LAWOP') {
+            forceSpentTotal += tx.forcedLeave;
+            splSpentTotal += tx.splUsed;
+        }
 
         tx.pvpDeductionDays = pvpDeductionDays;
         tx.vlBalance = +runningVL.toFixed(3);
@@ -3247,12 +3253,24 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 
                 if (!existingLeavecard) {
                     // Check if there's a leave card with matching name (name-based auto-assignment)
-                    const normalizedRegName = (registration.fullName || registration.name || '').toLowerCase().trim();
+                    const normalizedRegName = (registration.fullName || registration.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                    const regParts = parseFullNameIntoParts(registration.fullName || registration.name || '');
+                    const regFirst = (registration.firstName || regParts.firstName || '').toUpperCase().trim();
+                    const regLast = (registration.lastName || regParts.lastName || '').toUpperCase().trim();
+
                     let matchingCard = leavecards.find(lc => {
-                        const cardName = (lc.name || lc.fullName || '').toLowerCase().trim();
-                        return cardName === normalizedRegName;
+                        if (lc.email) return false; // Already linked to another user
+                        const cardName = (lc.name || lc.fullName || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                        // Primary: exact normalized name match
+                        if (cardName === normalizedRegName) return true;
+                        // Extended: firstName + lastName component match
+                        const lcFirst = (lc.firstName || '').toUpperCase().trim();
+                        const lcLast = (lc.lastName || '').toUpperCase().trim();
+                        if (regFirst && regLast && lcFirst && lcLast &&
+                            regFirst === lcFirst && regLast === lcLast) return true;
+                        return false;
                     });
-                    
+
                     // Fallback: match by employeeNo if name match failed and registrant provided one
                     let matchMethod = 'name';
                     if (!matchingCard && registration.employeeNo) {
@@ -3285,14 +3303,26 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                             let ctoLinked = 0;
                             ctoRecords.forEach(rec => {
                                 if (rec.employeeId || rec.email) return; // Already linked
-                                const recName = (rec.name || '').toLowerCase().trim();
+                                const recName = (rec.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                                 if (recName === normalizedRegName) {
                                     rec.employeeId = registration.email;
                                     rec.email = registration.email;
                                     ctoLinked++;
+                                    return;
+                                }
+                                // Also match by firstName + lastName components
+                                const recParts = parseFullNameIntoParts(rec.name || '');
+                                const recFirst = (recParts.firstName || '').toUpperCase().trim();
+                                const recLast = (recParts.lastName || '').toUpperCase().trim();
+                                if (regFirst && regLast && recFirst && recLast &&
+                                    regFirst === recFirst && regLast === recLast) {
+                                    rec.employeeId = registration.email;
+                                    rec.email = registration.email;
+                                    ctoLinked++;
+                                    return;
                                 }
                                 // Also try matching by employeeNo
-                                if (!rec.employeeId && registration.employeeNo && rec.employeeNo) {
+                                if (registration.employeeNo && rec.employeeNo) {
                                     if (String(rec.employeeNo).trim() === String(registration.employeeNo).trim()) {
                                         rec.employeeId = registration.email;
                                         rec.email = registration.email;
@@ -6441,23 +6471,43 @@ function extractCreditsFromBuffer(buffer, fileName) {
             if (!row || row.length < 9) continue;
 
             const period = row[0] ? String(row[0]).trim() : '';
-            const vlEarned = typeof row[1] === 'number' ? row[1] : (typeof row[2] === 'number' ? row[2] : 0);
-            const slEarned = typeof row[3] === 'number' ? row[3] : (typeof row[4] === 'number' ? row[4] : 0);
-            const vlSpent = typeof row[3] === 'number' && typeof row[1] === 'number' ? row[3] : 0;
-            const slSpent = typeof row[5] === 'number' ? row[5] : 0;
+            const periodUpper = period.toUpperCase().trimStart();
+
+            // Detect transaction type from period text
+            let txType = 'ADD';
+            if (periodUpper.startsWith('LESS') || periodUpper.startsWith('LWOP')) {
+                txType = 'LESS';
+            } else if (periodUpper.startsWith('LAWOP')) {
+                txType = 'LAWOP';
+            }
+
+            // Column mapping (DepEd CS Form No. 6 standard):
+            // Col 0: Period | Col 1-2: VL Earned (Particular/AbsUnder)
+            // Col 3-4: SL Earned (Particular/AbsUnder) | Col 5: SL Spent
+            // Col 6: Force/SPL | Col 7: VL Balance | Col 8: SL Balance
+            //
+            // For ADD rows: earned columns have values, spent columns are empty
+            // For LESS rows: earned columns are empty, spent columns have values
+            // Columns 3-4 are overloaded (VL Spent when it's a LESS row, SL Earned when it's ADD)
+            const vlEarned = txType === 'ADD' ? (typeof row[1] === 'number' ? row[1] : (typeof row[2] === 'number' ? row[2] : 0)) : 0;
+            const slEarned = txType === 'ADD' ? (typeof row[3] === 'number' ? row[3] : (typeof row[4] === 'number' ? row[4] : 0)) : 0;
+            const vlSpent = txType !== 'ADD' ? (typeof row[3] === 'number' ? row[3] : 0) : 0;
+            const slSpent = txType !== 'ADD' ? (typeof row[5] === 'number' ? row[5] : 0) : 0;
+            const forcedLeave = txType !== 'ADD' ? (typeof row[4] === 'number' ? row[4] : 0) : 0;
+            const splUsed = txType !== 'ADD' ? (typeof row[6] === 'number' ? row[6] : 0) : 0;
             const vlBal = typeof row[7] === 'number' ? row[7] : null;
             const slBal = typeof row[8] === 'number' ? row[8] : null;
 
             if (period || vlBal !== null || slBal !== null) {
                 transactions.push({
-                    type: 'ADD',
+                    type: txType,
                     periodCovered: period || `Row ${i + 1}`,
-                    vlEarned: +(vlEarned || 0).toFixed ? parseFloat((vlEarned || 0).toFixed(3)) : 0,
-                    slEarned: +(slEarned || 0).toFixed ? parseFloat((slEarned || 0).toFixed(3)) : 0,
-                    vlSpent: parseFloat((vlSpent || 0).toFixed ? (vlSpent || 0).toFixed(3) : '0'),
-                    slSpent: parseFloat((slSpent || 0).toFixed ? (slSpent || 0).toFixed(3) : '0'),
-                    forcedLeave: 0,
-                    splUsed: 0,
+                    vlEarned: parseFloat((vlEarned || 0).toFixed(3)),
+                    slEarned: parseFloat((slEarned || 0).toFixed(3)),
+                    vlSpent: parseFloat((vlSpent || 0).toFixed(3)),
+                    slSpent: parseFloat((slSpent || 0).toFixed(3)),
+                    forcedLeave: parseFloat((forcedLeave || 0).toFixed(3)),
+                    splUsed: parseFloat((splUsed || 0).toFixed(3)),
                     vlBalance: vlBal !== null ? parseFloat(vlBal.toFixed(3)) : null,
                     slBalance: slBal !== null ? parseFloat(slBal.toFixed(3)) : null,
                     total: vlBal !== null && slBal !== null ? parseFloat((vlBal + slBal).toFixed(3)) : null,

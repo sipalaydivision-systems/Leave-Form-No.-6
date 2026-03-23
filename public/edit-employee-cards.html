@@ -502,12 +502,15 @@
                     if (hasTransactions) {
                         credits.transactions.forEach(txn => {
                             const periodCovered = txn.periodCovered || '-';
-                            const txType = ((txn.type || '').toUpperCase() === 'LESS')
-                                ? 'LESS'
-                                : (periodCovered.toUpperCase().trimStart().startsWith('LESS') ? 'LESS' : 'ADD');
+                            const rawType = (txn.type || '').toUpperCase();
+                            const txType = rawType === 'LAWOP' ? 'LAWOP'
+                                : rawType === 'LESS' ? 'LESS'
+                                : (periodCovered.toUpperCase().trimStart().startsWith('LESS') ? 'LESS'
+                                : (periodCovered.toUpperCase().trimStart().startsWith('LAWOP') ? 'LAWOP' : 'ADD'));
+                            const isLawop = txType === 'LAWOP';
                             const isLess = txType === 'LESS';
-                            const isAdd = !isLess;
-                            const hasPrefix = /^(ADD|LESS)\s*:/i.test(periodCovered);
+                            const isAdd = txType === 'ADD';
+                            const hasPrefix = /^(ADD|LESS|LAWOP)\s*:/i.test(periodCovered);
                             const periodDisplay = hasPrefix ? periodCovered : `${txType}: ${periodCovered}`;
 
                             const tVlEarned = parseFloat(txn.vlEarned) || 0;
@@ -524,7 +527,7 @@
 
                             html += `
                                 <tr>
-                                    <td style="color: ${isAdd ? '#2e7d32' : '#c62828'}; font-weight: 600;">
+                                    <td style="color: ${isLawop ? '#e65100' : (isAdd ? '#2e7d32' : '#c62828')}; font-weight: 600;">
                                         ${periodDisplay}
                                         ${pvpDeductionDays > 0 ? `<br><small style="color:#d32f2f; font-weight:600;">PVP Deduction (LWOP): ${pvpDeductionDays.toFixed(3)}</small>` : ''}
                                         <br><div class="leave-entry-actions" style="margin-top:6px;"><button onclick="editLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#1e88e5; color:#fff; cursor:pointer; margin-right:4px;">Edit</button><button onclick="deleteLeaveTransaction('${txn.id || ''}')" style="padding:2px 8px; font-size:10px; border:none; border-radius:4px; background:#d32f2f; color:#fff; cursor:pointer;">Delete</button></div>
@@ -796,9 +799,10 @@
             editRow.style.background = '#e8f5e9';
             editRow.innerHTML = `
                 <td style="padding: 6px;">
-                    <select id="edit_leave_type" style="width: 70px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
+                    <select id="edit_leave_type" style="width: 80px; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
                         <option value="ADD" ${(existingTransaction?.type || 'ADD') === 'ADD' ? 'selected' : ''}>ADD</option>
                         <option value="LESS" ${(existingTransaction?.type || 'ADD') === 'LESS' ? 'selected' : ''}>LESS</option>
+                        <option value="LAWOP" ${(existingTransaction?.type || 'ADD') === 'LAWOP' ? 'selected' : ''}>LAWOP</option>
                     </select><br>
                     <input type="text" id="edit_leave_period" value="${existingTransaction?.periodCovered || ''}" placeholder="e.g. 01/01/2026 - 01/31/2026" style="width: 100%; padding: 4px; border: 1px solid #aaa; border-radius: 4px; font-size: 11px; box-sizing: border-box;">
                 </td>
@@ -864,7 +868,11 @@
             const slSpent = parseFloat(document.getElementById('edit_leave_sl_spent').value) || 0;
 
             let newVlBal, newSlBal;
-            if (type === 'ADD') {
+            if (type === 'LAWOP') {
+                // LAWOP is record-keeping only — no balance impact
+                newVlBal = prevVlBal;
+                newSlBal = prevSlBal;
+            } else if (type === 'ADD') {
                 newVlBal = prevVlBal + vlEarned;
                 newSlBal = prevSlBal + slEarned;
             } else {
