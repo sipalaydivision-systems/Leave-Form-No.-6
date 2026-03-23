@@ -8,7 +8,6 @@
 import { initSidebar, ICONS } from '../components/sidebar.js';
 import { createTabs } from '../components/tabs.js';
 import { createDataTable } from '../components/table.js';
-import { createLineChart, createDoughnutChart, destroyChart } from '../components/chart-wrapper.js';
 import { toast } from '../components/toast.js';
 import { openModal, confirmModal } from '../components/modal.js';
 import { renderEmptyState } from '../components/empty-state.js';
@@ -22,8 +21,6 @@ let tabs = null;
 let applicationsTable = null;
 let transactionsTable = null;
 let usageTable = null;
-let usageChart = null;
-let balanceChart = null;
 let applications = [];
 let leaveCredits = null;
 let calendarYear = new Date().getFullYear();
@@ -216,14 +213,12 @@ async function loadOverviewData() {
     if (creditsRes?.success && creditsRes.credits) {
         leaveCredits = creditsRes.credits;
         renderBalanceCards(leaveCredits);
-        renderBalanceChart(leaveCredits);
     }
 
     // Applications
     if (appsRes?.success && appsRes.applications) {
         applications = appsRes.applications;
         renderRecentApps(applications);
-        renderUsageChart(applications);
 
         // Update badge counts
         const pendingCount = applications.filter(a =>
@@ -282,79 +277,6 @@ function setBalanceCard(type, value, detail) {
 
 // ---------------------------------------------------------------------------
 // Charts
-// ---------------------------------------------------------------------------
-function renderUsageChart(apps) {
-    const container = document.getElementById('chart-usage');
-    if (!container) return;
-
-    destroyChart(usageChart);
-
-    const currentYear = new Date().getFullYear();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    // Count approved leaves per month
-    const vlByMonth = new Array(12).fill(0);
-    const slByMonth = new Array(12).fill(0);
-
-    const approvedApps = apps.filter(a => a.status === 'approved');
-    for (const app of approvedApps) {
-        const from = app.dateFrom || app.date_from;
-        if (!from) continue;
-        const d = new Date(from);
-        if (d.getFullYear() !== currentYear) continue;
-        const month = d.getMonth();
-        const days = toNum(app.numDays || app.num_days || 1);
-        const type = (app.leaveType || app.leave_type || '').toLowerCase();
-
-        if (type.includes('vl') || type.includes('vacation') || type.includes('mandatory') || type.includes('mfl') || type.includes('force')) {
-            vlByMonth[month] += days;
-        } else if (type.includes('sl') || type.includes('sick')) {
-            slByMonth[month] += days;
-        } else {
-            vlByMonth[month] += days; // Default to VL bucket
-        }
-    }
-
-    usageChart = createLineChart({
-        el: '#chart-usage',
-        labels: months,
-        datasets: [
-            { label: 'VL/FL Used', data: vlByMonth, color: '#1565c0' },
-            { label: 'SL Used', data: slByMonth, color: '#c62828' },
-        ],
-    });
-}
-
-function renderBalanceChart(credits) {
-    const container = document.getElementById('chart-balance');
-    if (!container) return;
-
-    destroyChart(balanceChart);
-
-    const vlBal = toNum(credits.vacationLeaveEarned || credits.vacation_leave_earned) -
-                  toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
-    const slBal = toNum(credits.sickLeaveEarned || credits.sick_leave_earned) -
-                  toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
-    const flBal = toNum(credits.forceLeaveEarned || credits.force_leave_earned || 5) -
-                  toNum(credits.forceLeaveSpent || credits.force_leave_spent);
-    const splBal = toNum(credits.splEarned || credits.spl_earned || 3) -
-                   toNum(credits.splSpent || credits.spl_spent);
-    const wlBal = toNum(credits.wellnessEarned || credits.wellness_earned || 3) -
-                  toNum(credits.wellnessSpent || credits.wellness_spent);
-
-    const total = Math.max(0, vlBal) + Math.max(0, slBal) + Math.max(0, flBal) + Math.max(0, splBal) + Math.max(0, wlBal);
-
-    balanceChart = createDoughnutChart({
-        el: '#chart-balance',
-        labels: ['Vacation', 'Sick', 'Force', 'Special Privilege', 'Wellness'],
-        data: [Math.max(0, vlBal), Math.max(0, slBal), Math.max(0, flBal), Math.max(0, splBal), Math.max(0, wlBal)],
-        colors: ['#1565c0', '#c62828', '#e65100', '#6a1b9a', '#00838f'],
-    });
-
-    const totalEl = document.getElementById('total-balance');
-    if (totalEl) totalEl.textContent = fmt(total);
-}
-
 // ---------------------------------------------------------------------------
 // Recent Applications (Overview Tab)
 // ---------------------------------------------------------------------------
