@@ -96,6 +96,10 @@ function setupSidebar() {
                 return;
             }
             if (linkId === 'help') return; // href handles it
+            if (linkId === 'leavecard') {
+                window.location.href = `/employee-leavecard.html?email=${encodeURIComponent(user.email)}`;
+                return;
+            }
             tabs.setActive(linkId);
         },
         onProfileClick: () => showProfileModal(),
@@ -128,6 +132,10 @@ function setupTabs() {
         ],
         activeTab: 'overview',
         onChange: (tabId) => {
+            if (tabId === 'leavecard') {
+                window.location.href = `/employee-leavecard.html?email=${encodeURIComponent(user.email)}`;
+                return;
+            }
             sidebar.setActive(tabId);
             onTabChange(tabId);
         },
