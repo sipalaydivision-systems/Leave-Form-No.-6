@@ -133,11 +133,77 @@ export function setupApprovalSidebar(config) {
 // ---------------------------------------------------------------------------
 // Approval/return/reject modal
 // ---------------------------------------------------------------------------
-export function showApprovalModal(app, portal, user, onDone) {
+export async function showApprovalModal(app, portal, user, onDone) {
     const appId = app.id;
     const employee = app.employeeName || app.employee_name || '';
     const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
     const days = fmtDays(app);
+    const email = app.employeeEmail || app.employee_email || '';
+
+    // Fetch leave balances for the applicant
+    let balanceHtml = '';
+    if (email) {
+        toast.info('Loading leave credits...');
+        const [creditsRes, ctoRes] = await Promise.all([
+            fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+
+        const credits = creditsRes?.credits || {};
+        const ctoRecords = ctoRes?.records || [];
+        const ctoBalance = ctoRecords.reduce((s, r) => s + toNum(r.balance || (toNum(r.daysGranted || r.days_granted) - toNum(r.daysUsed || r.days_used))), 0);
+
+        const vlEarned = toNum(credits.vacationLeaveEarned || credits.vacation_leave_earned);
+        const vlSpent = toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
+        const slEarned = toNum(credits.sickLeaveEarned || credits.sick_leave_earned);
+        const slSpent = toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
+        const splEarned = toNum(credits.splEarned || credits.spl || 3);
+        const splSpent = toNum(credits.splSpent);
+        const flEarned = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
+        const flSpent = toNum(credits.forceLeaveSpent);
+
+        if (!creditsRes) {
+            balanceHtml = '<div style="margin-bottom:var(--space-3);padding:var(--space-2);background:var(--color-warning-bg);border-radius:var(--radius-sm);font-size:var(--text-xs)">Could not load leave credits.</div>';
+        } else {
+            balanceHtml = `
+            <div class="card" style="margin-bottom:var(--space-4)">
+                <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">Leave Credits Summary</h4></div>
+                <div class="card-body">
+                    <div class="cert-grid">
+                        <div class="cert-grid-header"></div>
+                        <div class="cert-grid-header">Earned</div>
+                        <div class="cert-grid-header">Less</div>
+                        <div class="cert-grid-header">Balance</div>
+                        <div class="cert-grid-label">Vacation Leave</div>
+                        <div class="cert-grid-val">${fmt(vlEarned)}</div>
+                        <div class="cert-grid-val">${fmt(vlSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(vlEarned - vlSpent)}</div>
+                        <div class="cert-grid-label">Sick Leave</div>
+                        <div class="cert-grid-val">${fmt(slEarned)}</div>
+                        <div class="cert-grid-val">${fmt(slSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(slEarned - slSpent)}</div>
+                        <div class="cert-grid-label">Special Privilege</div>
+                        <div class="cert-grid-val">${fmt(splEarned)}</div>
+                        <div class="cert-grid-val">${fmt(splSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(splEarned - splSpent)}</div>
+                        <div class="cert-grid-label">Force Leave</div>
+                        <div class="cert-grid-val">${fmt(flEarned)}</div>
+                        <div class="cert-grid-val">${fmt(flSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(flEarned - flSpent)}</div>
+                        <div class="cert-grid-label">CTO</div>
+                        <div class="cert-grid-val">${fmt(ctoBalance)}</div>
+                        <div class="cert-grid-val">0</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(ctoBalance)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
+
+    // Portal-specific labels
+    const portalUpper = (portal || '').toUpperCase();
+    const forwardLabel = portalUpper === 'ASDS' ? 'Recommend & Forward to SDS' : 'Approve';
+    const sigLabel = portalUpper === 'ASDS' ? 'OIC-ASDS Signature' : 'OIC-SDS Signature';
 
     const content = `
         <div style="margin-bottom:var(--space-4)">
@@ -146,41 +212,78 @@ export function showApprovalModal(app, portal, user, onDone) {
             <p><strong>Period:</strong> ${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</p>
             <p><strong>Days:</strong> ${days}</p>
         </div>
+        ${balanceHtml}
         <div class="form-group">
             <label class="form-label">Remarks (optional)</label>
-            <textarea id="approval-remarks" class="form-textarea" rows="3" placeholder="Add remarks..."></textarea>
+            <textarea id="approval-remarks" class="form-textarea" rows="2" placeholder="Add remarks..."></textarea>
+        </div>
+        <div class="card" style="margin-top:var(--space-4)">
+            <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">${sigLabel}</h4></div>
+            <div class="card-body">
+                <canvas id="shared-sig-canvas" class="signature-canvas" width="500" height="120"></canvas>
+                <div style="margin-top:var(--space-2);display:flex;gap:var(--space-2)">
+                    <button class="btn btn-ghost btn-sm" id="shared-sig-clear">Clear</button>
+                    <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+                        Upload Image
+                        <input type="file" accept="image/*" id="shared-sig-upload" style="display:none">
+                    </label>
+                </div>
+            </div>
         </div>
     `;
 
     const modal = openModal({
         title: `Review Application — ${appId}`,
         content,
-        size: 'md',
+        size: 'lg',
         footer: `
             <button class="btn btn-ghost btn-sm" id="modal-cancel">Cancel</button>
             <button class="btn btn-warning btn-sm" id="modal-return">Return</button>
             <button class="btn btn-danger btn-sm" id="modal-reject">Reject</button>
-            <button class="btn btn-success btn-sm" id="modal-approve">Approve</button>
+            <button class="btn btn-success btn-sm" id="modal-approve">${forwardLabel}</button>
         `,
     });
 
+    // Initialize signature canvas
+    initSharedSignatureCanvas('shared-sig-canvas', 'shared-sig-clear', 'shared-sig-upload');
+
     async function doAction(action) {
         const remarks = document.getElementById('approval-remarks')?.value || '';
+        const approverName = user.name || user.fullName || '';
+
+        const payload = {
+            applicationId: appId,
+            action,
+            remarks,
+            portal,
+            approverName,
+        };
+
+        // Capture signature for approve action
+        if (action === 'approved') {
+            const canvas = document.getElementById('shared-sig-canvas');
+            const sigData = canvas ? canvas.toDataURL('image/png') : '';
+
+            if (portalUpper === 'ASDS') {
+                payload.asdsOfficerName = approverName;
+                if (sigData) payload.asdsOfficerSignature = sigData;
+            } else if (portalUpper === 'SDS') {
+                payload.sdsOfficerName = approverName;
+                if (sigData) payload.sdsOfficerSignature = sigData;
+            }
+        }
+
         modal.close();
         try {
             const res = await fetch('/api/approve-leave', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    applicationId: appId,
-                    action,
-                    remarks,
-                    portal,
-                    approverName: user.name || user.fullName || '',
-                }),
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
-                const label = action === 'approved' ? 'forwarded' : action === 'returned' ? 'returned' : 'rejected';
+                const label = action === 'approved'
+                    ? (portalUpper === 'ASDS' ? 'recommended and forwarded to SDS' : 'approved')
+                    : action === 'returned' ? 'returned' : 'rejected';
                 toast.success(`Application ${label} successfully.`);
                 if (onDone) onDone();
             } else {
@@ -194,6 +297,58 @@ export function showApprovalModal(app, portal, user, onDone) {
     document.getElementById('modal-approve')?.addEventListener('click', () => doAction('approved'));
     document.getElementById('modal-return')?.addEventListener('click', () => doAction('returned'));
     document.getElementById('modal-reject')?.addEventListener('click', () => doAction('rejected'));
+}
+
+// ---------------------------------------------------------------------------
+// Signature canvas (shared between ASDS/SDS)
+// ---------------------------------------------------------------------------
+function initSharedSignatureCanvas(canvasId, clearBtnId, uploadInputId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    function startDraw(e) { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+    function draw(e) { if (!isDrawing) return; e.preventDefault(); const p = getPos(e); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#000'; ctx.lineTo(p.x, p.y); ctx.stroke(); canvas.classList.add('has-signature'); }
+    function stopDraw() { isDrawing = false; }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseleave', stopDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDraw);
+
+    document.getElementById(clearBtnId)?.addEventListener('click', () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.classList.remove('has-signature');
+    });
+
+    document.getElementById(uploadInputId)?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+            canvas.classList.add('has-signature');
+        };
+        img.src = URL.createObjectURL(file);
+    });
 }
 
 // ---------------------------------------------------------------------------
