@@ -371,6 +371,9 @@ async function loadApplications() {
                 key: 'actions', label: '',
                 render: (val, row) => {
                     let btns = `<button class="btn btn-ghost btn-sm btn-view-app" data-id="${escapeHtml(row.id)}">View</button>`;
+                    if (row.status === 'returned') {
+                        btns += ` <button class="btn btn-primary btn-sm btn-resubmit-app" data-id="${escapeHtml(row.id)}">Resubmit</button>`;
+                    }
                     if (row.status === 'pending' && (row.currentApprover === 'AO' || row.currentApprover === 'EMPLOYEE')) {
                         btns += ` <button class="btn btn-ghost btn-sm btn-cancel-app" data-id="${escapeHtml(row.id)}" style="color:var(--color-danger)">Cancel</button>`;
                     }
@@ -403,6 +406,12 @@ async function loadApplications() {
             if (viewBtn) {
                 e.stopPropagation();
                 showApplicationDetail(viewBtn.dataset.id);
+                return;
+            }
+            const resubmitBtn = e.target.closest('.btn-resubmit-app');
+            if (resubmitBtn) {
+                e.stopPropagation();
+                showResubmitModal(resubmitBtn.dataset.id);
                 return;
             }
             const cancelBtn = e.target.closest('.btn-cancel-app');
@@ -593,7 +602,7 @@ async function showApplicationDetail(appId) {
         timeline += '</div></div>';
     }
 
-    const returnReason = app.returnReason || app.return_reason;
+    const returnReason = app.returnRemarks || app.returnReason || app.return_reason;
     const returnHtml = returnReason
         ? `<div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--color-warning-bg);border-radius:var(--radius-md)"><strong>Return Reason:</strong> ${escapeHtml(returnReason)}</div>`
         : '';
@@ -613,19 +622,32 @@ async function showApplicationDetail(appId) {
         ${timeline}
     `;
 
+    let footer = '';
+    if (status === 'approved') {
+        footer = '<button class="btn btn-primary btn-sm" onclick="window.__downloadForm6 && window.__downloadForm6()">Download Form No. 6</button>';
+    } else if (status === 'returned') {
+        footer = `<button class="btn btn-primary btn-sm" onclick="window.__resubmitFromDetail && window.__resubmitFromDetail()">Resubmit Application</button>`;
+    }
+
     openModal({
         title: `Application: ${app.id}`,
         content,
         size: 'lg',
-        footer: status === 'approved'
-            ? '<button class="btn btn-primary btn-sm" onclick="window.__downloadForm6 && window.__downloadForm6()">Download Form No. 6</button>'
-            : '',
+        footer,
     });
 
     // Download handler for approved apps
     if (status === 'approved') {
         window.__downloadForm6 = () => {
             window.open(`/api/form-no6/${encodeURIComponent(app.id)}`, '_blank');
+        };
+    }
+
+    // Resubmit handler for returned apps
+    if (status === 'returned') {
+        window.__resubmitFromDetail = () => {
+            closeModal();
+            showResubmitModal(app.id);
         };
     }
 }
@@ -660,6 +682,83 @@ function cancelApplication(appId) {
                 toast.error('Network error. Please try again.');
             }
         },
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Resubmit Returned Application
+// ---------------------------------------------------------------------------
+function showResubmitModal(appId) {
+    const app = applications.find(a => a.id === appId);
+    if (!app) { toast.warning('Application not found.'); return; }
+
+    if (app.status !== 'returned') {
+        toast.warning('This application is not in returned status.');
+        return;
+    }
+
+    const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
+    const returnReason = app.returnRemarks || app.returnReason || app.return_reason || '';
+
+    const content = `
+        <div style="margin-bottom:var(--space-4)">
+            <p><strong>Application:</strong> ${escapeHtml(app.id)}</p>
+            <p><strong>Leave Type:</strong> ${escapeHtml(type)}</p>
+            <p><strong>Period:</strong> ${escapeHtml(formatDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</p>
+            <p><strong>Days:</strong> ${fmt(toNum(app.numDays || app.num_days))}</p>
+        </div>
+        ${returnReason ? `<div style="margin-bottom:var(--space-4);padding:var(--space-3);background:var(--color-warning-bg);border-radius:var(--radius-md)"><strong>Return Reason:</strong> ${escapeHtml(returnReason)}</div>` : ''}
+        <div class="form-group">
+            <label class="form-label">Remarks (optional)</label>
+            <textarea id="resubmit-remarks" class="form-textarea" rows="3" placeholder="Add remarks or explain compliance actions taken..."></textarea>
+        </div>
+    `;
+
+    const modal = openModal({
+        title: 'Resubmit Application',
+        content,
+        size: 'md',
+        footer: `
+            <button class="btn btn-ghost btn-sm" id="resubmit-cancel">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="resubmit-confirm">Resubmit</button>
+        `,
+    });
+
+    document.getElementById('resubmit-cancel')?.addEventListener('click', () => modal.close());
+    document.getElementById('resubmit-confirm')?.addEventListener('click', async () => {
+        const remarks = document.getElementById('resubmit-remarks')?.value || '';
+        const btn = document.getElementById('resubmit-confirm');
+        btn.disabled = true;
+        btn.textContent = 'Resubmitting...';
+
+        try {
+            const res = await fetch('/api/resubmit-leave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    applicationId: appId,
+                    updatedData: { remarks: remarks || 'Application resubmitted' },
+                }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                toast.success('Application resubmitted successfully. It will be reviewed by AO.');
+                modal.close();
+                applications = [];
+                applicationsTable = null;
+                await loadOverviewData();
+                loadApplications();
+            } else {
+                toast.error(data.error || 'Failed to resubmit application.');
+                btn.disabled = false;
+                btn.textContent = 'Resubmit';
+            }
+        } catch (err) {
+            toast.error('Network error. Please try again.');
+            btn.disabled = false;
+            btn.textContent = 'Resubmit';
+        }
     });
 }
 

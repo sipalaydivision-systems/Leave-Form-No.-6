@@ -389,7 +389,16 @@
             // Topbar
             const empNameFromUrl = new URLSearchParams(window.location.search).get('name') || '';
             document.getElementById('topbar-title').textContent = empNameFromUrl ? `Edit Cards — ${empNameFromUrl}` : 'Edit Employee Cards';
-            document.getElementById('btn-back')?.addEventListener('click', () => { window.location.href = '/ao-dashboard'; });
+            const backParam = new URLSearchParams(window.location.search).get('back');
+            const backBtn = document.getElementById('btn-back');
+            if (backBtn) {
+                if (backParam === 'ao-dashboard') {
+                    // Coming from Pending Approvals — label the button clearly
+                    backBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Pending';
+                    backBtn.title = 'Back to AO Dashboard — Pending Approvals';
+                }
+                backBtn.addEventListener('click', () => { window.location.href = '/ao-dashboard'; });
+            }
 
             // Tabs — check URL for tab param
             const urlTab = new URLSearchParams(window.location.search).get('tab');
@@ -841,24 +850,35 @@
         }
 
         function recalcEditableLeaveRow() {
-            const tbody = document.getElementById('leaveHistoryBody');
             const editRow = document.getElementById('editableLeaveRow');
             if (!editRow) return;
 
+            // When editing an existing transaction, get the previous balance from the
+            // transaction array (not DOM position) so middle-row edits show correct preview
             let prevVlBal = 0, prevSlBal = 0;
-            let prevRow = editRow.previousElementSibling;
-            while (prevRow) {
-                const cells = prevRow.querySelectorAll('td');
-                if (cells.length >= 11) {
-                    const vlText = cells[8].textContent.trim();
-                    const slText = cells[9].textContent.trim();
-                    if (vlText !== '-' && vlText !== '' && !isNaN(parseFloat(vlText))) {
-                        prevVlBal = parseFloat(vlText);
-                        prevSlBal = parseFloat(slText);
-                        break;
-                    }
+            if (currentEditingTransactionId) {
+                const txIndex = currentLeaveTransactions.findIndex(t => String(t.id) === String(currentEditingTransactionId));
+                if (txIndex > 0) {
+                    const prevTx = currentLeaveTransactions[txIndex - 1];
+                    prevVlBal = parseFloat(prevTx.vlBalance) || 0;
+                    prevSlBal = parseFloat(prevTx.slBalance) || 0;
                 }
-                prevRow = prevRow.previousElementSibling;
+            } else {
+                // New row — use last row's balance from DOM
+                let prevRow = editRow.previousElementSibling;
+                while (prevRow) {
+                    const cells = prevRow.querySelectorAll('td');
+                    if (cells.length >= 11) {
+                        const vlText = cells[8].textContent.trim();
+                        const slText = cells[9].textContent.trim();
+                        if (vlText !== '-' && vlText !== '' && !isNaN(parseFloat(vlText))) {
+                            prevVlBal = parseFloat(vlText);
+                            prevSlBal = parseFloat(slText);
+                            break;
+                        }
+                    }
+                    prevRow = prevRow.previousElementSibling;
+                }
             }
 
             const type = document.getElementById('edit_leave_type').value;

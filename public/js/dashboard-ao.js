@@ -394,6 +394,7 @@ function renderPendingTable() {
                     <button class="btn btn-warning btn-sm btn-return" data-id="${esc(row.id)}">Return</button>
                     <button class="btn btn-danger btn-sm btn-reject" data-id="${esc(row.id)}">Reject</button>
                     <button class="btn btn-ghost btn-sm btn-view" data-id="${esc(row.id)}">View</button>
+                    <button class="btn btn-ghost btn-sm btn-view-card" data-id="${esc(row.id)}" title="View Leave Card">Card</button>
                 </div>`,
             },
         ],
@@ -477,7 +478,10 @@ function bindTableActions(selector) {
         if (rejectBtn) { e.stopPropagation(); showApprovalModal(rejectBtn.dataset.id, 'rejected'); return; }
 
         const viewBtn = e.target.closest('.btn-view');
-        if (viewBtn) { e.stopPropagation(); showApplicationDetail(viewBtn.dataset.id); }
+        if (viewBtn) { e.stopPropagation(); showApplicationDetail(viewBtn.dataset.id); return; }
+
+        const cardBtn = e.target.closest('.btn-view-card');
+        if (cardBtn) { e.stopPropagation(); viewApplicantLeaveCard(cardBtn.dataset.id); }
     });
 }
 
@@ -597,16 +601,21 @@ function showApplicationDetail(appId) {
     `;
 
     const isPending = status === 'pending' && approver.toUpperCase() === 'AO';
+    const employeeEmail = app.employeeEmail || app.employee_email || '';
+    const viewCardBtn = employeeEmail
+        ? `<button class="btn btn-ghost btn-sm" onclick="window.location.href='/edit-employee-cards.html?email=${encodeURIComponent(employeeEmail)}&back=ao-dashboard'">View Leave Card</button>`
+        : '';
 
     openModal({
         title: `Application Details — ${app.id}`,
         content,
         size: 'lg',
         footer: isPending
-            ? `<button class="btn btn-success btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'approved'}}))">Approve</button>
+            ? `${viewCardBtn}
+               <button class="btn btn-success btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'approved'}}))">Approve</button>
                <button class="btn btn-warning btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'returned'}}))">Return</button>
                <button class="btn btn-danger btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'rejected'}}))">Reject</button>`
-            : '',
+            : viewCardBtn,
     });
 }
 
@@ -616,6 +625,20 @@ document.addEventListener('ao-action', (e) => {
     closeModal(); // Close detail modal
     showApprovalModal(id, action);
 });
+
+// ---------------------------------------------------------------------------
+// View Applicant Leave Card (from Pending Approvals)
+// ---------------------------------------------------------------------------
+function viewApplicantLeaveCard(appId) {
+    const app = allApplications.find(a => a.id === appId);
+    if (!app) { toast.warning('Application not found.'); return; }
+
+    const email = app.employeeEmail || app.employee_email || '';
+    if (!email) { toast.warning('Employee email not available.'); return; }
+
+    // Navigate to the leave card page with a back parameter for return navigation
+    window.location.href = `/edit-employee-cards.html?email=${encodeURIComponent(email)}&back=ao-dashboard`;
+}
 
 // ---------------------------------------------------------------------------
 // Employee Cards Tab
