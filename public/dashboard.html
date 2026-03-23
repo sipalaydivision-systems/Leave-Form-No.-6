@@ -183,8 +183,25 @@
 
                 <!-- Leave Card Tab -->
                 <div data-tab-panel="leavecard" style="display:none">
+                    <!-- Visual Leave Balance Cards -->
                     <div class="card" style="margin-bottom:var(--space-4)">
                         <div class="section-header">
+                            <div class="section-header-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                            </div>
+                            <div class="section-header-text">
+                                <div class="section-header-title">Leave Card</div>
+                                <div class="section-header-subtitle">Current balances and allocation details</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="leavecard-balances" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-3)"></div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Transaction History -->
+                    <details class="card" style="margin-bottom:var(--space-4)">
+                        <summary class="section-header" style="cursor:pointer;list-style:none">
                             <div class="section-header-icon">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                             </div>
@@ -192,11 +209,13 @@
                                 <div class="section-header-title">Transaction History</div>
                                 <div class="section-header-subtitle">Monthly accruals and deductions</div>
                             </div>
-                        </div>
+                        </summary>
                         <div id="transactions-table"></div>
-                    </div>
-                    <div class="card">
-                        <div class="section-header">
+                    </details>
+
+                    <!-- Collapsible Leave Usage History -->
+                    <details class="card" style="margin-bottom:var(--space-4)">
+                        <summary class="section-header" style="cursor:pointer;list-style:none">
                             <div class="section-header-icon">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                             </div>
@@ -204,11 +223,13 @@
                                 <div class="section-header-title">Leave Usage History</div>
                                 <div class="section-header-subtitle">Approved leave deductions</div>
                             </div>
-                        </div>
+                        </summary>
                         <div id="usage-table"></div>
-                    </div>
-                    <div class="card" style="margin-top:var(--space-4)">
-                        <div class="section-header">
+                    </details>
+
+                    <!-- Collapsible CTO Records -->
+                    <details class="card">
+                        <summary class="section-header" style="cursor:pointer;list-style:none">
                             <div class="section-header-icon">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             </div>
@@ -216,9 +237,9 @@
                                 <div class="section-header-title">CTO Records</div>
                                 <div class="section-header-subtitle">Compensatory Time-Off granted and used</div>
                             </div>
-                        </div>
+                        </summary>
                         <div id="cto-table"></div>
-                    </div>
+                    </details>
                 </div>
 
                 <!-- Leave Calendar Tab -->

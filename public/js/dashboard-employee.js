@@ -243,7 +243,7 @@ function renderBalanceCards(credits) {
     const flSpent = toNum(credits.forceLeaveSpent || credits.force_leave_spent);
     const splEarned = toNum(credits.splEarned || credits.spl_earned || 3);
     const splSpent = toNum(credits.splSpent || credits.spl_spent);
-    const wlEarned = toNum(credits.wellnessEarned || credits.wellness_earned || 3);
+    const wlEarned = toNum(credits.wellnessEarned || credits.wellness_earned || 5);
     const wlSpent = toNum(credits.wellnessSpent || credits.wellness_spent);
 
     const vl = vlEarned - vlSpent;
@@ -430,7 +430,38 @@ async function loadLeaveCard() {
     if (!user) return;
 
     const email = user.email;
-    const res = await fetch(`/api/employee-leavecard?employeeId=${encodeURIComponent(email)}`);
+    const [res, creditsRes, ctoRes] = await Promise.all([
+        fetch(`/api/employee-leavecard?employeeId=${encodeURIComponent(email)}`),
+        fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+
+    // Render balance cards
+    const balContainer = document.getElementById('leavecard-balances');
+    if (balContainer) {
+        const cr = creditsRes?.credits || {};
+        const ctoRecords = ctoRes?.records || [];
+        const ctoBalance = ctoRecords.reduce((s, r) => s + toNum(r.balance != null ? r.balance : (toNum(r.daysGranted || r.days_granted) - toNum(r.daysUsed || r.days_used))), 0);
+
+        const items = [
+            { label: 'Vacation Leave', earned: toNum(cr.vacationLeaveEarned || cr.vacation_leave_earned), spent: toNum(cr.vacationLeaveSpent || cr.vacation_leave_spent), color: '#1565c0' },
+            { label: 'Sick Leave', earned: toNum(cr.sickLeaveEarned || cr.sick_leave_earned), spent: toNum(cr.sickLeaveSpent || cr.sick_leave_spent), color: '#00897b' },
+            { label: 'Force Leave', earned: toNum(cr.forceLeaveEarned || cr.mandatoryForced || 5), spent: toNum(cr.forceLeaveSpent), color: '#e65100' },
+            { label: 'Special Privilege', earned: toNum(cr.splEarned || cr.spl || 3), spent: toNum(cr.splSpent), color: '#6a1b9a' },
+            { label: 'Wellness Leave', earned: toNum(cr.wellnessEarned || cr.wellness_earned || 5), spent: toNum(cr.wellnessSpent || cr.wellness_spent), color: '#2e7d32' },
+            { label: 'CTO', earned: ctoBalance, spent: 0, color: '#455a64' },
+        ];
+
+        balContainer.innerHTML = items.map(i => {
+            const bal = i.label === 'CTO' ? i.earned : (i.earned - i.spent);
+            return `
+            <div style="background:var(--color-neutral-50);border-radius:var(--radius-md);padding:var(--space-4);border-left:4px solid ${i.color}">
+                <div style="font-size:var(--text-2xl);font-weight:var(--font-bold);color:${i.color}">${fmt(bal)}</div>
+                <div style="font-size:var(--text-sm);font-weight:var(--font-semibold);color:var(--color-neutral-700);margin-top:2px">${escapeHtml(i.label)}</div>
+                <div style="font-size:var(--text-xs);color:var(--color-neutral-500);margin-top:4px">${i.label === 'CTO' ? `${fmt(i.earned)} available` : `${fmt(i.earned)} earned &middot; ${fmt(i.spent)} used`}</div>
+            </div>`;
+        }).join('');
+    }
 
     if (!res.ok) {
         renderEmptyState(document.getElementById('transactions-table'), {
@@ -768,19 +799,71 @@ function showResubmitModal(appId) {
 function showProfileModal() {
     const content = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-            <div><label class="form-label">Name</label><div>${escapeHtml(user.name || user.fullName)}</div></div>
-            <div><label class="form-label">Email</label><div>${escapeHtml(user.email)}</div></div>
-            <div><label class="form-label">Office</label><div>${escapeHtml(user.office || '--')}</div></div>
-            <div><label class="form-label">Position</label><div>${escapeHtml(user.position || '--')}</div></div>
-            <div><label class="form-label">Employee No.</label><div>${escapeHtml(user.employeeNo || user.employee_number || '--')}</div></div>
-            <div><label class="form-label">Salary Grade</label><div>${escapeHtml(user.salaryGrade || user.salary_grade || '--')}-${escapeHtml(user.step || '--')}</div></div>
+            <div><label class="form-label">Last Name</label><input class="form-input" id="prof-lastName" value="${escapeHtml(user.lastName || '')}"></div>
+            <div><label class="form-label">First Name</label><input class="form-input" id="prof-firstName" value="${escapeHtml(user.firstName || '')}"></div>
+            <div><label class="form-label">Middle Name</label><input class="form-input" id="prof-middleName" value="${escapeHtml(user.middleName || '')}"></div>
+            <div><label class="form-label">Suffix</label><input class="form-input" id="prof-suffix" value="${escapeHtml(user.suffix || '')}" placeholder="Jr., III, etc."></div>
+            <div><label class="form-label">Email</label><div class="form-input" style="background:var(--color-neutral-100);cursor:not-allowed;opacity:0.7">${escapeHtml(user.email)}</div></div>
+            <div><label class="form-label">Employee No.</label><input class="form-input" id="prof-employeeNo" value="${escapeHtml(user.employeeNo || user.employee_number || '')}"></div>
+            <div><label class="form-label">Office / School</label><input class="form-input" id="prof-office" value="${escapeHtml(user.office || '')}"></div>
+            <div><label class="form-label">Position</label><input class="form-input" id="prof-position" value="${escapeHtml(user.position || '')}"></div>
+            <div><label class="form-label">Salary Grade</label><input class="form-input" id="prof-salaryGrade" value="${escapeHtml(user.salaryGrade || user.salary_grade || '')}"></div>
+            <div><label class="form-label">Step</label><input class="form-input" id="prof-step" value="${escapeHtml(user.step || '')}"></div>
+            <div style="grid-column:span 2"><label class="form-label">Monthly Salary</label><input class="form-input" id="prof-salary" value="${escapeHtml(user.salary || '')}"></div>
         </div>
     `;
 
-    openModal({
-        title: 'My Profile',
+    const modal = openModal({
+        title: 'Edit Profile',
         content,
         size: 'md',
+        footer: `
+            <button class="btn btn-ghost btn-sm" id="prof-cancel">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="prof-save">Save Changes</button>
+        `,
+    });
+
+    document.getElementById('prof-cancel')?.addEventListener('click', () => modal.close());
+    document.getElementById('prof-save')?.addEventListener('click', async () => {
+        const lastName = document.getElementById('prof-lastName').value.trim();
+        const firstName = document.getElementById('prof-firstName').value.trim();
+        if (!lastName || !firstName) { toast.warning('Last name and first name are required.'); return; }
+
+        const middleName = document.getElementById('prof-middleName').value.trim();
+        const suffix = document.getElementById('prof-suffix').value.trim();
+        const fullName = `${lastName}${suffix ? ' ' + suffix : ''}, ${firstName}${middleName ? ' ' + middleName : ''}`;
+
+        const payload = {
+            email: user.email,
+            fullName,
+            firstName, lastName, middleName, suffix,
+            office: document.getElementById('prof-office').value.trim(),
+            position: document.getElementById('prof-position').value.trim(),
+            employeeNo: document.getElementById('prof-employeeNo').value.trim(),
+            salaryGrade: document.getElementById('prof-salaryGrade').value.trim(),
+            step: document.getElementById('prof-step').value.trim(),
+            salary: document.getElementById('prof-salary').value.trim(),
+        };
+
+        try {
+            const res = await fetch('/api/update-employee-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success('Profile updated successfully.');
+                Object.assign(user, data.user || {});
+                user.name = fullName;
+                user.fullName = fullName;
+                modal.close();
+            } else {
+                toast.error(data.error || 'Update failed.');
+            }
+        } catch (e) {
+            toast.error('Network error. Please try again.');
+        }
     });
 }
 

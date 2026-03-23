@@ -97,7 +97,6 @@ function setupSidebar() {
                 title: 'Management',
                 links: [
                     { id: 'cards', label: 'Employee Cards', icon: ICONS.creditCard },
-                    { id: 'cto', label: 'CTO Records', icon: ICONS.clock },
                     { id: 'calendar', label: 'Leave Calendar', icon: ICONS.calendar },
                 ],
             },
@@ -129,7 +128,6 @@ function setupTabs() {
             { id: 'pending', label: 'Pending', badge: 0 },
             { id: 'approved', label: 'Approved' },
             { id: 'cards', label: 'Employee Cards' },
-            { id: 'cto', label: 'CTO' },
             { id: 'calendar', label: 'Calendar' },
         ],
         activeTab: 'overview',
@@ -150,9 +148,6 @@ function onTabChange(tabId) {
             break;
         case 'cards':
             if (!employeesTable) loadEmployees();
-            break;
-        case 'cto':
-            if (!ctoTable) loadEmployeesForCTO();
             break;
         case 'calendar':
             if (!leaveCalendar) {

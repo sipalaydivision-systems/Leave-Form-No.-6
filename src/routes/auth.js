@@ -264,7 +264,15 @@ function createProfileUpdateHandler(config) {
 
     return (req, res) => {
         try {
-            const { email, fullName, newPassword, newPin } = req.body;
+            let { email, fullName, newPassword, newPin } = req.body;
+            // Compute fullName from structured name parts if provided
+            if (req.body.lastName && req.body.firstName) {
+                const ln = req.body.lastName.trim();
+                const fn = req.body.firstName.trim();
+                const mn = (req.body.middleName || '').trim();
+                const sfx = (req.body.suffix || '').trim();
+                fullName = `${ln}${sfx ? ' ' + sfx : ''}, ${fn}${mn ? ' ' + mn : ''}`;
+            }
             if (!email || !fullName) {
                 return res.status(400).json({ success: false, error: 'Email and full name are required' });
             }
@@ -281,11 +289,18 @@ function createProfileUpdateHandler(config) {
             users[userIndex].name = fullName;
             users[userIndex].fullName = fullName;
             // Keep segregated name fields in sync
-            const nameParts = parseFullNameIntoParts(fullName);
-            users[userIndex].firstName = nameParts.firstName || '';
-            users[userIndex].lastName = nameParts.lastName || '';
-            users[userIndex].middleName = nameParts.middleName || '';
-            users[userIndex].suffix = nameParts.suffix || '';
+            if (req.body.lastName && req.body.firstName) {
+                users[userIndex].firstName = req.body.firstName.trim();
+                users[userIndex].lastName = req.body.lastName.trim();
+                users[userIndex].middleName = (req.body.middleName || '').trim();
+                users[userIndex].suffix = (req.body.suffix || '').trim();
+            } else {
+                const nameParts = parseFullNameIntoParts(fullName);
+                users[userIndex].firstName = nameParts.firstName || '';
+                users[userIndex].lastName = nameParts.lastName || '';
+                users[userIndex].middleName = nameParts.middleName || '';
+                users[userIndex].suffix = nameParts.suffix || '';
+            }
             // Update portal-specific fields
             for (const field of updatableFields) {
                 if (req.body[field]) users[userIndex][field] = req.body[field];

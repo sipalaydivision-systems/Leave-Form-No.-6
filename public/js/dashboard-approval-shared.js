@@ -161,6 +161,8 @@ export async function showApprovalModal(app, portal, user, onDone) {
         const splSpent = toNum(credits.splSpent);
         const flEarned = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
         const flSpent = toNum(credits.forceLeaveSpent);
+        const wlEarned = toNum(credits.wellnessEarned || credits.wellness_earned || 5);
+        const wlSpent = toNum(credits.wellnessSpent || credits.wellness_spent);
 
         if (!creditsRes) {
             balanceHtml = '<div style="margin-bottom:var(--space-3);padding:var(--space-2);background:var(--color-warning-bg);border-radius:var(--radius-sm);font-size:var(--text-xs)">Could not load leave credits.</div>';
@@ -190,6 +192,10 @@ export async function showApprovalModal(app, portal, user, onDone) {
                         <div class="cert-grid-val">${fmt(flEarned)}</div>
                         <div class="cert-grid-val">${fmt(flSpent)}</div>
                         <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(flEarned - flSpent)}</div>
+                        <div class="cert-grid-label">Wellness Leave</div>
+                        <div class="cert-grid-val">${fmt(wlEarned)}</div>
+                        <div class="cert-grid-val">${fmt(wlSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary-600,#1565c0)">${fmt(wlEarned - wlSpent)}</div>
                         <div class="cert-grid-label">CTO</div>
                         <div class="cert-grid-val">${fmt(ctoBalance)}</div>
                         <div class="cert-grid-val">0</div>

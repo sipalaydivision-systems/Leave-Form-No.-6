@@ -941,7 +941,7 @@ function createDefaultLeaveCard(email, name, nameFields, vlCredits, slCredits) {
         sickLeaveEarned: sl,
         forceLeaveEarned: 5,
         splEarned: 3,
-        wellnessEarned: 3,
+        wellnessEarned: 5,
         vacationLeaveSpent: 0,
         sickLeaveSpent: 0,
         forceLeaveSpent: 0,
@@ -4866,6 +4866,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         if (latestRecord.wellnessYear && latestRecord.wellnessYear !== currentYear) {
             wellnessSpent = 0;
             latestRecord.wellnessSpent = 0;
+            latestRecord.wellnessEarned = 5;
             latestRecord.wellnessYear = currentYear;
             needsPersist = true;
         }
@@ -4880,6 +4881,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
                 allCards[cardIdx].splSpent = 0;
                 allCards[cardIdx].splYear = currentYear;
                 allCards[cardIdx].wellnessSpent = 0;
+                allCards[cardIdx].wellnessEarned = 5;
                 allCards[cardIdx].wellnessYear = currentYear;
                 writeJSON(leavecardsFile, allCards);
                 console.log(`[LEAVE-CREDITS] Year reset persisted for ${latestRecord.email}: FL/SPL/WL spent reset to 0 for ${currentYear}`);
@@ -4934,7 +4936,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
             sickLeaveEarned: sickLeaveEarned,
             forceLeaveEarned: latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5,
             splEarned: latestRecord.splEarned || latestRecord.spl || 3,
-            wellnessEarned: latestRecord.wellnessEarned || 3,
+            wellnessEarned: latestRecord.wellnessEarned || 5,
             vacationLeaveSpent: vacationLeaveSpent,
             sickLeaveSpent: sickLeaveSpent,
             forceLeaveSpent: totalForceSpent,
@@ -5633,7 +5635,7 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 sickLeaveEarned: 0,
                 forceLeaveEarned: 5,
                 splEarned: 3,
-                wellnessEarned: 3,
+                wellnessEarned: 5,
                 vacationLeaveSpent: 0,
                 sickLeaveSpent: 0,
                 forceLeaveSpent: 0,
@@ -5676,6 +5678,7 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         // Reset Wellness Leave balance if year has changed
         if (leavecard.wellnessYear !== currentYear) {
             leavecard.wellnessSpent = 0;
+            leavecard.wellnessEarned = 5;
             leavecard.wellnessYear = currentYear;
         }
         
@@ -5737,7 +5740,7 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
         } else if (wellnessUsed > 0) {
-            // Wellness Leave is a separate 3-day yearly allocation
+            // Wellness Leave is a separate 5-day yearly allocation
             leavecard.wellnessSpent = (leavecard.wellnessSpent || 0) + wellnessUsed;
         } else if (application.leaveType === 'leave_others' || String(application.leaveType || '').toLowerCase().includes('others')) {
             // CTO/Others leave - deduct from CTO records
@@ -6872,7 +6875,7 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 sl: entry.sickLeave,
                 spl: 3,
                 others: 0,
-                wellnessEarned: 3,
+                wellnessEarned: 5,
                 wellnessSpent: 0,
                 forceLeaveYear: new Date().getFullYear(),
                 splYear: new Date().getFullYear(),
@@ -7079,7 +7082,7 @@ app.post('/api/migrate-leave-card-json', requireAuth('it'), (req, res) => {
                 sl: slCredits,
                 spl: 3,
                 others: 0,
-                wellnessEarned: 3,
+                wellnessEarned: 5,
                 wellnessSpent: 0,
                 forceLeaveYear: new Date().getFullYear(),
                 splYear: new Date().getFullYear(),

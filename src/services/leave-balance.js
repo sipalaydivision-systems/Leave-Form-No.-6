@@ -225,10 +225,10 @@ function validateLeaveBalance(leaveType, numDays, employeeEmail, excludeAppId) {
             }
         }
         if (leaveType === 'leave_wl' || leaveType === 'leave_wellness' || leaveType === 'wellness') {
-            if ((bal.wellnessSpent + numDays) > 3) {
-                const remaining = Math.max(0, 3 - bal.wellnessSpent);
-                console.log(`[VALIDATION] WL rejected for ${employeeEmail}: Already used ${bal.wellnessSpent}/3, requested ${numDays}`);
-                return { valid: false, error: 'Insufficient Wellness Leave balance', message: `You cannot apply for ${numDays} day(s) of Wellness Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 3-day yearly allocation.` };
+            if ((bal.wellnessSpent + numDays) > 5) {
+                const remaining = Math.max(0, 5 - bal.wellnessSpent);
+                console.log(`[VALIDATION] WL rejected for ${employeeEmail}: Already used ${bal.wellnessSpent}/5, requested ${numDays}`);
+                return { valid: false, error: 'Insufficient Wellness Leave balance', message: `You cannot apply for ${numDays} day(s) of Wellness Leave. You have ${remaining.toFixed(0)} day(s) remaining out of your 5-day yearly allocation.` };
             }
         }
         return { valid: true };

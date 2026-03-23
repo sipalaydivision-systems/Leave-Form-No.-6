@@ -466,6 +466,8 @@ async function openCertificationModal(appId) {
     const splSpent = toNum(credits.splSpent);
     const flEarned = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
     const flSpent = toNum(credits.forceLeaveSpent);
+    const wlEarned = toNum(credits.wellnessEarned || credits.wellness_earned || 5);
+    const wlSpent = toNum(credits.wellnessSpent || credits.wellness_spent);
     const ctoEarned = ctoBalance;
     const ctoSpent = 0;
 
@@ -509,6 +511,11 @@ async function openCertificationModal(appId) {
                     <div><input type="number" step="0.001" id="cert-fl-earned" value="${fmt(flEarned)}"></div>
                     <div><input type="number" step="0.001" id="cert-fl-less" value="${fmt(flSpent)}"></div>
                     <div><input type="number" step="0.001" id="cert-fl-balance" value="${fmt(flEarned - flSpent)}" readonly></div>
+
+                    <div class="cert-grid-label">Wellness Leave</div>
+                    <div><input type="number" step="0.001" id="cert-wl-earned" value="${fmt(wlEarned)}"></div>
+                    <div><input type="number" step="0.001" id="cert-wl-less" value="${fmt(wlSpent)}"></div>
+                    <div><input type="number" step="0.001" id="cert-wl-balance" value="${fmt(wlEarned - wlSpent)}" readonly></div>
 
                     <div class="cert-grid-label">CTO</div>
                     <div><input type="number" step="0.001" id="cert-cto-earned" value="${fmt(ctoEarned)}"></div>
@@ -572,7 +579,7 @@ async function openCertificationModal(appId) {
             });
         });
     }
-    ['vl', 'sl', 'spl', 'fl', 'cto'].forEach(bindBalanceCalc);
+    ['vl', 'sl', 'spl', 'fl', 'wl', 'cto'].forEach(bindBalanceCalc);
 
     // Actions
     document.getElementById('cert-cancel')?.addEventListener('click', () => modal.close());
@@ -600,6 +607,9 @@ async function openCertificationModal(appId) {
             flEarned: toNum(document.getElementById('cert-fl-earned')?.value),
             flLess: toNum(document.getElementById('cert-fl-less')?.value),
             flBalance: toNum(document.getElementById('cert-fl-balance')?.value),
+            wlEarned: toNum(document.getElementById('cert-wl-earned')?.value),
+            wlLess: toNum(document.getElementById('cert-wl-less')?.value),
+            wlBalance: toNum(document.getElementById('cert-wl-balance')?.value),
             ctoEarned: toNum(document.getElementById('cert-cto-earned')?.value),
             ctoLess: toNum(document.getElementById('cert-cto-less')?.value),
             ctoBalance: toNum(document.getElementById('cert-cto-balance')?.value),

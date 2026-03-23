@@ -142,9 +142,9 @@ router.post('/api/register', apiRateLimiter, (req, res) => {
 
 router.post('/api/update-employee-profile', requireAuth('user'), createProfileUpdateHandler({
     portalName: 'employee', portalLabel: 'Employee', userFile: usersFile,
-    updatableFields: ['office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary'],
+    updatableFields: ['firstName', 'lastName', 'middleName', 'suffix', 'office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary'],
     syncToEmployees: true, syncToLeaveCards: true,
-    responseFields: ['id', 'email', 'name', 'office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary']
+    responseFields: ['id', 'email', 'name', 'firstName', 'lastName', 'middleName', 'suffix', 'office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary']
 }));
 
 // =========================================================================
