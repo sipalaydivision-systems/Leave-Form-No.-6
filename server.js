@@ -4749,10 +4749,13 @@ app.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds
             const approvalKey = portal.toLowerCase() + 'ApprovedAt';
             const isCurrentApprover = a.currentApprover === portal;
             const hasApprovedByPortal = a[approvalKey] !== undefined;
-            const isRejectedByPortal = (a.status === 'disapproved' || a.status === 'rejected') && 
+            const isRejectedByPortal = (a.status === 'disapproved' || a.status === 'rejected') &&
                                      (a.disapprovedBy === portal || a.rejectedBy === portal);
-            
-            return isCurrentApprover || hasApprovedByPortal || isRejectedByPortal;
+            const wasReturnedByPortal = a.returnedBy === portal;
+            const hasHistoryFromPortal = Array.isArray(a.approvalHistory) &&
+                a.approvalHistory.some(h => (h.portal || '').toUpperCase() === portal);
+
+            return isCurrentApprover || hasApprovedByPortal || isRejectedByPortal || wasReturnedByPortal || hasHistoryFromPortal;
         });
         
         // AO school-based filtering: AO can only see applications from their school's employees
