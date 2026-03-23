@@ -462,6 +462,16 @@ async function openCertificationModal(appId) {
     const vlSpent = toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
     const slEarned = toNum(credits.sickLeaveEarned || credits.sick_leave_earned);
     const slSpent = toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
+    const splEarned = toNum(credits.splEarned || credits.spl || 3);
+    const splSpent = toNum(credits.splSpent);
+    const flEarned = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
+    const flSpent = toNum(credits.forceLeaveSpent);
+    const ctoEarned = ctoBalance;
+    const ctoSpent = 0;
+
+    if (!creditsRes) {
+        toast.warning('Could not load leave credits. Balances may show as 0.');
+    }
 
     const content = `
         <div style="margin-bottom:var(--space-4)">
@@ -475,14 +485,36 @@ async function openCertificationModal(appId) {
             <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">7.A — Certification of Leave Credits</h4></div>
             <div class="card-body">
                 <div class="cert-grid">
-                    <div><label>VL Earned</label><input type="number" step="0.001" id="cert-vl-earned" value="${fmt(vlEarned)}"></div>
-                    <div><label>VL Less</label><input type="number" step="0.001" id="cert-vl-less" value="${fmt(vlSpent)}"></div>
-                    <div><label>VL Balance</label><input type="number" step="0.001" id="cert-vl-balance" value="${fmt(vlEarned - vlSpent)}" readonly style="background:var(--neutral-50)"></div>
-                    <div><label>SL Earned</label><input type="number" step="0.001" id="cert-sl-earned" value="${fmt(slEarned)}"></div>
-                    <div><label>SL Less</label><input type="number" step="0.001" id="cert-sl-less" value="${fmt(slSpent)}"></div>
-                    <div><label>SL Balance</label><input type="number" step="0.001" id="cert-sl-balance" value="${fmt(slEarned - slSpent)}" readonly style="background:var(--neutral-50)"></div>
+                    <div class="cert-grid-header"></div>
+                    <div class="cert-grid-header">Earned</div>
+                    <div class="cert-grid-header">Less</div>
+                    <div class="cert-grid-header">Balance</div>
+
+                    <div class="cert-grid-label">Vacation Leave</div>
+                    <div><input type="number" step="0.001" id="cert-vl-earned" value="${fmt(vlEarned)}"></div>
+                    <div><input type="number" step="0.001" id="cert-vl-less" value="${fmt(vlSpent)}"></div>
+                    <div><input type="number" step="0.001" id="cert-vl-balance" value="${fmt(vlEarned - vlSpent)}" readonly></div>
+
+                    <div class="cert-grid-label">Sick Leave</div>
+                    <div><input type="number" step="0.001" id="cert-sl-earned" value="${fmt(slEarned)}"></div>
+                    <div><input type="number" step="0.001" id="cert-sl-less" value="${fmt(slSpent)}"></div>
+                    <div><input type="number" step="0.001" id="cert-sl-balance" value="${fmt(slEarned - slSpent)}" readonly></div>
+
+                    <div class="cert-grid-label">Special Privilege</div>
+                    <div><input type="number" step="0.001" id="cert-spl-earned" value="${fmt(splEarned)}"></div>
+                    <div><input type="number" step="0.001" id="cert-spl-less" value="${fmt(splSpent)}"></div>
+                    <div><input type="number" step="0.001" id="cert-spl-balance" value="${fmt(splEarned - splSpent)}" readonly></div>
+
+                    <div class="cert-grid-label">Force Leave</div>
+                    <div><input type="number" step="0.001" id="cert-fl-earned" value="${fmt(flEarned)}"></div>
+                    <div><input type="number" step="0.001" id="cert-fl-less" value="${fmt(flSpent)}"></div>
+                    <div><input type="number" step="0.001" id="cert-fl-balance" value="${fmt(flEarned - flSpent)}" readonly></div>
+
+                    <div class="cert-grid-label">CTO</div>
+                    <div><input type="number" step="0.001" id="cert-cto-earned" value="${fmt(ctoEarned)}"></div>
+                    <div><input type="number" step="0.001" id="cert-cto-less" value="${fmt(ctoSpent)}"></div>
+                    <div><input type="number" step="0.001" id="cert-cto-balance" value="${fmt(ctoEarned - ctoSpent)}" readonly></div>
                 </div>
-                <div style="margin-top:var(--space-2);font-size:var(--text-xs);color:var(--color-text-muted)">CTO Balance: ${fmt(ctoBalance)} days</div>
             </div>
         </div>
 
@@ -529,23 +561,18 @@ async function openCertificationModal(appId) {
     // Initialize signature canvas
     initSignatureCanvas('cert-signature-canvas', 'cert-sig-clear', 'cert-sig-upload');
 
-    // Auto-calculate balances
-    ['cert-vl-earned', 'cert-vl-less'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', () => {
-            const earned = toNum(document.getElementById('cert-vl-earned')?.value);
-            const less = toNum(document.getElementById('cert-vl-less')?.value);
-            const balEl = document.getElementById('cert-vl-balance');
-            if (balEl) balEl.value = fmt(earned - less);
+    // Auto-calculate balances for all leave types
+    function bindBalanceCalc(prefix) {
+        ['cert-' + prefix + '-earned', 'cert-' + prefix + '-less'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', () => {
+                const earned = toNum(document.getElementById('cert-' + prefix + '-earned')?.value);
+                const less = toNum(document.getElementById('cert-' + prefix + '-less')?.value);
+                const balEl = document.getElementById('cert-' + prefix + '-balance');
+                if (balEl) balEl.value = fmt(earned - less);
+            });
         });
-    });
-    ['cert-sl-earned', 'cert-sl-less'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', () => {
-            const earned = toNum(document.getElementById('cert-sl-earned')?.value);
-            const less = toNum(document.getElementById('cert-sl-less')?.value);
-            const balEl = document.getElementById('cert-sl-balance');
-            if (balEl) balEl.value = fmt(earned - less);
-        });
-    });
+    }
+    ['vl', 'sl', 'spl', 'fl', 'cto'].forEach(bindBalanceCalc);
 
     // Actions
     document.getElementById('cert-cancel')?.addEventListener('click', () => modal.close());
@@ -557,8 +584,29 @@ async function openCertificationModal(appId) {
         const canvas = document.getElementById('cert-signature-canvas');
         const signatureData = canvas ? canvas.toDataURL('image/png') : '';
         const remarks = document.getElementById('cert-remarks')?.value || '';
+        const daysApproved = document.getElementById('cert-days-approved')?.value || '';
 
-        await processHRAction(appId, 'approved', remarks, signatureData);
+        // Collect all certified balance data
+        const certData = {
+            vlEarned: toNum(document.getElementById('cert-vl-earned')?.value),
+            vlLess: toNum(document.getElementById('cert-vl-less')?.value),
+            vlBalance: toNum(document.getElementById('cert-vl-balance')?.value),
+            slEarned: toNum(document.getElementById('cert-sl-earned')?.value),
+            slLess: toNum(document.getElementById('cert-sl-less')?.value),
+            slBalance: toNum(document.getElementById('cert-sl-balance')?.value),
+            splEarned: toNum(document.getElementById('cert-spl-earned')?.value),
+            splLess: toNum(document.getElementById('cert-spl-less')?.value),
+            splBalance: toNum(document.getElementById('cert-spl-balance')?.value),
+            flEarned: toNum(document.getElementById('cert-fl-earned')?.value),
+            flLess: toNum(document.getElementById('cert-fl-less')?.value),
+            flBalance: toNum(document.getElementById('cert-fl-balance')?.value),
+            ctoEarned: toNum(document.getElementById('cert-cto-earned')?.value),
+            ctoLess: toNum(document.getElementById('cert-cto-less')?.value),
+            ctoBalance: toNum(document.getElementById('cert-cto-balance')?.value),
+            daysApproved: toNum(daysApproved),
+        };
+
+        await processHRAction(appId, 'approved', remarks, signatureData, certData);
         modal.close();
     });
 }
@@ -600,19 +648,27 @@ function showReturnModal(appId) {
 // ---------------------------------------------------------------------------
 // Process HR Action
 // ---------------------------------------------------------------------------
-async function processHRAction(appId, action, remarks, signature) {
+async function processHRAction(appId, action, remarks, signature, certData) {
     try {
+        const payload = {
+            applicationId: appId,
+            action,
+            remarks,
+            portal: 'HR',
+            approverName: user.name || user.fullName || '',
+            authorizedOfficerName: user.name || user.fullName || '',
+            authorizedOfficerSignature: signature || undefined,
+        };
+
+        // Include certified balance data when approving
+        if (certData) {
+            Object.assign(payload, certData);
+        }
+
         const res = await fetch('/api/approve-leave', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                applicationId: appId,
-                action,
-                remarks,
-                portal: 'HR',
-                approverName: user.name || user.fullName || '',
-                signature: signature || undefined,
-            }),
+            body: JSON.stringify(payload),
         });
 
         if (res.ok) {
