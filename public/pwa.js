@@ -2,6 +2,16 @@
 (function() {
   // Register service worker
   if ('serviceWorker' in navigator) {
+    // Reload once when a new service worker takes control (ensures fresh assets)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        console.log('[PWA] New service worker activated — reloading for fresh assets');
+        window.location.reload();
+      }
+    });
+
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
         .then(reg => {
