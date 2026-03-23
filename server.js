@@ -4649,7 +4649,12 @@ app.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (re
 app.get('/api/leave-utilization/top5', requireAuth('asds', 'sds', 'it'), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
-        const approved = applications.filter(a => a.status === 'approved');
+        const year = parseInt(req.query.year) || new Date().getFullYear();
+        const approved = applications.filter(a => {
+            if (a.status !== 'approved') return false;
+            const d = new Date(a.dateFrom || a.date_from || a.submittedAt || '');
+            return d.getFullYear() === year;
+        });
 
         // Aggregate total days by employee
         const byEmployee = {};
@@ -4657,7 +4662,7 @@ app.get('/api/leave-utilization/top5', requireAuth('asds', 'sds', 'it'), (req, r
             const name = a.employeeName || a.employeeEmail || 'Unknown';
             const key = (a.employeeEmail || name).toLowerCase();
             if (!byEmployee[key]) {
-                byEmployee[key] = { name, office: a.office || '', totalDays: 0, count: 0 };
+                byEmployee[key] = { name, office: a.office || '', position: a.position || '', totalDays: 0, count: 0 };
             }
             byEmployee[key].totalDays += parseFloat(a.numDays) || 0;
             byEmployee[key].count++;
@@ -4668,7 +4673,7 @@ app.get('/api/leave-utilization/top5', requireAuth('asds', 'sds', 'it'), (req, r
             .slice(0, 5)
             .map((e, i) => ({ rank: i + 1, ...e, totalDays: +e.totalDays.toFixed(1) }));
 
-        res.json({ success: true, top5: sorted });
+        res.json({ success: true, top5: sorted, year });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

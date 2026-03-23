@@ -130,12 +130,18 @@ async function loadOverviewData() {
         const d = new Date(a.sdsApprovedAt || a.sds_approved_at || a.updatedAt || '');
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && a.status === 'approved';
     });
+    const approved = allApps.filter(a => a.status === 'approved');
     const disapproved = allApps.filter(a => a.status === 'rejected' || a.status === 'disapproved').length;
+    const totalDays = approved.reduce((s, a) => s + (parseFloat(a.numDays || a.num_days) || 0), 0);
+    const avgDays = approved.length ? (totalDays / approved.length).toFixed(1) : '0';
 
-    setText('stat-pending', pending.length);
-    setText('stat-approved', thisMonth.length);
-    setText('stat-disapproved', disapproved);
-    setText('stat-total', allApps.length);
+    // KPI strip
+    setText('kpi-pending', pending.length);
+    setText('kpi-approved', thisMonth.length);
+    setText('kpi-total', allApps.length);
+    setText('kpi-disapproved', disapproved);
+    setText('kpi-total-days', totalDays.toFixed(1));
+    setText('kpi-avg-days', avgDays);
 
     // Hero metric
     setText('hero-metric', pending.length);
@@ -143,13 +149,132 @@ async function loadOverviewData() {
     tabs.updateBadge('pending', pending.length);
     sidebar.updateBadge('pending', pending.length);
 
-    renderRecentPending(pending.slice(0, 5));
-
+    // Row 2: Charts
     destroyChart(activityChart);
     activityChart = renderActivityBarChart('#chart-activity', allApps, 'sdsApprovedAt', 'Decided', ROLE_COLOR);
 
+    renderPipeline(allApps);
+
+    // Row 3: Doughnut + Top 5
     destroyChart(typesChart);
     typesChart = renderTypesDoughnut('#chart-types', 'chart-types-total', allApps);
+
+    loadTop5Overview();
+
+    // Row 4: Office breakdown + Recent pending
+    renderOfficeBreakdown(allApps);
+    renderRecentPending(pending.slice(0, 5));
+}
+
+// ---------------------------------------------------------------------------
+// Approval Pipeline
+// ---------------------------------------------------------------------------
+function renderPipeline(apps) {
+    const el = document.getElementById('pipeline-chart');
+    if (!el) return;
+
+    const statusMap = [
+        { key: 'total', label: 'Total', color: '#6a1b9a' },
+        { key: 'pending', label: 'Pending', color: '#ff8f00' },
+        { key: 'approved', label: 'Approved', color: '#2e7d32' },
+        { key: 'returned', label: 'Returned', color: '#f9a825' },
+        { key: 'rejected', label: 'Disapproved', color: '#c62828' },
+    ];
+
+    const counts = {
+        total: apps.length,
+        pending: apps.filter(a => a.status === 'pending').length,
+        approved: apps.filter(a => a.status === 'approved').length,
+        returned: apps.filter(a => a.status === 'returned').length,
+        rejected: apps.filter(a => a.status === 'rejected' || a.status === 'disapproved').length,
+    };
+
+    const max = counts.total || 1;
+    let html = '<div class="pipeline-header">Application flow across all statuses</div>';
+    for (const s of statusMap) {
+        const pct = ((counts[s.key] / max) * 100).toFixed(0);
+        const pctOfTotal = counts.total ? ((counts[s.key] / counts.total) * 100).toFixed(0) : 0;
+        html += `<div class="pipeline-bar-row">
+            <span class="pipeline-label">${s.label}: ${counts[s.key]}</span>
+            <div class="pipeline-track">
+                <div class="pipeline-fill" style="width:${pct}%;background:${s.color}">${pct > 15 ? pctOfTotal + '%' : ''}</div>
+            </div>
+            <span class="pipeline-count">${pctOfTotal}%</span>
+        </div>`;
+    }
+    el.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Top 5 Leave Utilization (overview section)
+// ---------------------------------------------------------------------------
+async function loadTop5Overview() {
+    const el = document.getElementById('top5-overview');
+    if (!el) return;
+    try {
+        const year = new Date().getFullYear();
+        const res = await fetch(`/api/leave-utilization/top5?year=${year}`);
+        if (!res.ok) { el.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Unable to load.</p>'; return; }
+        const data = await res.json();
+        const top5 = data.top5 || [];
+        if (top5.length === 0) {
+            renderEmptyState(el, { icon: 'document', title: 'No Data', description: 'No approved leaves this year.' });
+            return;
+        }
+        const rankClass = ['', 'gold', 'silver', 'bronze'];
+        let html = '<ul class="top5-list">';
+        for (const e of top5) {
+            const cls = rankClass[e.rank] || 'other';
+            html += `<li class="top5-item">
+                <div class="top5-rank ${cls}">${e.rank}</div>
+                <div class="top5-info">
+                    <div class="top5-name">${esc(e.name)}</div>
+                    <div class="top5-office">${esc(e.office)}${e.position ? ' · ' + esc(e.position) : ''}</div>
+                </div>
+                <div style="text-align:right">
+                    <div class="top5-days">${e.totalDays}</div>
+                    <div class="top5-days-label">${e.count} app${e.count > 1 ? 's' : ''}</div>
+                </div>
+            </li>`;
+        }
+        html += '</ul>';
+        el.innerHTML = html;
+    } catch { el.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Failed to load.</p>'; }
+}
+
+// ---------------------------------------------------------------------------
+// Office Breakdown (horizontal bars)
+// ---------------------------------------------------------------------------
+function renderOfficeBreakdown(apps) {
+    const el = document.getElementById('office-breakdown');
+    if (!el) return;
+
+    const byOffice = {};
+    for (const a of apps) {
+        const office = a.office || 'Unknown';
+        byOffice[office] = (byOffice[office] || 0) + 1;
+    }
+
+    const sorted = Object.entries(byOffice).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (sorted.length === 0) {
+        renderEmptyState(el, { icon: 'document', title: 'No Data', description: 'No applications yet.' });
+        return;
+    }
+
+    const max = sorted[0][1];
+    let html = '<ul class="hbar-list">';
+    for (const [office, count] of sorted) {
+        const pct = ((count / max) * 100).toFixed(0);
+        html += `<li class="hbar-item">
+            <span class="hbar-label">${esc(office)}</span>
+            <div class="hbar-bar-wrap">
+                <div class="hbar-bar" style="width:${pct}%;min-width:8px"></div>
+                <span class="hbar-value">${count}</span>
+            </div>
+        </li>`;
+    }
+    html += '</ul>';
+    el.innerHTML = html;
 }
 
 function renderRecentPending(apps) {
@@ -265,7 +390,8 @@ async function loadTop5Utilization() {
     const container = document.getElementById('top5-utilization');
     if (!container) return;
     try {
-        const res = await fetch('/api/leave-utilization/top5');
+        const year = new Date().getFullYear();
+        const res = await fetch(`/api/leave-utilization/top5?year=${year}`);
         if (!res.ok) { container.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Unable to load data.</p>'; return; }
         const data = await res.json();
         const top5 = data.top5 || [];
