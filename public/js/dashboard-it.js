@@ -12,6 +12,7 @@ import { createDoughnutChart, createBarChart, destroyChart } from '../components
 import { toast } from '../components/toast.js';
 import { openModal, confirmModal } from '../components/modal.js';
 import { renderEmptyState } from '../components/empty-state.js';
+import { initLeaveCalendar } from './leave-calendar-shared.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -26,6 +27,7 @@ let registrationsTable = null;
 let usersTable = null;
 let rolesChart = null;
 let appStatusChart = null;
+let leaveCalendar = null;
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -84,6 +86,7 @@ function setupSidebar() {
             {
                 title: 'System',
                 links: [
+                    { id: 'calendar', label: 'Leave Calendar', icon: ICONS.calendar },
                     { id: 'system', label: 'Maintenance', icon: ICONS.server },
                 ],
             },
@@ -114,6 +117,7 @@ function setupTabs() {
             { id: 'overview', label: 'Overview' },
             { id: 'registrations', label: 'Registrations', badge: 0 },
             { id: 'users', label: 'Users' },
+            { id: 'calendar', label: 'Calendar' },
             { id: 'system', label: 'System' },
         ],
         activeTab: 'overview',
@@ -128,6 +132,12 @@ function onTabChange(tabId) {
     switch (tabId) {
         case 'registrations': if (!registrationsTable) loadRegistrations(); break;
         case 'users': if (!usersTable) loadUsers(); break;
+        case 'calendar':
+            if (!leaveCalendar) {
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'it', email: user.email });
+            }
+            leaveCalendar.load();
+            break;
         case 'system': loadSystemStatus(); break;
     }
 }

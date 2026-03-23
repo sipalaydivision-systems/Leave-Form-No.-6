@@ -12,6 +12,7 @@ import { createBarChart, createDoughnutChart, destroyChart } from '../components
 import { toast } from '../components/toast.js';
 import { openModal, closeModal, confirmModal } from '../components/modal.js';
 import { renderEmptyState } from '../components/empty-state.js';
+import { initLeaveCalendar } from './leave-calendar-shared.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -32,6 +33,7 @@ let monthlyChart = null;
 let typesChart = null;
 let statusChart = null;
 let officeChart = null;
+let leaveCalendar = null;
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -91,6 +93,7 @@ function setupSidebar() {
                 title: 'Management',
                 links: [
                     { id: 'cards', label: 'Employee Cards', icon: ICONS.creditCard },
+                    { id: 'calendar', label: 'Leave Calendar', icon: ICONS.calendar },
                     { id: 'reports', label: 'Reports', icon: ICONS.barChart },
                 ],
             },
@@ -122,6 +125,7 @@ function setupTabs() {
             { id: 'pending', label: 'Pending', badge: 0 },
             { id: 'certified', label: 'Certified' },
             { id: 'cards', label: 'Employee Cards' },
+            { id: 'calendar', label: 'Calendar' },
             { id: 'reports', label: 'Reports' },
         ],
         activeTab: 'overview',
@@ -137,6 +141,12 @@ function onTabChange(tabId) {
         case 'pending': if (!pendingTable) renderPendingTable(); break;
         case 'certified': if (!certifiedTable) renderCertifiedTable(); break;
         case 'cards': if (!employeesTable) loadEmployees(); break;
+        case 'calendar':
+            if (!leaveCalendar) {
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'hr', email: user.email });
+            }
+            leaveCalendar.load();
+            break;
         case 'reports': renderReportCharts(); break;
     }
 }

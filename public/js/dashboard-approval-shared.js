@@ -97,6 +97,7 @@ export function setupApprovalSidebar(config) {
             {
                 title: 'Analytics',
                 links: [
+                    { id: 'calendar', label: 'Leave Calendar', icon: ICONS.calendar },
                     { id: 'reports', label: 'Reports', icon: ICONS.barChart },
                 ],
             },

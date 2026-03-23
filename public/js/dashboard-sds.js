@@ -12,6 +12,7 @@ import {
     toast, esc, fmtDate, fmtDateRange, fmt, fmtDays, toNum, setText, statusBadge,
     createDataTable, renderEmptyState, openModal,
 } from './dashboard-approval-shared.js';
+import { initLeaveCalendar } from './leave-calendar-shared.js';
 
 const PORTAL = 'SDS';
 const ROLE_COLOR = '#6a1b9a';
@@ -25,6 +26,8 @@ let decidedTable = null;
 let activityChart = null;
 let typesChart = null;
 let reportCharts = {};
+let leaveCalendar = null;
+let top5Loaded = false;
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -43,6 +46,7 @@ async function init() {
                 { id: 'overview', label: 'Overview' },
                 { id: 'pending', label: 'Pending', badge: 0 },
                 { id: 'decided', label: 'Decided' },
+                { id: 'calendar', label: 'Calendar' },
                 { id: 'reports', label: 'Reports' },
             ],
             onTabChange,
@@ -87,7 +91,14 @@ function onTabChange(tabId) {
     switch (tabId) {
         case 'pending': if (!pendingTable) renderPendingTable(); break;
         case 'decided': if (!decidedTable) renderDecidedTable(); break;
+        case 'calendar':
+            if (!leaveCalendar) {
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'sds', email: user.email });
+            }
+            leaveCalendar.load();
+            break;
         case 'reports':
+            if (!top5Loaded) { loadTop5Utilization(); top5Loaded = true; }
             destroyChart(reportCharts.status);
             destroyChart(reportCharts.office);
             reportCharts = renderReportCharts(allApps, '#chart-status', '#chart-office');
@@ -245,6 +256,40 @@ function renderDecidedTable() {
     });
 
     bindTableActions('#decided-table');
+}
+
+// ---------------------------------------------------------------------------
+// Top 5 Leave Utilization
+// ---------------------------------------------------------------------------
+async function loadTop5Utilization() {
+    const container = document.getElementById('top5-utilization');
+    if (!container) return;
+    try {
+        const res = await fetch('/api/leave-utilization/top5');
+        if (!res.ok) { container.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Unable to load data.</p>'; return; }
+        const data = await res.json();
+        const top5 = data.top5 || [];
+        if (top5.length === 0) {
+            renderEmptyState(container, { icon: 'document', title: 'No Data', description: 'No approved leave applications yet.' });
+            return;
+        }
+        let html = '<div class="table-container"><table class="data-table"><thead><tr>';
+        html += '<th>Rank</th><th>Employee</th><th>Office</th><th>Applications</th><th>Total Days</th>';
+        html += '</tr></thead><tbody>';
+        const medals = ['', '#FFD700', '#C0C0C0', '#CD7F32'];
+        for (const e of top5) {
+            const medal = e.rank <= 3 ? `<span style="color:${medals[e.rank]};font-weight:bold">#${e.rank}</span>` : `#${e.rank}`;
+            html += `<tr>
+                <td>${medal}</td>
+                <td>${esc(e.name)}</td>
+                <td>${esc(e.office)}</td>
+                <td>${e.count}</td>
+                <td><strong>${e.totalDays}</strong></td>
+            </tr>`;
+        }
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    } catch { container.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Failed to load utilization data.</p>'; }
 }
 
 function bindTableActions(selector) {

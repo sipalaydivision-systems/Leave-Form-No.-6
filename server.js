@@ -4609,6 +4609,35 @@ app.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (re
     }
 });
 
+// Top 5 employees by leave utilization — for ASDS/SDS/IT analytics
+app.get('/api/leave-utilization/top5', requireAuth('asds', 'sds', 'it'), (req, res) => {
+    try {
+        const applications = readJSONArray(applicationsFile);
+        const approved = applications.filter(a => a.status === 'approved');
+
+        // Aggregate total days by employee
+        const byEmployee = {};
+        for (const a of approved) {
+            const name = a.employeeName || a.employeeEmail || 'Unknown';
+            const key = (a.employeeEmail || name).toLowerCase();
+            if (!byEmployee[key]) {
+                byEmployee[key] = { name, office: a.office || '', totalDays: 0, count: 0 };
+            }
+            byEmployee[key].totalDays += parseFloat(a.numDays) || 0;
+            byEmployee[key].count++;
+        }
+
+        const sorted = Object.values(byEmployee)
+            .sort((a, b) => b.totalDays - a.totalDays)
+            .slice(0, 5)
+            .map((e, i) => ({ rank: i + 1, ...e, totalDays: +e.totalDays.toFixed(1) }));
+
+        res.json({ success: true, top5: sorted });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Get all registered employees (for AO to manage their cards)
 // Merges registered user accounts with leave card holders so that
 // employees from Excel migration also appear even if they haven't

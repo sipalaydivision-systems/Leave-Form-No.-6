@@ -12,6 +12,7 @@ import { createBarChart, createDoughnutChart, destroyChart } from '../components
 import { toast } from '../components/toast.js';
 import { openModal, closeModal, confirmModal } from '../components/modal.js';
 import { renderEmptyState } from '../components/empty-state.js';
+import { initLeaveCalendar } from './leave-calendar-shared.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -31,6 +32,9 @@ let ctoTable = null;
 // Charts
 let activityChart = null;
 let typesChart = null;
+
+// Calendar
+let leaveCalendar = null;
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -94,6 +98,7 @@ function setupSidebar() {
                 links: [
                     { id: 'cards', label: 'Employee Cards', icon: ICONS.creditCard },
                     { id: 'cto', label: 'CTO Records', icon: ICONS.clock },
+                    { id: 'calendar', label: 'Leave Calendar', icon: ICONS.calendar },
                 ],
             },
         ],
@@ -125,6 +130,7 @@ function setupTabs() {
             { id: 'approved', label: 'Approved' },
             { id: 'cards', label: 'Employee Cards' },
             { id: 'cto', label: 'CTO' },
+            { id: 'calendar', label: 'Calendar' },
         ],
         activeTab: 'overview',
         onChange: (tabId) => {
@@ -147,6 +153,12 @@ function onTabChange(tabId) {
             break;
         case 'cto':
             if (!ctoTable) loadEmployeesForCTO();
+            break;
+        case 'calendar':
+            if (!leaveCalendar) {
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'ao', email: user.email });
+            }
+            leaveCalendar.load();
             break;
     }
 }
