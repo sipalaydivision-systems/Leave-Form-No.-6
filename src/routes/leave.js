@@ -600,14 +600,32 @@ router.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Application is not awaiting resubmission' });
         }
 
-        // Update application with only allowed fields from resubmission (prevent mass assignment)
+        // Update application with allowed fields from resubmission (prevent mass assignment)
         if (updatedData) {
-            const allowedResubmitFields = ['complianceDocuments', 'supportingDocuments', 'soFileData', 'soFileName', 'remarks'];
+            const allowedResubmitFields = [
+                // Core leave fields (editable on resubmit)
+                'leaveType', 'dateFrom', 'dateTo', 'numDays',
+                'leaveHours', 'isHalfDay',
+                // Conditional fields
+                'locationPH', 'locationAbroad', 'abroadSpecify',
+                'sickHospital', 'sickOutpatient', 'hospitalIllness', 'outpatientIllness',
+                'studyMasters', 'studyBar',
+                'womenIllness',
+                'otherLeaveSpecify',
+                // Documents and signature
+                'soFileData', 'soFileName',
+                'employeeSignature',
+                'complianceDocuments', 'supportingDocuments',
+                // Commutation and remarks
+                'commutation', 'remarks',
+            ];
             for (const field of allowedResubmitFields) {
                 if (updatedData[field] !== undefined) {
                     app[field] = updatedData[field];
                 }
             }
+            // Update dateOfFiling to resubmission date
+            app.dateOfFiling = new Date().toISOString().split('T')[0];
         }
 
         // Clear stale approval data from previous round to prevent scrambled formulas

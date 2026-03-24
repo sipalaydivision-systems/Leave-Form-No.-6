@@ -725,8 +725,38 @@ function cancelApplication(appId) {
 }
 
 // ---------------------------------------------------------------------------
-// Resubmit Returned Application
+// Resubmit Returned Application (Editable)
 // ---------------------------------------------------------------------------
+const RESUBMIT_LEAVE_TYPES = [
+    { id: 'leave_vl',       name: 'Vacation Leave',                       panel: 'location' },
+    { id: 'leave_mfl',      name: 'Mandatory / Forced Leave',             panel: null },
+    { id: 'leave_sl',       name: 'Sick Leave',                           panel: 'sick' },
+    { id: 'leave_ml',       name: 'Maternity Leave',                      panel: null },
+    { id: 'leave_pl',       name: 'Paternity Leave',                      panel: null },
+    { id: 'leave_spl',      name: 'Special Privilege Leave',              panel: 'location' },
+    { id: 'leave_solo',     name: 'Solo Parent Leave',                    panel: null },
+    { id: 'leave_study',    name: 'Study Leave',                          panel: 'study' },
+    { id: 'leave_vawc',     name: '10-Day VAWC Leave',                    panel: null },
+    { id: 'leave_rehab',    name: 'Rehabilitation Privilege',             panel: null },
+    { id: 'leave_women',    name: 'Special Leave Benefits for Women',     panel: 'women' },
+    { id: 'leave_calamity', name: 'Special Emergency (Calamity) Leave',   panel: null },
+    { id: 'leave_adoption', name: 'Adoption Leave',                       panel: null },
+    { id: 'leave_wl',       name: 'Wellness Leave',                       panel: null },
+    { id: 'leave_others',   name: 'Others',                               panel: 'others' },
+];
+
+function resubmitCalcWorkingDays(fromStr, toStr) {
+    const start = new Date(fromStr);
+    const end = new Date(toStr);
+    if (isNaN(start) || isNaN(end) || start > end) return 0;
+    let count = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay();
+        if (dow >= 1 && dow <= 5) count++;
+    }
+    return count;
+}
+
 function showResubmitModal(appId) {
     const app = applications.find(a => a.id === appId);
     if (!app) { toast.warning('Application not found.'); return; }
@@ -736,37 +766,348 @@ function showResubmitModal(appId) {
         return;
     }
 
-    const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
     const returnReason = app.returnRemarks || app.returnReason || app.return_reason || '';
+    const leaveType = app.leaveType || app.leave_type || '';
+    const dateFrom = (app.dateFrom || app.date_from || '').split('T')[0];
+    const dateTo = (app.dateTo || app.date_to || '').split('T')[0];
+    const numDays = toNum(app.numDays || app.num_days);
+    const leaveHours = toNum(app.leaveHours);
+    const isPartial = leaveHours > 0 && leaveHours < 8;
+
+    // Build leave type options
+    const typeOptions = RESUBMIT_LEAVE_TYPES.map(t =>
+        `<option value="${t.id}" ${t.id === leaveType ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
+    ).join('');
 
     const content = `
-        <div style="margin-bottom:var(--space-4)">
-            <p><strong>Application:</strong> ${escapeHtml(app.id)}</p>
-            <p><strong>Leave Type:</strong> ${escapeHtml(type)}</p>
-            <p><strong>Period:</strong> ${escapeHtml(formatDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</p>
-            <p><strong>Days:</strong> ${fmt(toNum(app.numDays || app.num_days))}</p>
-        </div>
-        ${returnReason ? `<div style="margin-bottom:var(--space-4);padding:var(--space-3);background:var(--color-warning-bg);border-radius:var(--radius-md)"><strong>Return Reason:</strong> ${escapeHtml(returnReason)}</div>` : ''}
+        ${returnReason ? `<div style="margin-bottom:var(--space-4);padding:var(--space-3);background:var(--color-warning-light);border:1px solid var(--color-warning);border-radius:var(--radius-md);font-size:var(--text-sm)"><strong>Return Reason:</strong> ${escapeHtml(returnReason)}</div>` : ''}
+
         <div class="form-group">
-            <label class="form-label">Remarks (optional)</label>
-            <textarea id="resubmit-remarks" class="form-textarea" rows="3" placeholder="Add remarks or explain compliance actions taken..."></textarea>
+            <label class="form-label">Leave Type</label>
+            <select class="form-input" id="resub-leave-type">${typeOptions}</select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+            <div class="form-group">
+                <label class="form-label">Date From</label>
+                <input type="date" class="form-input" id="resub-date-from" value="${dateFrom}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Date To</label>
+                <input type="date" class="form-input" id="resub-date-to" value="${dateTo}">
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);align-items:end">
+            <div class="form-group" style="margin-bottom:0">
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+                    <input type="checkbox" id="resub-partial" ${isPartial ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--color-primary)">
+                    Partial day (less than 8 hours)
+                </label>
+            </div>
+            <div class="form-group" id="resub-hours-group" style="display:${isPartial ? 'block' : 'none'};margin-bottom:0">
+                <label class="form-label">Hours</label>
+                <input type="number" class="form-input" id="resub-hours" min="1" max="7" value="${isPartial ? leaveHours : 4}" style="max-width:80px">
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top:var(--space-2)">
+            <label class="form-label">No. of Days</label>
+            <div class="form-input" id="resub-num-days" style="background:var(--color-gray-100);cursor:default">${isPartial ? (leaveHours / 8).toFixed(3) : numDays}</div>
+        </div>
+
+        <!-- Conditional panels -->
+        <div id="resub-panel-location" style="display:none;margin-top:var(--space-3)">
+            <div class="form-group">
+                <label class="form-label">Location</label>
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer;margin-bottom:var(--space-1)">
+                    <input type="radio" name="resub-location" value="ph" ${app.locationPH ? 'checked' : ''}> Within the Philippines
+                </label>
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+                    <input type="radio" name="resub-location" value="abroad" ${app.locationAbroad ? 'checked' : ''}> Abroad (Specify)
+                </label>
+                <input type="text" class="form-input" id="resub-abroad-specify" placeholder="Specify country/destination" value="${escapeHtml(app.abroadSpecify || '')}" style="margin-top:var(--space-2);display:${app.locationAbroad ? 'block' : 'none'}">
+            </div>
+        </div>
+
+        <div id="resub-panel-sick" style="display:none;margin-top:var(--space-3)">
+            <div class="form-group">
+                <label class="form-label">Sick Leave Details</label>
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer;margin-bottom:var(--space-1)">
+                    <input type="radio" name="resub-sick" value="hospital" ${app.sickHospital ? 'checked' : ''}> In Hospital
+                </label>
+                <input type="text" class="form-input" id="resub-hospital-illness" placeholder="Specify illness" value="${escapeHtml(app.hospitalIllness || '')}" style="margin-bottom:var(--space-2);display:${app.sickHospital ? 'block' : 'none'}">
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+                    <input type="radio" name="resub-sick" value="outpatient" ${app.sickOutpatient ? 'checked' : ''}> Out Patient
+                </label>
+                <input type="text" class="form-input" id="resub-outpatient-illness" placeholder="Specify illness" value="${escapeHtml(app.outpatientIllness || '')}" style="margin-top:var(--space-2);display:${app.sickOutpatient ? 'block' : 'none'}">
+            </div>
+        </div>
+
+        <div id="resub-panel-study" style="display:none;margin-top:var(--space-3)">
+            <div class="form-group">
+                <label class="form-label">Study Leave Purpose</label>
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer;margin-bottom:var(--space-1)">
+                    <input type="radio" name="resub-study" value="masters" ${app.studyMasters ? 'checked' : ''}> Completion of Master's Degree
+                </label>
+                <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+                    <input type="radio" name="resub-study" value="bar" ${app.studyBar ? 'checked' : ''}> BAR / Board Examination Review
+                </label>
+            </div>
+        </div>
+
+        <div id="resub-panel-women" style="display:none;margin-top:var(--space-3)">
+            <div class="form-group">
+                <label class="form-label">Specify Illness</label>
+                <input type="text" class="form-input" id="resub-women-illness" value="${escapeHtml(app.womenIllness || '')}" placeholder="Specify illness">
+            </div>
+        </div>
+
+        <div id="resub-panel-others" style="display:none;margin-top:var(--space-3)">
+            <div class="form-group">
+                <label class="form-label">Specify Leave Type</label>
+                <input type="text" class="form-input" id="resub-other-specify" value="${escapeHtml(app.otherLeaveSpecify || '')}" placeholder="e.g. CTO - SO #12345">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Special Order (PDF)</label>
+                <input type="file" id="resub-so-upload" accept=".pdf" style="font-size:var(--text-sm)">
+                ${app.soFileName ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">Current: ${escapeHtml(app.soFileName)}</div>` : ''}
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top:var(--space-3)">
+            <label class="form-label">Remarks</label>
+            <textarea id="resub-remarks" class="form-textarea" rows="2" placeholder="Explain corrections made...">${escapeHtml(app.remarks || '')}</textarea>
+        </div>
+
+        <div style="margin-top:var(--space-3)">
+            <label class="form-label">Employee Signature</label>
+            <canvas id="resub-sig-canvas" width="500" height="120" style="border:2px dashed var(--color-border);border-radius:var(--radius-md);cursor:crosshair;touch-action:none;width:100%;height:120px;background:#fff"></canvas>
+            <div style="margin-top:var(--space-2);display:flex;gap:var(--space-2)">
+                <button class="btn btn-ghost btn-sm" type="button" id="resub-sig-clear">Clear</button>
+                <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+                    Upload Image
+                    <input type="file" accept="image/*" id="resub-sig-upload" style="display:none">
+                </label>
+            </div>
         </div>
     `;
 
     const modal = openModal({
-        title: 'Resubmit Application',
+        title: `Edit & Resubmit — ${app.id}`,
         content,
-        size: 'md',
+        size: 'lg',
         footer: `
-            <button class="btn btn-ghost btn-sm" id="resubmit-cancel">Cancel</button>
-            <button class="btn btn-primary btn-sm" id="resubmit-confirm">Resubmit</button>
+            <button class="btn btn-ghost btn-sm" id="resub-cancel">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="resub-confirm">Resubmit Application</button>
         `,
     });
 
-    document.getElementById('resubmit-cancel')?.addEventListener('click', () => modal.close());
-    document.getElementById('resubmit-confirm')?.addEventListener('click', async () => {
-        const remarks = document.getElementById('resubmit-remarks')?.value || '';
-        const btn = document.getElementById('resubmit-confirm');
+    // --- Panel visibility ---
+    function updatePanels() {
+        const sel = document.getElementById('resub-leave-type')?.value || '';
+        const typeDef = RESUBMIT_LEAVE_TYPES.find(t => t.id === sel);
+        const panel = typeDef?.panel || null;
+        ['location', 'sick', 'study', 'women', 'others'].forEach(p => {
+            const el = document.getElementById('resub-panel-' + p);
+            if (el) el.style.display = (p === panel) ? 'block' : 'none';
+        });
+    }
+    updatePanels();
+    document.getElementById('resub-leave-type')?.addEventListener('change', updatePanels);
+
+    // --- Days calculation ---
+    function recalcDays() {
+        const from = document.getElementById('resub-date-from')?.value;
+        const to = document.getElementById('resub-date-to')?.value;
+        const partial = document.getElementById('resub-partial')?.checked;
+        const hoursEl = document.getElementById('resub-hours');
+        const display = document.getElementById('resub-num-days');
+        if (!display) return;
+
+        if (partial) {
+            document.getElementById('resub-date-to').value = from;
+            const hours = Math.max(1, Math.min(7, parseInt(hoursEl?.value, 10) || 4));
+            display.textContent = (hours / 8).toFixed(3);
+        } else {
+            if (from && to) {
+                display.textContent = resubmitCalcWorkingDays(from, to);
+            }
+        }
+    }
+    document.getElementById('resub-date-from')?.addEventListener('change', recalcDays);
+    document.getElementById('resub-date-to')?.addEventListener('change', recalcDays);
+    document.getElementById('resub-hours')?.addEventListener('input', recalcDays);
+
+    // Partial day toggle
+    document.getElementById('resub-partial')?.addEventListener('change', (e) => {
+        document.getElementById('resub-hours-group').style.display = e.target.checked ? 'block' : 'none';
+        if (e.target.checked) {
+            document.getElementById('resub-date-to').value = document.getElementById('resub-date-from').value;
+        }
+        recalcDays();
+    });
+
+    // Location abroad toggle
+    document.querySelectorAll('input[name="resub-location"]').forEach(r => {
+        r.addEventListener('change', () => {
+            document.getElementById('resub-abroad-specify').style.display =
+                document.querySelector('input[name="resub-location"][value="abroad"]')?.checked ? 'block' : 'none';
+        });
+    });
+
+    // Sick type toggle
+    document.querySelectorAll('input[name="resub-sick"]').forEach(r => {
+        r.addEventListener('change', () => {
+            const val = document.querySelector('input[name="resub-sick"]:checked')?.value;
+            document.getElementById('resub-hospital-illness').style.display = val === 'hospital' ? 'block' : 'none';
+            document.getElementById('resub-outpatient-illness').style.display = val === 'outpatient' ? 'block' : 'none';
+        });
+    });
+
+    // --- Signature canvas ---
+    const canvas = document.getElementById('resub-sig-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+        }
+        function startDraw(e) { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+        function draw(e) { if (!drawing) return; e.preventDefault(); const p = getPos(e); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#000'; ctx.lineTo(p.x, p.y); ctx.stroke(); canvas.style.borderColor = 'var(--color-success)'; canvas.style.borderStyle = 'solid'; }
+        function stopDraw() { drawing = false; }
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+
+        document.getElementById('resub-sig-clear')?.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.style.borderColor = ''; canvas.style.borderStyle = '';
+        });
+        document.getElementById('resub-sig-upload')?.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const w = img.width * scale, h = img.height * scale;
+                ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+                canvas.style.borderColor = 'var(--color-success)'; canvas.style.borderStyle = 'solid';
+            };
+            img.src = URL.createObjectURL(file);
+        });
+
+        // Load existing signature if available
+        if (app.employeeSignature) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const w = img.width * scale, h = img.height * scale;
+                ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+                canvas.style.borderColor = 'var(--color-success)'; canvas.style.borderStyle = 'solid';
+            };
+            img.src = app.employeeSignature;
+        }
+    }
+
+    // --- Cancel ---
+    document.getElementById('resub-cancel')?.addEventListener('click', () => modal.close());
+
+    // --- Submit ---
+    document.getElementById('resub-confirm')?.addEventListener('click', async () => {
+        const btn = document.getElementById('resub-confirm');
+        const newLeaveType = document.getElementById('resub-leave-type')?.value;
+        const newDateFrom = document.getElementById('resub-date-from')?.value;
+        const newDateTo = document.getElementById('resub-date-to')?.value;
+        const partial = document.getElementById('resub-partial')?.checked;
+        const hours = parseInt(document.getElementById('resub-hours')?.value, 10) || 0;
+        const remarks = document.getElementById('resub-remarks')?.value || '';
+
+        // Validation
+        if (!newDateFrom || !newDateTo) { toast.warning('Please select date range.'); return; }
+        if (new Date(newDateFrom) > new Date(newDateTo)) { toast.warning('Date From cannot be after Date To.'); return; }
+
+        // Calculate final numDays
+        let finalDays;
+        let leaveHoursVal = undefined;
+        let isHalfDayVal = undefined;
+        if (partial) {
+            const h = Math.max(1, Math.min(7, hours));
+            finalDays = h / 8;
+            leaveHoursVal = h;
+            isHalfDayVal = (h === 4);
+        } else {
+            finalDays = resubmitCalcWorkingDays(newDateFrom, newDateTo);
+        }
+        if (finalDays <= 0) { toast.warning('No working days in the selected range.'); return; }
+
+        // Get signature
+        const sigCanvas = document.getElementById('resub-sig-canvas');
+        const sigData = sigCanvas ? sigCanvas.toDataURL('image/png') : '';
+
+        // Build updatedData
+        const updatedData = {
+            leaveType: newLeaveType,
+            dateFrom: newDateFrom,
+            dateTo: partial ? newDateFrom : newDateTo,
+            numDays: finalDays,
+            remarks: remarks || 'Application resubmitted with edits',
+            employeeSignature: sigData || undefined,
+        };
+        if (leaveHoursVal !== undefined) updatedData.leaveHours = leaveHoursVal;
+        if (isHalfDayVal !== undefined) updatedData.isHalfDay = isHalfDayVal;
+        if (!partial) { updatedData.leaveHours = 0; updatedData.isHalfDay = false; }
+
+        // Conditional fields based on leave type panel
+        const typeDef = RESUBMIT_LEAVE_TYPES.find(t => t.id === newLeaveType);
+        if (typeDef?.panel === 'location') {
+            const locVal = document.querySelector('input[name="resub-location"]:checked')?.value;
+            updatedData.locationPH = locVal === 'ph';
+            updatedData.locationAbroad = locVal === 'abroad';
+            if (locVal === 'abroad') updatedData.abroadSpecify = document.getElementById('resub-abroad-specify')?.value || '';
+        } else if (typeDef?.panel === 'sick') {
+            const sickVal = document.querySelector('input[name="resub-sick"]:checked')?.value;
+            updatedData.sickHospital = sickVal === 'hospital';
+            updatedData.sickOutpatient = sickVal === 'outpatient';
+            if (sickVal === 'hospital') updatedData.hospitalIllness = document.getElementById('resub-hospital-illness')?.value || '';
+            if (sickVal === 'outpatient') updatedData.outpatientIllness = document.getElementById('resub-outpatient-illness')?.value || '';
+        } else if (typeDef?.panel === 'study') {
+            const studyVal = document.querySelector('input[name="resub-study"]:checked')?.value;
+            updatedData.studyMasters = studyVal === 'masters';
+            updatedData.studyBar = studyVal === 'bar';
+        } else if (typeDef?.panel === 'women') {
+            updatedData.womenIllness = document.getElementById('resub-women-illness')?.value || '';
+        } else if (typeDef?.panel === 'others') {
+            updatedData.otherLeaveSpecify = document.getElementById('resub-other-specify')?.value || '';
+        }
+
+        // SO file upload (for "others" type)
+        const soInput = document.getElementById('resub-so-upload');
+        if (soInput?.files?.[0]) {
+            try {
+                const file = soInput.files[0];
+                if (file.size > 10 * 1024 * 1024) { toast.warning('SO file must be under 10MB.'); return; }
+                const reader = new FileReader();
+                const soData = await new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                updatedData.soFileData = soData;
+                updatedData.soFileName = file.name;
+            } catch { toast.error('Failed to read SO file.'); return; }
+        }
+
         btn.disabled = true;
         btn.textContent = 'Resubmitting...';
 
@@ -774,10 +1115,7 @@ function showResubmitModal(appId) {
             const res = await fetch('/api/resubmit-leave', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    applicationId: appId,
-                    updatedData: { remarks: remarks || 'Application resubmitted' },
-                }),
+                body: JSON.stringify({ applicationId: appId, updatedData }),
             });
 
             const data = await res.json().catch(() => ({}));
@@ -791,12 +1129,12 @@ function showResubmitModal(appId) {
             } else {
                 toast.error(data.error || 'Failed to resubmit application.');
                 btn.disabled = false;
-                btn.textContent = 'Resubmit';
+                btn.textContent = 'Resubmit Application';
             }
         } catch (err) {
             toast.error('Network error. Please try again.');
             btn.disabled = false;
-            btn.textContent = 'Resubmit';
+            btn.textContent = 'Resubmit Application';
         }
     });
 }
