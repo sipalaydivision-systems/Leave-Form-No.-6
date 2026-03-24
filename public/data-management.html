@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Management - Backup & Restore</title>
+    <title>Data Management — SDO Sipalay Leave System</title>
     <script>
     if ('caches' in window) { caches.keys().then(function(k) { k.forEach(function(n) { caches.delete(n); }); }); }
-    var PAGE_VERSION = '2026.02.23.1';
+    var PAGE_VERSION = '2026.03.24.1';
     fetch('/api/version').then(function(r){return r.json()}).then(function(d){
         if(d.version && d.version !== PAGE_VERSION && !sessionStorage.getItem('_reloaded_'+PAGE_VERSION)){
             sessionStorage.setItem('_reloaded_'+PAGE_VERSION,'1');
@@ -17,346 +17,580 @@
     <script src="/utils.js"></script>
     <script src="/auth-interceptor.js"></script>
     <script src="/modal-alert.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/css/design-tokens.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icons/icon-192.png" type="image/png">
+
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { min-height: 100vh; background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #01579b 100%); }
-        .navbar {
-            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-            padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        body { margin:0; min-height:100vh; background:var(--color-bg); font-family:var(--font-family); color:var(--color-text); }
+
+        /* Topbar */
+        .dm-topbar {
+            background: var(--color-role-it);
+            color: var(--color-text-inverse);
+            padding: var(--space-3) var(--space-6);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+            position: sticky; top: 0; z-index: 100;
         }
-        .navbar-brand { display: flex; align-items: center; gap: 15px; color: #fff; }
-        .navbar-brand img { width: 45px; height: 45px; }
-        .navbar-brand h1 { font-size: 16px; font-weight: 600; }
-        .navbar-brand span { font-size: 12px; opacity: 0.8; }
-        .nav-actions { display: flex; gap: 10px; align-items: center; }
-        .nav-btn {
-            padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
-            font-size: 13px; font-weight: 500; color: #fff; text-decoration: none;
-            display: inline-flex; align-items: center; gap: 6px;
+        .dm-topbar-brand { display:flex; align-items:center; gap:var(--space-3); }
+        .dm-topbar-brand img { width:36px; height:36px; border-radius:var(--radius-sm); }
+        .dm-topbar-brand h1 { font-size:var(--text-lg); font-weight:var(--font-semibold); margin:0; }
+        .dm-topbar-brand span { font-size:var(--text-xs); opacity:0.8; }
+        .dm-topbar .btn-back {
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+            text-decoration: none;
+            transition: background var(--transition-fast);
         }
-        .nav-btn.back { background: rgba(255,255,255,0.2); }
-        .nav-btn.back:hover { background: rgba(255,255,255,0.3); }
-        .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
-        .page-title { color: #fff; font-size: 24px; margin-bottom: 8px; }
-        .page-subtitle { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 30px; }
-        .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .action-card {
-            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-            border-radius: 16px; padding: 24px; text-align: center; cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.15); transition: all 0.3s;
+        .dm-topbar .btn-back:hover { background: rgba(255,255,255,0.2); }
+
+        /* Container */
+        .dm-container { max-width: 1100px; margin: 0 auto; padding: var(--space-6) var(--space-5); }
+
+        /* Page header */
+        .dm-page-header { margin-bottom: var(--space-6); }
+        .dm-page-header h2 { font-size: var(--text-2xl); font-weight: var(--font-bold); margin: 0 0 var(--space-1); }
+        .dm-page-header p { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0; }
+
+        /* Status toast */
+        .dm-status {
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-4);
+            font-size: var(--text-sm);
+            display: none;
+            border: 1px solid transparent;
         }
-        .action-card:hover { background: rgba(255,255,255,0.18); transform: translateY(-2px); }
-        .action-card .icon { font-size: 40px; margin-bottom: 12px; }
-        .action-card h3 { color: #fff; font-size: 16px; margin-bottom: 6px; }
-        .action-card p { color: rgba(255,255,255,0.6); font-size: 12px; }
-        .section { background: rgba(255,255,255,0.08); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
-        .section h2 { color: #fff; font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
-        .backup-list { list-style: none; }
-        .backup-item {
-            background: rgba(255,255,255,0.06); border-radius: 10px; padding: 16px;
-            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid rgba(255,255,255,0.08);
+        .dm-status.success { display:block; background:var(--color-success-light); color:var(--color-success); border-color:#c8e6c9; }
+        .dm-status.error { display:block; background:var(--color-danger-light); color:var(--color-danger); border-color:#ffcdd2; }
+        .dm-status.info { display:block; background:var(--color-info-light); color:var(--color-info); border-color:#bbdefb; }
+
+        /* Action cards grid */
+        .dm-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
         }
-        .backup-info { color: #fff; }
-        .backup-info .name { font-size: 14px; font-weight: 500; }
-        .backup-info .meta { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; }
-        .backup-actions { display: flex; gap: 8px; }
-        .btn {
-            padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
-            font-size: 12px; font-weight: 500; color: #fff; transition: all 0.2s;
+        .dm-action-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5) var(--space-4);
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            box-shadow: var(--shadow-xs);
         }
-        .btn-primary { background: #1976d2; }
-        .btn-primary:hover { background: #1565c0; }
-        .btn-success { background: #2e7d32; }
-        .btn-success:hover { background: #1b5e20; }
-        .btn-warning { background: #e65100; }
-        .btn-warning:hover { background: #bf360c; }
-        .btn-danger { background: #c62828; }
-        .btn-danger:hover { background: #b71c1c; }
-        .btn-lg { padding: 12px 24px; font-size: 14px; }
-        .empty-state { text-align: center; padding: 40px; color: rgba(255,255,255,0.5); }
-        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
-        .status-msg {
-            padding: 14px 20px; border-radius: 10px; margin-bottom: 20px;
-            font-size: 13px; display: none; color: #fff;
+        .dm-action-card:hover {
+            border-color: var(--color-primary);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
-        .status-msg.success { background: rgba(46,125,50,0.4); border: 1px solid rgba(46,125,50,0.6); display: block; }
-        .status-msg.error { background: rgba(198,40,40,0.4); border: 1px solid rgba(198,40,40,0.6); display: block; }
-        .status-msg.info { background: rgba(25,118,210,0.4); border: 1px solid rgba(25,118,210,0.6); display: block; }
-        .loading { text-align: center; padding: 30px; color: rgba(255,255,255,0.6); }
-        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 10px; vertical-align: middle; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .file-input-wrapper { margin: 16px 0; }
-        .file-input-wrapper input[type="file"] { color: #fff; font-size: 13px; }
-        .confirm-modal {
+        .dm-action-card .dm-action-icon {
+            width: 44px; height: 44px;
+            border-radius: var(--radius-md);
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-bottom: var(--space-3);
+        }
+        .dm-action-icon.blue { background: var(--color-info-light); color: var(--color-info); }
+        .dm-action-icon.green { background: var(--color-success-light); color: var(--color-success); }
+        .dm-action-icon.orange { background: var(--color-warning-light); color: var(--color-warning); }
+        .dm-action-icon.red { background: var(--color-danger-light); color: var(--color-danger); }
+        .dm-action-icon.indigo { background: #e8eaf6; color: #283593; }
+        .dm-action-icon.teal { background: #e0f2f1; color: #00695c; }
+
+        .dm-action-card h3 { font-size: var(--text-sm); font-weight: var(--font-semibold); margin: 0 0 var(--space-1); color: var(--color-text); }
+        .dm-action-card p { font-size: var(--text-xs); color: var(--color-text-muted); margin: 0; }
+
+        /* Sections */
+        .dm-section {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            margin-bottom: var(--space-5);
+            box-shadow: var(--shadow-xs);
+        }
+        .dm-section-header {
+            display: flex; align-items: center; gap: var(--space-3);
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-3);
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        .dm-section-header h3 { font-size: var(--text-md); font-weight: var(--font-semibold); margin: 0; }
+        .dm-section-header .dm-section-icon {
+            width: 32px; height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* Backup items */
+        .dm-backup-list { list-style: none; padding: 0; margin: 0; }
+        .dm-backup-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-3) var(--space-4);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-2);
+            transition: background var(--transition-fast);
+        }
+        .dm-backup-item:hover { background: var(--color-gray-50); }
+        .dm-backup-info .dm-backup-name { font-size: var(--text-sm); font-weight: var(--font-medium); }
+        .dm-backup-info .dm-backup-meta { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+        .dm-backup-actions { display: flex; gap: var(--space-2); }
+
+        /* Empty state */
+        .dm-empty { text-align: center; padding: var(--space-10); color: var(--color-text-muted); }
+        .dm-empty svg { margin-bottom: var(--space-3); opacity: 0.4; }
+        .dm-empty p { font-size: var(--text-sm); margin: 0; }
+
+        /* Loading */
+        .dm-loading { text-align: center; padding: var(--space-8); color: var(--color-text-muted); font-size: var(--text-sm); }
+        .dm-spinner {
+            display: inline-block; width: 20px; height: 20px;
+            border: 2px solid var(--color-gray-300); border-top-color: var(--color-primary);
+            border-radius: 50%; animation: dm-spin 0.7s linear infinite;
+            margin-right: var(--space-2); vertical-align: middle;
+        }
+        @keyframes dm-spin { to { transform: rotate(360deg); } }
+
+        /* File input */
+        .dm-file-input { margin: var(--space-3) 0; }
+        .dm-file-input input[type="file"] { font-size: var(--text-sm); }
+        .dm-file-hint { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1); }
+
+        /* Stats flex */
+        .dm-stats { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+        .dm-stat {
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            flex: 1; min-width: 140px;
+            border: 1px solid var(--color-border-light);
+        }
+        .dm-stat-value { font-size: var(--text-2xl); font-weight: var(--font-bold); }
+        .dm-stat-label { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+        .dm-stat-sub { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1); }
+        .dm-stat.blue { background: var(--color-info-light); }
+        .dm-stat.green { background: var(--color-success-light); }
+        .dm-stat.orange { background: var(--color-warning-light); }
+        .dm-stat.red { background: var(--color-danger-light); }
+        .dm-stat.purple { background: #f3e5f5; }
+        .dm-stat.teal { background: #e0f2f1; }
+        .dm-stat.indigo { background: #e8eaf6; }
+
+        /* Tables */
+        .dm-table-wrap {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-md);
+        }
+        .dm-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--text-sm);
+        }
+        .dm-table thead { position: sticky; top: 0; z-index: 1; }
+        .dm-table th {
+            padding: var(--space-2) var(--space-3);
+            text-align: left;
+            background: var(--color-gray-100);
+            font-weight: var(--font-semibold);
+            font-size: var(--text-xs);
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        .dm-table td {
+            padding: var(--space-2) var(--space-3);
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        .dm-table tr:last-child td { border-bottom: none; }
+        .dm-table tr:hover { background: var(--color-gray-50); }
+        .dm-table .text-right { text-align: right; }
+        .dm-table .text-center { text-align: center; }
+        .dm-table .text-vl { color: var(--color-info); font-weight: var(--font-semibold); }
+        .dm-table .text-sl { color: var(--color-success); font-weight: var(--font-semibold); }
+        .dm-table .text-cto { color: var(--color-warning); }
+        .dm-table .text-muted { color: var(--color-text-muted); }
+        .dm-table .text-teaching { color: #6a1b9a; }
+
+        /* Confirm modal */
+        .dm-modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center;
         }
-        .confirm-modal.show { display: flex; }
-        .confirm-modal .modal-content {
-            background: #1e2a3a; border-radius: 16px; padding: 30px; max-width: 450px; width: 90%;
-            color: #fff; text-align: center;
+        .dm-modal-overlay.show { display: flex; }
+        .dm-modal {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            max-width: 450px; width: 90%;
+            text-align: center;
+            box-shadow: var(--shadow-xl);
         }
-        .confirm-modal .modal-content h3 { margin-bottom: 12px; }
-        .confirm-modal .modal-content p { font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 20px; }
-        .confirm-modal .modal-actions { display: flex; gap: 10px; justify-content: center; }
+        .dm-modal h3 { font-size: var(--text-lg); font-weight: var(--font-semibold); margin: 0 0 var(--space-2); }
+        .dm-modal p { font-size: var(--text-sm); color: var(--color-text-secondary); margin: 0 0 var(--space-5); }
+        .dm-modal-actions { display: flex; gap: var(--space-3); justify-content: center; }
+
+        /* Error box */
+        .dm-error-box {
+            background: var(--color-danger-light);
+            border: 1px solid #ffcdd2;
+            border-radius: var(--radius-md);
+            padding: var(--space-3) var(--space-4);
+            margin-top: var(--space-4);
+        }
+        .dm-error-box h4 { font-size: var(--text-sm); color: var(--color-danger); margin: 0 0 var(--space-2); }
+        .dm-error-box ul { font-size: var(--text-xs); color: var(--color-text-secondary); padding-left: var(--space-5); margin: 0; }
+
+        /* Result box */
+        .dm-result-box {
+            background: var(--color-success-light);
+            border: 1px solid #c8e6c9;
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+        }
+        .dm-result-box h4 { font-size: var(--text-md); color: var(--color-success); margin: 0 0 var(--space-3); }
+        .dm-result-meta { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-3); }
+        .dm-result-meta span { font-size: var(--text-sm); }
+        .dm-result-safety { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+        /* Manual entry */
+        .dm-manual-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: var(--space-2);
+            margin-bottom: var(--space-2);
+            align-items: center;
+        }
+        .dm-manual-row input { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-surface); }
+        .dm-manual-row .dm-manual-remove { padding: var(--space-1) var(--space-2); border: none; background: var(--color-danger-light); color: var(--color-danger); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-md); line-height: 1; }
+        .dm-manual-row .dm-manual-remove:hover { background: #ffcdd2; }
+
+        /* Checkbox */
+        .dm-checkbox-label {
+            display: flex; align-items: center; gap: var(--space-2);
+            font-size: var(--text-sm); color: var(--color-text-secondary);
+            cursor: pointer; margin: var(--space-3) 0;
+        }
+        .dm-checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--color-primary); }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .navbar { padding: 10px 15px; flex-direction: column; gap: 10px; }
-            .container { padding: 15px 10px; }
-            .actions-grid { grid-template-columns: 1fr 1fr; }
-            .backup-item { flex-direction: column; gap: 10px; align-items: flex-start; }
+            .dm-topbar { padding: var(--space-2) var(--space-3); }
+            .dm-container { padding: var(--space-4) var(--space-3); }
+            .dm-actions-grid { grid-template-columns: repeat(2, 1fr); }
+            .dm-backup-item { flex-direction: column; gap: var(--space-2); align-items: flex-start; }
+            .dm-manual-row { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .dm-actions-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-brand">
+    <!-- Topbar -->
+    <nav class="dm-topbar">
+        <div class="dm-topbar-brand">
             <img src="/sipalay_logo.png" alt="Logo">
             <div>
                 <h1>Data Management</h1>
                 <span>Backup, Restore & Export System Data</span>
             </div>
         </div>
-        <div class="nav-actions">
-            <a href="/it-dashboard.html" class="nav-btn back">← Back to IT Dashboard</a>
-        </div>
+        <a href="/it-dashboard.html" class="btn-back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to IT Dashboard
+        </a>
     </nav>
 
-    <div class="container">
-        <h1 class="page-title">💾 Data Backup & Restore</h1>
-        <p class="page-subtitle">Protect your data before deploying patches or updates. Always create a backup before redeployment.</p>
+    <div class="dm-container">
+        <!-- Page Header -->
+        <div class="dm-page-header">
+            <h2>Data Backup & Restore</h2>
+            <p>Protect your data before deploying patches or updates. Always create a backup before redeployment.</p>
+        </div>
 
-        <div id="statusMsg" class="status-msg"></div>
+        <!-- Status Message -->
+        <div id="statusMsg" class="dm-status"></div>
 
         <!-- Quick Actions -->
-        <div class="actions-grid">
-            <div class="action-card" onclick="createBackup()">
-                <div class="icon">📦</div>
+        <div class="dm-actions-grid">
+            <div class="dm-action-card" onclick="createBackup()">
+                <div class="dm-action-icon blue">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
                 <h3>Create Backup</h3>
                 <p>Save a snapshot of all current data</p>
             </div>
-            <div class="action-card" onclick="exportData()">
-                <div class="icon">⬇️</div>
+            <div class="dm-action-card" onclick="exportData()">
+                <div class="dm-action-icon green">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </div>
                 <h3>Export Data</h3>
-                <p>Download all data as a JSON file</p>
+                <p>Download all data as JSON</p>
             </div>
-            <div class="action-card" onclick="document.getElementById('importSection').style.display='block'">
-                <div class="icon">⬆️</div>
+            <div class="dm-action-card" onclick="showSection('importSection')">
+                <div class="dm-action-icon orange">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
                 <h3>Import Data</h3>
-                <p>Upload a previously exported data file</p>
+                <p>Upload exported data file</p>
             </div>
-            <div class="action-card" onclick="document.getElementById('migrationSection').style.display='block'; document.getElementById('migrationSection').scrollIntoView({behavior:'smooth'})">
-                <div class="icon">📊</div>
+            <div class="dm-action-card" onclick="showSection('migrationSection')">
+                <div class="dm-action-icon indigo">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                </div>
                 <h3>Migrate from Excel</h3>
-                <p>Import Leave Cards &amp; CTO records from Excel</p>
+                <p>Import Leave Cards & CTO from Excel</p>
             </div>
-            <div class="action-card" onclick="document.getElementById('validationSection').style.display='block'; document.getElementById('validationSection').scrollIntoView({behavior:'smooth'})">
-                <div class="icon">✅</div>
+            <div class="dm-action-card" onclick="showSection('validationSection')">
+                <div class="dm-action-icon teal">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
                 <h3>Validate Migration</h3>
-                <p>Verify Excel data matches system records</p>
+                <p>Verify Excel data matches system</p>
             </div>
-            <div class="action-card" onclick="loadMigrationStatus()">
-                <div class="icon">📋</div>
+            <div class="dm-action-card" onclick="loadMigrationStatus()">
+                <div class="dm-action-icon blue">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
                 <h3>Migration Status</h3>
-                <p>View linked/unlinked migrated records</p>
+                <p>View linked/unlinked records</p>
             </div>
-            <div class="action-card" onclick="loadBackups()">
-                <div class="icon">🔄</div>
+            <div class="dm-action-card" onclick="loadBackups()">
+                <div class="dm-action-icon green">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </div>
                 <h3>Refresh</h3>
                 <p>Reload the backup list</p>
             </div>
         </div>
 
-        <!-- Import Section (hidden by default) -->
-        <div class="section" id="importSection" style="display: none;">
-            <h2>⬆️ Import Data from File</h2>
-            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 12px;">
+        <!-- Import Section -->
+        <div class="dm-section" id="importSection" style="display:none">
+            <div class="dm-section-header">
+                <div class="dm-section-icon" style="background:var(--color-warning-light);color:var(--color-warning)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <h3>Import Data from File</h3>
+            </div>
+            <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
                 Select a previously exported JSON file to restore your data. A safety backup will be created automatically before importing.
             </p>
-            <div class="file-input-wrapper">
+            <div class="dm-file-input">
                 <input type="file" id="importFile" accept=".json" />
             </div>
-            <div style="margin-top: 12px; display: flex; gap: 10px;">
-                <button class="btn btn-success btn-lg" onclick="importData()">📥 Import Now</button>
-                <button class="btn btn-warning" onclick="document.getElementById('importSection').style.display='none'">Cancel</button>
+            <div style="margin-top:var(--space-3);display:flex;gap:var(--space-2)">
+                <button class="btn btn-success btn-sm" onclick="importData()">Import Now</button>
+                <button class="btn btn-ghost btn-sm" onclick="hideSection('importSection')">Cancel</button>
             </div>
         </div>
 
-        <!-- Excel Migration Section (hidden by default) -->
-        <div class="section" id="migrationSection" style="display: none;">
-            <h2>📊 Migrate Leave Cards &amp; CTO Records from Excel</h2>
-            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 6px;">
+        <!-- Excel Migration Section -->
+        <div class="dm-section" id="migrationSection" style="display:none">
+            <div class="dm-section-header">
+                <div class="dm-section-icon" style="background:#e8eaf6;color:#283593">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                </div>
+                <h3>Migrate Leave Cards & CTO Records from Excel</h3>
+            </div>
+            <p style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-1)">
                 Upload employee Excel files from the old manual system. Each file should be one employee's data
-                (filename = <strong style="color:#fff">"LASTNAME, FIRSTNAME.xlsx"</strong>).
+                (filename = <strong>"LASTNAME, FIRSTNAME.xlsx"</strong>).
             </p>
-            <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 6px;">
-                <strong>Non-teaching:</strong> Leave Card (Sheet 1) + CTO Card (Sheet 2, if present) will both be migrated.<br>
+            <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-1)">
+                <strong>Non-teaching:</strong> Leave Card (Sheet 1) + CTO Card (Sheet 2, if present) will both be migrated.
                 <strong>Teaching:</strong> CTO records are expected; an empty Leave Card placeholder will be created if no Leave Card data exists.
             </p>
-            <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-bottom: 16px;">
-                All historical transaction rows are migrated for full data continuity. Employee matching uses 
-                <strong style="color:rgba(255,255,255,0.6)">first name + last name</strong> (from filename) as the primary key, 
-                with <strong style="color:rgba(255,255,255,0.6)">employee number</strong> (from Leave Card) as fallback.
+            <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-4)">
+                Matching uses <strong>first name + last name</strong> (from filename) as the primary key,
+                with <strong>employee number</strong> (from Leave Card) as fallback.
             </p>
 
-            <div class="file-input-wrapper">
+            <div class="dm-file-input">
                 <input type="file" id="migrationFiles" accept=".xlsx,.xls" multiple />
-                <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 4px;">Select multiple files at once (up to 500)</p>
+                <div class="dm-file-hint">Select multiple files at once (up to 500)</div>
             </div>
 
-            <div style="margin: 12px 0; display: flex; align-items: center; gap: 12px;">
-                <label style="color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                    <input type="checkbox" id="migrationOverwrite" style="width: 16px; height: 16px;"> 
-                    Overwrite existing cards with same name
-                </label>
-            </div>
+            <label class="dm-checkbox-label">
+                <input type="checkbox" id="migrationOverwrite">
+                Overwrite existing cards with same name
+            </label>
 
-            <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn btn-primary btn-lg" onclick="migrationPreview()">🔍 Preview</button>
-                <button class="btn btn-success btn-lg" onclick="migrationImport()" id="migrationImportBtn" disabled>📥 Import to System</button>
-                <button class="btn btn-warning" onclick="closeMigration()">Cancel</button>
+            <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="migrationPreview()">Preview</button>
+                <button class="btn btn-success btn-sm" onclick="migrationImport()" id="migrationImportBtn" disabled>Import to System</button>
+                <button class="btn btn-ghost btn-sm" onclick="closeMigration()">Cancel</button>
             </div>
 
             <!-- Preview Results -->
-            <div id="migrationPreview" style="display: none; margin-top: 20px;">
-                <h3 style="color: #fff; font-size: 15px; margin-bottom: 10px;">📋 Preview Results</h3>
-                <div id="migrationStats" style="display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;"></div>
-                <div style="max-height: 400px; overflow-y: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <div id="migrationPreview" style="display:none;margin-top:var(--space-5)">
+                <h4 style="font-size:var(--text-md);font-weight:var(--font-semibold);margin-bottom:var(--space-3)">Preview Results</h4>
+                <div id="migrationStats" class="dm-stats"></div>
+                <div class="dm-table-wrap">
+                    <table class="dm-table">
                         <thead>
-                            <tr style="background: rgba(255,255,255,0.1); position: sticky; top: 0;">
-                                <th style="padding: 10px 12px; text-align: left; color: #fff;">Employee Name</th>
-                                <th style="padding: 10px 8px; text-align: right; color: #fff;">Emp No.</th>
-                                <th style="padding: 10px 8px; text-align: right; color: #4fc3f7;">VL Balance</th>
-                                <th style="padding: 10px 8px; text-align: right; color: #81c784;">SL Balance</th>
-                                <th style="padding: 10px 8px; text-align: right; color: rgba(255,255,255,0.6);">Transactions</th>
-                                <th style="padding: 10px 8px; text-align: center; color: #ffab40;">CTO</th>
-                                <th style="padding: 10px 8px; text-align: center; color: #ce93d8;">Type</th>
+                            <tr>
+                                <th>Employee Name</th>
+                                <th class="text-right">Emp No.</th>
+                                <th class="text-right">VL Balance</th>
+                                <th class="text-right">SL Balance</th>
+                                <th class="text-right">Transactions</th>
+                                <th class="text-center">CTO</th>
+                                <th class="text-center">Type</th>
                             </tr>
                         </thead>
                         <tbody id="migrationTableBody"></tbody>
                     </table>
                 </div>
-                <div id="migrationErrors" style="display: none; margin-top: 12px;"></div>
+                <div id="migrationErrors" style="display:none"></div>
             </div>
 
             <!-- Import Results -->
-            <div id="migrationResults" style="display: none; margin-top: 20px;">
+            <div id="migrationResults" style="display:none;margin-top:var(--space-5)">
                 <div id="migrationResultContent"></div>
             </div>
         </div>
 
         <!-- Migration Validation Section -->
-        <div class="section" id="validationSection" style="display: none;">
-            <h2>✅ Validate Migration (Excel vs System)</h2>
-            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 6px;">
+        <div class="dm-section" id="validationSection" style="display:none">
+            <div class="dm-section-header">
+                <div class="dm-section-icon" style="background:#e0f2f1;color:#00695c">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <h3>Validate Migration (Excel vs System)</h3>
+            </div>
+            <p style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-1)">
                 Upload the same Excel source files to verify they match the data in the system.
-                The system will compare Leave Card balances, transaction history, and CTO records.
             </p>
-            <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-bottom: 16px;">
-                This is a <strong style="color:rgba(255,255,255,0.6)">read-only</strong> check — no data is modified.
+            <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-4)">
+                This is a <strong>read-only</strong> check &mdash; no data is modified.
             </p>
 
-            <div class="file-input-wrapper">
+            <div class="dm-file-input">
                 <input type="file" id="validationFiles" accept=".xlsx,.xls" multiple />
-                <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 4px;">Select the Excel source files to validate against</p>
+                <div class="dm-file-hint">Select the Excel source files to validate against</div>
             </div>
 
-            <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn btn-primary btn-lg" onclick="runValidation()">🔍 Run Validation</button>
-                <button class="btn btn-warning" onclick="document.getElementById('validationSection').style.display='none'">Cancel</button>
+            <div style="margin-top:var(--space-3);display:flex;gap:var(--space-2)">
+                <button class="btn btn-primary btn-sm" onclick="runValidation()">Run Validation</button>
+                <button class="btn btn-ghost btn-sm" onclick="hideSection('validationSection')">Cancel</button>
             </div>
 
-            <!-- Validation Results -->
-            <div id="validationResults" style="display: none; margin-top: 20px;">
+            <div id="validationResults" style="display:none;margin-top:var(--space-5)">
                 <div id="validationSummary"></div>
-                <div id="validationDetails" style="margin-top: 14px;"></div>
+                <div id="validationDetails" style="margin-top:var(--space-4)"></div>
             </div>
         </div>
 
         <!-- Migration Status Section -->
-        <div class="section" id="migrationStatusSection" style="display: none;">
-            <h2>📋 Migration Status</h2>
+        <div class="dm-section" id="migrationStatusSection" style="display:none">
+            <div class="dm-section-header">
+                <div class="dm-section-icon" style="background:var(--color-info-light);color:var(--color-info)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <h3>Migration Status</h3>
+            </div>
             <div id="migrationStatusContent">
-                <div class="loading"><span class="spinner"></span> Loading migration status...</div>
+                <div class="dm-loading"><span class="dm-spinner"></span> Loading migration status...</div>
             </div>
         </div>
 
         <!-- Manual JSON Migration Section -->
-        <div class="section" id="manualMigrationSection" style="display: none;">
-            <h2>📝 Manual Leave Credit Entry</h2>
-            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 12px;">
+        <div class="dm-section" id="manualMigrationSection" style="display:none">
+            <div class="dm-section-header">
+                <div class="dm-section-icon" style="background:var(--color-warning-light);color:var(--color-warning)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </div>
+                <h3>Manual Leave Credit Entry</h3>
+            </div>
+            <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
                 Manually enter leave credit balances for employees who don't have Excel files.
             </p>
             <div id="manualEntries">
-                <div class="manual-entry" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center;">
-                    <input type="text" placeholder="LASTNAME, FIRSTNAME MIDDLE" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-size: 13px;" class="manual-name">
-                    <input type="number" step="0.001" placeholder="VL" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #4fc3f7; font-size: 13px; text-align: right;" class="manual-vl">
-                    <input type="number" step="0.001" placeholder="SL" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #81c784; font-size: 13px; text-align: right;" class="manual-sl">
-                    <button onclick="this.closest('.manual-entry').remove()" style="padding: 6px 10px; border: none; background: rgba(198,40,40,0.5); color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+                <div class="dm-manual-row">
+                    <input type="text" placeholder="LASTNAME, FIRSTNAME MIDDLE" class="manual-name">
+                    <input type="number" step="0.001" placeholder="VL" class="manual-vl" style="text-align:right">
+                    <input type="number" step="0.001" placeholder="SL" class="manual-sl" style="text-align:right">
+                    <button onclick="this.closest('.dm-manual-row').remove()" class="dm-manual-remove">&times;</button>
                 </div>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button class="btn btn-primary" onclick="addManualEntry()">+ Add Row</button>
-                <button class="btn btn-success btn-lg" onclick="submitManualMigration()">📥 Import</button>
-                <button class="btn btn-warning" onclick="document.getElementById('manualMigrationSection').style.display='none'">Cancel</button>
+            <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3)">
+                <button class="btn btn-outline btn-sm" onclick="addManualEntry()">+ Add Row</button>
+                <button class="btn btn-success btn-sm" onclick="submitManualMigration()">Import</button>
+                <button class="btn btn-ghost btn-sm" onclick="hideSection('manualMigrationSection')">Cancel</button>
             </div>
         </div>
 
         <!-- Backups List -->
-        <div class="section">
-            <h2>📋 Available Backups</h2>
+        <div class="dm-section">
+            <div class="dm-section-header">
+                <div class="dm-section-icon" style="background:var(--color-info-light);color:var(--color-info)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>
+                </div>
+                <h3>Available Backups</h3>
+            </div>
             <div id="backupsList">
-                <div class="loading"><span class="spinner"></span> Loading backups...</div>
+                <div class="dm-loading"><span class="dm-spinner"></span> Loading backups...</div>
             </div>
         </div>
     </div>
 
     <!-- Confirm Delete Modal -->
-    <div class="confirm-modal" id="confirmDeleteModal">
-        <div class="modal-content">
-            <h3>🗑️ Delete Backup</h3>
+    <div class="dm-modal-overlay" id="confirmDeleteModal">
+        <div class="dm-modal">
+            <h3>Delete Backup</h3>
             <p>Are you sure you want to permanently delete <strong id="deleteBackupName"></strong>? This action cannot be undone.</p>
-            <div class="modal-actions">
-                <button class="btn btn-danger btn-lg" id="confirmDeleteBtn">Yes, Delete</button>
-                <button class="btn btn-warning btn-lg" onclick="closeDeleteModal()">Cancel</button>
+            <div class="dm-modal-actions">
+                <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">Yes, Delete</button>
+                <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">Cancel</button>
             </div>
         </div>
     </div>
 
     <!-- Confirm Restore Modal -->
-    <div class="confirm-modal" id="confirmRestoreModal">
-        <div class="modal-content">
-            <h3>⚠️ Confirm Restore</h3>
+    <div class="dm-modal-overlay" id="confirmRestoreModal">
+        <div class="dm-modal">
+            <h3>Confirm Restore</h3>
             <p>Are you sure you want to restore data from <strong id="restoreBackupName"></strong>? This will overwrite all current data. A safety backup will be created first.</p>
-            <div class="modal-actions">
-                <button class="btn btn-danger btn-lg" id="confirmRestoreBtn">Yes, Restore</button>
-                <button class="btn btn-warning btn-lg" onclick="closeRestoreModal()">Cancel</button>
+            <div class="dm-modal-actions">
+                <button class="btn btn-danger btn-sm" id="confirmRestoreBtn">Yes, Restore</button>
+                <button class="btn btn-ghost btn-sm" onclick="closeRestoreModal()">Cancel</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Auth check (cookie-based)
+        // Auth check
         document.addEventListener('DOMContentLoaded', async function() {
             const itUser = localStorage.getItem('itUser');
-            if (!itUser) {
-                window.location.href = '/it-login.html';
-                return;
-            }
-            
-            // Validate session server-side
+            if (!itUser) { window.location.href = '/it-login.html'; return; }
             try {
                 const meResp = await fetch('/api/me');
-                if (!meResp.ok) {
-                    localStorage.removeItem('itUser');
-                    window.location.href = '/it-login.html';
-                    return;
-                }
-            } catch(e) { /* Network error — API calls will catch 401 */ }
-            
+                if (!meResp.ok) { localStorage.removeItem('itUser'); window.location.href = '/it-login.html'; return; }
+            } catch(e) { /* Network error */ }
             loadBackups();
         });
 
@@ -364,77 +598,76 @@
             return includeContentType ? { 'Content-Type': 'application/json' } : {};
         }
 
+        // Section helpers
+        function showSection(id) {
+            document.getElementById(id).style.display = '';
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+        }
+        function hideSection(id) { document.getElementById(id).style.display = 'none'; }
+
         function showStatus(message, type = 'success') {
             const el = document.getElementById('statusMsg');
             el.textContent = message;
-            el.className = 'status-msg ' + type;
-            el.style.display = '';  // Always reset visibility
+            el.className = 'dm-status ' + type;
+            el.style.display = '';
             window.scrollTo({ top: 0, behavior: 'smooth' });
             if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 8000);
         }
 
-        // Create Backup
+        // ========== BACKUP ==========
         async function createBackup() {
             try {
                 showStatus('Creating backup...', 'info');
-                const resp = await fetch('/api/data/backup', {
-                    method: 'POST',
-                    headers: getAuthHeaders(true)
-                });
+                const resp = await fetch('/api/data/backup', { method: 'POST', headers: getAuthHeaders(true) });
                 const data = await resp.json();
                 if (data.success) {
-                    showStatus(`✅ Backup created: ${data.backupId} (${data.files.length} files)`, 'success');
+                    showStatus('Backup created: ' + data.backupId + ' (' + data.files.length + ' files)', 'success');
                     loadBackups();
                 } else {
-                    showStatus('❌ ' + (data.error || 'Failed to create backup'), 'error');
+                    showStatus(data.error || 'Failed to create backup', 'error');
                 }
-            } catch (err) {
-                showStatus('❌ Network error: ' + err.message, 'error');
-            }
+            } catch (err) { showStatus('Network error: ' + err.message, 'error'); }
         }
 
-        // Load Backups
+        // ========== LOAD BACKUPS ==========
         async function loadBackups() {
             const container = document.getElementById('backupsList');
-            container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading backups...</div>';
-
+            container.innerHTML = '<div class="dm-loading"><span class="dm-spinner"></span> Loading backups...</div>';
             try {
                 const resp = await fetch('/api/data/backups', { headers: getAuthHeaders() });
                 const data = await resp.json();
-
                 if (!data.success || !data.backups || data.backups.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No backups found. Create your first backup above!</p></div>';
+                    container.innerHTML = '<div class="dm-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg><p>No backups found. Create your first backup above.</p></div>';
                     return;
                 }
-
-                let html = '<ul class="backup-list">';
+                let html = '<ul class="dm-backup-list">';
                 for (const backup of data.backups) {
                     const date = new Date(backup.createdAt).toLocaleString();
-                    const type = backup.id.startsWith('auto-startup') ? '🔄 Auto' :
-                                 backup.id.startsWith('pre-restore') ? '🛡️ Pre-Restore' :
-                                 backup.id.startsWith('pre-import') ? '🛡️ Pre-Import' :
-                                 '📦 Manual';
-                    html += `
-                        <li class="backup-item">
-                            <div class="backup-info">
-                                <div class="name">${type} — ${backup.id}</div>
-                                <div class="meta">Created: ${date} · ${backup.filesCount} files</div>
-                            </div>
-                            <div class="backup-actions">
-                                <button class="btn btn-primary" onclick="confirmRestore('${backup.id}')">🔄 Restore</button>
-                                <button class="btn btn-danger" onclick="confirmDelete('${backup.id}')">🗑️ Delete</button>
-                            </div>
-                        </li>
-                    `;
+                    const typeLabel = backup.id.startsWith('auto-startup') ? 'Auto'
+                        : backup.id.startsWith('pre-restore') ? 'Pre-Restore'
+                        : backup.id.startsWith('pre-import') ? 'Pre-Import'
+                        : backup.id.startsWith('pre-migration') ? 'Pre-Migration'
+                        : 'Manual';
+                    const typeBadge = `<span class="badge badge-neutral" style="margin-right:var(--space-2)">${typeLabel}</span>`;
+                    html += `<li class="dm-backup-item">
+                        <div class="dm-backup-info">
+                            <div class="dm-backup-name">${typeBadge}${escapeHtml(backup.id)}</div>
+                            <div class="dm-backup-meta">Created: ${date} &middot; ${backup.filesCount} files</div>
+                        </div>
+                        <div class="dm-backup-actions">
+                            <button class="btn btn-primary btn-sm" onclick="confirmRestore('${escapeHtml(backup.id)}')">Restore</button>
+                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${escapeHtml(backup.id)}')">Delete</button>
+                        </div>
+                    </li>`;
                 }
                 html += '</ul>';
                 container.innerHTML = html;
             } catch (err) {
-                container.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>Failed to load backups: ' + err.message + '</p></div>';
+                container.innerHTML = '<div class="dm-empty"><p>Failed to load backups: ' + escapeHtml(err.message) + '</p></div>';
             }
         }
 
-        // Confirm + Restore
+        // ========== RESTORE ==========
         let pendingRestoreId = null;
         function confirmRestore(backupId) {
             pendingRestoreId = backupId;
@@ -442,128 +675,80 @@
             document.getElementById('confirmRestoreModal').classList.add('show');
             document.getElementById('confirmRestoreBtn').onclick = () => doRestore(backupId);
         }
-        function closeRestoreModal() {
-            document.getElementById('confirmRestoreModal').classList.remove('show');
-            pendingRestoreId = null;
-        }
+        function closeRestoreModal() { document.getElementById('confirmRestoreModal').classList.remove('show'); pendingRestoreId = null; }
         async function doRestore(backupId) {
             closeRestoreModal();
             try {
                 showStatus('Restoring data...', 'info');
-                const resp = await fetch('/api/data/restore', {
-                    method: 'POST',
-                    headers: getAuthHeaders(true),
-                    body: JSON.stringify({ backupId })
-                });
+                const resp = await fetch('/api/data/restore', { method: 'POST', headers: getAuthHeaders(true), body: JSON.stringify({ backupId }) });
                 const data = await resp.json();
                 if (data.success) {
-                    showStatus(`✅ Restored ${data.files.length} files from ${backupId}. Safety backup: ${data.preRestoreBackup}`, 'success');
+                    showStatus('Restored ' + data.files.length + ' files from ' + backupId + '. Safety backup: ' + data.preRestoreBackup, 'success');
                     loadBackups();
-                } else {
-                    showStatus('❌ ' + (data.error || 'Restore failed'), 'error');
-                }
-            } catch (err) {
-                showStatus('❌ Network error: ' + err.message, 'error');
-            }
+                } else { showStatus(data.error || 'Restore failed', 'error'); }
+            } catch (err) { showStatus('Network error: ' + err.message, 'error'); }
         }
 
-        // Confirm + Delete
+        // ========== DELETE ==========
         function confirmDelete(backupId) {
             document.getElementById('deleteBackupName').textContent = backupId;
             document.getElementById('confirmDeleteModal').classList.add('show');
             document.getElementById('confirmDeleteBtn').onclick = () => doDelete(backupId);
         }
-        function closeDeleteModal() {
-            document.getElementById('confirmDeleteModal').classList.remove('show');
-        }
+        function closeDeleteModal() { document.getElementById('confirmDeleteModal').classList.remove('show'); }
         async function doDelete(backupId) {
             closeDeleteModal();
             try {
                 showStatus('Deleting backup...', 'info');
-                const resp = await fetch(`/api/data/backup/${encodeURIComponent(backupId)}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders()
-                });
+                const resp = await fetch('/api/data/backup/' + encodeURIComponent(backupId), { method: 'DELETE', headers: getAuthHeaders() });
                 const data = await resp.json();
-                if (data.success) {
-                    showStatus(`✅ ${data.message}`, 'success');
-                    loadBackups();
-                } else {
-                    showStatus('❌ ' + (data.error || 'Delete failed'), 'error');
-                }
-            } catch (err) {
-                showStatus('❌ Network error: ' + err.message, 'error');
-            }
+                if (data.success) { showStatus(data.message, 'success'); loadBackups(); }
+                else { showStatus(data.error || 'Delete failed', 'error'); }
+            } catch (err) { showStatus('Network error: ' + err.message, 'error'); }
         }
 
-        // Export Data (Download)
+        // ========== EXPORT ==========
         async function exportData() {
             try {
                 showStatus('Exporting data...', 'info');
                 const resp = await fetch('/api/data/export', { headers: getAuthHeaders() });
-                if (!resp.ok) {
-                    const errData = await resp.json().catch(() => ({}));
-                    throw new Error(errData.error || `Export failed (HTTP ${resp.status})`);
-                }
+                if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'Export failed (HTTP ' + resp.status + ')'); }
                 const blob = await resp.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.style.display = 'none';
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                a.download = `data-export-${timestamp}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                a.href = url; a.style.display = 'none';
+                a.download = 'data-export-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                showStatus('✅ Data exported and downloaded successfully!', 'success');
-            } catch (err) {
-                showStatus('❌ Export failed: ' + err.message, 'error');
-            }
+                showStatus('Data exported and downloaded successfully!', 'success');
+            } catch (err) { showStatus('Export failed: ' + err.message, 'error'); }
         }
 
-        // Import Data (Upload)
+        // ========== IMPORT ==========
         async function importData() {
             const fileInput = document.getElementById('importFile');
-            if (!fileInput.files || !fileInput.files[0]) {
-                showStatus('⚠️ Please select a JSON file first', 'error');
-                return;
-            }
-
+            if (!fileInput.files || !fileInput.files[0]) { showStatus('Please select a JSON file first', 'error'); return; }
             try {
                 showStatus('Reading and importing data...', 'info');
                 const text = await fileInput.files[0].text();
                 const parsed = JSON.parse(text);
-
-                if (!parsed.data) {
-                    showStatus('❌ Invalid export file. Expected format: { data: { ... } }', 'error');
-                    return;
-                }
-
-                const resp = await fetch('/api/data/import', {
-                    method: 'POST',
-                    headers: getAuthHeaders(true),
-                    body: JSON.stringify({ data: parsed.data })
-                });
+                if (!parsed.data) { showStatus('Invalid export file. Expected format: { data: { ... } }', 'error'); return; }
+                const resp = await fetch('/api/data/import', { method: 'POST', headers: getAuthHeaders(true), body: JSON.stringify({ data: parsed.data }) });
                 const result = await resp.json();
                 if (result.success) {
-                    showStatus(`✅ Imported ${result.files.length} data files. Safety backup: ${result.safetyBackup}`, 'success');
-                    document.getElementById('importSection').style.display = 'none';
+                    showStatus('Imported ' + result.files.length + ' data files. Safety backup: ' + result.safetyBackup, 'success');
+                    hideSection('importSection');
                     fileInput.value = '';
                     loadBackups();
-                } else {
-                    showStatus('❌ ' + (result.error || 'Import failed'), 'error');
-                }
-            } catch (err) {
-                showStatus('❌ Import failed: ' + err.message, 'error');
-            }
+                } else { showStatus(result.error || 'Import failed', 'error'); }
+            } catch (err) { showStatus('Import failed: ' + err.message, 'error'); }
         }
 
         // ========== EXCEL MIGRATION ==========
         let migrationParsedData = null;
 
         function closeMigration() {
-            document.getElementById('migrationSection').style.display = 'none';
+            hideSection('migrationSection');
             document.getElementById('migrationPreview').style.display = 'none';
             document.getElementById('migrationResults').style.display = 'none';
             document.getElementById('migrationImportBtn').disabled = true;
@@ -573,91 +758,57 @@
 
         async function migrationPreview() {
             const fileInput = document.getElementById('migrationFiles');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                showStatus('⚠️ Please select Excel files first', 'error');
-                return;
-            }
-            if (fileInput.files.length > 500) {
-                showStatus(`⚠️ Too many files selected (${fileInput.files.length}). Maximum is 500 per upload. Please split into batches.`, 'error');
-                return;
-            }
+            if (!fileInput.files || fileInput.files.length === 0) { showStatus('Please select Excel files first', 'error'); return; }
+            if (fileInput.files.length > 500) { showStatus('Too many files (' + fileInput.files.length + '). Maximum is 500 per upload.', 'error'); return; }
 
             const formData = new FormData();
-            for (const file of fileInput.files) {
-                formData.append('files', file);
-            }
+            for (const file of fileInput.files) formData.append('files', file);
 
             try {
-                showStatus('📊 Parsing Excel files...', 'info');
-                const resp = await fetch('/api/migrate-leave-cards?mode=preview', {
-                    method: 'POST',
-                    body: formData
-                });
-
+                showStatus('Parsing Excel files...', 'info');
+                const resp = await fetch('/api/migrate-leave-cards?mode=preview', { method: 'POST', body: formData });
                 const data = await resp.json();
-                if (!data.success) {
-                    showStatus('❌ ' + (data.error || 'Preview failed'), 'error');
-                    return;
-                }
+                if (!data.success) { showStatus(data.error || 'Preview failed', 'error'); return; }
 
                 migrationParsedData = data;
 
-                // Show stats
-                const statsHtml = `
-                    <div style="padding: 10px 16px; background: rgba(25,118,210,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
-                        📁 <strong>${data.totalFiles}</strong> files uploaded
-                    </div>
-                    <div style="padding: 10px 16px; background: rgba(46,125,50,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
-                        ✅ <strong>${data.successCount}</strong> leave cards
-                    </div>
-                    ${data.ctoCount > 0 ? `<div style="padding: 10px 16px; background: rgba(255,152,0,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
-                        📋 <strong>${data.ctoCount}</strong> CTO records
-                    </div>` : ''}
-                    ${data.teachingCount > 0 ? `<div style="padding: 10px 16px; background: rgba(156,39,176,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
-                        🎓 <strong>${data.teachingCount}</strong> teaching
-                    </div>` : ''}
-                    ${data.errorCount > 0 ? `<div style="padding: 10px 16px; background: rgba(198,40,40,0.3); border-radius: 8px; color: #fff; font-size: 13px;">
-                        ❌ <strong>${data.errorCount}</strong> failed
-                    </div>` : ''}
-                `;
+                // Stats
+                let statsHtml = `<div class="dm-stat blue"><div class="dm-stat-value">${data.totalFiles}</div><div class="dm-stat-label">Files Uploaded</div></div>`;
+                statsHtml += `<div class="dm-stat green"><div class="dm-stat-value">${data.successCount}</div><div class="dm-stat-label">Leave Cards</div></div>`;
+                if (data.ctoCount > 0) statsHtml += `<div class="dm-stat orange"><div class="dm-stat-value">${data.ctoCount}</div><div class="dm-stat-label">CTO Records</div></div>`;
+                if (data.teachingCount > 0) statsHtml += `<div class="dm-stat purple"><div class="dm-stat-value">${data.teachingCount}</div><div class="dm-stat-label">Teaching</div></div>`;
+                if (data.errorCount > 0) statsHtml += `<div class="dm-stat red"><div class="dm-stat-value">${data.errorCount}</div><div class="dm-stat-label">Failed</div></div>`;
                 document.getElementById('migrationStats').innerHTML = statsHtml;
 
-                // Build CTO lookup by name for preview table
+                // CTO lookup
                 const ctoByName = {};
                 if (data.ctoRecords) {
-                    for (const cto of data.ctoRecords) {
-                        ctoByName[cto.name.toUpperCase().replace(/\s+/g, ' ').trim()] = cto;
-                    }
+                    for (const cto of data.ctoRecords) ctoByName[cto.name.toUpperCase().replace(/\s+/g, ' ').trim()] = cto;
                 }
 
-                // Show table
+                // Table
                 let tableHtml = '';
                 for (const p of data.parsed) {
-                    const pKey = p.name.toUpperCase().replace(/\s+/g, ' ').trim();
-                    const cto = ctoByName[pKey];
-                    const ctoInfo = cto ? `${cto.records.length} (${cto.totalGranted}d)` : '—';
-                    const typeLabel = p.isTeaching ? '<span style="color:#ce93d8">Teaching</span>' :
-                                     p.emptyLeaveCard ? '<span style="color:#ffab91">Empty LC</span>' : 'Non-teaching';
-                    tableHtml += `
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-                            <td style="padding: 8px 12px; color: #fff;">${escapeHtml(p.name)}</td>
-                            <td style="padding: 8px; text-align: right; color: rgba(255,255,255,0.6);">${escapeHtml(p.employeeNo || '—')}</td>
-                            <td style="padding: 8px; text-align: right; color: #4fc3f7; font-weight: 600;">${p.vacationLeave.toFixed(3)}</td>
-                            <td style="padding: 8px; text-align: right; color: #81c784; font-weight: 600;">${p.sickLeave.toFixed(3)}</td>
-                            <td style="padding: 8px; text-align: right; color: rgba(255,255,255,0.5);">${p.transactions ? p.transactions.length : 0}</td>
-                            <td style="padding: 8px; text-align: center; color: #ffab40; font-size: 12px;">${ctoInfo}</td>
-                            <td style="padding: 8px; text-align: center; font-size: 11px;">${typeLabel}</td>
-                        </tr>
-                    `;
+                    const cto = ctoByName[p.name.toUpperCase().replace(/\s+/g, ' ').trim()];
+                    const ctoInfo = cto ? cto.records.length + ' (' + cto.totalGranted + 'd)' : '&mdash;';
+                    const typeLabel = p.isTeaching ? '<span class="text-teaching">Teaching</span>' :
+                                     p.emptyLeaveCard ? '<span style="color:var(--color-warning)">Empty LC</span>' : 'Non-teaching';
+                    tableHtml += '<tr>' +
+                        '<td>' + escapeHtml(p.name) + '</td>' +
+                        '<td class="text-right text-muted">' + escapeHtml(p.employeeNo || '—') + '</td>' +
+                        '<td class="text-right text-vl">' + p.vacationLeave.toFixed(3) + '</td>' +
+                        '<td class="text-right text-sl">' + p.sickLeave.toFixed(3) + '</td>' +
+                        '<td class="text-right text-muted">' + (p.transactions ? p.transactions.length : 0) + '</td>' +
+                        '<td class="text-center text-cto">' + ctoInfo + '</td>' +
+                        '<td class="text-center">' + typeLabel + '</td>' +
+                        '</tr>';
                 }
                 document.getElementById('migrationTableBody').innerHTML = tableHtml;
 
-                // Show errors if any
+                // Errors
                 if (data.errors && data.errors.length > 0) {
-                    let errHtml = '<div style="background: rgba(198,40,40,0.2); border-radius: 8px; padding: 12px; border: 1px solid rgba(198,40,40,0.3);"><h4 style="color: #ef9a9a; font-size: 13px; margin-bottom: 8px;">⚠️ Files that could not be parsed:</h4><ul style="color: rgba(255,255,255,0.6); font-size: 12px; padding-left: 20px;">';
-                    for (const e of data.errors) {
-                        errHtml += `<li>${escapeHtml(e.file)}: ${escapeHtml(e.error)}</li>`;
-                    }
+                    let errHtml = '<div class="dm-error-box"><h4>Files that could not be parsed:</h4><ul>';
+                    for (const e of data.errors) errHtml += '<li>' + escapeHtml(e.file) + ': ' + escapeHtml(e.error) + '</li>';
                     errHtml += '</ul></div>';
                     document.getElementById('migrationErrors').innerHTML = errHtml;
                     document.getElementById('migrationErrors').style.display = 'block';
@@ -668,68 +819,50 @@
                 document.getElementById('migrationPreview').style.display = 'block';
                 document.getElementById('migrationImportBtn').disabled = false;
                 document.getElementById('migrationResults').style.display = 'none';
-                showStatus(`✅ Preview complete: ${data.successCount} leave cards, ${data.ctoCount || 0} CTO records from ${data.totalFiles} files`, 'success');
-            } catch (err) {
-                showStatus('❌ Preview failed: ' + err.message, 'error');
-            }
+                showStatus('Preview complete: ' + data.successCount + ' leave cards, ' + (data.ctoCount || 0) + ' CTO records from ' + data.totalFiles + ' files', 'success');
+            } catch (err) { showStatus('Preview failed: ' + err.message, 'error'); }
         }
 
         async function migrationImport() {
             const fileInput = document.getElementById('migrationFiles');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                showStatus('⚠️ Please select Excel files and preview first', 'error');
-                return;
-            }
-            if (fileInput.files.length > 500) {
-                showStatus(`⚠️ Too many files (${fileInput.files.length}). Maximum is 500 per upload.`, 'error');
-                return;
-            }
-
-            if (!confirm('This will import Leave Card and CTO data into the system. A safety backup will be created first. Continue?')) {
-                return;
-            }
+            if (!fileInput.files || fileInput.files.length === 0) { showStatus('Please select Excel files and preview first', 'error'); return; }
+            if (fileInput.files.length > 500) { showStatus('Too many files (' + fileInput.files.length + '). Maximum is 500.', 'error'); return; }
+            if (!confirm('This will import Leave Card and CTO data into the system. A safety backup will be created first. Continue?')) return;
 
             const overwrite = document.getElementById('migrationOverwrite').checked;
             const formData = new FormData();
-            for (const file of fileInput.files) {
-                formData.append('files', file);
-            }
+            for (const file of fileInput.files) formData.append('files', file);
 
             try {
-                showStatus('📥 Importing leave cards...', 'info');
-                const resp = await fetch(`/api/migrate-leave-cards?mode=import&overwrite=${overwrite}`, {
-                    method: 'POST',
-                    body: formData
-                });
-
+                showStatus('Importing leave cards...', 'info');
+                const resp = await fetch('/api/migrate-leave-cards?mode=import&overwrite=' + overwrite, { method: 'POST', body: formData });
                 const data = await resp.json();
-                if (!data.success) {
-                    showStatus('❌ ' + (data.error || 'Import failed'), 'error');
-                    return;
-                }
+                if (!data.success) { showStatus(data.error || 'Import failed', 'error'); return; }
 
-                let resultHtml = `
-                    <div style="background: rgba(46,125,50,0.2); border-radius: 10px; padding: 16px; border: 1px solid rgba(46,125,50,0.3);">
-                        <h4 style="color: #81c784; font-size: 14px; margin-bottom: 10px;">✅ Migration Complete</h4>
-                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px;">
-                            <span style="color: #fff; font-size: 13px;">🆕 LC Created: <strong>${data.created}</strong></span>
-                            <span style="color: #fff; font-size: 13px;">🔄 LC Updated: <strong>${data.updated}</strong></span>
-                            <span style="color: #fff; font-size: 13px;">⏭️ Skipped: <strong>${data.skipped}</strong></span>
-                            <span style="color: #fff; font-size: 13px;">📋 CTO Records: <strong>${data.ctoCreated || 0}</strong>${data.ctoRemoved ? ` (${data.ctoRemoved} replaced)` : ''}</span>
-                            ${data.teachingCount ? `<span style="color: #ce93d8; font-size: 13px;">🎓 Teaching: <strong>${data.teachingCount}</strong></span>` : ''}
-                            <span style="color: #fff; font-size: 13px;">📊 Total cards: <strong>${data.totalCards}</strong></span>
-                        </div>
-                        <p style="color: rgba(255,255,255,0.5); font-size: 11px;">Safety backup: ${data.safetyBackup}</p>
-                    </div>
-                `;
+                let resultHtml = '<div class="dm-result-box"><h4>Migration Complete</h4>';
+                resultHtml += '<div class="dm-result-meta">';
+                resultHtml += '<span>LC Created: <strong>' + data.created + '</strong></span>';
+                resultHtml += '<span>LC Updated: <strong>' + data.updated + '</strong></span>';
+                resultHtml += '<span>Skipped: <strong>' + data.skipped + '</strong></span>';
+                resultHtml += '<span>CTO Records: <strong>' + (data.ctoCreated || 0) + '</strong>' + (data.ctoRemoved ? ' (' + data.ctoRemoved + ' replaced)' : '') + '</span>';
+                if (data.teachingCount) resultHtml += '<span style="color:#6a1b9a">Teaching: <strong>' + data.teachingCount + '</strong></span>';
+                resultHtml += '<span>Total cards: <strong>' + data.totalCards + '</strong></span>';
+                resultHtml += '</div>';
+                resultHtml += '<div class="dm-result-safety">Safety backup: ' + escapeHtml(data.safetyBackup) + '</div>';
+                resultHtml += '</div>';
 
                 if (data.details && data.details.length > 0) {
-                    resultHtml += '<div style="max-height: 300px; overflow-y: auto; margin-top: 12px;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-                    resultHtml += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: center; color: #fff;">Action</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL</th><th style="padding: 8px; text-align: right; color: #81c784;">SL</th><th style="padding: 8px; text-align: center; color: #ce93d8;">Type</th></tr></thead><tbody>';
+                    resultHtml += '<div class="dm-table-wrap" style="margin-top:var(--space-4);max-height:300px"><table class="dm-table"><thead><tr>';
+                    resultHtml += '<th>Name</th><th class="text-center">Action</th><th class="text-right">VL</th><th class="text-right">SL</th><th class="text-center">Type</th>';
+                    resultHtml += '</tr></thead><tbody>';
                     for (const d of data.details) {
-                        const actionColor = d.action === 'created' ? '#81c784' : d.action === 'updated' ? '#4fc3f7' : '#ffab91';
-                        const typeLabel = d.isTeaching ? '🎓' : (d.emptyLeaveCard ? '📭' : '');
-                        resultHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(d.name)}</td><td style="padding: 6px 8px; text-align: center; color: ${actionColor};">${escapeHtml(d.action)}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${d.vl !== undefined ? d.vl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${d.sl !== undefined ? d.sl.toFixed(3) : '—'}</td><td style="padding: 6px 8px; text-align: center;">${typeLabel}</td></tr>`;
+                        const actionCls = d.action === 'created' ? 'color:var(--color-success)' : d.action === 'updated' ? 'color:var(--color-info)' : 'color:var(--color-warning)';
+                        const typeLabel = d.isTeaching ? 'Teaching' : (d.emptyLeaveCard ? 'Empty' : '');
+                        resultHtml += '<tr><td>' + escapeHtml(d.name) + '</td>';
+                        resultHtml += '<td class="text-center" style="' + actionCls + '">' + escapeHtml(d.action) + '</td>';
+                        resultHtml += '<td class="text-right text-vl">' + (d.vl !== undefined ? d.vl.toFixed(3) : '&mdash;') + '</td>';
+                        resultHtml += '<td class="text-right text-sl">' + (d.sl !== undefined ? d.sl.toFixed(3) : '&mdash;') + '</td>';
+                        resultHtml += '<td class="text-center text-teaching">' + typeLabel + '</td></tr>';
                     }
                     resultHtml += '</tbody></table></div>';
                 }
@@ -738,256 +871,177 @@
                 document.getElementById('migrationResults').style.display = 'block';
                 document.getElementById('migrationPreview').style.display = 'none';
                 document.getElementById('migrationImportBtn').disabled = true;
-                showStatus(`✅ Migration complete: ${data.created} LC created, ${data.updated} updated, ${data.ctoCreated || 0} CTO records`, 'success');
+                showStatus('Migration complete: ' + data.created + ' created, ' + data.updated + ' updated, ' + (data.ctoCreated || 0) + ' CTO records', 'success');
                 loadBackups();
-            } catch (err) {
-                showStatus('❌ Migration failed: ' + err.message, 'error');
-            }
+            } catch (err) { showStatus('Migration failed: ' + err.message, 'error'); }
         }
 
         // ========== MANUAL MIGRATION ==========
         function addManualEntry() {
             const container = document.getElementById('manualEntries');
             const entry = document.createElement('div');
-            entry.className = 'manual-entry';
-            entry.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center;';
-            entry.innerHTML = `
-                <input type="text" placeholder="LASTNAME, FIRSTNAME MIDDLE" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-size: 13px;" class="manual-name">
-                <input type="number" step="0.001" placeholder="VL" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #4fc3f7; font-size: 13px; text-align: right;" class="manual-vl">
-                <input type="number" step="0.001" placeholder="SL" style="padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #81c784; font-size: 13px; text-align: right;" class="manual-sl">
-                <button onclick="this.closest('.manual-entry').remove()" style="padding: 6px 10px; border: none; background: rgba(198,40,40,0.5); color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
-            `;
+            entry.className = 'dm-manual-row';
+            entry.innerHTML = '<input type="text" placeholder="LASTNAME, FIRSTNAME MIDDLE" class="manual-name">' +
+                '<input type="number" step="0.001" placeholder="VL" class="manual-vl" style="text-align:right">' +
+                '<input type="number" step="0.001" placeholder="SL" class="manual-sl" style="text-align:right">' +
+                '<button onclick="this.closest(\'.dm-manual-row\').remove()" class="dm-manual-remove">&times;</button>';
             container.appendChild(entry);
         }
 
         async function submitManualMigration() {
-            const entries = document.querySelectorAll('.manual-entry');
+            const entries = document.querySelectorAll('.dm-manual-row');
             const records = [];
             for (const entry of entries) {
                 const name = entry.querySelector('.manual-name').value.trim();
                 const vl = parseFloat(entry.querySelector('.manual-vl').value) || 0;
                 const sl = parseFloat(entry.querySelector('.manual-sl').value) || 0;
-                if (name) {
-                    records.push({ name, vacationLeave: vl, sickLeave: sl });
-                }
+                if (name) records.push({ name, vacationLeave: vl, sickLeave: sl });
             }
-
-            if (records.length === 0) {
-                showStatus('⚠️ Please enter at least one employee name and VL/SL balances', 'error');
-                return;
-            }
-
-            if (!confirm(`Import ${records.length} leave card(s) into the system?`)) return;
+            if (records.length === 0) { showStatus('Please enter at least one employee name and VL/SL balances', 'error'); return; }
+            if (!confirm('Import ' + records.length + ' leave card(s) into the system?')) return;
 
             try {
-                showStatus('📥 Importing manual entries...', 'info');
-                const resp = await fetch('/api/migrate-leave-card-json', {
-                    method: 'POST',
-                    headers: getAuthHeaders(true),
-                    body: JSON.stringify({ records, overwrite: false })
-                });
+                showStatus('Importing manual entries...', 'info');
+                const resp = await fetch('/api/migrate-leave-card-json', { method: 'POST', headers: getAuthHeaders(true), body: JSON.stringify({ records, overwrite: false }) });
                 const data = await resp.json();
                 if (data.success) {
-                    showStatus(`✅ ${data.message}. Safety backup: ${data.safetyBackup}`, 'success');
-                    document.getElementById('manualMigrationSection').style.display = 'none';
+                    showStatus(data.message + '. Safety backup: ' + data.safetyBackup, 'success');
+                    hideSection('manualMigrationSection');
                     loadBackups();
-                } else {
-                    showStatus('❌ ' + (data.error || 'Import failed'), 'error');
-                }
-            } catch (err) {
-                showStatus('❌ Error: ' + err.message, 'error');
-            }
+                } else { showStatus(data.error || 'Import failed', 'error'); }
+            } catch (err) { showStatus('Error: ' + err.message, 'error'); }
         }
 
-        // ========== MIGRATION VALIDATION ==========
+        // ========== VALIDATION ==========
         async function runValidation() {
             const fileInput = document.getElementById('validationFiles');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                showStatus('⚠️ Please select Excel files first', 'error');
-                return;
-            }
+            if (!fileInput.files || fileInput.files.length === 0) { showStatus('Please select Excel files first', 'error'); return; }
 
             const formData = new FormData();
-            for (const file of fileInput.files) {
-                formData.append('files', file);
-            }
+            for (const file of fileInput.files) formData.append('files', file);
 
             try {
-                showStatus('🔍 Validating migration data...', 'info');
-                const resp = await fetch('/api/validate-migration', {
-                    method: 'POST',
-                    body: formData
-                });
+                showStatus('Validating migration data...', 'info');
+                const resp = await fetch('/api/validate-migration', { method: 'POST', body: formData });
                 const data = await resp.json();
-                if (!data.success) {
-                    showStatus('❌ ' + (data.error || 'Validation failed'), 'error');
-                    return;
-                }
+                if (!data.success) { showStatus(data.error || 'Validation failed', 'error'); return; }
 
                 const s = data.summary;
-                let summaryHtml = `
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <div style="padding: 12px 16px; background: rgba(46,125,50,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
-                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.matched}</div>
-                            <div style="font-size: 11px; opacity: 0.7;">Leave Cards Matched</div>
-                        </div>
-                        <div style="padding: 12px 16px; background: rgba(198,40,40,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
-                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.missing}</div>
-                            <div style="font-size: 11px; opacity: 0.7;">Missing in System</div>
-                        </div>
-                        <div style="padding: 12px 16px; background: rgba(255,152,0,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
-                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.discrepancies}</div>
-                            <div style="font-size: 11px; opacity: 0.7;">Balance Discrepancies</div>
-                        </div>
-                        <div style="padding: 12px 16px; background: rgba(156,39,176,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
-                            <div style="font-size: 22px; font-weight: 700;">${s.leaveCards.unlinked}</div>
-                            <div style="font-size: 11px; opacity: 0.7;">Not Yet Linked</div>
-                        </div>
-                        <div style="padding: 12px 16px; background: rgba(0,150,136,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
-                            <div style="font-size: 22px; font-weight: 700;">${s.ctoRecords.matched}</div>
-                            <div style="font-size: 11px; opacity: 0.7;">CTO Matched</div>
-                        </div>
-                        ${s.ctoRecords.missing > 0 ? `<div style="padding: 12px 16px; background: rgba(198,40,40,0.3); border-radius: 8px; color: #fff; font-size: 13px; flex: 1; min-width: 140px;">
-                            <div style="font-size: 22px; font-weight: 700;">${s.ctoRecords.missing}</div>
-                            <div style="font-size: 11px; opacity: 0.7;">CTO Missing</div>
-                        </div>` : ''}
-                    </div>
-                    <div style="margin-top: 10px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 11px; color: rgba(255,255,255,0.5);">
-                        System totals: ${s.systemTotals.totalLeaveCards} leave cards (${s.systemTotals.linkedLeaveCards} linked, ${s.systemTotals.unlinkedLeaveCards} unlinked) · ${s.systemTotals.totalCtoRecords} CTO records · ${s.systemTotals.totalEmployees} employees
-                    </div>
-                `;
+                let summaryHtml = '<div class="dm-stats">';
+                summaryHtml += '<div class="dm-stat green"><div class="dm-stat-value">' + s.leaveCards.matched + '</div><div class="dm-stat-label">LC Matched</div></div>';
+                summaryHtml += '<div class="dm-stat red"><div class="dm-stat-value">' + s.leaveCards.missing + '</div><div class="dm-stat-label">Missing in System</div></div>';
+                summaryHtml += '<div class="dm-stat orange"><div class="dm-stat-value">' + s.leaveCards.discrepancies + '</div><div class="dm-stat-label">Discrepancies</div></div>';
+                summaryHtml += '<div class="dm-stat purple"><div class="dm-stat-value">' + s.leaveCards.unlinked + '</div><div class="dm-stat-label">Not Yet Linked</div></div>';
+                summaryHtml += '<div class="dm-stat teal"><div class="dm-stat-value">' + s.ctoRecords.matched + '</div><div class="dm-stat-label">CTO Matched</div></div>';
+                if (s.ctoRecords.missing > 0) summaryHtml += '<div class="dm-stat red"><div class="dm-stat-value">' + s.ctoRecords.missing + '</div><div class="dm-stat-label">CTO Missing</div></div>';
+                summaryHtml += '</div>';
+                summaryHtml += '<div style="padding:var(--space-2) var(--space-3);background:var(--color-gray-100);border-radius:var(--radius-sm);font-size:var(--text-xs);color:var(--color-text-muted)">';
+                summaryHtml += 'System totals: ' + s.systemTotals.totalLeaveCards + ' leave cards (' + s.systemTotals.linkedLeaveCards + ' linked, ' + s.systemTotals.unlinkedLeaveCards + ' unlinked) &middot; ' + s.systemTotals.totalCtoRecords + ' CTO records &middot; ' + s.systemTotals.totalEmployees + ' employees';
+                summaryHtml += '</div>';
                 document.getElementById('validationSummary').innerHTML = summaryHtml;
 
-                // Detailed results table
-                let detailsHtml = '<div style="max-height: 500px; overflow-y: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-                detailsHtml += '<thead><tr style="background: rgba(255,255,255,0.1); position: sticky; top: 0;"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: center; color: #fff;">Status</th><th style="padding: 8px; text-align: center; color: #fff;">Match</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL (Src/Sys)</th><th style="padding: 8px; text-align: right; color: #81c784;">SL (Src/Sys)</th><th style="padding: 8px; text-align: center; color: #ffab40;">CTO</th><th style="padding: 8px; text-align: left; color: #ffab91;">Issues</th></tr></thead><tbody>';
+                // Details table
+                let detailsHtml = '<div class="dm-table-wrap" style="max-height:500px"><table class="dm-table"><thead><tr>';
+                detailsHtml += '<th>Name</th><th class="text-center">Status</th><th class="text-center">Match</th><th class="text-right">VL (Src/Sys)</th><th class="text-right">SL (Src/Sys)</th><th class="text-center">CTO</th><th>Issues</th>';
+                detailsHtml += '</tr></thead><tbody>';
 
                 for (const r of data.results) {
-                    const statusColor = r.status === 'matched' ? '#81c784' : '#ef9a9a';
-                    const statusIcon = r.status === 'matched' ? '✅' : '❌';
-                    const vlSrc = r.sourceVL !== undefined ? r.sourceVL.toFixed(3) : '—';
-                    const vlSys = r.systemVL !== undefined ? r.systemVL.toFixed(3) : '—';
-                    const slSrc = r.sourceSL !== undefined ? r.sourceSL.toFixed(3) : '—';
-                    const slSys = r.systemSL !== undefined ? r.systemSL.toFixed(3) : '—';
-                    const ctoCol = r.sourceCtoRecords ? `${r.sourceCtoRecords}/${r.systemCtoRecords || 0}` : '—';
-                    const matchCol = r.matchMethod || '—';
+                    const statusColor = r.status === 'matched' ? 'var(--color-success)' : 'var(--color-danger)';
+                    const vlSrc = r.sourceVL !== undefined ? r.sourceVL.toFixed(3) : '&mdash;';
+                    const vlSys = r.systemVL !== undefined ? r.systemVL.toFixed(3) : '&mdash;';
+                    const slSrc = r.sourceSL !== undefined ? r.sourceSL.toFixed(3) : '&mdash;';
+                    const slSys = r.systemSL !== undefined ? r.systemSL.toFixed(3) : '&mdash;';
+                    const ctoCol = r.sourceCtoRecords ? r.sourceCtoRecords + '/' + (r.systemCtoRecords || 0) : '&mdash;';
                     const issuesCol = r.issues.length > 0
-                        ? '<span style="color:#ffab91;font-size:11px;">' + r.issues.map(i => escapeHtml(i)).join('<br>') + '</span>'
-                        : '<span style="color:#81c784;">OK</span>';
-                    const typeIcon = r.isTeaching ? ' 🎓' : '';
+                        ? '<span style="color:var(--color-warning);font-size:var(--text-xs)">' + r.issues.map(i => escapeHtml(i)).join('<br>') + '</span>'
+                        : '<span style="color:var(--color-success)">OK</span>';
+                    const typeIcon = r.isTeaching ? ' <span class="text-teaching">(T)</span>' : '';
 
-                    detailsHtml += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-                        <td style="padding: 6px 12px; color: #fff;">${escapeHtml(r.name)}${typeIcon}</td>
-                        <td style="padding: 6px 8px; text-align: center; color: ${statusColor};">${statusIcon}</td>
-                        <td style="padding: 6px 8px; text-align: center; color: rgba(255,255,255,0.5); font-size: 11px;">${matchCol}</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${vlSrc} / ${vlSys}</td>
-                        <td style="padding: 6px 8px; text-align: right; color: #81c784;">${slSrc} / ${slSys}</td>
-                        <td style="padding: 6px 8px; text-align: center; color: #ffab40;">${ctoCol}</td>
-                        <td style="padding: 6px 8px;">${issuesCol}</td>
-                    </tr>`;
+                    detailsHtml += '<tr><td>' + escapeHtml(r.name) + typeIcon + '</td>';
+                    detailsHtml += '<td class="text-center" style="color:' + statusColor + '">' + (r.status === 'matched' ? 'Matched' : 'Missing') + '</td>';
+                    detailsHtml += '<td class="text-center text-muted">' + (r.matchMethod || '&mdash;') + '</td>';
+                    detailsHtml += '<td class="text-right text-vl">' + vlSrc + ' / ' + vlSys + '</td>';
+                    detailsHtml += '<td class="text-right text-sl">' + slSrc + ' / ' + slSys + '</td>';
+                    detailsHtml += '<td class="text-center text-cto">' + ctoCol + '</td>';
+                    detailsHtml += '<td>' + issuesCol + '</td></tr>';
                 }
                 detailsHtml += '</tbody></table></div>';
-
                 document.getElementById('validationDetails').innerHTML = detailsHtml;
                 document.getElementById('validationResults').style.display = 'block';
 
                 const issueCount = data.results.filter(r => r.issues.length > 0).length;
                 if (issueCount === 0) {
-                    showStatus(`✅ Validation passed: All ${data.results.length} records match the system data`, 'success');
+                    showStatus('Validation passed: All ' + data.results.length + ' records match the system data', 'success');
                 } else {
-                    showStatus(`⚠️ Validation found issues in ${issueCount} of ${data.results.length} records`, 'error');
+                    showStatus('Validation found issues in ' + issueCount + ' of ' + data.results.length + ' records', 'error');
                 }
-            } catch (err) {
-                showStatus('❌ Validation failed: ' + err.message, 'error');
-            }
+            } catch (err) { showStatus('Validation failed: ' + err.message, 'error'); }
         }
 
         // ========== MIGRATION STATUS ==========
         async function loadMigrationStatus() {
             const section = document.getElementById('migrationStatusSection');
-            section.style.display = 'block';
+            section.style.display = '';
             section.scrollIntoView({ behavior: 'smooth' });
             const container = document.getElementById('migrationStatusContent');
-            container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading migration status...</div>';
+            container.innerHTML = '<div class="dm-loading"><span class="dm-spinner"></span> Loading migration status...</div>';
 
             try {
                 const resp = await fetch('/api/migration-status', { headers: getAuthHeaders() });
                 const data = await resp.json();
-                if (!data.success) {
-                    container.innerHTML = `<p style="color:#ef9a9a;">Error: ${data.error}</p>`;
-                    return;
-                }
+                if (!data.success) { container.innerHTML = '<p style="color:var(--color-danger)">' + escapeHtml(data.error) + '</p>'; return; }
 
                 const lc = data.leaveCards;
                 const cto = data.ctoRecords;
                 const emp = data.employees;
 
-                let html = `
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
-                        <div style="padding: 14px 18px; background: rgba(25,118,210,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
-                            <div style="font-size: 28px; font-weight: 700;">${lc.total}</div>
-                            <div style="font-size: 12px; opacity: 0.7;">Total Leave Cards</div>
-                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${lc.migrated} migrated from Excel</div>
-                        </div>
-                        <div style="padding: 14px 18px; background: rgba(46,125,50,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
-                            <div style="font-size: 28px; font-weight: 700;">${lc.linked}</div>
-                            <div style="font-size: 12px; opacity: 0.7;">Linked to Employees</div>
-                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">Employee registered &amp; matched</div>
-                        </div>
-                        <div style="padding: 14px 18px; background: rgba(255,152,0,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
-                            <div style="font-size: 28px; font-weight: 700;">${lc.unlinked}</div>
-                            <div style="font-size: 12px; opacity: 0.7;">Awaiting Registration</div>
-                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">Migrated but no account yet</div>
-                        </div>
-                        <div style="padding: 14px 18px; background: rgba(156,39,176,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
-                            <div style="font-size: 28px; font-weight: 700;">${lc.teaching}</div>
-                            <div style="font-size: 12px; opacity: 0.7;">Teaching Personnel</div>
-                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${lc.emptyPlaceholders} empty placeholders</div>
-                        </div>
-                    </div>
+                let html = '<div class="dm-stats">';
+                html += '<div class="dm-stat blue"><div class="dm-stat-value">' + lc.total + '</div><div class="dm-stat-label">Total Leave Cards</div><div class="dm-stat-sub">' + lc.migrated + ' migrated from Excel</div></div>';
+                html += '<div class="dm-stat green"><div class="dm-stat-value">' + lc.linked + '</div><div class="dm-stat-label">Linked to Employees</div><div class="dm-stat-sub">Employee registered & matched</div></div>';
+                html += '<div class="dm-stat orange"><div class="dm-stat-value">' + lc.unlinked + '</div><div class="dm-stat-label">Awaiting Registration</div><div class="dm-stat-sub">Migrated but no account yet</div></div>';
+                html += '<div class="dm-stat purple"><div class="dm-stat-value">' + lc.teaching + '</div><div class="dm-stat-label">Teaching Personnel</div><div class="dm-stat-sub">' + lc.emptyPlaceholders + ' empty placeholders</div></div>';
+                html += '</div>';
 
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
-                        <div style="padding: 14px 18px; background: rgba(0,150,136,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
-                            <div style="font-size: 28px; font-weight: 700;">${cto.total}</div>
-                            <div style="font-size: 12px; opacity: 0.7;">CTO Records</div>
-                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${cto.migrated} from Excel, ${cto.linked} linked</div>
-                        </div>
-                        <div style="padding: 14px 18px; background: rgba(63,81,181,0.3); border-radius: 10px; color: #fff; flex: 1; min-width: 150px;">
-                            <div style="font-size: 28px; font-weight: 700;">${emp.total}</div>
-                            <div style="font-size: 12px; opacity: 0.7;">Registered Employees</div>
-                            <div style="font-size: 11px; opacity: 0.5; margin-top: 4px;">${emp.withLeaveCards} with LC, ${emp.withoutLeaveCards} without</div>
-                        </div>
-                    </div>
-                `;
+                html += '<div class="dm-stats">';
+                html += '<div class="dm-stat teal"><div class="dm-stat-value">' + cto.total + '</div><div class="dm-stat-label">CTO Records</div><div class="dm-stat-sub">' + cto.migrated + ' from Excel, ' + cto.linked + ' linked</div></div>';
+                html += '<div class="dm-stat indigo"><div class="dm-stat-value">' + emp.total + '</div><div class="dm-stat-label">Registered Employees</div><div class="dm-stat-sub">' + emp.withLeaveCards + ' with LC, ' + emp.withoutLeaveCards + ' without</div></div>';
+                html += '</div>';
 
-                // Show unlinked leave cards
+                // Unlinked leave cards
                 if (lc.unlinkedNames && lc.unlinkedNames.length > 0) {
-                    html += '<h3 style="color: #ffab40; font-size: 14px; margin: 16px 0 8px;">⏳ Unlinked Leave Cards (awaiting registration)</h3>';
-                    html += '<div style="max-height: 300px; overflow-y: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-                    html += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: right; color: #fff;">Emp No.</th><th style="padding: 8px; text-align: right; color: #4fc3f7;">VL</th><th style="padding: 8px; text-align: right; color: #81c784;">SL</th><th style="padding: 8px; text-align: center; color: #ce93d8;">Type</th></tr></thead><tbody>';
+                    html += '<h4 style="font-size:var(--text-md);font-weight:var(--font-semibold);margin:var(--space-5) 0 var(--space-3);color:var(--color-warning)">Unlinked Leave Cards (awaiting registration)</h4>';
+                    html += '<div class="dm-table-wrap" style="max-height:300px"><table class="dm-table"><thead><tr>';
+                    html += '<th>Name</th><th class="text-right">Emp No.</th><th class="text-right">VL</th><th class="text-right">SL</th><th class="text-center">Type</th>';
+                    html += '</tr></thead><tbody>';
                     for (const u of lc.unlinkedNames) {
-                        const typeLabel = u.isTeaching ? '🎓 Teaching' : '';
-                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(u.name)}</td><td style="padding: 6px 8px; text-align: right; color: rgba(255,255,255,0.5);">${escapeHtml(u.employeeNo || '—')}</td><td style="padding: 6px 8px; text-align: right; color: #4fc3f7;">${(u.vl || 0).toFixed(3)}</td><td style="padding: 6px 8px; text-align: right; color: #81c784;">${(u.sl || 0).toFixed(3)}</td><td style="padding: 6px 8px; text-align: center; font-size: 11px;">${typeLabel}</td></tr>`;
+                        html += '<tr><td>' + escapeHtml(u.name) + '</td>';
+                        html += '<td class="text-right text-muted">' + escapeHtml(u.employeeNo || '—') + '</td>';
+                        html += '<td class="text-right text-vl">' + (u.vl || 0).toFixed(3) + '</td>';
+                        html += '<td class="text-right text-sl">' + (u.sl || 0).toFixed(3) + '</td>';
+                        html += '<td class="text-center text-teaching">' + (u.isTeaching ? 'Teaching' : '') + '</td></tr>';
                     }
                     html += '</tbody></table></div>';
                 }
 
-                // Show unlinked CTO records
+                // Unlinked CTO records
                 if (cto.unlinkedNames && cto.unlinkedNames.length > 0) {
-                    html += '<h3 style="color: #ffab40; font-size: 14px; margin: 16px 0 8px;">⏳ Unlinked CTO Records</h3>';
-                    html += '<div style="max-height: 200px; overflow-y: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
-                    html += '<thead><tr style="background: rgba(255,255,255,0.08);"><th style="padding: 8px 12px; text-align: left; color: #fff;">Name</th><th style="padding: 8px; text-align: left; color: #fff;">SO Details</th><th style="padding: 8px; text-align: right; color: #ffab40;">Granted</th><th style="padding: 8px; text-align: right; color: rgba(255,255,255,0.6);">Used</th></tr></thead><tbody>';
+                    html += '<h4 style="font-size:var(--text-md);font-weight:var(--font-semibold);margin:var(--space-5) 0 var(--space-3);color:var(--color-warning)">Unlinked CTO Records</h4>';
+                    html += '<div class="dm-table-wrap" style="max-height:200px"><table class="dm-table"><thead><tr>';
+                    html += '<th>Name</th><th>SO Details</th><th class="text-right">Granted</th><th class="text-right">Used</th>';
+                    html += '</tr></thead><tbody>';
                     for (const c of cto.unlinkedNames) {
-                        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 6px 12px; color: #fff;">${escapeHtml(c.name || '—')}</td><td style="padding: 6px 8px; color: rgba(255,255,255,0.5);">${escapeHtml(c.soDetails || '—')}</td><td style="padding: 6px 8px; text-align: right; color: #ffab40;">${c.daysGranted}</td><td style="padding: 6px 8px; text-align: right; color: rgba(255,255,255,0.5);">${c.daysUsed}</td></tr>`;
+                        html += '<tr><td>' + escapeHtml(c.name || '—') + '</td>';
+                        html += '<td class="text-muted">' + escapeHtml(c.soDetails || '—') + '</td>';
+                        html += '<td class="text-right text-cto">' + c.daysGranted + '</td>';
+                        html += '<td class="text-right text-muted">' + c.daysUsed + '</td></tr>';
                     }
                     html += '</tbody></table></div>';
                 }
 
-                html += `<div style="margin-top: 14px;"><button class="btn btn-warning" onclick="document.getElementById('migrationStatusSection').style.display='none'">Close</button></div>`;
-
+                html += '<div style="margin-top:var(--space-4)"><button class="btn btn-ghost btn-sm" onclick="hideSection(\'migrationStatusSection\')">Close</button></div>';
                 container.innerHTML = html;
             } catch (err) {
-                container.innerHTML = `<p style="color:#ef9a9a;">Error loading status: ${err.message}</p>`;
+                container.innerHTML = '<p style="color:var(--color-danger)">Error loading status: ' + escapeHtml(err.message) + '</p>';
             }
         }
     </script>
