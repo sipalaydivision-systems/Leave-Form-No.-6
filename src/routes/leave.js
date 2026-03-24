@@ -624,6 +624,31 @@ router.post('/api/resubmit-leave', requireAuth(), (req, res) => {
                     app[field] = updatedData[field];
                 }
             }
+
+            // Save SO PDF file to disk if provided on resubmit (same as initial submit)
+            if (updatedData.soFileData && updatedData.soFileName) {
+                try {
+                    const base64Match = updatedData.soFileData.match(/^data:[^;]+;base64,(.+)$/);
+                    if (base64Match) {
+                        const pdfBuffer = Buffer.from(base64Match[1], 'base64');
+                        if (pdfBuffer.length >= 4 && pdfBuffer.toString('ascii', 0, 4) === '%PDF') {
+                            const ext = path.extname(updatedData.soFileName) || '.pdf';
+                            const safeId = applicationId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                            const soFilename = `${safeId}_SO${ext}`;
+                            const soFilePath = path.join(soPdfsDir, soFilename);
+                            fs.writeFileSync(soFilePath, pdfBuffer);
+                            app.soFilePath = `/api/uploads/so-pdfs/${soFilename}`;
+                            app.soFileData = null; // Don't store base64 inline
+                            console.log(`[UPLOAD] Saved resubmit SO PDF to disk: ${soFilename}`);
+                        } else {
+                            console.warn('[UPLOAD] Rejected non-PDF file on resubmit for', applicationId);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[UPLOAD] Failed to save resubmit SO PDF:', err.message);
+                }
+            }
+
             // Update dateOfFiling to resubmission date
             app.dateOfFiling = new Date().toISOString().split('T')[0];
         }

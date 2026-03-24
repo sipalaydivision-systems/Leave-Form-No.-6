@@ -5109,12 +5109,53 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
         
         // Update application with only allowed fields from resubmission (prevent mass assignment)
         if (updatedData) {
-            const allowedResubmitFields = ['complianceDocuments', 'supportingDocuments', 'soFileData', 'soFileName', 'remarks'];
+            const allowedResubmitFields = [
+                // Core leave fields (editable on resubmit)
+                'leaveType', 'dateFrom', 'dateTo', 'numDays',
+                'leaveHours', 'isHalfDay',
+                // Conditional fields
+                'locationPH', 'locationAbroad', 'abroadSpecify',
+                'sickHospital', 'sickOutpatient', 'hospitalIllness', 'outpatientIllness',
+                'studyMasters', 'studyBar',
+                'womenIllness',
+                'otherLeaveSpecify',
+                // Documents and signature
+                'soFileData', 'soFileName',
+                'employeeSignature',
+                'complianceDocuments', 'supportingDocuments',
+                // Commutation and remarks
+                'commutation', 'remarks',
+            ];
             for (const field of allowedResubmitFields) {
                 if (updatedData[field] !== undefined) {
                     app[field] = updatedData[field];
                 }
             }
+
+            // Save SO PDF file to disk if provided on resubmit
+            if (updatedData.soFileData && updatedData.soFileName) {
+                try {
+                    const base64Match = updatedData.soFileData.match(/^data:[^;]+;base64,(.+)$/);
+                    if (base64Match) {
+                        const pdfBuffer = Buffer.from(base64Match[1], 'base64');
+                        if (pdfBuffer.length >= 4 && pdfBuffer.toString('ascii', 0, 4) === '%PDF') {
+                            const ext = path.extname(updatedData.soFileName) || '.pdf';
+                            const safeId = applicationId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                            const soFilename = `${safeId}_SO${ext}`;
+                            const soFilePath = path.join(soPdfsDir, soFilename);
+                            fs.writeFileSync(soFilePath, pdfBuffer);
+                            app.soFilePath = `/api/uploads/so-pdfs/${soFilename}`;
+                            app.soFileData = null; // Don't store base64 inline
+                            console.log(`[UPLOAD] Saved resubmit SO PDF to disk: ${soFilename}`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[UPLOAD] Failed to save resubmit SO PDF:', err.message);
+                }
+            }
+
+            // Update dateOfFiling to resubmission date
+            app.dateOfFiling = new Date().toISOString().split('T')[0];
         }
         
         // Clear stale approval data from previous round to prevent scrambled formulas
@@ -5859,15 +5900,53 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
         let ctoRecords = readJSON(ctoRecordsFile);
 
         if (employeeId) {
-            ctoRecords = ctoRecords.filter(r => {
-                if (r.employeeId === employeeId || r.email === employeeId) return true;
-                // Fallback: match by name or employee number (for unlinked Excel-migrated cards)
-                const rName = (r.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
-                const normalizedId = employeeId.toUpperCase().replace(/\s+/g, ' ').trim();
-                if (rName && rName === normalizedId) return true;
-                if (r.employeeNo && r.employeeNo === employeeId) return true;
-                return false;
-            });
+            // First try direct match by email/employeeId
+            let filtered = ctoRecords.filter(r =>
+                r.employeeId === employeeId || r.email === employeeId
+            );
+
+            // If no direct match, try linking unlinked records by looking up employee name
+            if (filtered.length === 0) {
+                // Find employee name from leave cards or employees
+                const allCards = readJSON(leavecardsFile);
+                const empCard = allCards.find(lc => lc.email === employeeId || lc.employeeId === employeeId);
+                if (empCard) {
+                    const empName = (empCard.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                    const empFirst = (empCard.firstName || '').toUpperCase().trim();
+                    const empLast = (empCard.lastName || '').toUpperCase().trim();
+                    filtered = ctoRecords.filter(r => {
+                        const rName = (r.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                        if (rName === empName) return true;
+                        // Fuzzy: last name matches + first name starts the same
+                        const rParts = parseFullNameIntoParts(r.name || '');
+                        const rFirst = (rParts.firstName || '').toUpperCase().trim();
+                        const rLast = (rParts.lastName || '').toUpperCase().trim();
+                        if (empLast && rLast && empLast === rLast) {
+                            if (empFirst && rFirst &&
+                                (empFirst.startsWith(rFirst) || rFirst.startsWith(empFirst))) return true;
+                            if (rName.includes(empName) || empName.includes(rName)) return true;
+                        }
+                        return false;
+                    });
+                    // Auto-link matched records for future lookups
+                    if (filtered.length > 0) {
+                        let linked = false;
+                        for (const rec of filtered) {
+                            const idx = ctoRecords.indexOf(rec);
+                            if (idx !== -1 && !ctoRecords[idx].employeeId) {
+                                ctoRecords[idx].employeeId = employeeId;
+                                ctoRecords[idx].email = employeeId;
+                                linked = true;
+                            }
+                        }
+                        if (linked) {
+                            writeJSON(ctoRecordsFile, ctoRecords);
+                            console.log(`[CTO] Auto-linked ${filtered.length} CTO records to ${employeeId}`);
+                        }
+                    }
+                }
+            }
+            ctoRecords = filtered;
         }
 
         res.json({ success: true, records: ctoRecords });
@@ -6614,24 +6693,42 @@ function extractCtoFromBuffer(buffer, fileName) {
         const data = xlsx.utils.sheet_to_json(ctoSheet, { header: 1 });
 
         // Find the header row for CTO data
+        // CTO sheets often have multi-row headers:
+        //   Row N:   PERIOD COVERED | LEAVE EARNED (merged)           | TOTAL
+        //   Row N+1: (empty)        | SPECIAL ORDER | GRANTED | USED | BALANCE
+        // So we scan for the sub-header row (with GRANTED) and also check
+        // previous rows for PERIOD COVERED
         let headerIdx = null;
         let colMap = {};
         for (let i = 0; i < Math.min(20, data.length); i++) {
             const row = data[i];
             if (!row) continue;
             const rowUpper = row.map(c => String(c || '').toUpperCase().trim());
-            // Look for headers like SO, PERIOD, DAYS GRANTED, DAYS USED, BALANCE
             let soCol = -1, periodCol = -1, grantedCol = -1, usedCol = -1;
             for (let j = 0; j < rowUpper.length; j++) {
                 const cell = rowUpper[j];
                 if (cell.includes('SPECIAL ORDER') || cell.includes('SO NO') || cell === 'SO' || cell.includes('S.O.')) soCol = j;
-                if (cell.includes('PERIOD') || cell.includes('DATE') || cell.includes('INCLUSIVE')) periodCol = j;
+                if (cell.includes('PERIOD') || cell.includes('INCLUSIVE')) periodCol = j;
                 if (cell.includes('GRANTED') || cell.includes('EARNED') || cell.includes('DAYS GRANTED')) grantedCol = j;
                 if (cell.includes('USED') || cell.includes('SPENT') || cell.includes('DAYS USED')) usedCol = j;
             }
-            // If we found at least granted column, treat as header
             if (grantedCol !== -1) {
                 headerIdx = i;
+                // If PERIOD wasn't in this row, scan previous rows for it
+                if (periodCol === -1) {
+                    for (let k = Math.max(0, i - 3); k < i; k++) {
+                        const prevRow = data[k];
+                        if (!prevRow) continue;
+                        for (let j = 0; j < prevRow.length; j++) {
+                            const cell = String(prevRow[j] || '').toUpperCase().trim();
+                            if (cell.includes('PERIOD') || cell.includes('INCLUSIVE')) {
+                                periodCol = j;
+                                break;
+                            }
+                        }
+                        if (periodCol !== -1) break;
+                    }
+                }
                 colMap = { so: soCol, period: periodCol, granted: grantedCol, used: usedCol };
                 break;
             }
@@ -6642,7 +6739,6 @@ function extractCtoFromBuffer(buffer, fileName) {
             for (let i = 0; i < data.length; i++) {
                 const row = data[i];
                 if (!row) continue;
-                // Find first row with at least one numeric value after some text
                 let hasText = false, hasNum = false;
                 for (let j = 0; j < row.length; j++) {
                     if (typeof row[j] === 'string' && row[j].trim()) hasText = true;
@@ -6650,8 +6746,7 @@ function extractCtoFromBuffer(buffer, fileName) {
                 }
                 if (hasText && hasNum && i > 3) {
                     headerIdx = i - 1;
-                    // Guess column positions
-                    colMap = { so: 0, period: 1, granted: 2, used: 3 };
+                    colMap = { so: 1, period: 0, granted: 2, used: 3 };
                     break;
                 }
             }
@@ -6673,9 +6768,17 @@ function extractCtoFromBuffer(buffer, fileName) {
             if (!soDetails && !periodCovered && daysGranted === 0 && daysUsed === 0) continue;
             // Skip total/summary rows
             const rowText = row.map(c => String(c || '').toUpperCase()).join(' ');
-            if (rowText.includes('TOTAL') || rowText.includes('GRAND TOTAL')) continue;
+            if (rowText.includes('TOTAL') || rowText.includes('GRAND TOTAL') || rowText.includes('NOTE:') || rowText.includes('CERTIFIED')) continue;
+
+            // Detect transaction type from period text (e.g., "ADD: 12/18/2024" or "LESS: 02/6/2025")
+            let txType = 'ADD';
+            const periodUpper = periodCovered.toUpperCase();
+            if (periodUpper.startsWith('LESS') || periodUpper.startsWith('LWOP')) {
+                txType = 'LESS';
+            }
 
             ctoRecords.push({
+                type: txType,
                 soDetails,
                 periodCovered,
                 daysGranted: Math.round(daysGranted * 1000) / 1000,
@@ -6944,13 +7047,22 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             }
 
             // Find matching leave card to get employeeId/email
+            // Use flexible matching: exact name, first+last components, or substring containment
             const matchedCard = leavecards.find(lc => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                 if (lcName === normalizedName) return true;
                 const lcFirst = (lc.firstName || '').toUpperCase().trim();
                 const lcLast = (lc.lastName || '').toUpperCase().trim();
-                return (entryFirst && entryLast && lcFirst && lcLast &&
-                    entryFirst === lcFirst && entryLast === lcLast);
+                if (entryFirst && entryLast && lcFirst && lcLast &&
+                    entryFirst === lcFirst && entryLast === lcLast) return true;
+                // Fuzzy: one name contains the other (handles middle initial differences)
+                if (lcName && normalizedName && lcLast === entryLast) {
+                    if (lcName.includes(normalizedName) || normalizedName.includes(lcName)) return true;
+                    // Match if first names start the same (e.g., "MA. ROSANA" vs "MA. ROSANA E.")
+                    if (lcFirst && entryFirst &&
+                        (lcFirst.startsWith(entryFirst) || entryFirst.startsWith(lcFirst))) return true;
+                }
+                return false;
             });
 
             const employeeId = matchedCard ? (matchedCard.email || matchedCard.employeeId || '') : '';
@@ -6961,7 +7073,7 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                     employeeId: employeeId,
                     email: employeeId,
                     name: ctoEntry.name,
-                    type: 'ADD',
+                    type: rec.type || 'ADD',
                     soDetails: rec.soDetails || '',
                     periodCovered: rec.periodCovered || '',
                     daysGranted: rec.daysGranted,

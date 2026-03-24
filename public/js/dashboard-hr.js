@@ -786,6 +786,31 @@ function showApplicationDetail(appId) {
         timeline += '</div>';
     }
 
+    // Conditional leave-type details
+    let leaveDetails = '';
+    const lt = (app.leaveType || app.leave_type || '').toLowerCase();
+    if (lt === 'leave_others' || lt === 'others') {
+        const specify = app.otherLeaveSpecify || app.other_leave_specify || '';
+        if (specify) leaveDetails += `<div style="grid-column:1/-1"><label class="form-label">Specify (Others)</label><div>${esc(specify)}</div></div>`;
+    }
+
+    // SO file attachment
+    let soSection = '';
+    const soPath = app.soFilePath || app.so_file_path || '';
+    const soName = app.soFileName || app.so_file_name || '';
+    if (soPath || soName) {
+        const href = soPath || '#';
+        const displayName = soName || 'Special Order (PDF)';
+        soSection = `
+            <div style="margin-top:var(--space-4);padding:var(--space-3);background:var(--color-gray-50);border-radius:var(--radius-md);border:1px solid var(--color-border)">
+                <label class="form-label" style="margin-bottom:var(--space-2)">Attached Document (Special Order)</label>
+                <div style="display:flex;align-items:center;gap:var(--space-2)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <a href="${esc(href)}" target="_blank" rel="noopener" style="color:var(--color-primary);font-weight:var(--font-medium);text-decoration:underline">${esc(displayName)}</a>
+                </div>
+            </div>`;
+    }
+
     const content = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
             <div><label class="form-label">Application ID</label><div>${esc(app.id)}</div></div>
@@ -796,7 +821,9 @@ function showApplicationDetail(appId) {
             <div><label class="form-label">Days</label><div>${fmt(toNum(app.numDays || app.num_days))}</div></div>
             <div><label class="form-label">Office</label><div>${esc(app.office || '')}</div></div>
             <div><label class="form-label">Filed</label><div>${esc(fmtDate(app.submittedAt || app.created_at))}</div></div>
+            ${leaveDetails}
         </div>
+        ${soSection}
         ${timeline}
     `;
 
