@@ -6493,19 +6493,25 @@ function extractCreditsFromBuffer(buffer, fileName) {
                 txType = 'LAWOP';
             }
 
-            // Column mapping (DepEd CS Form No. 6 standard):
-            // Col 0: Period | Col 1-2: VL Earned (Particular/AbsUnder)
-            // Col 3-4: SL Earned (Particular/AbsUnder) | Col 5: SL Spent
-            // Col 6: Force/SPL | Col 7: VL Balance | Col 8: SL Balance
+            // Column mapping (DepEd SERVICE LEAVE CARD standard):
+            // Col 0: Period Covered
+            // Col 1: LEAVE EARNED - VACATION
+            // Col 2: LEAVE EARNED - SICK
+            // Col 3: LEAVE SPENT - VACATION
+            // Col 4: LEAVE SPENT - SICK
+            // Col 5: LEAVE SPENT - FORCED
+            // Col 6: LEAVE SPENT - SPECIAL
+            // Col 7: BALANCE - VACATION
+            // Col 8: BALANCE - SICK
+            // Col 9: TOTAL
             //
-            // For ADD rows: earned columns have values, spent columns are empty
-            // For LESS rows: earned columns are empty, spent columns have values
-            // Columns 3-4 are overloaded (VL Spent when it's a LESS row, SL Earned when it's ADD)
-            const vlEarned = txType === 'ADD' ? (typeof row[1] === 'number' ? row[1] : (typeof row[2] === 'number' ? row[2] : 0)) : 0;
-            const slEarned = txType === 'ADD' ? (typeof row[3] === 'number' ? row[3] : (typeof row[4] === 'number' ? row[4] : 0)) : 0;
+            // For ADD rows: cols 1-2 have values (earned), cols 3-6 are empty
+            // For LESS rows: cols 1-2 are empty (earned), cols 3-6 have values (spent)
+            const vlEarned = txType === 'ADD' ? (typeof row[1] === 'number' ? row[1] : 0) : 0;
+            const slEarned = txType === 'ADD' ? (typeof row[2] === 'number' ? row[2] : 0) : 0;
             const vlSpent = txType !== 'ADD' ? (typeof row[3] === 'number' ? row[3] : 0) : 0;
-            const slSpent = txType !== 'ADD' ? (typeof row[5] === 'number' ? row[5] : 0) : 0;
-            const forcedLeave = txType !== 'ADD' ? (typeof row[4] === 'number' ? row[4] : 0) : 0;
+            const slSpent = txType !== 'ADD' ? (typeof row[4] === 'number' ? row[4] : 0) : 0;
+            const forcedLeave = txType !== 'ADD' ? (typeof row[5] === 'number' ? row[5] : 0) : 0;
             const splUsed = txType !== 'ADD' ? (typeof row[6] === 'number' ? row[6] : 0) : 0;
             const vlBal = typeof row[7] === 'number' ? row[7] : null;
             const slBal = typeof row[8] === 'number' ? row[8] : null;
