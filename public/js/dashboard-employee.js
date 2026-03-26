@@ -1144,7 +1144,7 @@ function showResubmitModal(appId) {
 // Profile Modal
 // ---------------------------------------------------------------------------
 function showProfileModal() {
-    const officeSelect = `<select class="form-input" id="prof-office">
+    const officeSelect = `<select class="form-input" id="prof-office" style="width:100%">
         <option value="">-- Select School/Office --</option>
         <optgroup label="Elementary Schools">
             <option value="Agripino Alvarez Elementary School">Agripino Alvarez Elementary School</option>
@@ -1211,7 +1211,7 @@ function showProfileModal() {
         </optgroup>
     </select>`;
 
-    const positionSelect = `<select class="form-input" id="prof-position">
+    const positionSelect = `<select class="form-input" id="prof-position" style="width:100%">
         <option value="">-- Select Position --</option>
         <option value="Teacher I" data-sg="11">Teacher I (SG-11)</option>
         <option value="Teacher II" data-sg="12">Teacher II (SG-12)</option>
@@ -1255,26 +1255,26 @@ function showProfileModal() {
         <option value="Assistant Schools Division Superintendent" data-sg="25">Assistant Schools Division Superintendent (SG-25)</option>
     </select>`;
 
-    const sectionTitle = (t) => `<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:var(--space-2);padding-bottom:6px;border-bottom:1px solid var(--color-neutral-200)">${t}</div>`;
-    const grid = (inner) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">${inner}</div>`;
-    const span2 = (inner) => `<div style="grid-column:span 2">${inner}</div>`;
-    const field = (lbl, el) => `<div><label class="form-label">${lbl}</label>${el}</div>`;
+    const sectionTitle = (t) => `<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#888;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">${t}</div>`;
+    const grid = (inner) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">${inner}</div>`;
+    const span2 = (inner) => `<div style="grid-column:1/-1">${inner}</div>`;
+    const field = (lbl, el) => `<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#374151;display:block">${lbl}</label>${el}</div>`;
 
     const content = `
-        <div style="margin-bottom:var(--space-4)">
+        <div style="margin-bottom:20px">
             ${sectionTitle('Personal Information')}
             ${grid(`
-                ${field('Last Name', `<input class="form-input" id="prof-lastName" value="${escapeHtml(user.lastName || '')}">`)}
-                ${field('First Name', `<input class="form-input" id="prof-firstName" value="${escapeHtml(user.firstName || '')}">`)}
-                ${field('Middle Name', `<input class="form-input" id="prof-middleName" value="${escapeHtml(user.middleName || '')}">`)}
-                ${field('Suffix <span style="color:var(--color-neutral-400);font-weight:400">(optional)</span>', `<input class="form-input" id="prof-suffix" value="${escapeHtml(user.suffix || '')}" placeholder="Jr., III, etc.">`)}
+                ${field('Last Name', `<input class="form-input" id="prof-lastName" style="width:100%" value="${escapeHtml(user.lastName || '')}">`)}
+                ${field('First Name', `<input class="form-input" id="prof-firstName" style="width:100%" value="${escapeHtml(user.firstName || '')}">`)}
+                ${field('Middle Name', `<input class="form-input" id="prof-middleName" style="width:100%" value="${escapeHtml(user.middleName || '')}">`)}
+                ${field('Suffix <span style="color:#9ca3af;font-weight:400">(optional)</span>', `<input class="form-input" id="prof-suffix" style="width:100%" value="${escapeHtml(user.suffix || '')}" placeholder="Jr., III, etc.">`)}
             `)}
         </div>
-        <div style="margin-bottom:var(--space-4)">
+        <div style="margin-bottom:16px">
             ${sectionTitle('Account')}
             ${grid(`
-                ${span2(field('Email <span style="color:var(--color-neutral-400);font-weight:400">(cannot be changed)</span>', `<div class="form-input" style="background:var(--color-neutral-100);color:var(--color-neutral-500);cursor:not-allowed">${escapeHtml(user.email)}</div>`))}
-                ${field('Employee No.', `<input class="form-input" id="prof-employeeNo" value="${escapeHtml(user.employeeNo || user.employee_number || '')}">`)}
+                ${span2(field('Email <span style="color:#9ca3af;font-weight:400">(cannot be changed)</span>', `<div class="form-input" style="width:100%;background:#f3f4f6;color:#6b7280;cursor:not-allowed">${escapeHtml(user.email)}</div>`))}
+                ${field('Employee No.', `<input class="form-input" id="prof-employeeNo" style="width:100%" value="${escapeHtml(user.employeeNo || user.employee_number || '')}">`)}
             `)}
         </div>
         <div>
@@ -1282,9 +1282,9 @@ function showProfileModal() {
             ${grid(`
                 ${span2(field('Office / School', officeSelect))}
                 ${span2(field('Position', positionSelect))}
-                ${field('Salary Grade', `<input class="form-input" id="prof-salaryGrade" value="${escapeHtml(user.salaryGrade || user.salary_grade || '')}">`)}
-                ${field('Step', `<input class="form-input" id="prof-step" value="${escapeHtml(user.step || '')}">`)}
-                ${span2(field('Monthly Salary', `<input class="form-input" id="prof-salary" value="${escapeHtml(user.salary || '')}">`))}
+                ${field('Salary Grade', `<input class="form-input" id="prof-salaryGrade" style="width:100%" value="${escapeHtml(user.salaryGrade || user.salary_grade || '')}">`)}
+                ${field('Step', `<input class="form-input" id="prof-step" style="width:100%" value="${escapeHtml(user.step || '')}">`)}
+                ${span2(field('Monthly Salary', `<input class="form-input" id="prof-salary" style="width:100%" value="${escapeHtml(user.salary || '')}">`))}
             `)}
         </div>
     `;
@@ -1292,7 +1292,7 @@ function showProfileModal() {
     const modal = openModal({
         title: 'Edit Profile',
         content,
-        size: 'md',
+        size: 'lg',
         footer: `
             <button class="btn btn-ghost btn-sm" id="prof-cancel">Cancel</button>
             <button class="btn btn-primary btn-sm" id="prof-save">Save Changes</button>
