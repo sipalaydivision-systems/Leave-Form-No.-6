@@ -258,11 +258,18 @@ router.post('/api/update-it-profile', requireAuth('it'), createProfileUpdateHand
 
 router.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
     try {
-        const { email, newPassword, portal } = req.body;
+        const { email, portal } = req.body;
+        let { newPassword } = req.body;
         const resetBy = req.session.email || 'IT Admin';
 
-        if (!email || !newPassword) {
-            return res.status(400).json({ success: false, error: 'Email and new password are required' });
+        if (!email) {
+            return res.status(400).json({ success: false, error: 'Email is required' });
+        }
+
+        // Auto-generate a secure temp password if none provided
+        if (!newPassword) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+            newPassword = Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
         }
 
         const passwordValidation = validatePortalPassword(newPassword);
@@ -330,7 +337,8 @@ router.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
         res.json({
             success: true,
             message: `Password reset for ${email} in ${resetPortals.join(', ')} portal(s).`,
-            portalsReset: resetPortals
+            portalsReset: resetPortals,
+            tempPassword: newPassword
         });
     } catch (error) {
         console.error('Error resetting password:', error);
