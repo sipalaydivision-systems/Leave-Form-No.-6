@@ -43,16 +43,20 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
         }
 
         const leavecards = readJSON(leavecardsFile);
-        // Find all records for this employee — by email, employeeId, name, or employee number
-        let employeeRecords = leavecards.filter(lc => lc.employeeId === employeeId || lc.email === employeeId);
+        // Normalize name for comparison: NFC first so Ñ/ñ (NFD) matches precomposed form
+        const normName = (s) => (s || '').normalize('NFC').toUpperCase().replace(/\s+/g, ' ').trim();
+        const emailLower = (employeeId || '').toLowerCase();
+
+        // Find all records for this employee — by email (case-insensitive), employeeId, name, or employee number
+        let employeeRecords = leavecards.filter(lc =>
+            (lc.employeeId || '').toLowerCase() === emailLower ||
+            (lc.email || '').toLowerCase() === emailLower
+        );
 
         // Fallback: if not found by email, try matching by name (for unlinked Excel-migrated cards)
         if (employeeRecords.length === 0) {
-            const normalizedId = employeeId.toUpperCase().replace(/\s+/g, ' ').trim();
-            employeeRecords = leavecards.filter(lc => {
-                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
-                return lcName === normalizedId;
-            });
+            const normalizedId = normName(employeeId);
+            employeeRecords = leavecards.filter(lc => normName(lc.name) === normalizedId);
         }
 
         // Fallback: try matching by employee number
@@ -354,17 +358,19 @@ router.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => 
         let leavecards = readJSON(leavecardsFile);
 
         // Use email as primary lookup key since that's what we have from applications
+        const normName2 = (s) => (s || '').normalize('NFC').toUpperCase().replace(/\s+/g, ' ').trim();
+        const emailLower2 = (employeeEmail || '').toLowerCase();
 
-        // Find existing leave card by email, name, or employee number
-        let employeeLeave = leavecards.find(lc => lc.email === employeeEmail);
+        // Find existing leave card by email (case-insensitive), name, or employee number
+        let employeeLeave = leavecards.find(lc =>
+            (lc.email || '').toLowerCase() === emailLower2 ||
+            (lc.employeeId || '').toLowerCase() === emailLower2
+        );
 
         // Fallback: match by name if no email match (for unlinked Excel-migrated cards)
         if (!employeeLeave && employeeEmail) {
-            const normalizedId = employeeEmail.toUpperCase().replace(/\s+/g, ' ').trim();
-            employeeLeave = leavecards.find(lc => {
-                const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
-                return lcName === normalizedId;
-            });
+            const normalizedId = normName2(employeeEmail);
+            employeeLeave = leavecards.find(lc => normName2(lc.name) === normalizedId);
         }
 
         // Fallback: match by employee number

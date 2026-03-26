@@ -584,11 +584,12 @@ router.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 const existingLeavecard = leavecards.find(lc => lc.email === registration.email);
 
                 if (!existingLeavecard) {
+                    // Normalize name: NFC so Ñ/ñ (NFD composed vs precomposed) always match
+                    const normReg = (s) => (s || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
                     // Check if there's a leave card with matching name (name-based auto-assignment)
-                    const normalizedRegName = (registration.fullName || registration.name || '').toLowerCase().trim();
+                    const normalizedRegName = normReg(registration.fullName || registration.name || '');
                     let matchingCard = leavecards.find(lc => {
-                        const cardName = (lc.name || lc.fullName || '').toLowerCase().trim();
-                        return cardName === normalizedRegName;
+                        return normReg(lc.name || lc.fullName || '') === normalizedRegName;
                     });
 
                     // Fallback: match by employeeNo if name match failed and registrant provided one
@@ -623,7 +624,7 @@ router.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                             let ctoLinked = 0;
                             ctoRecords.forEach(rec => {
                                 if (rec.employeeId || rec.email) return; // Already linked
-                                const recName = (rec.name || '').toLowerCase().trim();
+                                const recName = normReg(rec.name || '');
                                 if (recName === normalizedRegName) {
                                     rec.employeeId = registration.email;
                                     rec.email = registration.email;

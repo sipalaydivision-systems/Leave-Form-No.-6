@@ -1923,7 +1923,7 @@ function validatePortalPassword(password) {
     if (password.length < 6 || password.length > 24) {
         return { valid: false, error: 'Password must be 6-24 characters' };
     }
-    if (!/[a-zA-Z]/.test(password)) {
+    if (!/[a-zA-ZÀ-ÖØ-öø-ÿ\u00C0-\u024F]/.test(password)) {
         return { valid: false, error: 'Password must contain letters (a-z, A-Z)' };
     }
     if (!/[0-9]/.test(password)) {

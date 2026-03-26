@@ -117,7 +117,11 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
 function calculateCtoBalance(employeeEmail, leaveCard, excludeAppId) {
     ensureFile(ctoRecordsFile);
     const ctoRecords = readJSON(ctoRecordsFile);
-    const empRecords = ctoRecords.filter(r => r.employeeId === employeeEmail);
+    const emailLc = (employeeEmail || '').toLowerCase();
+    const empRecords = ctoRecords.filter(r =>
+        (r.employeeId || '').toLowerCase() === emailLc ||
+        (r.email || '').toLowerCase() === emailLc
+    );
     let balance = 0;
     empRecords.forEach(rec => { balance += (parseFloat(rec.daysGranted) || 0) - (parseFloat(rec.daysUsed) || 0); });
     balance = Math.max(0, balance);
