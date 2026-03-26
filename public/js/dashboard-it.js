@@ -404,8 +404,34 @@ function resetPassword(email) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    toast.success(`Password reset. Temp: ${data.tempPassword || 'Check logs'}`);
-                } else { toast.error('Failed to reset password.'); }
+                    const tmp = data.tempPassword || '';
+                    const m = openModal({
+                        title: 'Password Reset Successful',
+                        size: 'sm',
+                        content: `
+                            <p style="margin:0 0 12px;color:var(--color-text-secondary)">
+                                Password has been reset for <strong>${esc(email)}</strong>.
+                            </p>
+                            <div style="background:var(--color-neutral-50,#f5f5f5);border:1px solid var(--color-neutral-200,#e0e0e0);border-radius:6px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                                <span style="font-family:monospace;font-size:16px;font-weight:700;letter-spacing:1px;flex:1" id="tmp-pw-display">${esc(tmp)}</span>
+                                <button id="copy-tmp-pw" class="btn btn-ghost btn-sm" title="Copy">&#128203; Copy</button>
+                            </div>
+                            <p style="margin:0;font-size:12px;color:var(--color-warning-700,#b45309)">
+                                &#9888; Share this password securely. The user will be required to change it on next login.
+                            </p>`,
+                        footer: '<button class="btn btn-primary btn-sm" id="close-reset-modal">Done</button>',
+                    });
+                    document.getElementById('close-reset-modal')?.addEventListener('click', () => m.close());
+                    document.getElementById('copy-tmp-pw')?.addEventListener('click', () => {
+                        navigator.clipboard.writeText(tmp).then(() => {
+                            document.getElementById('copy-tmp-pw').textContent = '✓ Copied';
+                            setTimeout(() => { const btn = document.getElementById('copy-tmp-pw'); if (btn) btn.innerHTML = '&#128203; Copy'; }, 2000);
+                        });
+                    });
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    toast.error(data.error || 'Failed to reset password.');
+                }
             } catch { toast.error('Network error.'); }
         },
     });

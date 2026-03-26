@@ -282,6 +282,7 @@ function createSession(user, portal) {
         salaryGrade: user.salaryGrade || '',
         step: user.step || '',
         employeeNo: user.employeeNo || '',
+        mustChangePassword: user.mustChangePassword || false,
         createdAt: now,
         expiresAt: now + SESSION_DURATION_MS
     });
@@ -2376,9 +2377,71 @@ app.get('/api/me', (req, res) => {
             salary: session.salary || '',
             salaryGrade: session.salaryGrade || '',
             step: session.step || '',
-            employeeNo: session.employeeNo || ''
+            employeeNo: session.employeeNo || '',
+            mustChangePassword: session.mustChangePassword || false
         }
     });
+});
+
+// POST /api/change-password — Mandatory password change after IT reset
+app.post('/api/change-password', requireAuth(), (req, res) => {
+    try {
+        const token = extractToken(req);
+        const session = validateSession(token);
+        if (!session) return res.status(401).json({ success: false, error: 'Not authenticated' });
+
+        const { newPassword, confirmPassword } = req.body;
+        if (!newPassword || !confirmPassword) {
+            return res.status(400).json({ success: false, error: 'Both fields are required' });
+        }
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ success: false, error: 'Passwords do not match' });
+        }
+        const validation = validatePortalPassword(newPassword);
+        if (!validation.valid) {
+            return res.status(400).json({ success: false, error: validation.error });
+        }
+
+        const email  = session.email;
+        const portal = session.portal;
+        const allPortalFiles = [
+            { name: 'user', file: usersFile },
+            { name: 'ao', file: aoUsersFile },
+            { name: 'hr', file: hrUsersFile },
+            { name: 'asds', file: asdsUsersFile },
+            { name: 'sds', file: sdsUsersFile }
+        ];
+        const filesToSearch = portal && portal !== 'it'
+            ? allPortalFiles.filter(p => p.name === portal.toLowerCase() || (portal === 'user' && p.name === 'user'))
+            : allPortalFiles;
+
+        const hashed = hashPasswordWithSalt(newPassword);
+        let updated = false;
+        for (const { file } of filesToSearch) {
+            if (!fs.existsSync(file)) continue;
+            const users = readJSON(file);
+            const idx = users.findIndex(u => (u.email || '').toLowerCase() === email.toLowerCase());
+            if (idx !== -1) {
+                users[idx].password = hashed;
+                users[idx].mustChangePassword = false;
+                users[idx].passwordChangedAt = new Date().toISOString();
+                writeJSON(file, users);
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) return res.status(404).json({ success: false, error: 'User not found' });
+
+        // Update the active session to clear the flag
+        session.mustChangePassword = false;
+        persistSessions();
+
+        logActivity('PASSWORD_CHANGED', portal, { userEmail: email, ip: getClientIp(req) });
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (err) {
+        console.error('Error changing password:', err);
+        res.status(500).json({ success: false, error: 'An error occurred' });
+    }
 });
 
 app.post('/api/logout', (req, res) => {
@@ -2750,6 +2813,7 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
                 users[userIdx].password = hashedPassword;
                 users[userIdx].passwordResetAt = new Date().toISOString();
                 users[userIdx].passwordResetBy = resetBy;
+                users[userIdx].mustChangePassword = true;
                 writeJSON(file, users);
                 resetCount++;
                 resetPortals.push(name);

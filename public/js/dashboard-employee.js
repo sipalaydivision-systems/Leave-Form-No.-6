@@ -60,6 +60,7 @@ async function fetchUser() {
     const u = data.user || data;
     const role = (u.role || u.portal || '').toLowerCase();
     if (role !== 'user' && role !== 'employee') { window.location.href = '/login'; return null; }
+    if (u.mustChangePassword) { window.location.href = '/change-password.html'; return null; }
     return u;
 }
 
