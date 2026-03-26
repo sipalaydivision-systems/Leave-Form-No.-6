@@ -1144,19 +1144,148 @@ function showResubmitModal(appId) {
 // Profile Modal
 // ---------------------------------------------------------------------------
 function showProfileModal() {
+    const officeSelect = `<select class="form-input" id="prof-office">
+        <option value="">-- Select School/Office --</option>
+        <optgroup label="Elementary Schools">
+            <option value="Agripino Alvarez Elementary School">Agripino Alvarez Elementary School</option>
+            <option value="Banag Elementary School">Banag Elementary School</option>
+            <option value="Barangay V Elementary School">Barangay V Elementary School</option>
+            <option value="Barasbarasan Elementary School">Barasbarasan Elementary School</option>
+            <option value="Barasbarasan Elementary School - Indangawan Annex">Barasbarasan Elementary School - Indangawan Annex</option>
+            <option value="Bawog Elementary School">Bawog Elementary School</option>
+            <option value="Binotusan Elementary School">Binotusan Elementary School</option>
+            <option value="Binulig Elementary School">Binulig Elementary School</option>
+            <option value="Bungabunga Elementary School">Bungabunga Elementary School</option>
+            <option value="Cabadiangan Elementary School">Cabadiangan Elementary School</option>
+            <option value="Calangcang Elementary School">Calangcang Elementary School</option>
+            <option value="Calat-an Elementary School">Calat-an Elementary School</option>
+            <option value="Cambogui-ot Elementary School">Cambogui-ot Elementary School</option>
+            <option value="Camindangan Elementary School">Camindangan Elementary School</option>
+            <option value="Cansauro Elementary School">Cansauro Elementary School</option>
+            <option value="Cantaca Elementary School">Cantaca Elementary School</option>
+            <option value="Canturay Elementary School">Canturay Elementary School</option>
+            <option value="Cartagena Elementary School">Cartagena Elementary School</option>
+            <option value="Cayhagan Elementary School">Cayhagan Elementary School</option>
+            <option value="Crossing Tanduay Elementary School">Crossing Tanduay Elementary School</option>
+            <option value="Genaro P. Alvarez Elementary School">Genaro P. Alvarez Elementary School</option>
+            <option value="Genaro P. Alvarez Elementary School II">Genaro P. Alvarez Elementary School II</option>
+            <option value="Gil M. Montilla Elementary School">Gil M. Montilla Elementary School</option>
+            <option value="Hda. Maricalum Elementary School">Hda. Maricalum Elementary School</option>
+            <option value="Manlucahoc Elementary School">Manlucahoc Elementary School</option>
+            <option value="Maricalum Elementary School">Maricalum Elementary School</option>
+            <option value="Nabulao Elementary School">Nabulao Elementary School</option>
+            <option value="Nabulao Elementary School - Buyog Annex">Nabulao Elementary School - Buyog Annex</option>
+            <option value="Nauhang Primary School">Nauhang Primary School</option>
+            <option value="Patag Magbanua Elementary School">Patag Magbanua Elementary School</option>
+        </optgroup>
+        <optgroup label="Secondary Schools">
+            <option value="Cambogui-ot National High School">Cambogui-ot National High School</option>
+            <option value="Camindangan National High School">Camindangan National High School</option>
+            <option value="Cayhagan National High School">Cayhagan National High School</option>
+            <option value="Gil Montilla National High School">Gil Montilla National High School</option>
+            <option value="Gil Montilla NHS - Binulig Extension">Gil Montilla NHS - Binulig Extension</option>
+            <option value="Gil Montilla NHS - Cabadiangan Extension">Gil Montilla NHS - Cabadiangan Extension</option>
+            <option value="Gil Montilla NHS - Crossing Tanduay Extension">Gil Montilla NHS - Crossing Tanduay Extension</option>
+            <option value="Gil Montilla NHS - Manlucahoc Extension">Gil Montilla NHS - Manlucahoc Extension</option>
+            <option value="Jacinto Montilla Memorial National High School">Jacinto Montilla Memorial National High School</option>
+            <option value="Leodegario Ponce Gonzales National High School">Leodegario Ponce Gonzales National High School</option>
+            <option value="Mariano Gemora National High School">Mariano Gemora National High School</option>
+            <option value="Maricalum Farm School">Maricalum Farm School</option>
+            <option value="Nabulao National High School">Nabulao National High School</option>
+            <option value="Sipalay City National High School">Sipalay City National High School</option>
+        </optgroup>
+        <optgroup label="Integrated Schools">
+            <option value="Dungga Integrated School">Dungga Integrated School</option>
+            <option value="Dung-i Integrated School">Dung-i Integrated School</option>
+            <option value="Macarandan Integrated School">Macarandan Integrated School</option>
+            <option value="Mauboy Integrated School">Mauboy Integrated School</option>
+            <option value="Omas Integrated School">Omas Integrated School</option>
+            <option value="Tugas Integrated School">Tugas Integrated School</option>
+            <option value="Vista Alegre Integrated School">Vista Alegre Integrated School</option>
+        </optgroup>
+        <optgroup label="Division Office">
+            <option value="CID">CID - Curriculum Implementation Division</option>
+            <option value="ASDS - Assistant Schools Division Superintendent">ASDS - Assistant Schools Division Superintendent</option>
+            <option value="OSDS">OSDS - Office of the Schools Division Superintendent</option>
+            <option value="SGOD">SGOD - School Governance and Operations Division</option>
+        </optgroup>
+    </select>`;
+
+    const positionSelect = `<select class="form-input" id="prof-position">
+        <option value="">-- Select Position --</option>
+        <option value="Teacher I" data-sg="11">Teacher I (SG-11)</option>
+        <option value="Teacher II" data-sg="12">Teacher II (SG-12)</option>
+        <option value="Teacher III" data-sg="13">Teacher III (SG-13)</option>
+        <option value="Special Science Teacher I" data-sg="13">Special Science Teacher I (SG-13)</option>
+        <option value="Special Education Teacher I" data-sg="14">Special Education Teacher I (SG-14)</option>
+        <option value="Guidance Counselor I" data-sg="11">Guidance Counselor I (SG-11)</option>
+        <option value="Master Teacher I" data-sg="18">Master Teacher I (SG-18)</option>
+        <option value="Master Teacher II" data-sg="19">Master Teacher II (SG-19)</option>
+        <option value="Head Teacher I" data-sg="14">Head Teacher I (SG-14)</option>
+        <option value="Head Teacher II" data-sg="15">Head Teacher II (SG-15)</option>
+        <option value="Head Teacher III" data-sg="16">Head Teacher III (SG-16)</option>
+        <option value="School Principal I" data-sg="19">School Principal I (SG-19)</option>
+        <option value="School Principal II" data-sg="20">School Principal II (SG-20)</option>
+        <option value="Assistant School Principal II" data-sg="19">Assistant School Principal II (SG-19)</option>
+        <option value="Administrative Officer V" data-sg="18">Administrative Officer V (SG-18)</option>
+        <option value="Administrative Officer IV" data-sg="15">Administrative Officer IV (SG-15)</option>
+        <option value="Administrative Officer II" data-sg="11">Administrative Officer II (SG-11)</option>
+        <option value="Administrative Assistant III" data-sg="9">Administrative Assistant III (SG-9)</option>
+        <option value="Administrative Assistant II" data-sg="8">Administrative Assistant II (SG-8)</option>
+        <option value="Administrative Aide VI" data-sg="6">Administrative Aide VI (SG-6)</option>
+        <option value="Administrative Aide IV" data-sg="4">Administrative Aide IV (SG-4)</option>
+        <option value="Chief Education Supervisor" data-sg="24">Chief Education Supervisor (SG-24)</option>
+        <option value="Education Program Supervisor" data-sg="22">Education Program Supervisor (SG-22)</option>
+        <option value="Public Schools District Supervisor" data-sg="22">Public Schools District Supervisor (SG-22)</option>
+        <option value="Senior Education Program Specialist" data-sg="19">Senior Education Program Specialist (SG-19)</option>
+        <option value="Education Program Specialist II" data-sg="16">Education Program Specialist II (SG-16)</option>
+        <option value="Accountant III" data-sg="19">Accountant III (SG-19)</option>
+        <option value="Planning Officer III" data-sg="18">Planning Officer III (SG-18)</option>
+        <option value="Project Development Officer II" data-sg="15">Project Development Officer II (SG-15)</option>
+        <option value="Project Development Officer I" data-sg="11">Project Development Officer I (SG-11)</option>
+        <option value="Information Technology Officer I" data-sg="19">Information Technology Officer I (SG-19)</option>
+        <option value="Engineer III" data-sg="19">Engineer III (SG-19)</option>
+        <option value="Attorney III" data-sg="21">Attorney III (SG-21)</option>
+        <option value="Legal Assistant I" data-sg="10">Legal Assistant I (SG-10)</option>
+        <option value="Medical Officer III" data-sg="21">Medical Officer III (SG-21)</option>
+        <option value="Dentist II" data-sg="17">Dentist II (SG-17)</option>
+        <option value="Nurse II" data-sg="16">Nurse II (SG-16)</option>
+        <option value="Registrar I" data-sg="11">Registrar I (SG-11)</option>
+        <option value="Librarian II" data-sg="15">Librarian II (SG-15)</option>
+        <option value="Assistant Schools Division Superintendent" data-sg="25">Assistant Schools Division Superintendent (SG-25)</option>
+    </select>`;
+
+    const sectionTitle = (t) => `<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:var(--space-2);padding-bottom:6px;border-bottom:1px solid var(--color-neutral-200)">${t}</div>`;
+    const grid = (inner) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">${inner}</div>`;
+    const span2 = (inner) => `<div style="grid-column:span 2">${inner}</div>`;
+    const field = (lbl, el) => `<div><label class="form-label">${lbl}</label>${el}</div>`;
+
     const content = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-            <div><label class="form-label">Last Name</label><input class="form-input" id="prof-lastName" value="${escapeHtml(user.lastName || '')}"></div>
-            <div><label class="form-label">First Name</label><input class="form-input" id="prof-firstName" value="${escapeHtml(user.firstName || '')}"></div>
-            <div><label class="form-label">Middle Name</label><input class="form-input" id="prof-middleName" value="${escapeHtml(user.middleName || '')}"></div>
-            <div><label class="form-label">Suffix</label><input class="form-input" id="prof-suffix" value="${escapeHtml(user.suffix || '')}" placeholder="Jr., III, etc."></div>
-            <div><label class="form-label">Email</label><div class="form-input" style="background:var(--color-neutral-100);cursor:not-allowed;opacity:0.7">${escapeHtml(user.email)}</div></div>
-            <div><label class="form-label">Employee No.</label><input class="form-input" id="prof-employeeNo" value="${escapeHtml(user.employeeNo || user.employee_number || '')}"></div>
-            <div><label class="form-label">Office / School</label><input class="form-input" id="prof-office" value="${escapeHtml(user.office || '')}"></div>
-            <div><label class="form-label">Position</label><input class="form-input" id="prof-position" value="${escapeHtml(user.position || '')}"></div>
-            <div><label class="form-label">Salary Grade</label><input class="form-input" id="prof-salaryGrade" value="${escapeHtml(user.salaryGrade || user.salary_grade || '')}"></div>
-            <div><label class="form-label">Step</label><input class="form-input" id="prof-step" value="${escapeHtml(user.step || '')}"></div>
-            <div style="grid-column:span 2"><label class="form-label">Monthly Salary</label><input class="form-input" id="prof-salary" value="${escapeHtml(user.salary || '')}"></div>
+        <div style="margin-bottom:var(--space-4)">
+            ${sectionTitle('Personal Information')}
+            ${grid(`
+                ${field('Last Name', `<input class="form-input" id="prof-lastName" value="${escapeHtml(user.lastName || '')}">`)}
+                ${field('First Name', `<input class="form-input" id="prof-firstName" value="${escapeHtml(user.firstName || '')}">`)}
+                ${field('Middle Name', `<input class="form-input" id="prof-middleName" value="${escapeHtml(user.middleName || '')}">`)}
+                ${field('Suffix <span style="color:var(--color-neutral-400);font-weight:400">(optional)</span>', `<input class="form-input" id="prof-suffix" value="${escapeHtml(user.suffix || '')}" placeholder="Jr., III, etc.">`)}
+            `)}
+        </div>
+        <div style="margin-bottom:var(--space-4)">
+            ${sectionTitle('Account')}
+            ${grid(`
+                ${span2(field('Email <span style="color:var(--color-neutral-400);font-weight:400">(cannot be changed)</span>', `<div class="form-input" style="background:var(--color-neutral-100);color:var(--color-neutral-500);cursor:not-allowed">${escapeHtml(user.email)}</div>`))}
+                ${field('Employee No.', `<input class="form-input" id="prof-employeeNo" value="${escapeHtml(user.employeeNo || user.employee_number || '')}">`)}
+            `)}
+        </div>
+        <div>
+            ${sectionTitle('Employment')}
+            ${grid(`
+                ${span2(field('Office / School', officeSelect))}
+                ${span2(field('Position', positionSelect))}
+                ${field('Salary Grade', `<input class="form-input" id="prof-salaryGrade" value="${escapeHtml(user.salaryGrade || user.salary_grade || '')}">`)}
+                ${field('Step', `<input class="form-input" id="prof-step" value="${escapeHtml(user.step || '')}">`)}
+                ${span2(field('Monthly Salary', `<input class="form-input" id="prof-salary" value="${escapeHtml(user.salary || '')}">`))}
+            `)}
         </div>
     `;
 
@@ -1169,6 +1298,19 @@ function showProfileModal() {
             <button class="btn btn-primary btn-sm" id="prof-save">Save Changes</button>
         `,
     });
+
+    // Pre-select current values on the dropdowns
+    const officeEl = document.getElementById('prof-office');
+    const positionEl = document.getElementById('prof-position');
+    const sgEl = document.getElementById('prof-salaryGrade');
+    if (officeEl) officeEl.value = user.office || '';
+    if (positionEl) {
+        positionEl.value = user.position || '';
+        positionEl.addEventListener('change', () => {
+            const sg = positionEl.options[positionEl.selectedIndex]?.dataset?.sg || '';
+            if (sg && sgEl) sgEl.value = sg;
+        });
+    }
 
     document.getElementById('prof-cancel')?.addEventListener('click', () => modal.close());
     document.getElementById('prof-save')?.addEventListener('click', async () => {
@@ -1184,8 +1326,8 @@ function showProfileModal() {
             email: user.email,
             fullName,
             firstName, lastName, middleName, suffix,
-            office: document.getElementById('prof-office').value.trim(),
-            position: document.getElementById('prof-position').value.trim(),
+            office: document.getElementById('prof-office').value,
+            position: document.getElementById('prof-position').value,
             employeeNo: document.getElementById('prof-employeeNo').value.trim(),
             salaryGrade: document.getElementById('prof-salaryGrade').value.trim(),
             step: document.getElementById('prof-step').value.trim(),
