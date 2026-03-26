@@ -6,282 +6,279 @@
 <title>CS Form No. 6 – Application for Leave</title>
 <script src="/auth-interceptor.js"></script>
 <style>
-/* ── Screen wrapper ─────────────────────────────────── */
+/* ── Screen ─────────────────────────────────────── */
 body {
-    margin: 0;
-    padding: 0;
-    background: #e8eaf6;
+    margin: 0; padding: 0;
+    background: #e0e4ef;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     color: #000;
 }
-
 .control-bar {
-    background: #1565c0;
-    color: #fff;
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    background: #1565c0; color: #fff;
+    padding: 8px 20px;
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 100;
 }
-.control-bar h1 { margin: 0; font-size: 15px; flex: 1; }
+.control-bar h1 { margin: 0; font-size: 14px; flex: 1; }
 .control-bar button {
-    padding: 7px 18px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: bold;
+    padding: 6px 16px; border: none; border-radius: 4px;
+    cursor: pointer; font-size: 12px; font-weight: bold;
 }
-.btn-print  { background: #fff; color: #1565c0; }
-.btn-close  { background: rgba(255,255,255,0.2); color: #fff; }
+.btn-print { background: #fff; color: #1565c0; }
+.btn-close { background: rgba(255,255,255,.2); color: #fff; }
 .btn-print:hover { background: #e3f2fd; }
 
 .page-wrapper {
-    display: flex;
-    justify-content: center;
-    padding: 24px 16px 40px;
+    display: flex; justify-content: center;
+    padding: 20px 16px 40px;
 }
 
-/* ── The A4 page ────────────────────────────────────── */
+/* ── A4 page ─────────────────────────────────────── */
 .form-page {
     width: 210mm;
     min-height: 297mm;
     background: #fff;
-    padding: 8mm 10mm 8mm 10mm;
+    padding: 7mm 9mm 6mm 9mm;
     box-sizing: border-box;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    box-shadow: 0 2px 16px rgba(0,0,0,.2);
+    font-size: 8.5px;
 }
 
-/* ── Typography ─────────────────────────────────────── */
-.f-tiny  { font-size: 7px; }
-.f-small { font-size: 8.5px; }
-.f-base  { font-size: 10px; }
-.f-bold  { font-weight: bold; }
-.f-italic{ font-style: italic; }
-.underline { border-bottom: 0.5px solid #000; display: inline-block; min-width: 120px; }
-.underline-full { border-bottom: 0.5px solid #000; display: block; width: 100%; min-height: 12px; }
-
-/* ── Header ─────────────────────────────────────────── */
-.form-meta {
+/* ── Header ─────────────────────────────────────── */
+.header-row {
     display: flex;
-    justify-content: space-between;
+    align-items: flex-start;
+    gap: 4px;
     margin-bottom: 2px;
 }
-.letterhead {
+.header-meta {
+    flex: 0 0 auto;
+    font-size: 7px;
+    line-height: 1.4;
+    white-space: nowrap;
+    min-width: 88px;
+}
+.header-center {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    margin-bottom: 2px;
+    gap: 8px;
 }
-.letterhead img { width: 44px; height: 44px; }
-.letterhead-text { text-align: center; line-height: 1.5; }
-.letterhead-text .rp    { font-size: 9px; font-style: italic; }
-.letterhead-text .dept  { font-size: 10px; font-weight: bold; }
-.letterhead-text .region{ font-size: 8px; font-weight: bold; letter-spacing: 0.5px; }
-.letterhead-text .div   { font-size: 9.5px; font-weight: bold; }
-
+.header-center img { width: 46px; height: 46px; flex-shrink: 0; }
+.header-text { text-align: center; line-height: 1.4; }
+.header-text .rp   { font-size: 8px; font-style: italic; }
+.header-text .dept { font-size: 9.5px; font-weight: bold; }
+.header-text .reg  { font-size: 7.5px; font-weight: bold; letter-spacing: 0.4px; }
+.header-text .div  { font-size: 9px; font-weight: bold; }
 .stamp-box {
+    flex: 0 0 auto;
     border: 0.8px solid #000;
-    width: 90px;
-    height: 36px;
-    font-size: 7px;
-    text-align: center;
-    padding: 2px;
-    box-sizing: border-box;
-    flex-shrink: 0;
+    width: 88px; height: 38px;
+    font-size: 7px; text-align: center;
+    padding: 3px 2px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
 }
 
+/* ── Form title ─────────────────────────────────── */
 .form-title {
     text-align: center;
-    font-size: 15px;
-    font-weight: bold;
-    margin: 4px 0 5px;
+    font-size: 13.5px; font-weight: bold;
+    margin: 3px 0 4px;
     letter-spacing: 0.5px;
 }
 
-/* ── Bordered fields ────────────────────────────────── */
-.bordered { border: 0.8px solid #000; }
+/* ── Field rows ─────────────────────────────────── */
 .field-row {
     display: flex;
     border: 0.8px solid #000;
     border-bottom: none;
 }
-.field-row:last-of-type { border-bottom: 0.8px solid #000; }
+.field-row + .field-row { border-top: none; }
+.field-row.last { border-bottom: 0.8px solid #000; }
 .field-cell {
-    padding: 3px 5px;
+    padding: 2px 4px;
     border-right: 0.8px solid #000;
-    flex: 1;
-    min-height: 18px;
+    flex: 1; min-height: 16px;
 }
 .field-cell:last-child { border-right: none; }
-.field-label { font-size: 8px; color: #333; margin-bottom: 1px; }
-.field-value { font-size: 10px; font-weight: bold; border-bottom: 0.5px solid #000; min-height: 13px; display: block; }
-
-.name-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0;
+.field-label { font-size: 7.5px; color: #333; margin-bottom: 1px; }
+.field-value {
+    font-size: 9px; font-weight: bold;
+    border-bottom: 0.5px solid #000;
+    min-height: 11px; display: block;
 }
-.name-grid .name-part { border-right: 0.5px solid #aaa; padding-right: 4px; }
-.name-grid .name-part:last-child { border-right: none; }
+.name-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
+}
+.name-part { border-right: 0.5px solid #aaa; padding-right: 3px; }
+.name-part:last-child { border-right: none; }
 
-/* ── Section headers ────────────────────────────────── */
+/* ── Section headers ────────────────────────────── */
 .section-header {
-    background: #000;
-    color: #fff;
-    text-align: center;
-    font-weight: bold;
-    font-size: 10px;
-    padding: 3px 0;
-    margin: 4px 0 0;
+    background: #000; color: #fff;
+    text-align: center; font-weight: bold;
+    font-size: 9px; padding: 2.5px 0;
     letter-spacing: 0.5px;
 }
 
-/* ── Section 6 ──────────────────────────────────────── */
+/* ── Section 6 grid ─────────────────────────────── */
 .details-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border: 0.8px solid #000;
-    border-top: none;
+    display: grid; grid-template-columns: 1fr 1fr;
+    border: 0.8px solid #000; border-top: none;
 }
 .details-col {
-    padding: 4px 6px;
+    padding: 3px 5px;
     border-right: 0.8px solid #000;
-    font-size: 9px;
+    font-size: 8px;
 }
 .details-col:last-child { border-right: none; }
-.col-header { font-size: 8.5px; font-weight: bold; margin-bottom: 4px; text-decoration: underline; }
-
+.col-header {
+    font-size: 8px; font-weight: bold;
+    text-decoration: underline; margin-bottom: 3px;
+}
 .leave-option {
-    display: flex;
-    align-items: baseline;
-    gap: 3px;
-    margin-bottom: 2.5px;
-    line-height: 1.3;
+    display: flex; align-items: baseline;
+    gap: 2px; margin-bottom: 2px; line-height: 1.25;
 }
-.chk { font-size: 11px; flex-shrink: 0; }
-.leave-option-text { font-size: 8.5px; }
-.leave-option-text em { font-size: 7px; font-style: normal; color: #444; }
-
+.chk { font-size: 10px; flex-shrink: 0; line-height: 1; }
+.leave-option-text { font-size: 8px; }
+.leave-option-text em { font-size: 6.5px; font-style: normal; color: #444; }
 .others-line {
-    border-top: 0.5px solid #000;
-    margin-top: 3px;
-    padding-top: 3px;
+    border-top: 0.5px solid #000; margin-top: 3px; padding-top: 2px;
 }
-.others-input { border-bottom: 0.5px solid #000; display: inline-block; min-width: 160px; font-size: 8.5px; }
-
-/* Details of Leave sub-sections */
-.details-sub { margin-bottom: 5px; }
-.details-sub-label { font-size: 8px; font-style: italic; font-weight: bold; margin-bottom: 2px; }
+.others-input {
+    border-bottom: 0.5px solid #000;
+    display: inline-block; min-width: 150px; font-size: 8px;
+}
+.details-sub { margin-bottom: 4px; }
+.details-sub-label {
+    font-size: 7.5px; font-style: italic;
+    font-weight: bold; margin-bottom: 1px;
+}
 .detail-item {
-    display: flex;
-    align-items: baseline;
-    gap: 3px;
-    margin-bottom: 2px;
-    font-size: 8.5px;
+    display: flex; align-items: baseline;
+    gap: 3px; margin-bottom: 1.5px; font-size: 8px;
 }
-.detail-fill { border-bottom: 0.5px solid #000; flex: 1; min-height: 11px; font-size: 8.5px; }
+.detail-fill {
+    border-bottom: 0.5px solid #000;
+    flex: 1; min-height: 10px; font-size: 8px;
+}
 
-/* ── Section 6C/6D bottom ───────────────────────────── */
+/* ── Section 6C/6D ──────────────────────────────── */
 .bottom-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border: 0.8px solid #000;
-    border-top: none;
+    display: grid; grid-template-columns: 1fr 1fr;
+    border: 0.8px solid #000; border-top: none;
 }
 .bottom-col {
-    padding: 4px 6px;
+    padding: 3px 5px;
     border-right: 0.8px solid #000;
-    font-size: 9px;
+    font-size: 8px;
 }
 .bottom-col:last-child { border-right: none; }
-.inclusive-dates { display: flex; gap: 12px; margin-top: 3px; }
-.sig-area { margin-top: 10px; text-align: center; font-size: 8px; }
-.sig-line { border-bottom: 0.5px solid #000; margin: 16px 10px 2px; }
+.inclusive-dates { display: flex; gap: 10px; margin-top: 2px; }
+.sig-area { margin-top: 8px; text-align: center; font-size: 7.5px; }
+.sig-line { border-bottom: 0.5px solid #000; margin: 14px 12px 2px; }
+.underline {
+    border-bottom: 0.5px solid #000;
+    display: inline-block; min-width: 110px;
+}
+.underline-full {
+    border-bottom: 0.5px solid #000;
+    display: block; width: 100%; min-height: 11px;
+}
 
-/* ── Section 7 ──────────────────────────────────────── */
+/* ── Section 7 grid ─────────────────────────────── */
 .action-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border: 0.8px solid #000;
-    border-top: none;
+    display: grid; grid-template-columns: 1fr 1fr;
+    border: 0.8px solid #000; border-top: none;
 }
 .action-col {
-    padding: 4px 6px;
+    padding: 3px 5px;
     border-right: 0.8px solid #000;
-    font-size: 9px;
+    font-size: 8px;
 }
 .action-col:last-child { border-right: none; }
-.col-sub-header { font-size: 8.5px; font-weight: bold; text-decoration: underline; margin-bottom: 3px; }
-
+.col-sub-header {
+    font-size: 8px; font-weight: bold;
+    text-decoration: underline; margin-bottom: 2px;
+}
 .credits-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 8.5px;
-    margin-top: 4px;
+    width: 100%; border-collapse: collapse;
+    font-size: 8px; margin-top: 3px;
 }
 .credits-table th, .credits-table td {
-    border: 0.5px solid #000;
-    padding: 2px 4px;
+    border: 0.5px solid #000; padding: 1.5px 3px;
     text-align: center;
 }
-.credits-table th { background: #eee; font-weight: bold; font-size: 8px; }
+.credits-table th { background: #eee; font-weight: bold; font-size: 7.5px; }
 .credits-table td:first-child { text-align: left; font-style: italic; }
 
+/* ── Officer blocks (7A, 7B) ────────────────────── */
 .officer-block {
-    margin-top: 10px;
-    text-align: center;
+    margin-top: 6px; text-align: center;
 }
-.officer-name  { font-size: 9.5px; font-weight: bold; border-bottom: 0.5px solid #000; display: inline-block; }
-.officer-title { font-size: 8px; }
+.officer-sig-img {
+    display: none; height: 28px;
+    max-width: 130px; object-fit: contain;
+    margin: 0 auto 2px;
+}
+.officer-name {
+    font-size: 9px; font-weight: bold;
+    border-bottom: 0.5px solid #000;
+    display: inline-block;
+}
+.officer-title { font-size: 7.5px; }
 
-/* ── Section 7C/7D ──────────────────────────────────── */
+/* ── Section 7C/7D ──────────────────────────────── */
 .approval-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border: 0.8px solid #000;
-    border-top: none;
-    min-height: 50px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    border: 0.8px solid #000; border-top: none;
+    min-height: 44px;
 }
 .approval-col {
-    padding: 4px 6px;
+    padding: 3px 5px;
     border-right: 0.8px solid #000;
-    font-size: 9px;
+    font-size: 8px;
 }
 .approval-col:last-child { border-right: none; }
-.approval-line { border-bottom: 0.5px solid #000; min-height: 12px; margin-bottom: 2px; display: block; }
-.approval-row { display: flex; gap: 4px; align-items: baseline; margin-bottom: 2px; font-size: 8.5px; }
+.approval-line {
+    border-bottom: 0.5px solid #000;
+    min-height: 11px; margin-bottom: 2px; display: block;
+}
+.approval-row {
+    display: flex; gap: 3px;
+    align-items: baseline; margin-bottom: 2px; font-size: 8px;
+}
 
-/* ── Final signature ────────────────────────────────── */
+/* ── Final signature ────────────────────────────── */
 .final-sig {
-    margin-top: 8px;
-    text-align: center;
+    margin-top: 6px; text-align: center;
     border-top: 0.8px solid #000;
-    padding-top: 6px;
+    padding-top: 4px;
+}
+.final-sig-img {
+    display: none; height: 32px;
+    max-width: 150px; object-fit: contain;
+    margin: 0 auto 2px;
 }
 
-/* ── Error state ────────────────────────────────────── */
-#error-state {
-    padding: 40px;
-    text-align: center;
-    display: none;
-}
+/* ── Error ──────────────────────────────────────── */
+#error-state { padding: 40px; text-align: center; display: none; }
 
-/* ── Print styles ───────────────────────────────────── */
+/* ── Print ──────────────────────────────────────── */
 @media print {
     .no-print { display: none !important; }
     body { background: white; margin: 0; padding: 0; }
     .page-wrapper { padding: 0; }
     .form-page {
         width: 210mm;
-        min-height: 297mm;
+        height: 297mm;
+        min-height: unset;
+        overflow: hidden;
         box-shadow: none;
-        padding: 8mm 10mm;
+        padding: 7mm 9mm 6mm 9mm;
     }
     @page {
         size: A4 portrait;
@@ -292,7 +289,6 @@ body {
 </head>
 <body>
 
-<!-- Control bar (hidden on print) -->
 <div class="control-bar no-print">
     <h1>CS Form No. 6 – Application for Leave</h1>
     <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
@@ -302,43 +298,41 @@ body {
 <div class="page-wrapper">
 <div class="form-page" id="form-page">
 
-    <!-- Error state -->
     <div id="error-state">
         <h2 style="color:#c62828">Unable to Load Form</h2>
         <p id="error-msg"></p>
         <button onclick="window.close()" style="padding:8px 20px;cursor:pointer">Close</button>
     </div>
 
-    <!-- Form content (hidden until data loads) -->
     <div id="form-content" style="display:none">
 
-        <!-- Header meta -->
-        <div class="form-meta f-tiny">
-            <span>Civil Service Form No. 6<br>Revised 2020</span>
-            <div class="stamp-box">Stamp of Date of Receipt</div>
-        </div>
-
-        <!-- Letterhead -->
-        <div class="letterhead">
-            <img src="/deped logo.png" alt="DepEd Logo" onerror="this.style.display='none'">
-            <div class="letterhead-text">
-                <div class="rp">Republic of the Philippines</div>
-                <div class="dept">Department of Education</div>
-                <div class="region">NEGROS ISLAND REGION</div>
-                <div class="div">SCHOOLS DIVISION OF SIPALAY CITY</div>
+        <!-- ── Header ── -->
+        <div class="header-row">
+            <div class="header-meta">
+                Civil Service Form No. 6<br>Revised 2020
             </div>
+            <div class="header-center">
+                <img src="/deped logo.png" alt="DepEd" onerror="this.style.display='none'">
+                <div class="header-text">
+                    <div class="rp">Republic of the Philippines</div>
+                    <div class="dept">Department of Education</div>
+                    <div class="reg">NEGROS ISLAND REGION</div>
+                    <div class="div">SCHOOLS DIVISION OF SIPALAY CITY</div>
+                </div>
+            </div>
+            <div class="stamp-box">Stamp of Date of Receipt</div>
         </div>
 
         <div class="form-title">APPLICATION FOR LEAVE</div>
 
-        <!-- Fields 1–2 -->
+        <!-- ── Fields 1–2 ── -->
         <div class="field-row">
-            <div class="field-cell" style="flex:1.2">
+            <div class="field-cell" style="flex:1.15">
                 <div class="field-label">1. OFFICE/DEPARTMENT/SCHOOL</div>
                 <span class="field-value" id="f-office"></span>
             </div>
-            <div class="field-cell" style="flex:1.8">
-                <div class="field-label">2. NAME : &nbsp;&nbsp;(Last) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(First) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Middle)</div>
+            <div class="field-cell" style="flex:1.85">
+                <div class="field-label">2. NAME :&nbsp;&nbsp;&nbsp;(Last)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(First)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Middle)</div>
                 <div class="name-grid">
                     <div class="name-part"><span class="field-value" id="f-name-last"></span></div>
                     <div class="name-part"><span class="field-value" id="f-name-first"></span></div>
@@ -347,96 +341,54 @@ body {
             </div>
         </div>
 
-        <!-- Fields 3–5 -->
-        <div class="field-row" style="border-bottom:0.8px solid #000">
-            <div class="field-cell" style="flex:1">
+        <!-- ── Fields 3–5 ── -->
+        <div class="field-row last">
+            <div class="field-cell" style="flex:0.9">
                 <div class="field-label">3. DATE OF FILING</div>
                 <span class="field-value" id="f-date-filing"></span>
             </div>
-            <div class="field-cell" style="flex:1.5">
+            <div class="field-cell" style="flex:1.4">
                 <div class="field-label">4. POSITION</div>
                 <span class="field-value" id="f-position"></span>
             </div>
-            <div class="field-cell" style="flex:0.8">
+            <div class="field-cell" style="flex:0.7">
                 <div class="field-label">5. SALARY</div>
                 <span class="field-value" id="f-salary"></span>
             </div>
         </div>
 
-        <!-- Section 6 header -->
+        <!-- ── Section 6 ── -->
         <div class="section-header">6. &nbsp;DETAILS OF APPLICATION</div>
 
-        <!-- Section 6A + 6B -->
         <div class="details-grid">
-            <!-- LEFT: 6A Leave Type -->
+            <!-- 6A -->
             <div class="details-col">
                 <div class="col-header">6.A &nbsp;TYPE OF LEAVE TO BE AVAILED OF</div>
-
-                <div class="leave-option">
-                    <span class="chk" id="chk-vl">&#9744;</span>
-                    <span class="leave-option-text">Vacation Leave <em>(Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-forced">&#9744;</span>
-                    <span class="leave-option-text">Mandatory/Forced Leave <em>(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-sl">&#9744;</span>
-                    <span class="leave-option-text">Sick Leave <em>(Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-maternity">&#9744;</span>
-                    <span class="leave-option-text">Maternity Leave <em>(R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-paternity">&#9744;</span>
-                    <span class="leave-option-text">Paternity Leave <em>(R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-spl">&#9744;</span>
-                    <span class="leave-option-text">Special Privilege Leave <em>(Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-solo">&#9744;</span>
-                    <span class="leave-option-text">Solo Parent Leave <em>(RA No. 8972 / CSC MC No. 8, s. 2004)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-study">&#9744;</span>
-                    <span class="leave-option-text">Study Leave <em>(Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-vawc">&#9744;</span>
-                    <span class="leave-option-text">10-Day VAWC Leave <em>(RA No. 9262 / CSC MC No. 15, s. 2005)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-rehab">&#9744;</span>
-                    <span class="leave-option-text">Rehabilitation Privilege <em>(Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-women">&#9744;</span>
-                    <span class="leave-option-text">Special Leave Benefits for Women <em>(RA No. 9710 / CSC MC No. 25, s. 2010)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-calamity">&#9744;</span>
-                    <span class="leave-option-text">Special Emergency (Calamity) Leave <em>(CSC MC No. 2, s. 2012, as amended)</em></span>
-                </div>
-                <div class="leave-option">
-                    <span class="chk" id="chk-adoption">&#9744;</span>
-                    <span class="leave-option-text">Adoption Leave <em>(R.A. No. 8552)</em></span>
-                </div>
+                <div class="leave-option"><span class="chk" id="chk-vl">&#9744;</span><span class="leave-option-text">Vacation Leave <em>(Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-forced">&#9744;</span><span class="leave-option-text">Mandatory/Forced Leave <em>(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-sl">&#9744;</span><span class="leave-option-text">Sick Leave <em>(Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-maternity">&#9744;</span><span class="leave-option-text">Maternity Leave <em>(R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-paternity">&#9744;</span><span class="leave-option-text">Paternity Leave <em>(R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-spl">&#9744;</span><span class="leave-option-text">Special Privilege Leave <em>(Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-solo">&#9744;</span><span class="leave-option-text">Solo Parent Leave <em>(RA No. 8972 / CSC MC No. 8, s. 2004)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-study">&#9744;</span><span class="leave-option-text">Study Leave <em>(Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-vawc">&#9744;</span><span class="leave-option-text">10-Day VAWC Leave <em>(RA No. 9262 / CSC MC No. 15, s. 2005)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-rehab">&#9744;</span><span class="leave-option-text">Rehabilitation Privilege <em>(Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-women">&#9744;</span><span class="leave-option-text">Special Leave Benefits for Women <em>(RA No. 9710 / CSC MC No. 25, s. 2010)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-calamity">&#9744;</span><span class="leave-option-text">Special Emergency (Calamity) Leave <em>(CSC MC No. 2, s. 2012, as amended)</em></span></div>
+                <div class="leave-option"><span class="chk" id="chk-adoption">&#9744;</span><span class="leave-option-text">Adoption Leave <em>(R.A. No. 8552)</em></span></div>
                 <div class="leave-option others-line">
-                    <span class="leave-option-text f-italic">Others:</span>
+                    <span class="leave-option-text" style="font-style:italic">Others:</span>
                 </div>
-                <div style="padding-left:12px">
+                <div style="padding-left:10px;margin-top:1px">
                     <span class="chk" id="chk-others">&#9744;</span>
                     <span class="others-input" id="f-other-specify">&nbsp;</span>
                 </div>
             </div>
 
-            <!-- RIGHT: 6B Details of Leave -->
+            <!-- 6B -->
             <div class="details-col">
                 <div class="col-header">6.B &nbsp;DETAILS OF LEAVE</div>
-
                 <div class="details-sub">
                     <div class="details-sub-label">In case of Vacation/Special Privilege Leave:</div>
                     <div class="detail-item">
@@ -450,7 +402,6 @@ body {
                         <span class="detail-fill" id="f-abroad-spec">&nbsp;</span>
                     </div>
                 </div>
-
                 <div class="details-sub">
                     <div class="details-sub-label">In case of Sick Leave:</div>
                     <div class="detail-item">
@@ -463,63 +414,44 @@ body {
                         <span>Out Patient (Specify Illness)</span>
                         <span class="detail-fill" id="f-outpatient-illness">&nbsp;</span>
                     </div>
-                    <span class="detail-fill" style="margin-left:14px" id="f-sick-extra">&nbsp;</span>
+                    <span class="detail-fill" style="margin-left:14px">&nbsp;</span>
                 </div>
-
                 <div class="details-sub">
                     <div class="details-sub-label">In case of Special Leave Benefits for Women:</div>
-                    <div class="detail-item">(Specify Illness)
-                        <span class="detail-fill" id="f-women-illness">&nbsp;</span>
-                    </div>
+                    <div class="detail-item">(Specify Illness)<span class="detail-fill" id="f-women-illness">&nbsp;</span></div>
                     <span class="detail-fill">&nbsp;</span>
                 </div>
-
                 <div class="details-sub">
                     <div class="details-sub-label">In case of Study Leave:</div>
-                    <div class="detail-item">
-                        <span class="chk" id="chk-study-masters">&#9744;</span>
-                        <span>Completion of Master's Degree</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="chk" id="chk-study-bar">&#9744;</span>
-                        <span>BAR/Board Examination Review</span>
-                    </div>
+                    <div class="detail-item"><span class="chk" id="chk-study-masters">&#9744;</span><span>Completion of Master's Degree</span></div>
+                    <div class="detail-item"><span class="chk" id="chk-study-bar">&#9744;</span><span>BAR/Board Examination Review</span></div>
                 </div>
-
                 <div class="details-sub">
                     <div class="details-sub-label">Other purpose:</div>
-                    <div class="detail-item">
-                        <span class="chk" id="chk-monetize">&#9744;</span>
-                        <span>Monetization of Leave Credits</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="chk" id="chk-terminal">&#9744;</span>
-                        <span>Terminal Leave</span>
-                    </div>
+                    <div class="detail-item"><span class="chk" id="chk-monetize">&#9744;</span><span>Monetization of Leave Credits</span></div>
+                    <div class="detail-item"><span class="chk" id="chk-terminal">&#9744;</span><span>Terminal Leave</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- Section 6C + 6D -->
+        <!-- ── Section 6C/6D ── -->
         <div class="bottom-grid">
             <div class="bottom-col">
-                <div style="font-size:8.5px;font-weight:bold">6.C &nbsp;NUMBER OF WORKING DAYS APPLIED FOR</div>
-                <span class="underline-full" id="f-num-days" style="font-size:10px;font-weight:bold;margin-top:2px">&nbsp;</span>
-                <div style="font-size:8.5px;font-weight:bold;margin-top:4px">INCLUSIVE DATES</div>
+                <div style="font-size:8px;font-weight:bold">6.C &nbsp;NUMBER OF WORKING DAYS APPLIED FOR</div>
+                <span class="underline-full" id="f-num-days" style="font-size:9px;font-weight:bold;margin-top:2px">&nbsp;</span>
+                <div style="font-size:8px;font-weight:bold;margin-top:3px">INCLUSIVE DATES</div>
                 <div class="inclusive-dates">
-                    <span style="font-size:8.5px">From: <span class="underline" id="f-date-from">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span>
-                    <span style="font-size:8.5px">To: <span class="underline" id="f-date-to">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span>
+                    <span style="font-size:8px">From: <span class="underline" id="f-date-from">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span>
+                    <span style="font-size:8px">To: <span class="underline" id="f-date-to">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span>
                 </div>
             </div>
             <div class="bottom-col">
-                <div style="font-size:8.5px;font-weight:bold">6.D &nbsp;COMMUTATION</div>
-                <div class="detail-item" style="margin-top:4px">
-                    <span class="chk" id="chk-comm-not">&#9744;</span>
-                    <span>Not Requested</span>
+                <div style="font-size:8px;font-weight:bold">6.D &nbsp;COMMUTATION</div>
+                <div class="detail-item" style="margin-top:3px">
+                    <span class="chk" id="chk-comm-not">&#9744;</span><span>Not Requested</span>
                 </div>
                 <div class="detail-item">
-                    <span class="chk" id="chk-comm-req">&#9744;</span>
-                    <span>Requested</span>
+                    <span class="chk" id="chk-comm-req">&#9744;</span><span>Requested</span>
                 </div>
                 <div class="sig-area">
                     <div class="sig-line"></div>
@@ -528,50 +460,35 @@ body {
             </div>
         </div>
 
-        <!-- Section 7 header -->
+        <!-- ── Section 7 ── -->
         <div class="section-header">7. &nbsp;DETAILS OF ACTION ON APPLICATION</div>
 
-        <!-- Section 7A + 7B -->
+        <!-- 7A + 7B -->
         <div class="action-grid">
             <div class="action-col">
                 <div class="col-sub-header">7.A &nbsp;CERTIFICATION OF LEAVE CREDITS</div>
-                <div style="font-size:8.5px">As of &nbsp;<span class="underline" id="f-credits-as-of">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+                <div style="font-size:8px">As of &nbsp;<span class="underline" id="f-credits-as-of" style="min-width:100px">&nbsp;</span></div>
                 <table class="credits-table">
                     <thead>
-                        <tr>
-                            <th></th>
-                            <th>Vacation Leave</th>
-                            <th>Sick Leave</th>
-                        </tr>
+                        <tr><th></th><th>Vacation Leave</th><th>Sick Leave</th></tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>Total Earned</td>
-                            <td id="f-vl-earned"></td>
-                            <td id="f-sl-earned"></td>
-                        </tr>
-                        <tr>
-                            <td><em>Less this application</em></td>
-                            <td id="f-vl-less"></td>
-                            <td id="f-sl-less"></td>
-                        </tr>
-                        <tr>
-                            <td><em>Balance</em></td>
-                            <td id="f-vl-balance"></td>
-                            <td id="f-sl-balance"></td>
-                        </tr>
+                        <tr><td>Total Earned</td><td id="f-vl-earned"></td><td id="f-sl-earned"></td></tr>
+                        <tr><td><em>Less this application</em></td><td id="f-vl-less"></td><td id="f-sl-less"></td></tr>
+                        <tr><td><em>Balance</em></td><td id="f-vl-balance"></td><td id="f-sl-balance"></td></tr>
                     </tbody>
                 </table>
                 <div class="officer-block">
-                    <div><span class="officer-name" id="f-hr-name">MA. LUISA B. CATIGAN</span></div>
+                    <img id="sig-hr" class="officer-sig-img" alt="HR Signature">
+                    <div><span class="officer-name" id="f-hr-name"></span></div>
                     <div class="officer-title">Administrative Officer IV-Personnel Section</div>
                 </div>
             </div>
             <div class="action-col">
                 <div class="col-sub-header">7.B &nbsp;RECOMMENDATION</div>
-                <div class="detail-item" style="margin-bottom:4px">
+                <div class="detail-item" style="margin-bottom:3px">
                     <span class="chk" id="chk-rec-approval">&#9744;</span>
-                    <span>For approval of <span class="underline" id="f-rec-days">&nbsp;&nbsp;&nbsp;&nbsp;</span> day/s leave with pay</span>
+                    <span>For approval of <span class="underline" id="f-rec-days" style="min-width:28px">&nbsp;</span> day/s leave with pay</span>
                 </div>
                 <div class="detail-item" style="margin-bottom:2px">
                     <span class="chk" id="chk-rec-disapproval">&#9744;</span>
@@ -582,26 +499,27 @@ body {
                 <span class="underline-full">&nbsp;</span>
                 <span class="underline-full">&nbsp;</span>
                 <div class="officer-block">
-                    <div><span class="officer-name" id="f-asds-name">DONDY A. DEPOSITARIO, PhD</span></div>
+                    <img id="sig-asds" class="officer-sig-img" alt="ASDS Signature">
+                    <div><span class="officer-name" id="f-asds-name"></span></div>
                     <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
                 </div>
             </div>
         </div>
 
-        <!-- Section 7C + 7D -->
+        <!-- 7C + 7D -->
         <div class="approval-grid">
             <div class="approval-col">
                 <div class="col-sub-header">7.C &nbsp;APPROVED FOR:</div>
                 <div class="approval-row">
-                    <span class="underline" id="f-days-pay" style="min-width:30px">&nbsp;</span>
+                    <span class="underline" id="f-days-pay" style="min-width:28px">&nbsp;</span>
                     <span>day/s with pay</span>
                 </div>
                 <div class="approval-row">
-                    <span class="underline" style="min-width:30px">&nbsp;</span>
+                    <span class="underline" style="min-width:28px">&nbsp;</span>
                     <span>days without pay</span>
                 </div>
                 <div class="approval-row">
-                    <span class="underline" style="min-width:30px">&nbsp;</span>
+                    <span class="underline" style="min-width:28px">&nbsp;</span>
                     <span>others (Specify)</span>
                 </div>
             </div>
@@ -613,10 +531,10 @@ body {
             </div>
         </div>
 
-        <!-- Final signature -->
+        <!-- ── Final signature (SDS) ── -->
         <div class="final-sig">
-            <div class="sig-line"></div>
-            <div><span class="officer-name" id="f-sds-name">BERNIE L. LIBO-ON, PhD</span></div>
+            <img id="sig-sds" class="final-sig-img" alt="SDS Signature">
+            <div><span class="officer-name" id="f-sds-name"></span></div>
             <div class="officer-title">Officer-In-Charge</div>
             <div class="officer-title">Office of the Schools Division Superintendent</div>
         </div>
@@ -627,8 +545,8 @@ body {
 
 <script>
 (async function () {
-    const params  = new URLSearchParams(window.location.search);
-    const appId   = params.get('id');
+    const params = new URLSearchParams(window.location.search);
+    const appId  = params.get('id');
 
     function showError(msg) {
         document.getElementById('error-state').style.display = 'block';
@@ -640,25 +558,24 @@ body {
         if (el) el.textContent = (val !== null && val !== undefined) ? String(val) : '';
     }
 
-    function chk(condition) {
-        return condition ? '\u2611' : '\u2610'; // ☑ / ☐
-    }
-
     function setChk(id, condition) {
         const el = document.getElementById(id);
         if (el) el.textContent = condition ? '\u2611' : '\u2610';
     }
 
+    function setSig(id, src) {
+        const el = document.getElementById(id);
+        if (el && src) { el.src = src; el.style.display = 'block'; }
+    }
+
     function fmtDate(val) {
         if (!val) return '';
         const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (m) return m[2] + '/' + m[3] + '/' + m[1];
-        return val;
+        return m ? m[2] + '/' + m[3] + '/' + m[1] : val;
     }
 
     function getLastDayOfPrevMonth() {
-        const now = new Date();
-        const d   = new Date(now.getFullYear(), now.getMonth(), 0);
+        const d = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
         return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
 
@@ -667,16 +584,16 @@ body {
         if (!fullName) return { last, first, middle };
         if (fullName.includes(',')) {
             const parts = fullName.split(',');
-            last        = parts[0].trim();
-            const rest  = (parts[1] || '').trim().split(/\s+/).filter(Boolean);
+            last = parts[0].trim();
+            const rest = (parts[1] || '').trim().split(/\s+/).filter(Boolean);
             first  = rest.slice(0, rest.length > 1 ? -1 : rest.length).join(' ');
             middle = rest.length > 1 ? rest[rest.length - 1] : '';
         } else {
             const parts = fullName.trim().split(/\s+/).filter(Boolean);
             if (parts.length >= 3) {
-                last   = parts[parts.length - 1];
+                last = parts[parts.length - 1];
                 middle = parts[parts.length - 2];
-                first  = parts.slice(0, -2).join(' ');
+                first = parts.slice(0, -2).join(' ');
             } else if (parts.length === 2) {
                 first = parts[0]; last = parts[1];
             } else {
@@ -692,7 +609,7 @@ body {
     try {
         const res = await fetch('/api/application-details/' + encodeURIComponent(appId));
         if (!res.ok) {
-            showError(res.status === 404 ? 'Application not found.' : 'Failed to load application. Please try again.');
+            showError(res.status === 404 ? 'Application not found.' : 'Failed to load application.');
             return;
         }
         const data = await res.json();
@@ -702,20 +619,19 @@ body {
         return;
     }
 
-    // ── Show form ──────────────────────────────────────
     document.getElementById('form-content').style.display = 'block';
 
-    // ── Fields 1–5 ────────────────────────────────────
-    setText('f-office', app.office || '');
+    // ── Fields 1–5 ──────────────────────────────────
+    setText('f-office',      app.office || '');
     const { last, first, middle } = parseName(app.employeeName || app.employee_name || '');
     setText('f-name-last',   last);
     setText('f-name-first',  first);
     setText('f-name-middle', middle);
     setText('f-date-filing', fmtDate(app.dateOfFiling || app.date_of_filing));
-    setText('f-position', app.position || '');
-    setText('f-salary',   app.salary   || '');
+    setText('f-position',    app.position || '');
+    setText('f-salary',      app.salary   || '');
 
-    // ── Section 6.A Leave Type ─────────────────────────
+    // ── 6A Leave Type ────────────────────────────────
     const lt = (app.leaveType || app.leave_type || '').toLowerCase();
     setChk('chk-vl',        lt === 'leave_vl');
     setChk('chk-forced',    ['leave_forced','leave_mfl','leave_mandatory'].includes(lt));
@@ -734,43 +650,37 @@ body {
     setChk('chk-others', isOthers);
     if (isOthers) setText('f-other-specify', app.otherLeaveSpecify || app.other_leave_specify || '');
 
-    // ── Section 6.B Details ────────────────────────────
+    // ── 6B Details ───────────────────────────────────
     const isVL  = lt === 'leave_vl' || lt === 'leave_spl';
     const isSL  = lt === 'leave_sl';
-    const isWom = ['leave_women','special_leave_women'].includes(lt);
     const isStd = lt === 'leave_study';
 
-    setChk('chk-loc-ph',   isVL && !!app.locationPH);
-    setText('f-loc-ph',    app.locationPH || '');
-    setChk('chk-abroad',   isVL && !!app.locationAbroad);
+    setChk('chk-loc-ph',     isVL && !!app.locationPH);
+    setText('f-loc-ph',      app.locationPH || '');
+    setChk('chk-abroad',     isVL && !!app.locationAbroad);
     setText('f-abroad-spec', app.abroadSpecify || app.locationAbroad || '');
-
     setChk('chk-hospital',   isSL && !!app.sickHospital);
     setText('f-hospital-illness',  app.hospitalIllness || app.sickHospital || '');
     setChk('chk-outpatient', isSL && !!app.sickOutpatient);
     setText('f-outpatient-illness', app.outpatientIllness || app.sickOutpatient || '');
-
     setText('f-women-illness', app.womenIllness || '');
-
     setChk('chk-study-masters', isStd && !!app.studyMasters);
     setChk('chk-study-bar',     isStd && !!app.studyBar);
-
-    // Monetization / Terminal
     setChk('chk-monetize', !!(app.monetization));
     setChk('chk-terminal', !!(app.terminalLeave));
 
-    // ── Section 6.C Days + Dates ───────────────────────
+    // ── 6C Days + Dates ──────────────────────────────
     const nd = app.numDays || app.num_days || '';
     setText('f-num-days',  nd ? String(parseFloat(nd)) + ' day' + (parseFloat(nd) !== 1 ? 's' : '') : '');
     setText('f-date-from', fmtDate(app.dateFrom || app.date_from));
     setText('f-date-to',   fmtDate(app.dateTo   || app.date_to));
 
-    // ── Section 6.D Commutation ────────────────────────
+    // ── 6D Commutation ───────────────────────────────
     const comm = (app.commutation || '').toLowerCase();
     setChk('chk-comm-req', comm === 'requested');
     setChk('chk-comm-not', comm !== 'requested');
 
-    // ── Section 7.A Credits ────────────────────────────
+    // ── 7A Credits ───────────────────────────────────
     setText('f-credits-as-of', getLastDayOfPrevMonth());
     setText('f-vl-earned',  app.vlEarned  !== undefined ? app.vlEarned  : (app.vl_earned  || ''));
     setText('f-vl-less',    app.vlLess    !== undefined ? app.vlLess    : (app.vl_less    || ''));
@@ -779,31 +689,37 @@ body {
     setText('f-sl-less',    app.slLess    !== undefined ? app.slLess    : (app.sl_less    || ''));
     setText('f-sl-balance', app.slBalance !== undefined ? app.slBalance : (app.sl_balance || ''));
 
+    // ── Officer names from approval history ──────────
     const history = app.approvalHistory || app.approval_history || [];
     const hrEntry   = history.find(h => (h.portal||'').toUpperCase() === 'HR'   && h.action === 'approved');
     const asdsEntry = history.find(h => (h.portal||'').toUpperCase() === 'ASDS' && h.action === 'approved');
     const sdsEntry  = history.find(h => (h.portal||'').toUpperCase() === 'SDS'  && h.action === 'approved');
 
-    setText('f-hr-name',   app.authorizedOfficerName || (hrEntry   && hrEntry.approverName)   || 'MA. LUISA B. CATIGAN');
-    setText('f-asds-name', app.asdsOfficerName       || (asdsEntry && asdsEntry.approverName) || 'DONDY A. DEPOSITARIO, PhD');
-    setText('f-sds-name',  app.sdsOfficerName        || (sdsEntry  && sdsEntry.approverName)  || 'BERNIE L. LIBO-ON, PhD');
+    // Names: dynamic from approval history; designations are constant in HTML
+    setText('f-hr-name',   app.authorizedOfficerName || (hrEntry   && hrEntry.approverName)   || '');
+    setText('f-asds-name', app.asdsOfficerName       || (asdsEntry && asdsEntry.approverName) || '');
+    setText('f-sds-name',  app.sdsOfficerName        || (sdsEntry  && sdsEntry.approverName)  || '');
 
-    // ── Section 7.B Recommendation ────────────────────
+    // ── Signatures ───────────────────────────────────
+    setSig('sig-hr',   app.authorizedOfficerSignature || (hrEntry   && hrEntry.signature) || '');
+    setSig('sig-asds', app.asdsOfficerSignature       || (asdsEntry && asdsEntry.signature) || '');
+    setSig('sig-sds',  app.sdsOfficerSignature        || (sdsEntry  && sdsEntry.signature)  || '');
+
+    // ── 7B Recommendation ────────────────────────────
     const isApproved = app.status === 'approved';
     setChk('chk-rec-approval',    isApproved);
-    setChk('chk-rec-disapproval', !isApproved && (app.status === 'rejected' || app.status === 'disapproved'));
+    setChk('chk-rec-disapproval', !isApproved && ['rejected','disapproved'].includes(app.status));
     setText('f-rec-days', nd ? String(parseFloat(nd)) : '');
 
-    // ── Section 7.C/7.D ───────────────────────────────
+    // ── 7C/7D ────────────────────────────────────────
     if (isApproved) setText('f-days-pay', parseFloat(nd) || '');
     if (!isApproved) {
-        const lastAction = [...history].reverse().find(h => h.action === 'rejected' || h.action === 'returned');
+        const lastAction = [...history].reverse().find(h => ['rejected','returned'].includes(h.action));
         setText('f-disapproval-reason', (lastAction && lastAction.remarks) || '');
     }
 
-    // ── Page title ────────────────────────────────────
+    // ── Title ────────────────────────────────────────
     document.title = 'CS Form No. 6 – ' + (app.employeeName || app.employee_name || '') + ' – ' + fmtDate(app.dateOfFiling || app.date_of_filing);
-
 })();
 </script>
 </body>
