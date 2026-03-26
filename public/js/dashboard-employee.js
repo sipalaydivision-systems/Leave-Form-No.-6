@@ -1255,37 +1255,47 @@ function showProfileModal() {
         <option value="Assistant Schools Division Superintendent" data-sg="25">Assistant Schools Division Superintendent (SG-25)</option>
     </select>`;
 
-    const sectionTitle = (t) => `<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#888;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">${t}</div>`;
-    const grid = (inner) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">${inner}</div>`;
-    const span2 = (inner) => `<div style="grid-column:1/-1">${inner}</div>`;
-    const field = (lbl, el) => `<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#374151;display:block">${lbl}</label>${el}</div>`;
+    const sec = (t) => `<p style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#888;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">${t}</p>`;
+    const fg = (lbl, el) => `<div class="form-group"><label class="form-label">${lbl}</label>${el}</div>`;
+    const inp = (id, val, ph = '') => `<input class="form-input" id="${id}" style="width:100%" value="${val}"${ph ? ` placeholder="${ph}"` : ''}>`;
 
     const content = `
         <div style="margin-bottom:20px">
-            ${sectionTitle('Personal Information')}
-            ${grid(`
-                ${field('Last Name', `<input class="form-input" id="prof-lastName" style="width:100%" value="${escapeHtml(user.lastName || '')}">`)}
-                ${field('First Name', `<input class="form-input" id="prof-firstName" style="width:100%" value="${escapeHtml(user.firstName || '')}">`)}
-                ${field('Middle Name', `<input class="form-input" id="prof-middleName" style="width:100%" value="${escapeHtml(user.middleName || '')}">`)}
-                ${field('Suffix <span style="color:#9ca3af;font-weight:400">(optional)</span>', `<input class="form-input" id="prof-suffix" style="width:100%" value="${escapeHtml(user.suffix || '')}" placeholder="Jr., III, etc.">`)}
-            `)}
+            ${sec('Personal Information')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+                ${fg('Last Name', inp('prof-lastName', escapeHtml(user.lastName || '')))}
+                ${fg('First Name', inp('prof-firstName', escapeHtml(user.firstName || '')))}
+                ${fg('Middle Name', inp('prof-middleName', escapeHtml(user.middleName || '')))}
+                ${fg('Suffix <span style="color:#9ca3af;font-weight:400">(optional)</span>', inp('prof-suffix', escapeHtml(user.suffix || ''), 'Jr., III, etc.'))}
+            </div>
         </div>
-        <div style="margin-bottom:16px">
-            ${sectionTitle('Account')}
-            ${grid(`
-                ${span2(field('Email <span style="color:#9ca3af;font-weight:400">(cannot be changed)</span>', `<div class="form-input" style="width:100%;background:#f3f4f6;color:#6b7280;cursor:not-allowed">${escapeHtml(user.email)}</div>`))}
-                ${field('Employee No.', `<input class="form-input" id="prof-employeeNo" style="width:100%" value="${escapeHtml(user.employeeNo || user.employee_number || '')}">`)}
-            `)}
+        <div style="margin-bottom:20px">
+            ${sec('Account')}
+            <div class="form-group" style="margin-bottom:12px">
+                <label class="form-label">Email <span style="color:#9ca3af;font-weight:400">(cannot be changed)</span></label>
+                <div class="form-input" style="width:100%;background:#f3f4f6;color:#6b7280;cursor:not-allowed">${escapeHtml(user.email)}</div>
+            </div>
+            <div style="max-width:50%">
+                ${fg('Employee No.', inp('prof-employeeNo', escapeHtml(user.employeeNo || user.employee_number || '')))}
+            </div>
         </div>
         <div>
-            ${sectionTitle('Employment')}
-            ${grid(`
-                ${span2(field('Office / School', officeSelect))}
-                ${span2(field('Position', positionSelect))}
-                ${field('Salary Grade', `<input class="form-input" id="prof-salaryGrade" style="width:100%" value="${escapeHtml(user.salaryGrade || user.salary_grade || '')}">`)}
-                ${field('Step', `<input class="form-input" id="prof-step" style="width:100%" value="${escapeHtml(user.step || '')}">`)}
-                ${span2(field('Monthly Salary', `<input class="form-input" id="prof-salary" style="width:100%" value="${escapeHtml(user.salary || '')}">`))}
-            `)}
+            ${sec('Employment')}
+            <div class="form-group" style="margin-bottom:12px">
+                <label class="form-label">Office / School</label>
+                ${officeSelect}
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+                <label class="form-label">Position</label>
+                ${positionSelect}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin-bottom:12px">
+                ${fg('Salary Grade', inp('prof-salaryGrade', escapeHtml(user.salaryGrade || user.salary_grade || '')))}
+                ${fg('Step', inp('prof-step', escapeHtml(user.step || '')))}
+            </div>
+            <div style="max-width:50%">
+                ${fg('Monthly Salary', inp('prof-salary', escapeHtml(user.salary || '')))}
+            </div>
         </div>
     `;
 
