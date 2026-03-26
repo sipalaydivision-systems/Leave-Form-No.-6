@@ -2704,10 +2704,18 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
             return res.status(400).json({ success: false, error: 'Email is required' });
         }
 
-        // Auto-generate a secure temp password if none provided
+        // Auto-generate a temp password guaranteed to pass validation (letters+digits+special)
         if (!newPassword) {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
-            newPassword = Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            const upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+            const lower   = 'abcdefghjkmnpqrstuvwxyz';
+            const digits  = '23456789';
+            const special = '!@#$';
+            const all     = upper + lower + digits + special;
+            const rand    = (s) => s[Math.floor(Math.random() * s.length)];
+            const base    = Array.from({ length: 8 }, () => rand(all)).join('');
+            newPassword   = rand(upper) + rand(lower) + rand(digits) + rand(special) + base;
+            // Shuffle to avoid predictable prefix
+            newPassword = newPassword.split('').sort(() => Math.random() - 0.5).join('');
         }
 
         const passwordValidation = validatePortalPassword(newPassword);
