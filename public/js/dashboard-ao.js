@@ -10,7 +10,7 @@ import { createTabs } from '../components/tabs.js';
 import { createDataTable } from '../components/table.js';
 import { createBarChart, createDoughnutChart, destroyChart } from '../components/chart-wrapper.js';
 import { toast } from '../components/toast.js';
-import { openModal, closeModal, confirmModal } from '../components/modal.js';
+import { openModal, closeModal, closeAllModals, confirmModal } from '../components/modal.js';
 import { renderEmptyState } from '../components/empty-state.js';
 import { initLeaveCalendar } from './leave-calendar-shared.js';
 
@@ -656,7 +656,7 @@ function showApplicationDetail(appId) {
 // Listen for action events from detail modal
 document.addEventListener('ao-action', (e) => {
     const { id, action } = e.detail;
-    closeModal(); // Close detail modal
+    closeAllModals(); // Close detail modal before opening action modal
     showApprovalModal(id, action);
 });
 

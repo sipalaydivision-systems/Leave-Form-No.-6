@@ -686,7 +686,7 @@ async function showApplicationDetail(appId) {
     // Resubmit handler for returned apps
     if (status === 'returned') {
         window.__resubmitFromDetail = () => {
-            closeModal();
+            closeAllModals();
             showResubmitModal(app.id);
         };
     }
