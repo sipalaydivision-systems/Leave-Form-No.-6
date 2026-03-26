@@ -4409,6 +4409,11 @@ app.get('/api/application-details/:id', requireAuth(), (req, res) => {
     }
 });
 
+// Serve printable CS Form No. 6 view page
+app.get('/api/form-no6/:id', requireAuth(), (req, res) => {
+    res.redirect(`/form-no6-view.html?id=${encodeURIComponent(req.params.id)}`);
+});
+
 // ========== UPLOAD FILE SERVING ==========
 
 // Serve SO PDFs from disk

@@ -362,7 +362,7 @@ function renderDecidedTable() {
             { key: 'actions', label: '', render: (v, r) => {
                 let btns = `<button class="btn btn-ghost btn-sm btn-view" data-id="${esc(r.id)}">View</button>`;
                 if (r.status === 'approved') {
-                    btns += ` <button class="btn btn-primary btn-sm btn-download" data-id="${esc(r.id)}">Download PDF</button>`;
+                    btns += ` <button class="btn btn-primary btn-sm btn-download" data-id="${esc(r.id)}">View Form No. 6</button>`;
                 }
                 return `<div class="cell-actions">${btns}</div>`;
             }},
