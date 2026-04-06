@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Officer - CS Form No. 6</title>
+    <title>HR Portal - CS Form No. 6</title>
     <script src="/modal-alert.js"></script>
     <style>
         * {
@@ -720,7 +720,7 @@
                 <div id="loginMessage" class="message"></div>
                 
                 <div class="info-box">
-                    <strong>Admin Officer Portal:</strong> Only authorized Administrative Officers should login here to review and approve leave applications.
+                    <strong>HR Portal:</strong> Only authorized Human Resources personnel should login here to review and approve leave applications.
                 </div>
                 
                 <form onsubmit="handleAOLogin(event)">
@@ -740,23 +740,23 @@
                     </div>
                     
                     <button type="submit" class="btn btn-primary" id="loginBtn">
-                        <span>AO LOGIN</span>
+                        <span>HR LOGIN</span>
                         <div class="spinner"></div>
                     </button>
                 </form>
                 
                 <div class="toggle-mode">
                     <div><a href="#" onclick="openForgotPasswordModal(event)" style="color: #003366; text-decoration: none; font-size: 13px;">Forgot Password?</a></div>
-                    <div style="margin-top: 10px;">Don't have an AO account? <a onclick="switchTab('register')">Create one here</a></div>
+                    <div style="margin-top: 10px;">Don't have an HR account? <a onclick="switchTab('register')">Create one here</a></div>
                 </div>
             </div>
             
-            <!-- AO Registration Form -->
+            <!-- HR Registration Form -->
             <div id="registerForm" class="form-section">
                 <div id="registerMessage" class="message"></div>
-                
+
                 <div class="info-box">
-                    <strong>Create AO Account:</strong> Register a new Administrative Officer account to access the leave approval portal.
+                    <strong>Create HR Account:</strong> Register a new Human Resources account to access the leave approval portal.
                 </div>
                 
                 <form onsubmit="handleAORegister(event)">

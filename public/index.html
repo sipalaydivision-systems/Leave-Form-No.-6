@@ -224,43 +224,44 @@
 
         
         .employee .portal-button {
-            background: #003366;
+            background: #50DD24;
             transition: all 0.3s ease;
+            color: #1a1a1a;
         }
-        
+
         .employee .portal-button:hover {
-            background: #002244;
-            box-shadow: 0 6px 16px rgba(0, 51, 102, 0.3);
+            background: #3CB81A;
+            box-shadow: 0 6px 16px rgba(80, 221, 36, 0.3);
         }
-        
+
         .hr .portal-button {
-            background: #d32f2f;
+            background: #FF6B00;
             transition: all 0.3s ease;
         }
-        
+
         .hr .portal-button:hover {
-            background: #b71c1c;
-            box-shadow: 0 6px 16px rgba(211, 47, 47, 0.3);
+            background: #E65C00;
+            box-shadow: 0 6px 16px rgba(255, 107, 0, 0.3);
         }
-        
+
         .asds .portal-button {
-            background: #ff6f00;
+            background: #DC2626;
             transition: all 0.3s ease;
         }
-        
+
         .asds .portal-button:hover {
-            background: #e65100;
-            box-shadow: 0 6px 16px rgba(255, 111, 0, 0.3);
+            background: #B91C1C;
+            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
         }
-        
+
         .sds .portal-button {
-            background: #6a1b9a;
+            background: #2F4FDD;
             transition: all 0.3s ease;
         }
-        
+
         .sds .portal-button:hover {
-            background: #4a0e78;
-            box-shadow: 0 6px 16px rgba(106, 27, 154, 0.3);
+            background: #2340CC;
+            box-shadow: 0 6px 16px rgba(47, 79, 221, 0.3);
         }
         
         .ao .portal-button {
@@ -450,14 +451,14 @@
                 </div>
             </div>
             
-            <!-- Administrative Officer Portal -->
+            <!-- HR Portal (formerly AO) -->
             <div class="portal-card ao">
-                <div class="portal-icon">⚙️</div>
-                <div class="portal-title">Admin Officer Portal</div>
+                <div class="portal-icon">👥</div>
+                <div class="portal-title">HR Portal</div>
                 <div class="portal-description">
-                    Login as Administrative Officer to review and approve teacher leave applications. First level approval in the workflow.
+                    Login as Human Resources to review and approve leave applications. First level approval in the workflow.
                 </div>
-                <a href="/ao-login" class="portal-button">AO Login</a>
+                <a href="/ao-login" class="portal-button">HR Login</a>
                 <div class="features">
                     <div class="feature-item">Review Pending Applications</div>
                     <div class="feature-item">Approve/Reject Leave</div>
@@ -466,14 +467,14 @@
                 </div>
             </div>
             
-            <!-- HR Portal -->
+            <!-- Admin Officer V Portal (formerly HR) -->
             <div class="portal-card hr">
                 <div class="portal-icon">👨‍💼</div>
-                <div class="portal-title">HR Portal</div>
+                <div class="portal-title">Admin Officer V Portal</div>
                 <div class="portal-description">
-                    Login as HR staff to approve leave applications, manage leave credits, and process applications. Use Employee Portal to file leave.
+                    Login as Admin Officer V to approve leave applications, manage leave credits, and process applications. Use Employee Portal to file leave.
                 </div>
-                <a href="/hr-login" class="portal-button">HR Login</a>
+                <a href="/hr-login" class="portal-button">Admin V Login</a>
                 <div class="features">
                     <div class="feature-item">Approve Leave Applications</div>
                     <div class="feature-item">Manage Leave Credits</div>
@@ -489,7 +490,7 @@
                 <div class="portal-description">
                     Login as ASDS office staff to process and manage leave applications. Use Employee Portal to file leave.
                 </div>
-                <a href="/asds-login" class="portal-button" style="background: #ff6f00;">ASDS Login</a>
+                <a href="/asds-login" class="portal-button" style="background: #DC2626;">ASDS Login</a>
                 <div class="features">
                     <div class="feature-item">Process Leave Applications</div>
                     <div class="feature-item">Personnel Management</div>
@@ -505,7 +506,7 @@
                 <div class="portal-description">
                     Login as Schools Division Superintendent to review and approve leave applications. Use Employee Portal to file leave.
                 </div>
-                <a href="/sds-login" class="portal-button" style="background: #6a1b9a;">SDS Login</a>
+                <a href="/sds-login" class="portal-button" style="background: #2F4FDD;">SDS Login</a>
                 <div class="features">
                     <div class="feature-item">Review Leave Applications</div>
                     <div class="feature-item">Final Approvals</div>
@@ -517,7 +518,7 @@
         
         <div class="footer">
             <p><strong>Important:</strong> All staff members (Employees, HR, ASDS, and SDS) can file leave applications through the Employee Portal</p>
-            <p>Leave Approval Workflow: Employee → Admin Officer → HR → ASDS → SDS</p>
+            <p>Leave Approval Workflow: Employee → HR → Admin Officer V → ASDS → SDS</p>
             <p><strong>Note:</strong> All new registrations require IT Department approval before you can login</p>
             <p>For technical support, contact the IT Department</p>
         </div>

@@ -74,7 +74,7 @@ function setupSidebar() {
             name: user.name || user.fullName || 'Employee',
             role: 'Employee',
         },
-        roleColor: '#003366',
+        roleColor: '#50DD24',
         activeId: 'overview',
         sections: [
             {

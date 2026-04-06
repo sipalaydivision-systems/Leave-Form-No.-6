@@ -13,11 +13,11 @@
     --color-primary-100:    #b3cce0;
 
     /* ---- Role Colors ---- */
-    --color-role-employee:  #003366;
+    --color-role-employee:  #50DD24;
     --color-role-ao:        #1e3c72;
-    --color-role-hr:        #d32f2f;
-    --color-role-asds:      #ff6f00;
-    --color-role-sds:       #6a1b9a;
+    --color-role-hr:        #FF6B00;
+    --color-role-asds:      #DC2626;
+    --color-role-sds:       #2F4FDD;
     --color-role-it:        #283593;
 
     /* ---- Semantic Colors ---- */

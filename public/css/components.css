@@ -1073,11 +1073,11 @@
 }
 
 /* Role-specific hero gradients */
-.z-hero-employee { background: linear-gradient(135deg, #003366 0%, #0059b3 100%); }
+.z-hero-employee { background: linear-gradient(135deg, #3CB81A 0%, #50DD24 100%); }
 .z-hero-ao       { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
-.z-hero-hr       { background: linear-gradient(135deg, #b71c1c 0%, #e53935 100%); }
-.z-hero-asds     { background: linear-gradient(135deg, #e65100 0%, #ff8f00 100%); }
-.z-hero-sds      { background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%); }
+.z-hero-hr       { background: linear-gradient(135deg, #E65C00 0%, #FF8C00 100%); }
+.z-hero-asds     { background: linear-gradient(135deg, #B91C1C 0%, #EF4444 100%); }
+.z-hero-sds      { background: linear-gradient(135deg, #2F4FDD 0%, #4B6BFF 100%); }
 .z-hero-it       { background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%); }
 
 .z-hero-content {

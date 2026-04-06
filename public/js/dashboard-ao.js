@@ -80,8 +80,8 @@ function setupSidebar() {
     sidebar = initSidebar({
         el: '#sidebar',
         profile: {
-            name: user.name || user.fullName || 'Administrative Officer',
-            role: 'Administrative Officer',
+            name: user.name || user.fullName || 'HR Officer',
+            role: 'Human Resources',
         },
         roleColor: '#1e3c72',
         activeId: 'overview',

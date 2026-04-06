@@ -15,7 +15,7 @@ import {
 import { initLeaveCalendar } from './leave-calendar-shared.js';
 
 const PORTAL = 'SDS';
-const ROLE_COLOR = '#6a1b9a';
+const ROLE_COLOR = '#2F4FDD';
 
 let user = null;
 let sidebar = null;

@@ -76,10 +76,10 @@ function setupSidebar() {
     sidebar = initSidebar({
         el: '#sidebar',
         profile: {
-            name: user.name || user.fullName || 'HR Officer',
-            role: 'Human Resources',
+            name: user.name || user.fullName || 'Admin Officer V',
+            role: 'Admin Officer V',
         },
-        roleColor: '#d32f2f',
+        roleColor: '#FF6B00',
         activeId: 'overview',
         sections: [
             {
