@@ -1,5 +1,5 @@
 // Service Worker for SDO Sipalay Leave Management System
-const CACHE_NAME = 'leave-form-v17';
+const CACHE_NAME = 'leave-form-v18';
 
 // Core assets to pre-cache on install
 const PRECACHE_URLS = [

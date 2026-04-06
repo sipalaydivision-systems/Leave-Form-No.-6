@@ -59,7 +59,7 @@
         try { employee = JSON.parse(sessionStorage.getItem('employee')); } catch (e) { employee = null; }
 
         populateEmployeeInfo();
-        loadLeaveBalances();
+        await loadLeaveBalances();
         renderLeaveTypeOptions();
         setupLeaveTypeDropdown();
         setupConditionalPanels();
@@ -134,32 +134,54 @@
         el('field-date-filing-iso').value = yyyy + '-' + mm + '-' + dd;
     }
 
-    // ===== 2. Load Leave Balances =====
-    function loadLeaveBalances() {
-        const creditsStr = sessionStorage.getItem('leaveCredits');
-        const cardStr = sessionStorage.getItem('leaveCardData');
+    // ===== 2. Load Leave Balances — always fetched live from the database =====
+    async function loadLeaveBalances() {
+        const email = user.email || user.id || '';
+        try {
+            const [creditsRes, ctoRes] = await Promise.all([
+                fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+            ]);
 
-        if (creditsStr) {
-            try { leaveBalances = JSON.parse(creditsStr); } catch (e) { leaveBalances = {}; }
+            const c = creditsRes?.credits || {};
+            const ctoRecords = ctoRes?.records || [];
+
+            // Map API response to leaveBalances and leaveCardData for the rest of the form
+            leaveBalances = c;
+            leaveCardData = c;
+
+            const vlBalance  = parseFloat(c.vl ?? (parseFloat(c.vacationLeaveEarned || 0) - parseFloat(c.vacationLeaveSpent || 0))) || 0;
+            const slBalance  = parseFloat(c.sl ?? (parseFloat(c.sickLeaveEarned || 0) - parseFloat(c.sickLeaveSpent || 0))) || 0;
+            const flEarned   = parseFloat(c.forceLeaveEarned || c.mandatoryForced || 5);
+            const flSpent    = parseFloat(c.forceLeaveSpent || 0);
+            const splEarned  = parseFloat(c.splEarned || c.spl || 3);
+            const splSpent   = parseFloat(c.splSpent || 0);
+            const wlEarned   = parseFloat(c.wellnessEarned || 5);
+            const wlSpent    = parseFloat(c.wellnessSpent || 0);
+            const ctoBalance = ctoRecords.reduce((s, r) => s + Math.max(0, parseFloat(r.daysGranted || 0) - parseFloat(r.daysUsed || 0)), 0);
+
+            // Expose structured values used by the rest of the form
+            leaveBalances._vl  = vlBalance;
+            leaveBalances._sl  = slBalance;
+            leaveBalances._fl  = Math.max(0, flEarned - flSpent);
+            leaveBalances._spl = Math.max(0, splEarned - splSpent);
+            leaveBalances._wl  = Math.max(0, wlEarned - wlSpent);
+            leaveBalances._cto = ctoBalance;
+
+            // Keep leaveCardData fields that renderLeaveTypeOptions() reads
+            leaveCardData.forceLeaveSpent = flSpent;
+            leaveCardData.splSpent        = splSpent;
+            leaveCardData.wellnessSpent   = wlSpent;
+
+            setText('bal-vl',  vlBalance.toFixed(3));
+            setText('bal-sl',  slBalance.toFixed(3));
+            setText('bal-fl',  leaveBalances._fl.toFixed(0));
+            setText('bal-spl', leaveBalances._spl.toFixed(0));
+            setText('bal-wl',  leaveBalances._wl.toFixed(0));
+            setText('bal-cto', ctoBalance.toFixed(3));
+        } catch (err) {
+            console.error('[LEAVE FORM] Failed to load live balances:', err);
         }
-        if (cardStr) {
-            try { leaveCardData = JSON.parse(cardStr); } catch (e) { leaveCardData = {}; }
-        }
-
-        // Render balance chips
-        const vl = parseFloat(leaveBalances.vacationLeave) || 0;
-        const sl = parseFloat(leaveBalances.sickLeave) || 0;
-        const flSpent = leaveCardData.forceLeaveSpent || 0;
-        const splSpent = leaveCardData.splSpent || 0;
-        const wlSpent = leaveCardData.wellnessSpent || 0;
-        const ctoBalance = parseFloat(leaveBalances.othersBalance) || 0;
-
-        setText('bal-vl', vl.toFixed(1));
-        setText('bal-sl', sl.toFixed(1));
-        setText('bal-fl', Math.max(0, 5 - flSpent).toFixed(0));
-        setText('bal-spl', Math.max(0, 3 - splSpent).toFixed(0));
-        setText('bal-wl', Math.max(0, 3 - wlSpent).toFixed(0));
-        setText('bal-cto', ctoBalance.toFixed(1));
     }
 
     // ===== 3. Leave Type Dropdown =====
@@ -689,8 +711,8 @@
         const canvas = document.getElementById('signaturePad');
         const signatureData = canvas.toDataURL('image/png');
 
-        const vlEarned = parseFloat(leaveBalances.vacationLeave) || 0;
-        const slEarned = parseFloat(leaveBalances.sickLeave) || 0;
+        const vlEarned = parseFloat(leaveBalances.vacationLeaveEarned || leaveBalances.vl || leaveBalances._vl) || 0;
+        const slEarned = parseFloat(leaveBalances.sickLeaveEarned || leaveBalances.sl || leaveBalances._sl) || 0;
 
         const applicationData = {
             employeeEmail: user.email,
