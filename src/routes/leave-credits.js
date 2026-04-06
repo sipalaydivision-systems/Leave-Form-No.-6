@@ -25,6 +25,8 @@ const {
 // ---------------------------------------------------------------------------
 // GET /api/leave-credits — Get leave balance for an employee
 // ---------------------------------------------------------------------------
+// GET /api/leave-credits — fetch live leave balance (lazy-loaded per request)
+// ---------------------------------------------------------------------------
 router.get('/api/leave-credits', requireAuth(), (req, res) => {
     try {
         const employeeId = req.query.employeeId;
@@ -32,39 +34,20 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
 
-        // SECURITY: Only allow access to own leave credits unless admin role
         if (!isSelfOrAdmin(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
-        // AO school-based filtering
         if (!isAoAccessAllowed(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
-        const leavecards = readJSON(leavecardsFile);
-        // Normalize name for comparison: NFC first so Ñ/ñ (NFD) matches precomposed form
-        const normName = (s) => (s || '').normalize('NFC').toUpperCase().replace(/\s+/g, ' ').trim();
-        const emailLower = (employeeId || '').toLowerCase();
+        // Lazy-load: one file read for this request via the repository
+        const { repos } = require('../data/repositories');
+        const { leavecards } = repos();
+        const latestRecord = leavecards.findByEmail(employeeId);
 
-        // Find all records for this employee — by email (case-insensitive), employeeId, name, or employee number
-        let employeeRecords = leavecards.filter(lc =>
-            (lc.employeeId || '').toLowerCase() === emailLower ||
-            (lc.email || '').toLowerCase() === emailLower
-        );
-
-        // Fallback: if not found by email, try matching by name (for unlinked Excel-migrated cards)
-        if (employeeRecords.length === 0) {
-            const normalizedId = normName(employeeId);
-            employeeRecords = leavecards.filter(lc => normName(lc.name) === normalizedId);
-        }
-
-        // Fallback: try matching by employee number
-        if (employeeRecords.length === 0) {
-            employeeRecords = leavecards.filter(lc => lc.employeeNo && lc.employeeNo === employeeId);
-        }
-
-        if (employeeRecords.length === 0) {
+        if (!latestRecord) {
             // Return default leave credits (0 until monthly accrual adds credits)
             return res.json({
                 success: true,
@@ -87,9 +70,6 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
                 }
             });
         }
-
-        // Get the latest record (most recent based on updatedAt or createdAt)
-        const latestRecord = getLatestLeaveCard(employeeRecords);
 
         const currentYear = new Date().getFullYear();
 
@@ -123,20 +103,10 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
             needsPersist = true;
         }
 
-        // Persist year reset to disk so submit-leave validation reads correct values
+        // Persist year reset via the same repository instance (no second file read)
         if (needsPersist) {
-            const allCards = readJSON(leavecardsFile);
-            const cardIdx = allCards.findIndex(lc => lc.email === latestRecord.email || lc.employeeId === latestRecord.employeeId);
-            if (cardIdx !== -1) {
-                allCards[cardIdx].forceLeaveSpent = 0;
-                allCards[cardIdx].forceLeaveYear = currentYear;
-                allCards[cardIdx].splSpent = 0;
-                allCards[cardIdx].splYear = currentYear;
-                allCards[cardIdx].wellnessSpent = 0;
-                allCards[cardIdx].wellnessYear = currentYear;
-                writeJSON(leavecardsFile, allCards);
-                console.log(`[LEAVE-CREDITS] Year reset persisted for ${latestRecord.email}: FL/SPL/WL spent reset to 0 for ${currentYear}`);
-            }
+            leavecards.save(latestRecord);
+            console.log(`[LEAVE-CREDITS] Year reset persisted for ${latestRecord.email}: FL/SPL/WL spent reset to 0 for ${currentYear}`);
         }
 
         // Single source of truth: vl/sl summary fields

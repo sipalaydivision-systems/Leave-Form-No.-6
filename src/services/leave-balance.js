@@ -5,6 +5,18 @@
  * an employee has available live here.  Extracted from server.js so the
  * logic can be unit-tested and reused from multiple route handlers
  * without duplication.
+ *
+ * ARCHITECTURE — single source of truth, lazy-loaded:
+ *   Pure core functions accept data as parameters (no I/O, fully testable).
+ *   Legacy wrapper functions (prefixed with no underscore, kept for backward
+ *   compatibility) read from disk if called without data arguments.
+ *   New route handlers should use the repository layer instead:
+ *
+ *     const { repos } = require('../data/repositories');
+ *     const { leavecards, applications, cto } = repos();
+ *     const card     = leavecards.findByEmail(email);
+ *     const activeApps = applications.findActiveByEmail(email);
+ *     const balance  = calculateEffectiveBalance(email, card, activeApps);
  */
 
 const crypto = require('crypto');
@@ -13,8 +25,8 @@ const { ensureFile, readJSON, readJSONArray, writeJSON } = require('../data/json
 const { MONTH_NAMES } = require('../data/models');
 
 // ---------------------------------------------------------------------------
-// Data-file paths — mirrors the canonical paths defined in server.js.
-// Consumers that need a different dataDir can call `configure()`.
+// Data-file paths — used only by the legacy wrapper functions below.
+// New code should use repos() instead of reading files directly.
 // ---------------------------------------------------------------------------
 
 const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH
@@ -52,103 +64,111 @@ function getReflectedAppIds(leaveCard) {
 // ---------------------------------------------------------------------------
 
 /**
- * Calculate effective VL/SL balance after deducting pending/approved
+ * Calculate effective VL/SL/FL/SPL/WL balance after deducting pending/approved
  * applications that haven't been recorded on the leave card yet.
+ *
+ * PURE CORE — accepts pre-loaded data; performs no I/O.
  *
  * @param {string}      employeeEmail - Employee email.
  * @param {object|null} leaveCard     - The employee's leave card (or null).
+ * @param {Array}       activeApps    - Pending/approved applications for this employee.
  * @param {string|null} excludeAppId  - Application ID to exclude (for resubmissions).
- * @returns {{ vlBalance: number, slBalance: number, forceSpent: number, splSpent: number, ctoBalance: number, hasCard: boolean }}
+ * @returns {{ vlBalance, slBalance, forceSpent, splSpent, wellnessSpent, hasCard }}
  */
-function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
-    const result = { vlBalance: 0, slBalance: 0, forceSpent: 0, splSpent: 0, wellnessSpent: 0, ctoBalance: 0, hasCard: false };
+function calculateEffectiveBalance(employeeEmail, leaveCard, activeApps, excludeAppId) {
+    // Backward-compat: if called with (email, card, excludeAppId) — old 3-arg signature
+    if (!Array.isArray(activeApps)) {
+        excludeAppId = activeApps;
+        activeApps = readJSONArray(applicationsFile).filter(a =>
+            (a.employeeEmail === employeeEmail || a.email === employeeEmail) &&
+            (a.status === 'pending' || a.status === 'approved')
+        );
+    }
 
+    const result = { vlBalance: 0, slBalance: 0, forceSpent: 0, splSpent: 0, wellnessSpent: 0, hasCard: false };
     if (!leaveCard) return result;
     result.hasCard = true;
 
-    // VL/SL from summary fields (single source of truth)
+    // VL/SL from summary fields (single source of truth in leavecards.json)
     let vl = (leaveCard.vl !== undefined) ? leaveCard.vl : null;
     let sl = (leaveCard.sl !== undefined) ? leaveCard.sl : null;
-    // Fallback for legacy cards
     if (vl === null) vl = Math.max(0, (leaveCard.vacationLeaveEarned || 0) - (leaveCard.vacationLeaveSpent || 0));
     if (sl === null) sl = Math.max(0, (leaveCard.sickLeaveEarned || 0) - (leaveCard.sickLeaveSpent || 0));
 
-    result.forceSpent = leaveCard.forceLeaveSpent || 0;
-    result.splSpent = leaveCard.splSpent || 0;
+    result.forceSpent   = leaveCard.forceLeaveSpent || 0;
+    result.splSpent     = leaveCard.splSpent || 0;
     result.wellnessSpent = leaveCard.wellnessSpent || 0;
 
-    // Deduct pending/approved applications not yet reflected in leave card
-    const allApps = readJSONArray(applicationsFile);
     const reflected = getReflectedAppIds(leaveCard);
-    let pendingForceSpent = 0, pendingSplSpent = 0, pendingWellnessSpent = 0;
+    let pendingForce = 0, pendingSpl = 0, pendingWellness = 0;
 
-    allApps.forEach(app => {
-        if (excludeAppId && app.id === excludeAppId) return;
-        if (reflected.has(app.id)) return;
-        if (app.employeeEmail !== employeeEmail && app.email !== employeeEmail) return;
-        if (app.status !== 'pending' && app.status !== 'approved') return;
+    for (const app of activeApps) {
+        if (excludeAppId && app.id === excludeAppId) continue;
+        if (reflected.has(app.id)) continue;
         const days = parseFloat(app.numDays) || 0;
-        if (days <= 0) return;
+        if (days <= 0) continue;
         const type = (app.leaveType || '').toLowerCase();
-        if (type.includes('vl') || type.includes('vacation')) vl = Math.max(0, vl - days);
-        else if (type.includes('sl') || type.includes('sick')) sl = Math.max(0, sl - days);
-        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) { pendingForceSpent += days; vl = Math.max(0, vl - days); }
-        else if (type.includes('spl') || type.includes('special')) pendingSplSpent += days;
-        else if (type.includes('wellness') || type === 'leave_wl') pendingWellnessSpent += days;
-    });
+        if      (type.includes('vl') || type.includes('vacation'))                                vl = Math.max(0, vl - days);
+        else if (type.includes('sl') || type.includes('sick'))                                    sl = Math.max(0, sl - days);
+        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) { pendingForce += days; vl = Math.max(0, vl - days); }
+        else if (type.includes('spl') || type.includes('special'))                               pendingSpl += days;
+        else if (type.includes('wellness') || type === 'leave_wl')                               pendingWellness += days;
+    }
 
-    result.vlBalance = vl;
-    result.slBalance = sl;
-    result.forceSpent += pendingForceSpent;
-    result.splSpent += pendingSplSpent;
-    result.wellnessSpent += pendingWellnessSpent;
-
+    result.vlBalance     = vl;
+    result.slBalance     = sl;
+    result.forceSpent   += pendingForce;
+    result.splSpent     += pendingSpl;
+    result.wellnessSpent += pendingWellness;
     return result;
 }
 
 /**
  * Calculate CTO balance after deducting pending/approved CTO applications.
  *
+ * PURE CORE — accepts pre-loaded data; performs no I/O.
+ *
  * @param {string}      employeeEmail - Employee email.
  * @param {object|null} leaveCard     - Optional; used for reflected IDs.
+ * @param {Array}       ctoRecords    - All CTO records for this employee.
+ * @param {Array}       activeApps    - Pending/approved applications for this employee.
  * @param {string|null} excludeAppId  - Application ID to exclude.
  * @returns {number} Effective CTO balance.
  */
-function calculateCtoBalance(employeeEmail, leaveCard, excludeAppId) {
-    ensureFile(ctoRecordsFile);
-    const ctoRecords = readJSON(ctoRecordsFile);
-    const emailLc = (employeeEmail || '').toLowerCase();
-    const empRecords = ctoRecords.filter(r =>
-        (r.employeeId || '').toLowerCase() === emailLc ||
-        (r.email || '').toLowerCase() === emailLc
-    );
-    let balance = 0;
-    empRecords.forEach(rec => { balance += (parseFloat(rec.daysGranted) || 0) - (parseFloat(rec.daysUsed) || 0); });
-    balance = Math.max(0, balance);
-
-    // Build reflected IDs from both CTO records and leave card
-    const reflectedIds = new Set();
-    empRecords.forEach(rec => {
-        if (rec.applicationIds && Array.isArray(rec.applicationIds)) {
-            rec.applicationIds.forEach(id => reflectedIds.add(id));
-        }
-    });
-    if (leaveCard) {
-        const lcIds = getReflectedAppIds(leaveCard);
-        lcIds.forEach(id => reflectedIds.add(id));
+function calculateCtoBalance(employeeEmail, leaveCard, ctoRecords, activeApps, excludeAppId) {
+    // Backward-compat: old signature was (email, leaveCard, excludeAppId)
+    if (!Array.isArray(ctoRecords)) {
+        excludeAppId = ctoRecords;
+        ensureFile(ctoRecordsFile);
+        const emailLc = (employeeEmail || '').toLowerCase();
+        ctoRecords = readJSON(ctoRecordsFile).filter(r =>
+            (r.employeeId || '').toLowerCase() === emailLc ||
+            (r.email || '').toLowerCase() === emailLc
+        );
+        activeApps = readJSONArray(applicationsFile).filter(a =>
+            (a.employeeEmail === employeeEmail || a.email === employeeEmail) &&
+            (a.status === 'pending' || a.status === 'approved')
+        );
     }
 
-    const allApps = readJSONArray(applicationsFile);
-    allApps.forEach(app => {
-        if (excludeAppId && app.id === excludeAppId) return;
-        if (reflectedIds.has(app.id)) return;
-        if (app.employeeEmail !== employeeEmail && app.email !== employeeEmail) return;
-        if (app.status !== 'pending' && app.status !== 'approved') return;
+    let balance = (ctoRecords || []).reduce(
+        (s, r) => s + Math.max(0, parseFloat(r.daysGranted || 0) - parseFloat(r.daysUsed || 0)), 0
+    );
+
+    const reflectedIds = new Set();
+    (ctoRecords || []).forEach(r => {
+        (r.applicationIds || []).forEach(id => reflectedIds.add(id));
+    });
+    if (leaveCard) getReflectedAppIds(leaveCard).forEach(id => reflectedIds.add(id));
+
+    for (const app of (activeApps || [])) {
+        if (excludeAppId && app.id === excludeAppId) continue;
+        if (reflectedIds.has(app.id)) continue;
         const type = (app.leaveType || '').toLowerCase();
         if (type.includes('others') || type.includes('cto')) {
             balance = Math.max(0, balance - (parseFloat(app.numDays) || 0));
         }
-    });
+    }
 
     return balance;
 }
@@ -178,21 +198,41 @@ function getLatestLeaveCard(records) {
  * Validate that an employee has sufficient leave balance for the
  * requested leave type and number of days.
  *
+ * PURE CORE when called with 6 arguments — all data passed in, no I/O.
+ * Falls back to reading from disk when called with the old 4-argument signature.
+ *
  * @param {string}      leaveType     - Leave type code (e.g. `'leave_vl'`).
  * @param {number}      numDays       - Requested number of days.
  * @param {string}      employeeEmail - Employee email.
- * @param {string|null} excludeAppId  - App ID to skip (for resubmissions).
+ * @param {object|null} leaveCard     - Pre-loaded leave card (or null). Pass string for legacy mode.
+ * @param {Array}       [activeApps]  - Pending/approved apps for this employee.
+ * @param {Array}       [ctoRecords]  - CTO records for this employee.
+ * @param {string|null} [excludeAppId]
  * @returns {{ valid: boolean, error?: string, message?: string }}
  */
-function validateLeaveBalance(leaveType, numDays, employeeEmail, excludeAppId) {
-    const leavecards = readJSON(leavecardsFile);
-    const leaveCard = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
+function validateLeaveBalance(leaveType, numDays, employeeEmail, leaveCard, activeApps, ctoRecords, excludeAppId) {
+    // Backward-compat: old signature was (leaveType, numDays, employeeEmail, excludeAppId)
+    if (typeof leaveCard === 'string' || leaveCard === undefined || (arguments.length <= 4 && !Array.isArray(activeApps))) {
+        excludeAppId = leaveCard; // 4th arg was excludeAppId in old signature
+        const leavecards = readJSON(leavecardsFile);
+        leaveCard = leavecards.find(lc => lc.email === employeeEmail || lc.employeeId === employeeEmail);
+        const emailLc = (employeeEmail || '').toLowerCase();
+        activeApps = readJSONArray(applicationsFile).filter(a =>
+            (a.employeeEmail === employeeEmail || a.email === employeeEmail) &&
+            (a.status === 'pending' || a.status === 'approved')
+        );
+        ctoRecords = readJSON(ctoRecordsFile).filter(r =>
+            (r.employeeId || '').toLowerCase() === emailLc ||
+            (r.email || '').toLowerCase() === emailLc
+        );
+    }
 
+    // All balance checks now use pre-loaded data — zero additional file reads
     if (leaveType === 'leave_vl' || leaveType === 'leave_sl') {
         if (!leaveCard) {
-            return { valid: false, error: 'No leave card found', message: 'You do not have a leave card on file. Please contact the Administrative Officer to create your leave card before applying for leave.' };
+            return { valid: false, error: 'No leave card found', message: 'You do not have a leave card on file. Please contact the HR to create your leave card before applying for leave.' };
         }
-        const bal = calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId);
+        const bal = calculateEffectiveBalance(employeeEmail, leaveCard, activeApps, excludeAppId);
         if (leaveType === 'leave_vl' && numDays > bal.vlBalance) {
             console.log(`[VALIDATION] VL rejected for ${employeeEmail}: Requested ${numDays} but only ${bal.vlBalance.toFixed(3)} available`);
             return { valid: false, error: 'Insufficient Vacation Leave balance', message: `You cannot apply for ${numDays} day(s) of Vacation Leave. Your current balance is ${bal.vlBalance.toFixed(3)} day(s). The leave card balance cannot go negative.` };
@@ -205,7 +245,7 @@ function validateLeaveBalance(leaveType, numDays, employeeEmail, excludeAppId) {
     }
 
     if (leaveType === 'leave_mfl' || leaveType === 'leave_spl' || leaveType === 'leave_wl' || leaveType === 'leave_wellness' || leaveType === 'wellness') {
-        const bal = calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId);
+        const bal = calculateEffectiveBalance(employeeEmail, leaveCard, activeApps, excludeAppId);
         if (leaveType === 'leave_mfl') {
             if ((bal.forceSpent + numDays) > 5) {
                 const remaining = Math.max(0, 5 - bal.forceSpent);
@@ -240,7 +280,7 @@ function validateLeaveBalance(leaveType, numDays, employeeEmail, excludeAppId) {
 
     if (leaveType === 'leave_others') {
         try {
-            const ctoBalance = calculateCtoBalance(employeeEmail, leaveCard, excludeAppId);
+            const ctoBalance = calculateCtoBalance(employeeEmail, leaveCard, ctoRecords, activeApps, excludeAppId);
             if (ctoBalance <= 0) {
                 console.log(`[VALIDATION] CTO rejected for ${employeeEmail}: No CTO records (balance is 0)`);
                 return { valid: false, error: 'No CTO balance available', message: 'You do not have any CTO (Compensatory Time-Off) balance. Please ensure a Special Order has been filed and CTO days have been granted before applying.' };
