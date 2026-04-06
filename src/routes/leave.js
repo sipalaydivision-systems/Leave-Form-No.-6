@@ -14,6 +14,7 @@ const { requireAuth } = require('../middleware/auth');
 const { readJSON, readJSONArray, writeJSON, ensureFile } = require('../data/json-store');
 const { dataDir } = require('../config');
 const { validateLeaveBalance, getLatestLeaveCard, normalizeLeaveCardTransactions } = require('../services/leave-balance');
+const { repos } = require('../data/repositories');
 const { isValidDate } = require('../utils/validation');
 const { parseFullNameIntoParts } = require('../utils/name-parser');
 const {
@@ -985,8 +986,8 @@ function updateEmployeeLeaveBalance(application) {
 
 function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
     try {
-        const leavecards = readJSON(leavecardsFile);
-        let leavecard = leavecards.find(lc => lc.email === application.employeeEmail || lc.employeeId === application.employeeEmail);
+        const { leavecards: lcRepo, cto: ctoRepo } = repos();
+        let leavecard = lcRepo.findByEmail(application.employeeEmail);
         const currentYear = new Date().getFullYear();
 
         if (!leavecard) {
@@ -1011,7 +1012,7 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
                 leaveUsageHistory: [],
                 createdAt: new Date().toISOString()
             };
-            leavecards.push(leavecard);
+            // new card — repo.save() will insert it
         }
 
         // Initialize earned values if not present (for existing cards without these fields)
@@ -1102,25 +1103,22 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
             leaveType = 'CTO';
             daysUsed = ctoUsed;
             try {
-                ensureFile(ctoRecordsFile);
-                const ctoRecords = readJSON(ctoRecordsFile);
-                const empCtoRecords = ctoRecords.filter(r => r.employeeId === application.employeeEmail);
+                const empCtoRecords = ctoRepo.findByEmployee(application.employeeEmail);
                 if (empCtoRecords.length > 0) {
-                    // Find the most recent CTO record with remaining balance
+                    // Deduct from most-recent records first, working backwards
                     let remaining = ctoUsed;
                     for (let i = empCtoRecords.length - 1; i >= 0 && remaining > 0; i--) {
                         const rec = empCtoRecords[i];
-                        const recIndex = ctoRecords.indexOf(rec);
                         const granted = parseFloat(rec.daysGranted) || 0;
                         const used = parseFloat(rec.daysUsed) || 0;
                         const available = granted - used;
                         if (available > 0) {
                             const deduct = Math.min(remaining, available);
-                            ctoRecords[recIndex].daysUsed = (used + deduct);
+                            rec.daysUsed = used + deduct;
                             remaining -= deduct;
+                            ctoRepo.save(rec);  // repo handles write per updated record
                         }
                     }
-                    writeJSON(ctoRecordsFile, ctoRecords);
                     console.log(`[LEAVECARD] Deducted ${ctoUsed} CTO days from records for ${application.employeeEmail}`);
                 }
             } catch (ctoErr) {
@@ -1172,13 +1170,7 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
 
         leavecard.updatedAt = new Date().toISOString();
 
-        // Find and update the leavecard entry
-        const lcIndex = leavecards.findIndex(lc => lc.email === application.employeeEmail || lc.employeeId === application.employeeEmail);
-        if (lcIndex !== -1) {
-            leavecards[lcIndex] = leavecard;
-        }
-
-        writeJSON(leavecardsFile, leavecards);
+        lcRepo.save(leavecard);
         console.log(`[LEAVECARD] Updated leave card for ${application.employeeEmail}: VL Balance=${leavecard.vl}, SL Balance=${leavecard.sl}, Force Spent=${leavecard.forceLeaveSpent}, SPL Spent=${leavecard.splSpent}, Year=${currentYear}`);
     } catch (error) {
         console.error('Error updating leave card:', error);
