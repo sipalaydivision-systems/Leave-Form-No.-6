@@ -510,4 +510,65 @@ router.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => 
     }
 });
 
+// ---------------------------------------------------------------------------
+// DELETE /api/leave-credits/transaction/:txId — Remove one transaction by ID
+// ---------------------------------------------------------------------------
+router.delete('/api/leave-credits/transaction/:txId', requireAuth('ao', 'it'), (req, res) => {
+    try {
+        const { txId } = req.params;
+        const employeeId = req.query.employeeId;
+        if (!employeeId) return res.status(400).json({ success: false, error: 'employeeId required' });
+        if (!isSelfOrAdmin(req, employeeId)) return res.status(403).json({ success: false, error: 'Access denied' });
+
+        const leavecards = readJSON(leavecardsFile);
+        const idx = leavecards.findIndex(lc => lc.email === employeeId || lc.employeeId === employeeId);
+        if (idx === -1) return res.status(404).json({ success: false, error: 'Leave card not found' });
+
+        const card = leavecards[idx];
+        const before = (card.transactions || []).length;
+        card.transactions = (card.transactions || []).filter(t => t.id !== txId);
+        if (card.transactions.length === before) {
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+
+        // Recalculate running balances from the remaining transactions
+        if (card.transactions.length > 0) {
+            const normalized = normalizeLeaveCardTransactions(card.transactions);
+            card.transactions = normalized.transactions;
+            const s = normalized.summary;
+            card.vacationLeaveEarned = s.vacationLeaveEarned;
+            card.sickLeaveEarned     = s.sickLeaveEarned;
+            card.vacationLeaveSpent  = s.vacationLeaveSpent;
+            card.sickLeaveSpent      = s.sickLeaveSpent;
+            card.vl = s.vl;
+            card.sl = s.sl;
+        } else {
+            // All transactions removed — zero out summary fields
+            card.vacationLeaveEarned = 0;
+            card.sickLeaveEarned = 0;
+            card.vacationLeaveSpent = 0;
+            card.sickLeaveSpent = 0;
+            card.vl = 0;
+            card.sl = 0;
+        }
+
+        card.updatedAt = new Date().toISOString();
+        leavecards[idx] = card;
+        writeJSON(leavecardsFile, leavecards);
+
+        logActivity('LEAVE_TRANSACTION_DELETED', 'ao', {
+            userEmail: req.session.email,
+            employeeId,
+            transactionId: txId,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent'),
+        });
+
+        res.json({ success: true, message: 'Transaction deleted and balances recalculated', leavecard: card });
+    } catch (error) {
+        console.error('[DELETE TX] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

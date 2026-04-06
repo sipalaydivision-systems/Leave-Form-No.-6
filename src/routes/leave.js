@@ -960,16 +960,26 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
 // ---------------------------------------------------------------------------
 
 /**
- * Update employee leave balance after SDS final approval.
- * YAGNI/S8 fix: Removed dead `leaveCredits` field from employees.json.
- * The single source of truth for balances is leavecards.json (vl/sl fields).
+ * Auto-deduct leave balance from leavecards.json after SDS final approval.
+ * Determines VL/SL used from the application leaveType and numDays, then
+ * delegates to updateLeaveCardWithUsage() for all leave types.
  */
 function updateEmployeeLeaveBalance(application) {
     try {
-        const leaveType = application.typeOfLeave || application.leaveType || '';
-        console.log(`[LEAVE] Auto leave-card update skipped for ${application.employeeEmail} (${leaveType}). AO manual encoding is required.`);
+        const lt = (application.typeOfLeave || application.leaveType || '').toLowerCase();
+        const days = parseFloat(application.numDays) || 0;
+
+        // Route VL/SL days into the correct parameter slots;
+        // force/SPL/wellness/others are detected by leaveType inside updateLeaveCardWithUsage
+        let vlUsed = 0;
+        let slUsed = 0;
+        if (lt === 'leave_vl' || lt === 'vacation') vlUsed = days;
+        else if (lt === 'leave_sl' || lt === 'sick') slUsed = days;
+        // Force / SPL / Wellness / Others — updateLeaveCardWithUsage handles these internally
+
+        updateLeaveCardWithUsage(application, vlUsed, slUsed);
     } catch (error) {
-        console.error('Error updating leave balance:', error);
+        console.error('Error auto-updating leave balance on SDS approval:', error);
     }
 }
 
@@ -1042,22 +1052,27 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         let daysUsed = 0;
         let forceLeaveUsed = 0;
         let splUsed = 0;
+        let wellnessUsed = 0;
 
         if (application.typeOfLeave || application.leaveType) {
-            const lType = application.typeOfLeave || application.leaveType;
-            if (lType === 'leave_mfl' || String(lType).toLowerCase().includes('force')) {
+            const lType = String(application.typeOfLeave || application.leaveType).toLowerCase();
+            if (lType === 'leave_mfl' || lType.includes('force')) {
                 leaveType = 'Force Leave';
                 daysUsed = parseFloat(application.numDays) || parseFloat(application.forceLeaveCount) || parseFloat(application.daysApplied) || 1;
                 forceLeaveUsed = daysUsed;
-            } else if (lType === 'leave_spl' || String(lType).toLowerCase().includes('special')) {
+            } else if (lType === 'leave_spl' || lType.includes('special privilege')) {
                 leaveType = 'Special Privilege Leave';
                 daysUsed = parseFloat(application.numDays) || parseFloat(application.splCount) || parseFloat(application.daysApplied) || 1;
                 splUsed = daysUsed;
+            } else if (lType === 'leave_wl' || lType === 'leave_wellness' || lType === 'wellness') {
+                leaveType = 'Wellness Leave';
+                daysUsed = parseFloat(application.numDays) || parseFloat(application.daysApplied) || 1;
+                wellnessUsed = daysUsed;
             }
         }
 
         // If no specific leave type matched, use VL/SL
-        if (!forceLeaveUsed && !splUsed) {
+        if (!forceLeaveUsed && !splUsed && !wellnessUsed) {
             if (vlUsed > 0) {
                 leaveType = 'Vacation Leave';
                 daysUsed = vlUsed;
@@ -1074,6 +1089,13 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
             // Do NOT deduct from leavecard.vl or vacationLeaveSpent
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
+        } else if (wellnessUsed > 0) {
+            if (!leavecard.wellnessYear) leavecard.wellnessYear = currentYear;
+            if (leavecard.wellnessYear !== currentYear) {
+                leavecard.wellnessSpent = 0;
+                leavecard.wellnessYear = currentYear;
+            }
+            leavecard.wellnessSpent = (leavecard.wellnessSpent || 0) + wellnessUsed;
         } else if (application.leaveType === 'leave_others' || String(application.leaveType || '').toLowerCase().includes('others')) {
             // CTO/Others leave - deduct from CTO records
             const ctoUsed = parseFloat(application.numDays) || parseFloat(application.daysApplied) || 1;

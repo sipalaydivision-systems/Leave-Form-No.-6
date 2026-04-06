@@ -484,14 +484,77 @@ function bindTableActions(selector) {
 // ---------------------------------------------------------------------------
 // Approval Modal
 // ---------------------------------------------------------------------------
-function showApprovalModal(appId, action) {
+async function showApprovalModal(appId, action) {
     const app = allApplications.find(a => a.id === appId);
     if (!app) { toast.warning('Application not found.'); return; }
 
-    const actionLabel = action === 'approved' ? 'Approve' : action === 'returned' ? 'Return' : 'Reject';
+    const actionLabel = action === 'approved' ? 'Approve & Forward to HR' : action === 'returned' ? 'Return' : 'Reject';
     const actionClass = action === 'approved' ? 'btn-success' : action === 'returned' ? 'btn-warning' : 'btn-danger';
     const employee = app.employeeName || app.employee_name || app.employeeEmail || '';
     const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
+    const email = app.employeeEmail || app.employee_email || '';
+
+    // Fetch live leave balances
+    let balanceHtml = '';
+    if (email) {
+        const [creditsRes, ctoRes] = await Promise.all([
+            fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        const credits = creditsRes?.credits || {};
+        const ctoRecords = ctoRes?.records || [];
+        const ctoBalance = ctoRecords.reduce((s, r) => s + toNum(toNum(r.daysGranted) - toNum(r.daysUsed)), 0);
+
+        const vlEarned = toNum(credits.vacationLeaveEarned);
+        const vlSpent  = toNum(credits.vacationLeaveSpent);
+        const slEarned = toNum(credits.sickLeaveEarned);
+        const slSpent  = toNum(credits.sickLeaveSpent);
+        const splEarned = toNum(credits.splEarned || credits.spl || 3);
+        const splSpent  = toNum(credits.splSpent);
+        const flEarned  = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
+        const flSpent   = toNum(credits.forceLeaveSpent);
+        const wlEarned  = toNum(credits.wellnessEarned || 5);
+        const wlSpent   = toNum(credits.wellnessSpent);
+
+        if (creditsRes) {
+            balanceHtml = `
+            <div class="card" style="margin-bottom:var(--space-4)">
+                <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">Leave Credits (Live)</h4></div>
+                <div class="card-body">
+                    <div class="cert-grid">
+                        <div class="cert-grid-header"></div>
+                        <div class="cert-grid-header">Earned</div>
+                        <div class="cert-grid-header">Less</div>
+                        <div class="cert-grid-header">Balance</div>
+                        <div class="cert-grid-label">Vacation Leave</div>
+                        <div class="cert-grid-val">${fmt(vlEarned)}</div>
+                        <div class="cert-grid-val">${fmt(vlSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(vlEarned - vlSpent)}</div>
+                        <div class="cert-grid-label">Sick Leave</div>
+                        <div class="cert-grid-val">${fmt(slEarned)}</div>
+                        <div class="cert-grid-val">${fmt(slSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(slEarned - slSpent)}</div>
+                        <div class="cert-grid-label">Special Privilege</div>
+                        <div class="cert-grid-val">${fmt(splEarned)}</div>
+                        <div class="cert-grid-val">${fmt(splSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(splEarned - splSpent)}</div>
+                        <div class="cert-grid-label">Force Leave</div>
+                        <div class="cert-grid-val">${fmt(flEarned)}</div>
+                        <div class="cert-grid-val">${fmt(flSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(flEarned - flSpent)}</div>
+                        <div class="cert-grid-label">Wellness Leave</div>
+                        <div class="cert-grid-val">${fmt(wlEarned)}</div>
+                        <div class="cert-grid-val">${fmt(wlSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(wlEarned - wlSpent)}</div>
+                        <div class="cert-grid-label">CTO</div>
+                        <div class="cert-grid-val">${fmt(ctoBalance)}</div>
+                        <div class="cert-grid-val">—</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(ctoBalance)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
 
     // SO file link in approval modal
     let soLink = '';
@@ -511,6 +574,7 @@ function showApprovalModal(appId, action) {
             <p><strong>Days:</strong> ${fmtDays(app)}</p>
             ${soLink}
         </div>
+        ${balanceHtml}
         <div class="form-group">
             <label class="form-label">Remarks (optional)</label>
             <textarea id="approval-remarks" class="form-textarea" rows="3" placeholder="Add remarks..."></textarea>
@@ -518,9 +582,9 @@ function showApprovalModal(appId, action) {
     `;
 
     const modal = openModal({
-        title: `${actionLabel} Application — ${appId}`,
+        title: `${actionLabel.replace(' & Forward to HR', '')} Application — ${appId}`,
         content,
-        size: 'md',
+        size: 'lg',
         footer: `
             <button class="btn btn-ghost btn-sm" id="modal-cancel">Cancel</button>
             <button class="btn ${actionClass} btn-sm" id="modal-confirm">${actionLabel}</button>
