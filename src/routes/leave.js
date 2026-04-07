@@ -1019,20 +1019,18 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
         if (leavecard.vacationLeaveEarned === undefined) leavecard.vacationLeaveEarned = 0;
         if (leavecard.sickLeaveEarned === undefined) leavecard.sickLeaveEarned = 0;
 
-        // Initialize year tracking if not present
-        if (!leavecard.forceLeaveYear) leavecard.forceLeaveYear = currentYear;
-        if (!leavecard.splYear) leavecard.splYear = currentYear;
-
-        // Reset Force Leave balance if year has changed
-        if (leavecard.forceLeaveYear !== currentYear) {
+        // Annual reset: fires if year stamp is missing (Excel import) OR is from a prior year
+        if (!leavecard.forceLeaveYear || leavecard.forceLeaveYear !== currentYear) {
             leavecard.forceLeaveSpent = 0;
-            leavecard.forceLeaveYear = currentYear;
+            leavecard.forceLeaveYear  = currentYear;
         }
-
-        // Reset Special Privilege Leave balance if year has changed
-        if (leavecard.splYear !== currentYear) {
+        if (!leavecard.splYear || leavecard.splYear !== currentYear) {
             leavecard.splSpent = 0;
-            leavecard.splYear = currentYear;
+            leavecard.splYear  = currentYear;
+        }
+        if (!leavecard.wellnessYear || leavecard.wellnessYear !== currentYear) {
+            leavecard.wellnessSpent = 0;
+            leavecard.wellnessYear  = currentYear;
         }
 
         // Initialize balance if not set (use earned values)

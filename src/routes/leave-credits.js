@@ -73,40 +73,44 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
 
         const currentYear = new Date().getFullYear();
 
-        // Check if Force Leave, SPL, or Wellness year needs reset
+        // FL / SPL / Wellness are ANNUAL allocations that reset to 0 spent each year.
+        // Reset condition fires when:
+        //   (a) forceLeaveYear is not set — cards imported from Excel have no year stamp,
+        //       so their spent totals are multi-year cumulative values that must be zeroed, OR
+        //   (b) forceLeaveYear is set but is from a prior year.
         let forceLeaveSpent = latestRecord.forceLeaveSpent || 0;
-        let splSpent = latestRecord.splSpent || 0;
-        let wellnessSpent = latestRecord.wellnessSpent || 0;
-        let needsPersist = false;
+        let splSpent        = latestRecord.splSpent        || 0;
+        let wellnessSpent   = latestRecord.wellnessSpent   || 0;
+        let needsPersist    = false;
 
-        // Reset Force Leave if year changed — persist to disk so validateLeaveBalance uses correct value
-        if (latestRecord.forceLeaveYear && latestRecord.forceLeaveYear !== currentYear) {
+        // Force Leave — 5 days / year
+        if (!latestRecord.forceLeaveYear || latestRecord.forceLeaveYear !== currentYear) {
             forceLeaveSpent = 0;
             latestRecord.forceLeaveSpent = 0;
-            latestRecord.forceLeaveYear = currentYear;
+            latestRecord.forceLeaveYear  = currentYear;
             needsPersist = true;
         }
 
-        // Reset Special Privilege Leave if year changed
-        if (latestRecord.splYear && latestRecord.splYear !== currentYear) {
+        // Special Privilege Leave — 3 days / year
+        if (!latestRecord.splYear || latestRecord.splYear !== currentYear) {
             splSpent = 0;
             latestRecord.splSpent = 0;
-            latestRecord.splYear = currentYear;
+            latestRecord.splYear  = currentYear;
             needsPersist = true;
         }
 
-        // Reset Wellness Leave if year changed
-        if (latestRecord.wellnessYear && latestRecord.wellnessYear !== currentYear) {
+        // Wellness Leave — 5 days / year
+        if (!latestRecord.wellnessYear || latestRecord.wellnessYear !== currentYear) {
             wellnessSpent = 0;
             latestRecord.wellnessSpent = 0;
-            latestRecord.wellnessYear = currentYear;
+            latestRecord.wellnessYear  = currentYear;
             needsPersist = true;
         }
 
-        // Persist year reset via the same repository instance (no second file read)
+        // Persist the reset so subsequent requests and validation see the correct values
         if (needsPersist) {
             leavecards.save(latestRecord);
-            console.log(`[LEAVE-CREDITS] Year reset persisted for ${latestRecord.email}: FL/SPL/WL spent reset to 0 for ${currentYear}`);
+            console.log(`[LEAVE-CREDITS] Annual reset applied for ${latestRecord.email || employeeId}: FL/SPL/WL spent → 0 for ${currentYear}`);
         }
 
         // Single source of truth: vl/sl summary fields
@@ -144,19 +148,27 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
         // Leave card balances are now strictly based on leave card entries.
         // Leave applications no longer auto-adjust balances.
 
-        // Ensure the credits object has all required fields with defaults
+        // Build response — cap spent values to allotted so balance is never negative
+        const flEarned  = latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5;
+        const splEarned = latestRecord.splEarned || latestRecord.spl || 3;
+        const wlEarned  = latestRecord.wellnessEarned || 5;
+
+        const safeFlSpent  = Math.min(totalForceSpent,    flEarned);
+        const safeSplSpent = Math.min(totalSplSpent,      splEarned);
+        const safeWlSpent  = Math.min(totalWellnessSpent, wlEarned);
+
         const enrichedCredits = {
             ...latestRecord,
             vacationLeaveEarned: vacationLeaveEarned,
             sickLeaveEarned: sickLeaveEarned,
-            forceLeaveEarned: latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5,
-            splEarned: latestRecord.splEarned || latestRecord.spl || 3,
-            wellnessEarned: latestRecord.wellnessEarned || 5,
+            forceLeaveEarned: flEarned,
+            splEarned: splEarned,
+            wellnessEarned: wlEarned,
             vacationLeaveSpent: vacationLeaveSpent,
             sickLeaveSpent: sickLeaveSpent,
-            forceLeaveSpent: totalForceSpent,
-            splSpent: totalSplSpent,
-            wellnessSpent: totalWellnessSpent,
+            forceLeaveSpent: safeFlSpent,
+            splSpent: safeSplSpent,
+            wellnessSpent: safeWlSpent,
             forceLeaveYear: currentYear,
             splYear: currentYear,
             wellnessYear: currentYear,
