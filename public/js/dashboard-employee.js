@@ -485,75 +485,159 @@ async function loadLeaveCard() {
     if (!data.success || !data.leavecard) return;
 
     const card = data.leavecard;
+    const currentYear = new Date().getFullYear();
 
-    // Transactions table
-    const txns = card.transactions || [];
-    const txnData = txns.map((t, idx) => ({
-        id: idx,
-        period: t.periodCovered || t.period_covered || '--',
-        type: t.type || 'ADD',
-        vlEarned: toNum(t.vlEarned || t.vl_earned),
-        slEarned: toNum(t.slEarned || t.sl_earned),
-        vlSpent: toNum(t.vlSpent || t.vl_spent),
-        slSpent: toNum(t.slSpent || t.sl_spent),
-        vlBalance: t.vlBalance !== undefined ? fmt(t.vlBalance) : (t.vl_balance !== undefined ? fmt(t.vl_balance) : '--'),
-        slBalance: t.slBalance !== undefined ? fmt(t.slBalance) : (t.sl_balance !== undefined ? fmt(t.sl_balance) : '--'),
-        date: formatDate(t.dateRecorded || t.date_recorded),
-        source: t.source || '',
-    }));
+    // ── Helper: build a row object from a raw transaction ──────────────────────
+    function txnRow(t, idx) {
+        return {
+            id: idx,
+            period: t.periodCovered || t.period_covered || '--',
+            type: t.type || 'ADD',
+            vlEarned: toNum(t.vlEarned || t.vl_earned),
+            slEarned: toNum(t.slEarned || t.sl_earned),
+            vlSpent: toNum(t.vlSpent || t.vl_spent),
+            slSpent: toNum(t.slSpent || t.sl_spent),
+            vlBalance: t.vlBalance !== undefined ? fmt(t.vlBalance) : (t.vl_balance !== undefined ? fmt(t.vl_balance) : '--'),
+            slBalance: t.slBalance !== undefined ? fmt(t.slBalance) : (t.sl_balance !== undefined ? fmt(t.sl_balance) : '--'),
+            date: formatDate(t.dateRecorded || t.date_recorded),
+            source: t.source || '',
+        };
+    }
+
+    const TXN_COLS = [
+        { key: 'period', label: 'Period', sortable: true },
+        { key: 'type', label: 'Type', sortable: true, render: (v) => `<span class="badge badge-${v === 'DEDUCT' ? 'danger' : 'info'} badge-dot">${escapeHtml(v)}</span>` },
+        { key: 'vlEarned', label: 'VL Earned', sortable: true, type: 'number' },
+        { key: 'slEarned', label: 'SL Earned', sortable: true, type: 'number' },
+        { key: 'vlSpent', label: 'VL Spent', sortable: true, type: 'number' },
+        { key: 'slSpent', label: 'SL Spent', sortable: true, type: 'number' },
+        { key: 'vlBalance', label: 'VL Bal', sortable: false },
+        { key: 'slBalance', label: 'SL Bal', sortable: false },
+        { key: 'date', label: 'Date', sortable: true, type: 'date' },
+    ];
+
+    // ── Split transactions: current-year vs prior-year vs ambiguous ────────────
+    const allTxns = card.transactions || [];
+    const currentTxns = allTxns.filter(t => t.isCurrentYear === true);
+    const priorTxns   = allTxns.filter(t => t.isCurrentYear === false || (t.leaveYear !== null && t.leaveYear !== undefined && t.leaveYear !== currentYear));
+    const ambigTxns   = allTxns.filter(t => t.leaveYear === null || t.leaveYear === undefined);
+
+    // Update section badge
+    const txnBadge = document.getElementById('txn-year-badge');
+    if (txnBadge) txnBadge.textContent = `${currentYear}`;
 
     transactionsTable = createDataTable({
         el: '#transactions-table',
-        columns: [
-            { key: 'period', label: 'Period', sortable: true },
-            { key: 'type', label: 'Type', sortable: true, render: (v) => `<span class="badge badge-${v === 'DEDUCT' ? 'danger' : 'info'} badge-dot">${escapeHtml(v)}</span>` },
-            { key: 'vlEarned', label: 'VL Earned', sortable: true, type: 'number' },
-            { key: 'slEarned', label: 'SL Earned', sortable: true, type: 'number' },
-            { key: 'vlSpent', label: 'VL Spent', sortable: true, type: 'number' },
-            { key: 'slSpent', label: 'SL Spent', sortable: true, type: 'number' },
-            { key: 'vlBalance', label: 'VL Bal', sortable: false },
-            { key: 'slBalance', label: 'SL Bal', sortable: false },
-            { key: 'date', label: 'Date', sortable: true, type: 'date' },
-        ],
-        data: txnData,
+        columns: TXN_COLS,
+        data: currentTxns.map(txnRow),
         searchable: true,
         searchKeys: ['period', 'source', 'type'],
         pageSize: 15,
         emptyTitle: 'No Transactions',
-        emptyMessage: 'No leave credit transactions recorded yet.',
+        emptyMessage: `No leave credit transactions recorded for ${currentYear} yet.`,
     });
 
-    // Usage history table
-    const usage = card.leaveUsageHistory || [];
-    const usageData = usage.map((u, idx) => ({
-        id: idx,
-        leaveType: getLeaveTypeLabel(u.leaveType || u.leave_type),
-        days: toNum(u.daysUsed || u.days_used),
-        period: formatDateRange(u.periodFrom || u.period_from, u.periodTo || u.period_to),
-        approved: formatDate(u.dateApproved || u.date_approved),
-        approvedBy: u.approvedBy || u.approved_by || '',
-        vlAfter: u.balanceAfterVl !== undefined ? fmt(u.balanceAfterVl) : (u.balance_after_vl !== undefined ? fmt(u.balance_after_vl) : '--'),
-        slAfter: u.balanceAfterSl !== undefined ? fmt(u.balanceAfterSl) : (u.balance_after_sl !== undefined ? fmt(u.balance_after_sl) : '--'),
-    }));
+    // ── Helper: build a row object from a raw usage-history entry ──────────────
+    function usageRow(u, idx, yearLabel) {
+        return {
+            id: idx,
+            leaveType: getLeaveTypeLabel(u.leaveType || u.leave_type),
+            days: toNum(u.daysUsed || u.days_used),
+            period: formatDateRange(u.periodFrom || u.period_from, u.periodTo || u.period_to),
+            approved: formatDate(u.dateApproved || u.date_approved),
+            approvedBy: u.approvedBy || u.approved_by || '',
+            vlAfter: u.balanceAfterVl !== undefined ? fmt(u.balanceAfterVl) : (u.balance_after_vl !== undefined ? fmt(u.balance_after_vl) : '--'),
+            slAfter: u.balanceAfterSl !== undefined ? fmt(u.balanceAfterSl) : (u.balance_after_sl !== undefined ? fmt(u.balance_after_sl) : '--'),
+            yearLabel: yearLabel || '',
+        };
+    }
+
+    const USAGE_COLS = [
+        { key: 'leaveType', label: 'Leave Type', sortable: true },
+        { key: 'days', label: 'Days', sortable: true, type: 'number' },
+        { key: 'period', label: 'Period', sortable: false },
+        { key: 'approved', label: 'Date Approved', sortable: true, type: 'date' },
+        { key: 'approvedBy', label: 'Approved By', sortable: true },
+        { key: 'vlAfter', label: 'VL After', sortable: false },
+        { key: 'slAfter', label: 'SL After', sortable: false },
+    ];
+
+    // ── Split usage history: current-year vs prior-year ────────────────────────
+    const allUsage = card.leaveUsageHistory || [];
+    const currentUsage = allUsage.filter(u => u.isCurrentYear === true);
+    const priorUsage   = allUsage.filter(u => u.isCurrentYear === false || (u.leaveYear !== null && u.leaveYear !== undefined && u.leaveYear !== currentYear));
+    const ambigUsage   = allUsage.filter(u => u.leaveYear === null || u.leaveYear === undefined);
+
+    const usageBadge = document.getElementById('usage-year-badge');
+    if (usageBadge) usageBadge.textContent = `${currentYear}`;
 
     usageTable = createDataTable({
         el: '#usage-table',
-        columns: [
-            { key: 'leaveType', label: 'Leave Type', sortable: true },
-            { key: 'days', label: 'Days', sortable: true, type: 'number' },
-            { key: 'period', label: 'Period', sortable: false },
-            { key: 'approved', label: 'Date Approved', sortable: true, type: 'date' },
-            { key: 'approvedBy', label: 'Approved By', sortable: true },
-            { key: 'vlAfter', label: 'VL After', sortable: false },
-            { key: 'slAfter', label: 'SL After', sortable: false },
-        ],
-        data: usageData,
+        columns: USAGE_COLS,
+        data: currentUsage.map((u, i) => usageRow(u, i)),
         searchable: true,
         searchKeys: ['leaveType', 'approvedBy'],
         pageSize: 15,
         emptyTitle: 'No Usage History',
-        emptyMessage: 'No leave usage recorded yet.',
+        emptyMessage: `No leave usage recorded for ${currentYear} yet.`,
     });
+
+    // ── Historical Records section ─────────────────────────────────────────────
+    const historicalTxns  = [...priorTxns, ...ambigTxns];
+    const historicalUsage = [...priorUsage, ...ambigUsage];
+    const totalHistorical = historicalTxns.length + historicalUsage.length;
+
+    const histSection = document.getElementById('historical-records-section');
+    if (histSection && totalHistorical > 0) {
+        histSection.style.display = '';
+
+        const countBadge = document.getElementById('historical-count-badge');
+        if (countBadge) countBadge.textContent = `${totalHistorical} record${totalHistorical !== 1 ? 's' : ''}`;
+
+        // Historical transactions — add a "Year" column so users know which year each belongs to
+        const HIST_TXN_COLS = [
+            { key: 'year', label: 'Year', sortable: true, render: (v) => v
+                ? `<span style="font-size:var(--text-xs);font-weight:var(--font-semibold);background:var(--color-neutral-200);color:var(--color-neutral-600);padding:1px 6px;border-radius:4px">${escapeHtml(String(v))}</span>`
+                : `<span style="font-size:var(--text-xs);color:var(--color-warning-600,#d97706);font-weight:var(--font-semibold)">⚠ Unknown</span>` },
+            ...TXN_COLS,
+        ];
+
+        createDataTable({
+            el: '#historical-transactions-table',
+            columns: HIST_TXN_COLS,
+            data: historicalTxns.map((t, idx) => ({
+                ...txnRow(t, idx),
+                year: t.leaveYear || null,
+            })),
+            searchable: true,
+            searchKeys: ['period', 'source', 'type'],
+            pageSize: 15,
+            emptyTitle: 'No Prior-Year Transactions',
+            emptyMessage: 'No historical transaction records found.',
+        });
+
+        // Historical usage — add "Year" column
+        const HIST_USAGE_COLS = [
+            { key: 'year', label: 'Year', sortable: true, render: (v) => v
+                ? `<span style="font-size:var(--text-xs);font-weight:var(--font-semibold);background:var(--color-neutral-200);color:var(--color-neutral-600);padding:1px 6px;border-radius:4px">${escapeHtml(String(v))}</span>`
+                : `<span style="font-size:var(--text-xs);color:var(--color-warning-600,#d97706);font-weight:var(--font-semibold)">⚠ Unknown</span>` },
+            ...USAGE_COLS,
+        ];
+
+        createDataTable({
+            el: '#historical-usage-table',
+            columns: HIST_USAGE_COLS,
+            data: historicalUsage.map((u, idx) => ({
+                ...usageRow(u, idx),
+                year: u.leaveYear || null,
+            })),
+            searchable: true,
+            searchKeys: ['leaveType', 'approvedBy'],
+            pageSize: 15,
+            emptyTitle: 'No Prior-Year Leave Usage',
+            emptyMessage: 'No historical leave usage records found.',
+        });
+    }
 
     // CTO records
     loadCtoRecords();

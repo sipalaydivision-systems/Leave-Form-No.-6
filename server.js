@@ -5097,8 +5097,8 @@ app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
         
         if (!leavecard) {
             // Return empty leave card if not found
-            return res.json({ 
-                success: true, 
+            return res.json({
+                success: true,
                 leavecard: {
                     employeeId: employeeId,
                     email: employeeId,
@@ -5113,8 +5113,50 @@ app.get('/api/employee-leavecard', requireAuth(), (req, res) => {
                 }
             });
         }
-        
-        res.json({ success: true, leavecard });
+
+        // --- Period validation: annotate every record with its resolved calendar year -------
+        // This classification drives the UI split between "current year" (active balance)
+        // and "historical" (prior-year, read-only reference).  No records are deleted.
+        //
+        // Resolution priority for transactions:
+        //   1. 4-digit year embedded in periodCovered  (most reliable for accrual records)
+        //   2. dateRecorded / date field
+        //   3. null  → ambiguous; flagged for manual review, excluded from current balance
+        //
+        // Resolution priority for usage history:
+        //   1. dateApproved
+        //   2. periodFrom
+        //   3. null  → ambiguous
+        const _nowYear = new Date().getFullYear();
+
+        function _resolveTxYear(tx) {
+            const m = String(tx.periodCovered || '').match(/\b(20\d{2})\b/);
+            if (m) return parseInt(m[1], 10);
+            const d = new Date(tx.dateRecorded || tx.date || '');
+            return isNaN(d.getTime()) ? null : d.getFullYear();
+        }
+
+        function _resolveUsageYear(u) {
+            const d = new Date(u.dateApproved || u.periodFrom || '');
+            return isNaN(d.getTime()) ? null : d.getFullYear();
+        }
+
+        const annotatedCard = {
+            ...leavecard,
+            transactions: (leavecard.transactions || []).map(tx => ({
+                ...tx,
+                leaveYear: _resolveTxYear(tx),
+                isCurrentYear: _resolveTxYear(tx) === _nowYear,
+            })),
+            leaveUsageHistory: (leavecard.leaveUsageHistory || []).map(u => ({
+                ...u,
+                leaveYear: _resolveUsageYear(u),
+                isCurrentYear: _resolveUsageYear(u) === _nowYear,
+            })),
+        };
+        // ------------------------------------------------------------------------------------
+
+        res.json({ success: true, leavecard: annotatedCard });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
