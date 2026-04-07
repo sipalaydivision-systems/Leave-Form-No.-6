@@ -71,6 +71,16 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             });
         }
 
+        // leave_others requires both a specification text and an SO PDF file
+        if (leaveType === 'leave_others') {
+            if (!applicationData.otherLeaveSpecify || !String(applicationData.otherLeaveSpecify).trim()) {
+                return res.status(400).json({ success: false, error: 'Leave type specification is required for Others leave type (e.g., CTO - SO #12345).' });
+            }
+            if (!applicationData.soFileData) {
+                return res.status(400).json({ success: false, error: 'Special Order PDF is required for Others leave type. Please attach the PDF copy of the Special Order.' });
+            }
+        }
+
         // SECURITY: Validate date fields
         if (!isValidDate(applicationData.dateFrom)) {
             return res.status(400).json({ success: false, error: 'Invalid start date format', message: 'Date From must be in YYYY-MM-DD format.' });
