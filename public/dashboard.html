@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#003366">
+    <meta name="theme-color" content="#50DD24">
     <title>Employee Dashboard — SDO Sipalay Leave System</title>
 
     <!-- Design System -->
@@ -24,6 +24,15 @@
     <link rel="icon" href="/icons/icon-192.png" type="image/png">
 
     <style>
+        /* Employee portal color theme — overrides design-system primaries */
+        .dashboard-shell {
+            --color-primary:        #2EA810;
+            --color-primary-light:  #50DD24;
+            --color-primary-dark:   #1D7A08;
+            --color-primary-50:     #EDFBE8;
+            --color-primary-100:    #C8F2BA;
+        }
+
         /* Page-specific overrides */
         .leave-balance-grid {
             display: grid;

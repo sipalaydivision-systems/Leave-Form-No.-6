@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#003366">
+    <meta name="theme-color" content="#50DD24">
     <title>File Leave Application — SDO Sipalay Leave System</title>
 
     <!-- Design System -->
@@ -23,6 +23,15 @@
     <link rel="icon" href="/icons/icon-192.png" type="image/png">
 
     <style>
+        /* Employee portal color theme */
+        :root {
+            --color-primary:        #2EA810;
+            --color-primary-light:  #50DD24;
+            --color-primary-dark:   #1D7A08;
+            --color-primary-50:     #EDFBE8;
+            --color-primary-100:    #C8F2BA;
+        }
+
         /* ---- Page Shell ---- */
         body {
             font-family: var(--font-family);
@@ -182,7 +191,7 @@
         .form-textarea:focus {
             outline: none;
             border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
+            box-shadow: 0 0 0 3px rgba(46, 168, 16, 0.1);
         }
         .form-input:disabled,
         .form-select:disabled {
@@ -242,7 +251,7 @@
         }
         .leave-type-selected.open {
             border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
+            box-shadow: 0 0 0 3px rgba(46, 168, 16, 0.1);
             border-bottom-left-radius: 0;
             border-bottom-right-radius: 0;
         }
@@ -307,7 +316,7 @@
         .leave-type-search input:focus {
             border-color: var(--color-primary);
             background: var(--color-surface);
-            box-shadow: 0 0 0 2px rgba(0, 51, 102, 0.08);
+            box-shadow: 0 0 0 2px rgba(46, 168, 16, 0.08);
         }
         .leave-type-option {
             display: flex;
@@ -465,7 +474,7 @@
         .balance-chip.active {
             border-color: var(--color-primary);
             background: var(--color-primary-50);
-            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.08);
+            box-shadow: 0 0 0 3px rgba(46, 168, 16, 0.08);
             transform: translateY(-2px);
         }
 
@@ -670,7 +679,7 @@
         .commutation-option.selected {
             border-color: var(--color-primary);
             background: var(--color-primary-50);
-            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.08);
+            box-shadow: 0 0 0 3px rgba(46, 168, 16, 0.08);
         }
         .commutation-option input[type="radio"] {
             accent-color: var(--color-primary);
