@@ -95,9 +95,13 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, activeApps, exclude
     if (vl === null) vl = Math.max(0, (leaveCard.vacationLeaveEarned || 0) - (leaveCard.vacationLeaveSpent || 0));
     if (sl === null) sl = Math.max(0, (leaveCard.sickLeaveEarned || 0) - (leaveCard.sickLeaveSpent || 0));
 
-    result.forceSpent   = leaveCard.forceLeaveSpent || 0;
-    result.splSpent     = leaveCard.splSpent || 0;
-    result.wellnessSpent = leaveCard.wellnessSpent || 0;
+    // FL / SPL / WL are annual quotas — only count usage from the current calendar year.
+    // Cards that have no year stamp (e.g. Excel-imported) or whose year stamp is stale
+    // must start fresh at 0 for the current year.
+    const currentYear = new Date().getFullYear();
+    result.forceSpent    = (leaveCard.forceLeaveYear === currentYear) ? (leaveCard.forceLeaveSpent  || 0) : 0;
+    result.splSpent      = (leaveCard.splYear         === currentYear) ? (leaveCard.splSpent         || 0) : 0;
+    result.wellnessSpent = (leaveCard.wellnessYear    === currentYear) ? (leaveCard.wellnessSpent    || 0) : 0;
 
     const reflected = getReflectedAppIds(leaveCard);
     let pendingForce = 0, pendingSpl = 0, pendingWellness = 0;
@@ -108,11 +112,22 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, activeApps, exclude
         const days = parseFloat(app.numDays) || 0;
         if (days <= 0) continue;
         const type = (app.leaveType || '').toLowerCase();
-        if      (type.includes('vl') || type.includes('vacation'))                                vl = Math.max(0, vl - days);
-        else if (type.includes('sl') || type.includes('sick'))                                    sl = Math.max(0, sl - days);
-        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) { pendingForce += days; vl = Math.max(0, vl - days); }
-        else if (type.includes('spl') || type.includes('special'))                               pendingSpl += days;
-        else if (type.includes('wellness') || type === 'leave_wl')                               pendingWellness += days;
+        if (type.includes('vl') || type.includes('vacation')) {
+            vl = Math.max(0, vl - days);
+        } else if (type.includes('sl') || type.includes('sick')) {
+            sl = Math.max(0, sl - days);
+        } else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) {
+            // FL draws from VL regardless of year; quota is year-scoped
+            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+            if (appYear === currentYear) pendingForce += days;
+            vl = Math.max(0, vl - days);
+        } else if (type.includes('spl') || type.includes('special')) {
+            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+            if (appYear === currentYear) pendingSpl += days;
+        } else if (type.includes('wellness') || type === 'leave_wl') {
+            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+            if (appYear === currentYear) pendingWellness += days;
+        }
     }
 
     result.vlBalance     = vl;
@@ -374,9 +389,15 @@ function normalizeLeaveCardTransactions(transactions) {
         }
 
         if (tx.type !== 'LAWOP') {
-            forceSpentTotal += tx.forcedLeave;
-            splSpentTotal += tx.splUsed;
-            wellnessSpentTotal += tx.wellnessUsed;
+            // FL / SPL / WL are annual quotas — only accumulate totals for the current year.
+            // Transactions from prior years must not contribute to the annual spent counter.
+            const txYear = new Date(tx.dateRecorded || Date.now()).getFullYear();
+            const nowYear = new Date().getFullYear();
+            if (txYear === nowYear) {
+                forceSpentTotal    += tx.forcedLeave;
+                splSpentTotal      += tx.splUsed;
+                wellnessSpentTotal += tx.wellnessUsed;
+            }
         }
 
         tx.pvpDeductionDays = pvpDeductionDays;

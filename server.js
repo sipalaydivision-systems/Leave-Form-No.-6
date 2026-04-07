@@ -828,8 +828,10 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
     if (vl === null) vl = Math.max(0, (leaveCard.vacationLeaveEarned || 0) - (leaveCard.vacationLeaveSpent || 0));
     if (sl === null) sl = Math.max(0, (leaveCard.sickLeaveEarned || 0) - (leaveCard.sickLeaveSpent || 0));
 
-    result.forceSpent = leaveCard.forceLeaveSpent || 0;
-    result.splSpent = leaveCard.splSpent || 0;
+    // FL / SPL / WL are annual quotas — only count usage from the current calendar year.
+    const currentYearLocal = new Date().getFullYear();
+    result.forceSpent = (leaveCard.forceLeaveYear === currentYearLocal) ? (leaveCard.forceLeaveSpent || 0) : 0;
+    result.splSpent   = (leaveCard.splYear         === currentYearLocal) ? (leaveCard.splSpent        || 0) : 0;
 
     // Deduct pending/approved applications not yet reflected in leave card
     const allApps = readJSONArray(applicationsFile);
@@ -844,10 +846,18 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
         const days = parseFloat(app.numDays) || 0;
         if (days <= 0) return;
         const type = (app.leaveType || '').toLowerCase();
-        if (type.includes('vl') || type.includes('vacation')) vl = Math.max(0, vl - days);
-        else if (type.includes('sl') || type.includes('sick')) sl = Math.max(0, sl - days);
-        else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) { pendingForceSpent += days; vl = Math.max(0, vl - days); }
-        else if (type.includes('spl') || type.includes('special')) pendingSplSpent += days;
+        if (type.includes('vl') || type.includes('vacation')) {
+            vl = Math.max(0, vl - days);
+        } else if (type.includes('sl') || type.includes('sick')) {
+            sl = Math.max(0, sl - days);
+        } else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) {
+            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+            if (appYear === currentYearLocal) pendingForceSpent += days;
+            vl = Math.max(0, vl - days);
+        } else if (type.includes('spl') || type.includes('special')) {
+            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+            if (appYear === currentYearLocal) pendingSplSpent += days;
+        }
     });
 
     result.vlBalance = vl;
@@ -1142,8 +1152,12 @@ function normalizeLeaveCardTransactions(transactions) {
         }
 
         if (tx.type !== 'LAWOP') {
-            forceSpentTotal += tx.forcedLeave;
-            splSpentTotal += tx.splUsed;
+            // FL / SPL are annual quotas — only accumulate totals for the current year.
+            const txYear = new Date(tx.dateRecorded || Date.now()).getFullYear();
+            if (txYear === new Date().getFullYear()) {
+                forceSpentTotal += tx.forcedLeave;
+                splSpentTotal += tx.splUsed;
+            }
         }
 
         tx.pvpDeductionDays = pvpDeductionDays;
@@ -4931,24 +4945,24 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         let wellnessSpent = latestRecord.wellnessSpent || 0;
         let needsPersist = false;
 
-        // Reset Force Leave if year changed — persist to disk so validateLeaveBalance uses correct value
-        if (latestRecord.forceLeaveYear && latestRecord.forceLeaveYear !== currentYear) {
+        // Reset Force Leave if year stamp is missing (e.g. Excel-imported cards) OR is from a prior year
+        if (!latestRecord.forceLeaveYear || latestRecord.forceLeaveYear !== currentYear) {
             forceLeaveSpent = 0;
             latestRecord.forceLeaveSpent = 0;
             latestRecord.forceLeaveYear = currentYear;
             needsPersist = true;
         }
 
-        // Reset Special Privilege Leave if year changed
-        if (latestRecord.splYear && latestRecord.splYear !== currentYear) {
+        // Reset Special Privilege Leave if year stamp is missing or stale
+        if (!latestRecord.splYear || latestRecord.splYear !== currentYear) {
             splSpent = 0;
             latestRecord.splSpent = 0;
             latestRecord.splYear = currentYear;
             needsPersist = true;
         }
 
-        // Reset Wellness Leave if year changed
-        if (latestRecord.wellnessYear && latestRecord.wellnessYear !== currentYear) {
+        // Reset Wellness Leave if year stamp is missing or stale
+        if (!latestRecord.wellnessYear || latestRecord.wellnessYear !== currentYear) {
             wellnessSpent = 0;
             latestRecord.wellnessSpent = 0;
             latestRecord.wellnessEarned = 5;
@@ -4983,14 +4997,20 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         
         // Sum up force, special, and wellness leave usage from transactions
         let totalWellnessSpent = wellnessSpent;
+        // FL / SPL / WL are annual quotas — only sum transactions from the current year.
+        // Summing across all years produces cumulative totals that cause negative balances
+        // for employees who have used their annual allocation in prior years.
         if (latestRecord.transactions && Array.isArray(latestRecord.transactions) && latestRecord.transactions.length > 0) {
             totalForceSpent = 0;
             totalSplSpent = 0;
             totalWellnessSpent = 0;
             latestRecord.transactions.forEach(tx => {
-                totalForceSpent += parseFloat(tx.forcedLeave) || 0;
-                totalSplSpent += parseFloat(tx.splUsed) || 0;
-                totalWellnessSpent += parseFloat(tx.wellnessUsed) || 0;
+                const txYear = new Date(tx.dateRecorded || tx.date || Date.now()).getFullYear();
+                if (txYear === currentYear) {
+                    totalForceSpent   += parseFloat(tx.forcedLeave) || 0;
+                    totalSplSpent     += parseFloat(tx.splUsed)     || 0;
+                    totalWellnessSpent += parseFloat(tx.wellnessUsed) || 0;
+                }
             });
         }
         
