@@ -237,13 +237,14 @@
                                         <thead>
                                             <tr>
                                                 <th rowspan="2">PERIOD COVERED</th>
-                                                <th colspan="4">LEAVE EARNED</th>
+                                                <th colspan="5">LEAVE EARNED</th>
                                                 <th rowspan="2">TOTAL</th>
-                                                <th rowspan="2" class="cto-view-col" style="width:60px">View</th>
+                                                <th rowspan="2" class="cto-view-col" style="width:60px">SO Document</th>
                                                 <th rowspan="2" class="cto-entry-actions" style="width:80px">Actions</th>
                                             </tr>
                                             <tr>
-                                                <th>Special Order No. and Date Issued</th>
+                                                <th>Special Order No.</th>
+                                                <th>Date Issued</th>
                                                 <th>No. of Days Granted</th>
                                                 <th>No. of Days Used</th>
                                                 <th>Balance</th>
@@ -251,7 +252,7 @@
                                         </thead>
                                         <tbody id="ctoHistoryBody">
                                             <tr>
-                                                <td colspan="8" style="text-align:center;padding:40px;color:var(--color-gray-400)">
+                                                <td colspan="9" style="text-align:center;padding:40px;color:var(--color-gray-400)">
                                                     Loading CTO records...
                                                 </td>
                                             </tr>
@@ -294,9 +295,15 @@
                                             <input type="text" id="edit_cto_period" placeholder="e.g., JULY 13, 2022">
                                         </div>
                                     </div>
-                                    <div class="form-group" style="margin-bottom:var(--space-4)">
-                                        <label>Special Order No. and Date Issued</label>
-                                        <input type="text" id="edit_cto_so_details" placeholder="e.g., S.O. # 052, S. 2022. 124TH PHILIPPINE INDEPENDENCE DAY CELEBRATION">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Special Order No.</label>
+                                            <input type="text" id="edit_cto_so_details" placeholder="e.g., S.O. # 052, s. 2022">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Date Issued</label>
+                                            <input type="text" id="edit_cto_date_issued" placeholder="e.g., July 13, 2022">
+                                        </div>
                                     </div>
                                     <div class="form-row">
                                         <div class="form-group">
@@ -652,72 +659,122 @@
 
         async function loadCTOCardData() {
             try {
-                const response = await fetch(`/api/cto-records?employeeId=${encodeURIComponent(employeeEmail)}`, { headers: authHeaders() });
-                const data = await response.json();
+                const [ctoRes, appsRes] = await Promise.all([
+                    fetch(`/api/cto-records?employeeId=${encodeURIComponent(employeeEmail)}`, { headers: authHeaders() }),
+                    fetch(`/api/my-applications/${encodeURIComponent(employeeEmail)}`, { headers: authHeaders() })
+                ]);
+                const data = await ctoRes.json();
+                const appsData = appsRes.ok ? await appsRes.json() : { applications: [] };
 
                 const tbody = document.getElementById('ctoHistoryBody');
                 window._ctoSOImages = [];
                 window._ctoRecords = [];
 
-                if (data.success && data.records && data.records.length > 0) {
-                    window._ctoRecords = data.records;
-                    let html = '';
-                    let runningBalance = 0;
+                const approvedOthers = (appsData.applications || [])
+                    .filter(a => a.leaveType === 'leave_others' && a.status === 'approved')
+                    .sort((a, b) => new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0));
 
-                    data.records.forEach((cto, idx) => {
-                        const type = (cto.type || 'ADD').toUpperCase();
-                        const periodCovered = cto.periodCovered || '-';
-                        const soDetails = cto.soDetails || cto.soNumber || 'N/A';
-                        const granted = parseFloat(cto.daysGranted) || 0;
-                        const used = parseFloat(cto.daysUsed) || 0;
-                        const recordId = cto.id || cto._id || '';
+                // Build display rows: official grant records first; if empty synthesize from approved apps
+                const grantRows = (data.success && data.records) ? data.records : [];
+                window._ctoRecords = grantRows;
 
-                        if (type === 'ADD') { runningBalance += granted; } else { runningBalance -= used; }
+                let displayRows = grantRows.map(cto => ({ _type: 'grant', cto }));
+                if (displayRows.length === 0 && approvedOthers.length > 0) {
+                    displayRows = approvedOthers.map(app => ({ _type: 'app', app }));
+                }
 
-                        const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
-                        const soImageData = cto.soImage || '';
-                        window._ctoSOImages[idx] = soImageData;
-                        const viewBtn = soImageData
-                            ? `<button onclick="viewSOImage(${idx})" style="padding:3px 10px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;white-space:nowrap;">View</button>`
-                            : `<span style="color:var(--color-gray-300);font-size:11px;">—</span>`;
-
-                        const totalStyle = runningBalance <= 0 ? 'background:var(--color-red-600);color:white;font-weight:700;' : 'font-weight:700;';
-                        html += `
-                            <tr>
-                                <td style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;text-align:left;padding-left:10px;">${periodDisplay}</td>
-                                <td style="text-align:left;padding-left:10px;font-size:11px;">${soDetails}</td>
-                                <td style="text-align:center;">${type === 'ADD' ? granted : ''}</td>
-                                <td style="text-align:center;">${type === 'LESS' ? used : ''}</td>
-                                <td style="text-align:center;color:var(--color-primary-600);font-weight:600;">${runningBalance}</td>
-                                <td style="text-align:center;${totalStyle}">${runningBalance}</td>
-                                <td class="cto-view-col" style="text-align:center;">${viewBtn}</td>
-                                <td class="cto-entry-actions" style="text-align:center;">
-                                    <div style="display:flex;gap:4px;justify-content:center;">
-                                        <button onclick="editCTORecord('${recordId}', ${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;" title="Edit">Edit</button>
-                                        <button onclick="deleteCTORecord('${recordId}')" style="padding:3px 8px;font-size:11px;background:var(--color-red-50);border:1px solid var(--color-red-200);border-radius:var(--radius-sm);color:var(--color-red-600);cursor:pointer;" title="Delete">Del</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    tbody.innerHTML = html;
-                } else {
+                if (displayRows.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="8" style="padding:40px;text-align:center;">
+                            <td colspan="9" style="padding:40px;text-align:center;">
                                 <div style="font-size:48px;margin-bottom:var(--space-3)">📑</div>
                                 <p style="font-weight:600;color:var(--color-gray-900);margin-bottom:var(--space-1)">No CTO Records</p>
                                 <p style="color:var(--color-gray-400);font-size:12px">No CTO records found for this employee.</p>
                             </td>
                         </tr>
                     `;
+                    return;
                 }
+
+                let html = '';
+                let runningBalance = 0;
+
+                displayRows.forEach((row, idx) => {
+                    let periodDisplay, soNumber, dateIssued, granted, used, viewCell, actionCell;
+
+                    if (row._type === 'grant') {
+                        const cto = row.cto;
+                        const type = (cto.type || 'ADD').toUpperCase();
+                        const periodCovered = cto.periodCovered || '-';
+                        soNumber = escapeHtml(cto.soDetails || cto.soNumber || '—');
+                        dateIssued = escapeHtml(cto.dateIssued || '—');
+                        granted = parseFloat(cto.daysGranted) || 0;
+                        used = parseFloat(cto.daysUsed) || 0;
+                        if (type === 'ADD') { runningBalance += granted; } else { runningBalance -= used; }
+                        periodDisplay = `<span style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;">${type === 'ADD' ? 'ADD' : 'LESS'}: ${escapeHtml(periodCovered)}</span>`;
+                        const recordId = cto.id || cto._id || '';
+                        const soImageData = cto.soImage || '';
+                        window._ctoSOImages[idx] = soImageData;
+                        viewCell = soImageData
+                            ? `<button onclick="viewSOImage(${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;">View</button>`
+                            : `<span style="color:var(--color-gray-300);font-size:11px;">No SO</span>`;
+                        actionCell = `<div style="display:flex;gap:4px;justify-content:center;">
+                            <button onclick="editCTORecord('${recordId}', ${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;">Edit</button>
+                            <button onclick="deleteCTORecord('${recordId}')" style="padding:3px 8px;font-size:11px;background:var(--color-red-50);border:1px solid var(--color-red-200);border-radius:var(--radius-sm);color:var(--color-red-600);cursor:pointer;">Del</button>
+                        </div>`;
+                    } else {
+                        // Synthesized from approved leave_others application
+                        const app = row.app;
+                        const period = app.dateFrom && app.dateTo
+                            ? `${app.dateFrom}${app.dateTo !== app.dateFrom ? ' to ' + app.dateTo : ''}`
+                            : (app.dateFrom || '—');
+                        soNumber = escapeHtml(app.otherLeaveSpecify || '—');
+                        dateIssued = escapeHtml(app.dateOfFiling || '—');
+                        granted = parseFloat(app.numDays) || 0;
+                        used = parseFloat(app.numDays) || 0;
+                        runningBalance += (granted - used);
+                        periodDisplay = `<span style="color:#2e7d32;font-weight:600;">ADD: ${escapeHtml(period)}</span><br><span style="font-size:10px;color:var(--color-gray-500);">from application ${escapeHtml(app.id || '')}</span>`;
+                        if (app.soFilePath) {
+                            viewCell = `<a href="${escapeHtml(app.soFilePath)}" target="_blank" rel="noopener" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;text-decoration:none;">View PDF</a>`;
+                        } else {
+                            viewCell = `<span style="color:var(--color-gray-300);font-size:11px;">No SO</span>`;
+                        }
+                        // Synthesized rows: offer Add button to create an official CTO record
+                        actionCell = `<button onclick="prefillFromApp('${escapeHtml(app.otherLeaveSpecify || '')}','${escapeHtml(app.dateOfFiling || '')}',${granted})" style="padding:3px 8px;font-size:11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:var(--radius-sm);color:#2e7d32;cursor:pointer;white-space:nowrap;">+ Add official</button>`;
+                    }
+
+                    const totalStyle = runningBalance < 0 ? 'background:var(--color-red-600);color:white;font-weight:700;' : 'font-weight:700;';
+                    html += `<tr>
+                        <td style="text-align:left;padding-left:10px;">${periodDisplay}</td>
+                        <td style="text-align:left;padding-left:6px;font-size:11px;">${soNumber}</td>
+                        <td style="text-align:left;padding-left:6px;font-size:11px;">${dateIssued}</td>
+                        <td style="text-align:center;">${granted > 0 ? granted : ''}</td>
+                        <td style="text-align:center;">${used > 0 ? used : ''}</td>
+                        <td style="text-align:center;color:var(--color-primary-600);font-weight:600;">${runningBalance}</td>
+                        <td style="text-align:center;${totalStyle}">${runningBalance}</td>
+                        <td class="cto-view-col" style="text-align:center;">${viewCell}</td>
+                        <td class="cto-entry-actions" style="text-align:center;">${actionCell}</td>
+                    </tr>`;
+                });
+
+                tbody.innerHTML = html;
             } catch (error) {
                 console.error('Error loading CTO card:', error);
                 document.getElementById('ctoHistoryBody').innerHTML = `
-                    <tr><td colspan="8" style="color:#d32f2f;text-align:center;padding:40px;">Error loading CTO card data</td></tr>
+                    <tr><td colspan="9" style="color:#d32f2f;text-align:center;padding:40px;">Error loading CTO card data</td></tr>
                 `;
             }
+        }
+
+        function prefillFromApp(soNumber, dateIssued, daysGranted) {
+            document.getElementById('edit_cto_type').value = 'ADD';
+            document.getElementById('edit_cto_so_details').value = soNumber;
+            document.getElementById('edit_cto_date_issued').value = dateIssued;
+            document.getElementById('edit_cto_granted').value = daysGranted;
+            document.getElementById('edit_cto_used').value = '';
+            const form = document.getElementById('ctoEditForm');
+            if (!form.classList.contains('active')) form.classList.add('active');
+            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function editCTORecord(recordId, idx) {
@@ -730,6 +787,7 @@
             document.getElementById('edit_cto_type').value = (record.type || 'ADD').toUpperCase();
             document.getElementById('edit_cto_period').value = record.periodCovered || '';
             document.getElementById('edit_cto_so_details').value = record.soDetails || record.soNumber || '';
+            document.getElementById('edit_cto_date_issued').value = record.dateIssued || '';
             document.getElementById('edit_cto_granted').value = record.daysGranted || '';
             document.getElementById('edit_cto_used').value = record.daysUsed || '';
 
@@ -1035,11 +1093,14 @@
 
         async function saveCTORecord() {
             try {
+                const soNumber = document.getElementById('edit_cto_so_details').value.trim();
+                const dateIssuedVal = document.getElementById('edit_cto_date_issued').value.trim();
                 const ctoData = {
                     employeeId: employeeEmail,
                     type: document.getElementById('edit_cto_type').value,
                     periodCovered: document.getElementById('edit_cto_period').value,
-                    soDetails: document.getElementById('edit_cto_so_details').value,
+                    soDetails: soNumber,
+                    dateIssued: dateIssuedVal,
                     daysGranted: parseFloat(document.getElementById('edit_cto_granted').value) || 0,
                     daysUsed: parseFloat(document.getElementById('edit_cto_used').value) || 0,
                     soImage: ctoSOImageBase64
@@ -1082,6 +1143,7 @@
             document.getElementById('edit_cto_type').value = 'ADD';
             document.getElementById('edit_cto_period').value = '';
             document.getElementById('edit_cto_so_details').value = '';
+            document.getElementById('edit_cto_date_issued').value = '';
             document.getElementById('edit_cto_granted').value = '';
             document.getElementById('edit_cto_used').value = '';
             removeCTOSOImage();
@@ -1207,7 +1269,7 @@
         Object.assign(window, {
             toggleEditForm, addEditableLeaveRow, saveLeaveTransaction, removeEditableLeaveRow,
             editLeaveTransaction, deleteLeaveTransaction, recalcEditableLeaveRow,
-            saveCTORecord, editCTORecord, deleteCTORecord, resetCTOForm,
+            saveCTORecord, editCTORecord, deleteCTORecord, resetCTOForm, prefillFromApp,
             previewCTOSOImage, removeCTOSOImage,
             printLeaveCard, downloadLeaveCardPdf, printCTOCard,
             viewSOImage, closeSOImageModal

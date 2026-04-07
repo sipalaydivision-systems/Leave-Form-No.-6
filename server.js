@@ -6064,8 +6064,8 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
 // Add/Update CTO record
 app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
     try {
-        const { employeeId, type, soDetails, daysGranted, daysUsed, periodCovered, soImage } = req.body;
-        
+        const { employeeId, type, soDetails, dateIssued, daysGranted, daysUsed, periodCovered, soImage } = req.body;
+
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
@@ -6089,6 +6089,7 @@ app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
             email: employeeId,
             type: type || 'ADD',
             soDetails: soDetails || '',
+            dateIssued: dateIssued || '',
             periodCovered: periodCovered || new Date().toISOString(),
             daysGranted: Number(daysGranted) || 0,
             daysUsed: Number(daysUsed) || 0,
@@ -6118,7 +6119,7 @@ app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
 app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
     try {
         const recordId = req.params.recordId;
-        const { daysUsed, fullUpdate, type, soDetails, periodCovered, daysGranted, soImage } = req.body;
+        const { daysUsed, fullUpdate, type, soDetails, dateIssued, periodCovered, daysGranted, soImage } = req.body;
 
         ensureFile(ctoRecordsFile);
         let ctoRecords = readJSON(ctoRecordsFile);
@@ -6137,6 +6138,7 @@ app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
             // Full record replacement (AO edit form)
             if (type !== undefined) ctoRecords[index].type = type;
             if (soDetails !== undefined) ctoRecords[index].soDetails = soDetails;
+            if (dateIssued !== undefined) ctoRecords[index].dateIssued = dateIssued;
             if (periodCovered !== undefined) ctoRecords[index].periodCovered = periodCovered;
             if (daysGranted !== undefined) ctoRecords[index].daysGranted = Number(daysGranted);
             if (daysUsed !== undefined) ctoRecords[index].daysUsed = Number(daysUsed);
