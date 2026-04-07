@@ -696,6 +696,9 @@
                     return;
                 }
 
+                // Store display rows for inline editing
+                window._ctoDisplayRows = displayRows;
+
                 let html = '';
                 let runningBalance = 0;
 
@@ -719,7 +722,7 @@
                             ? `<button onclick="viewSOImage(${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;">View</button>`
                             : `<span style="color:var(--color-gray-300);font-size:11px;">No SO</span>`;
                         actionCell = `<div style="display:flex;gap:4px;justify-content:center;">
-                            <button onclick="editCTORecord('${recordId}', ${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;">Edit</button>
+                            <button onclick="inlineCTOEdit(${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;">Edit</button>
                             <button onclick="deleteCTORecord('${recordId}')" style="padding:3px 8px;font-size:11px;background:var(--color-red-50);border:1px solid var(--color-red-200);border-radius:var(--radius-sm);color:var(--color-red-600);cursor:pointer;">Del</button>
                         </div>`;
                     } else {
@@ -739,12 +742,11 @@
                         } else {
                             viewCell = `<span style="color:var(--color-gray-300);font-size:11px;">No SO</span>`;
                         }
-                        // Synthesized rows: offer Add button to create an official CTO record
-                        actionCell = `<button onclick="prefillFromApp('${escapeHtml(app.otherLeaveSpecify || '')}','${escapeHtml(app.dateOfFiling || '')}',${granted})" style="padding:3px 8px;font-size:11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:var(--radius-sm);color:#2e7d32;cursor:pointer;white-space:nowrap;">+ Add official</button>`;
+                        actionCell = `<button onclick="inlineCTOEdit(${idx})" style="padding:3px 8px;font-size:11px;background:var(--color-primary-50);border:1px solid var(--color-primary-300);border-radius:var(--radius-sm);color:var(--color-primary-600);cursor:pointer;">Edit</button>`;
                     }
 
                     const totalStyle = runningBalance < 0 ? 'background:var(--color-red-600);color:white;font-weight:700;' : 'font-weight:700;';
-                    html += `<tr>
+                    html += `<tr data-cto-row-idx="${idx}">
                         <td style="text-align:left;padding-left:10px;">${periodDisplay}</td>
                         <td style="text-align:left;padding-left:6px;font-size:11px;">${soNumber}</td>
                         <td style="text-align:left;padding-left:6px;font-size:11px;">${dateIssued}</td>
@@ -766,18 +768,141 @@
             }
         }
 
-        function prefillFromApp(soNumber, dateIssued, daysGranted) {
-            document.getElementById('edit_cto_type').value = 'ADD';
-            document.getElementById('edit_cto_so_details').value = soNumber;
-            document.getElementById('edit_cto_date_issued').value = dateIssued;
-            document.getElementById('edit_cto_granted').value = daysGranted;
-            document.getElementById('edit_cto_used').value = '';
-            const form = document.getElementById('ctoEditForm');
-            if (!form.classList.contains('active')) form.classList.add('active');
-            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        function inlineCTOEdit(rowIdx) {
+            // Remove any existing inline edit rows
+            const tbody = document.getElementById('ctoHistoryBody');
+            const existingEdit = tbody.querySelector('tr[data-cto-inline-edit]');
+            const existingActions = tbody.querySelector('tr[data-cto-inline-actions]');
+            if (existingEdit) existingEdit.remove();
+            if (existingActions) existingActions.remove();
+
+            const row = (window._ctoDisplayRows || [])[rowIdx];
+            if (!row) return;
+
+            // Gather current values
+            let type, period, soNum, dateIssued, granted, used;
+            if (row._type === 'grant') {
+                const cto = row.cto;
+                type    = (cto.type || 'ADD').toUpperCase();
+                period  = cto.periodCovered || '';
+                soNum   = cto.soDetails || cto.soNumber || '';
+                dateIssued = cto.dateIssued || '';
+                granted = parseFloat(cto.daysGranted) || 0;
+                used    = parseFloat(cto.daysUsed) || 0;
+            } else {
+                const app = row.app;
+                type    = 'ADD';
+                period  = app.dateFrom && app.dateTo
+                    ? `${app.dateFrom}${app.dateTo !== app.dateFrom ? ' to ' + app.dateTo : ''}`
+                    : (app.dateFrom || '');
+                soNum   = app.otherLeaveSpecify || '';
+                dateIssued = app.dateOfFiling || '';
+                granted = parseFloat(app.numDays) || 0;
+                used    = 0;
+            }
+
+            // Find the original row and insert the edit row after it
+            const origRow = tbody.querySelector(`tr[data-cto-row-idx="${rowIdx}"]`);
+            if (!origRow) return;
+
+            const inp = (id, val, inputType) =>
+                `<input id="ctoinl_${id}" type="${inputType || 'text'}" value="${escapeHtml(String(val))}" style="width:100%;padding:4px;border:1px solid #aaa;border-radius:4px;font-size:11px;box-sizing:border-box;">`;
+
+            const editRow = document.createElement('tr');
+            editRow.setAttribute('data-cto-inline-edit', rowIdx);
+            editRow.style.background = '#e8f5e9';
+            editRow.innerHTML = `
+                <td style="padding:6px;">
+                    <select id="ctoinl_type" style="width:80px;padding:4px;border:1px solid #aaa;border-radius:4px;font-size:12px;font-weight:600;margin-bottom:4px;">
+                        <option value="ADD" ${type === 'ADD' ? 'selected' : ''}>ADD</option>
+                        <option value="LESS" ${type === 'LESS' ? 'selected' : ''}>LESS</option>
+                    </select><br>
+                    ${inp('period', period)}
+                </td>
+                <td style="padding:6px;">${inp('so', soNum)}</td>
+                <td style="padding:6px;">${inp('date', dateIssued)}</td>
+                <td style="padding:6px;">${inp('granted', granted, 'number')}</td>
+                <td style="padding:6px;">${inp('used', used, 'number')}</td>
+                <td style="text-align:center;color:var(--color-gray-400);font-size:11px;" colspan="2">auto</td>
+                <td style="text-align:center;color:var(--color-gray-400);font-size:11px;">—</td>
+                <td></td>
+            `;
+
+            const actionRow = document.createElement('tr');
+            actionRow.setAttribute('data-cto-inline-actions', rowIdx);
+            actionRow.style.background = '#e8f5e9';
+            actionRow.innerHTML = `
+                <td colspan="9" style="padding:8px;text-align:center;">
+                    <button onclick="saveCTOInlineEdit(${rowIdx})" style="padding:6px 20px;background:#2e7d32;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;margin-right:8px;">Save</button>
+                    <button onclick="cancelCTOInlineEdit()" style="padding:6px 20px;background:#999;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600;">Cancel</button>
+                </td>
+            `;
+
+            // Hide original row, insert edit rows after it
+            origRow.style.display = 'none';
+            origRow.after(editRow);
+            editRow.after(actionRow);
+            editRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        async function saveCTOInlineEdit(rowIdx) {
+            const row = (window._ctoDisplayRows || [])[rowIdx];
+            if (!row) return;
+
+            const type    = document.getElementById('ctoinl_type')?.value || 'ADD';
+            const period  = document.getElementById('ctoinl_period')?.value?.trim() || '';
+            const soNum   = document.getElementById('ctoinl_so')?.value?.trim() || '';
+            const dateIssued = document.getElementById('ctoinl_date')?.value?.trim() || '';
+            const granted = parseFloat(document.getElementById('ctoinl_granted')?.value) || 0;
+            const used    = parseFloat(document.getElementById('ctoinl_used')?.value) || 0;
+
+            const payload = {
+                employeeId: employeeEmail,
+                type,
+                periodCovered: period,
+                soDetails: soNum,
+                dateIssued,
+                daysGranted: granted,
+                daysUsed: used,
+            };
+
+            try {
+                let res;
+                if (row._type === 'grant') {
+                    const recordId = row.cto.id || row.cto._id;
+                    res = await fetch(`/api/cto-records/${encodeURIComponent(recordId)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify({ ...payload, fullUpdate: true }),
+                    });
+                } else {
+                    res = await fetch('/api/update-cto-records', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify(payload),
+                    });
+                }
+                const result = await res.json();
+                if (result.success) {
+                    alertSuccess('CTO record saved successfully!');
+                    loadCTOCardData();
+                } else {
+                    alertError('Error: ' + (result.error || 'Failed to save CTO record'));
+                }
+            } catch (err) {
+                alertError('Network error. Please try again.');
+            }
+        }
+
+        function cancelCTOInlineEdit() {
+            loadCTOCardData();
         }
 
         function editCTORecord(recordId, idx) {
+            // Legacy: delegate to inline edit if possible
+            inlineCTOEdit(idx);
+            return;
+
             const record = window._ctoRecords && window._ctoRecords[idx];
             if (!record) { alertError('Record not found'); return; }
 
@@ -1270,6 +1395,7 @@
             toggleEditForm, addEditableLeaveRow, saveLeaveTransaction, removeEditableLeaveRow,
             editLeaveTransaction, deleteLeaveTransaction, recalcEditableLeaveRow,
             saveCTORecord, editCTORecord, deleteCTORecord, resetCTOForm, prefillFromApp,
+            inlineCTOEdit, saveCTOInlineEdit, cancelCTOInlineEdit,
             previewCTOSOImage, removeCTOSOImage,
             printLeaveCard, downloadLeaveCardPdf, printCTOCard,
             viewSOImage, closeSOImageModal
