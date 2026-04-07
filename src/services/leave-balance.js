@@ -95,46 +95,44 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, activeApps, exclude
     if (vl === null) vl = Math.max(0, (leaveCard.vacationLeaveEarned || 0) - (leaveCard.vacationLeaveSpent || 0));
     if (sl === null) sl = Math.max(0, (leaveCard.sickLeaveEarned || 0) - (leaveCard.sickLeaveSpent || 0));
 
-    // FL / SPL / WL are annual quotas — only count usage from the current calendar year.
-    // Cards that have no year stamp (e.g. Excel-imported) or whose year stamp is stale
-    // must start fresh at 0 for the current year.
+    // FL / SPL / WL are annual quotas — compute entirely from applications filed in the
+    // current calendar year.  We deliberately do NOT read from leaveCard.forceLeaveSpent /
+    // splSpent / wellnessSpent because those fields can contain cumulative multi-year
+    // totals from Excel-imported history (cards where forceLeaveYear is already set to
+    // the current year but the spent value was never properly reset).
+    // Applications have a reliable dateOfFiling that we can filter on.
     const currentYear = new Date().getFullYear();
-    result.forceSpent    = (leaveCard.forceLeaveYear === currentYear) ? (leaveCard.forceLeaveSpent  || 0) : 0;
-    result.splSpent      = (leaveCard.splYear         === currentYear) ? (leaveCard.splSpent         || 0) : 0;
-    result.wellnessSpent = (leaveCard.wellnessYear    === currentYear) ? (leaveCard.wellnessSpent    || 0) : 0;
-
     const reflected = getReflectedAppIds(leaveCard);
-    let pendingForce = 0, pendingSpl = 0, pendingWellness = 0;
+    let forceThisYear = 0, splThisYear = 0, wellnessThisYear = 0;
 
     for (const app of activeApps) {
         if (excludeAppId && app.id === excludeAppId) continue;
-        if (reflected.has(app.id)) continue;
         const days = parseFloat(app.numDays) || 0;
         if (days <= 0) continue;
         const type = (app.leaveType || '').toLowerCase();
+        const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+
         if (type.includes('vl') || type.includes('vacation')) {
-            vl = Math.max(0, vl - days);
+            if (!reflected.has(app.id)) vl = Math.max(0, vl - days);
         } else if (type.includes('sl') || type.includes('sick')) {
-            sl = Math.max(0, sl - days);
+            if (!reflected.has(app.id)) sl = Math.max(0, sl - days);
         } else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) {
-            // FL draws from VL regardless of year; quota is year-scoped
-            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
-            if (appYear === currentYear) pendingForce += days;
-            vl = Math.max(0, vl - days);
+            // Count all current-year FL apps (reflected + unreflected) for the annual quota.
+            // Only deduct from VL for unreflected apps (reflected ones already decremented the card).
+            if (appYear === currentYear) forceThisYear += days;
+            if (!reflected.has(app.id)) vl = Math.max(0, vl - days);
         } else if (type.includes('spl') || type.includes('special')) {
-            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
-            if (appYear === currentYear) pendingSpl += days;
+            if (appYear === currentYear) splThisYear += days;
         } else if (type.includes('wellness') || type === 'leave_wl') {
-            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
-            if (appYear === currentYear) pendingWellness += days;
+            if (appYear === currentYear) wellnessThisYear += days;
         }
     }
 
     result.vlBalance     = vl;
     result.slBalance     = sl;
-    result.forceSpent   += pendingForce;
-    result.splSpent     += pendingSpl;
-    result.wellnessSpent += pendingWellness;
+    result.forceSpent    = forceThisYear;
+    result.splSpent      = splThisYear;
+    result.wellnessSpent = wellnessThisYear;
     return result;
 }
 

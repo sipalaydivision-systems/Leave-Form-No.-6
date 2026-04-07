@@ -828,42 +828,40 @@ function calculateEffectiveBalance(employeeEmail, leaveCard, excludeAppId) {
     if (vl === null) vl = Math.max(0, (leaveCard.vacationLeaveEarned || 0) - (leaveCard.vacationLeaveSpent || 0));
     if (sl === null) sl = Math.max(0, (leaveCard.sickLeaveEarned || 0) - (leaveCard.sickLeaveSpent || 0));
 
-    // FL / SPL / WL are annual quotas — only count usage from the current calendar year.
+    // FL / SPL are annual quotas — compute entirely from current-year applications.
+    // Do NOT read leaveCard.forceLeaveSpent/splSpent: those fields can hold cumulative
+    // multi-year totals (especially for Excel-imported cards) even when forceLeaveYear
+    // is already stamped as the current year.
     const currentYearLocal = new Date().getFullYear();
-    result.forceSpent = (leaveCard.forceLeaveYear === currentYearLocal) ? (leaveCard.forceLeaveSpent || 0) : 0;
-    result.splSpent   = (leaveCard.splYear         === currentYearLocal) ? (leaveCard.splSpent        || 0) : 0;
-
-    // Deduct pending/approved applications not yet reflected in leave card
     const allApps = readJSONArray(applicationsFile);
     const reflected = getReflectedAppIds(leaveCard);
-    let pendingForceSpent = 0, pendingSplSpent = 0;
+    let forceThisYear = 0, splThisYear = 0;
 
     allApps.forEach(app => {
         if (excludeAppId && app.id === excludeAppId) return;
-        if (reflected.has(app.id)) return;
         if (app.employeeEmail !== employeeEmail && app.email !== employeeEmail) return;
         if (app.status !== 'pending' && app.status !== 'approved') return;
         const days = parseFloat(app.numDays) || 0;
         if (days <= 0) return;
         const type = (app.leaveType || '').toLowerCase();
+        const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
+
         if (type.includes('vl') || type.includes('vacation')) {
-            vl = Math.max(0, vl - days);
+            if (!reflected.has(app.id)) vl = Math.max(0, vl - days);
         } else if (type.includes('sl') || type.includes('sick')) {
-            sl = Math.max(0, sl - days);
+            if (!reflected.has(app.id)) sl = Math.max(0, sl - days);
         } else if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) {
-            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
-            if (appYear === currentYearLocal) pendingForceSpent += days;
-            vl = Math.max(0, vl - days);
+            if (appYear === currentYearLocal) forceThisYear += days;
+            if (!reflected.has(app.id)) vl = Math.max(0, vl - days);
         } else if (type.includes('spl') || type.includes('special')) {
-            const appYear = new Date(app.dateOfFiling || app.createdAt || Date.now()).getFullYear();
-            if (appYear === currentYearLocal) pendingSplSpent += days;
+            if (appYear === currentYearLocal) splThisYear += days;
         }
     });
 
     result.vlBalance = vl;
     result.slBalance = sl;
-    result.forceSpent += pendingForceSpent;
-    result.splSpent += pendingSplSpent;
+    result.forceSpent = forceThisYear;
+    result.splSpent = splThisYear;
 
     return result;
 }
@@ -4938,81 +4936,32 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         const latestRecord = getLatestLeaveCard(employeeRecords);
         
         const currentYear = new Date().getFullYear();
-        
-        // Check if Force Leave, SPL, or Wellness year needs reset
-        let forceLeaveSpent = latestRecord.forceLeaveSpent || 0;
-        let splSpent = latestRecord.splSpent || 0;
-        let wellnessSpent = latestRecord.wellnessSpent || 0;
-        let needsPersist = false;
 
-        // Reset Force Leave if year stamp is missing (e.g. Excel-imported cards) OR is from a prior year
-        if (!latestRecord.forceLeaveYear || latestRecord.forceLeaveYear !== currentYear) {
-            forceLeaveSpent = 0;
-            latestRecord.forceLeaveSpent = 0;
-            latestRecord.forceLeaveYear = currentYear;
-            needsPersist = true;
-        }
-
-        // Reset Special Privilege Leave if year stamp is missing or stale
-        if (!latestRecord.splYear || latestRecord.splYear !== currentYear) {
-            splSpent = 0;
-            latestRecord.splSpent = 0;
-            latestRecord.splYear = currentYear;
-            needsPersist = true;
-        }
-
-        // Reset Wellness Leave if year stamp is missing or stale
-        if (!latestRecord.wellnessYear || latestRecord.wellnessYear !== currentYear) {
-            wellnessSpent = 0;
-            latestRecord.wellnessSpent = 0;
-            latestRecord.wellnessEarned = 5;
-            latestRecord.wellnessYear = currentYear;
-            needsPersist = true;
-        }
-
-        // Persist year reset to disk so submit-leave validation reads correct values
-        if (needsPersist) {
-            const allCards = readJSON(leavecardsFile);
-            const cardIdx = allCards.findIndex(lc => lc.email === latestRecord.email || lc.employeeId === latestRecord.employeeId);
-            if (cardIdx !== -1) {
-                allCards[cardIdx].forceLeaveSpent = 0;
-                allCards[cardIdx].forceLeaveYear = currentYear;
-                allCards[cardIdx].splSpent = 0;
-                allCards[cardIdx].splYear = currentYear;
-                allCards[cardIdx].wellnessSpent = 0;
-                allCards[cardIdx].wellnessEarned = 5;
-                allCards[cardIdx].wellnessYear = currentYear;
-                writeJSON(leavecardsFile, allCards);
-                console.log(`[LEAVE-CREDITS] Year reset persisted for ${latestRecord.email}: FL/SPL/WL spent reset to 0 for ${currentYear}`);
-            }
-        }
-        
         // Single source of truth: vl/sl summary fields
         // These are updated by accrual, SDS approval, and AO edits — always current
         // transactions[] and leaveUsageHistory[] are audit logs only, not used for balance
         let vlBalance = (latestRecord.vl !== undefined) ? latestRecord.vl : null;
         let slBalance = (latestRecord.sl !== undefined) ? latestRecord.sl : null;
-        let totalForceSpent = forceLeaveSpent;
-        let totalSplSpent = splSpent;
-        
-        // Sum up force, special, and wellness leave usage from transactions
-        let totalWellnessSpent = wellnessSpent;
-        // FL / SPL / WL are annual quotas — only sum transactions from the current year.
-        // Summing across all years produces cumulative totals that cause negative balances
-        // for employees who have used their annual allocation in prior years.
-        if (latestRecord.transactions && Array.isArray(latestRecord.transactions) && latestRecord.transactions.length > 0) {
-            totalForceSpent = 0;
-            totalSplSpent = 0;
-            totalWellnessSpent = 0;
-            latestRecord.transactions.forEach(tx => {
-                const txYear = new Date(tx.dateRecorded || tx.date || Date.now()).getFullYear();
-                if (txYear === currentYear) {
-                    totalForceSpent   += parseFloat(tx.forcedLeave) || 0;
-                    totalSplSpent     += parseFloat(tx.splUsed)     || 0;
-                    totalWellnessSpent += parseFloat(tx.wellnessUsed) || 0;
-                }
-            });
-        }
+
+        // FL / SPL / WL are annual quotas — compute from approved leave applications
+        // filed in the current calendar year.  We do NOT use the card's forceLeaveSpent /
+        // splSpent / wellnessSpent fields because those accumulate across years (especially
+        // for Excel-imported cards where forceLeaveYear can already be the current year
+        // but the spent value was never reset, or transaction dateRecorded defaults to now).
+        const allApplications = readJSONArray(applicationsFile);
+        let totalForceSpent = 0, totalSplSpent = 0, totalWellnessSpent = 0;
+        allApplications.forEach(app => {
+            if (app.employeeEmail !== employeeId && app.email !== employeeId) return;
+            if (app.status !== 'approved') return;
+            const appYear = new Date(app.dateOfFiling || app.createdAt || 0).getFullYear();
+            if (appYear !== currentYear) return;
+            const days = parseFloat(app.numDays) || 0;
+            if (days <= 0) return;
+            const type = (app.leaveType || '').toLowerCase();
+            if (type.includes('mfl') || type.includes('mandatory') || type.includes('forced')) totalForceSpent   += days;
+            else if (type.includes('spl') || type.includes('special'))                         totalSplSpent     += days;
+            else if (type.includes('wellness') || type === 'leave_wl')                         totalWellnessSpent += days;
+        });
         
         // Fallback for legacy cards without vl/sl fields
         const vacationLeaveEarned = latestRecord.vacationLeaveEarned || 0;
@@ -5034,19 +4983,28 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         // Leave card balances are now strictly based on leave card entries.
         // Leave applications no longer auto-adjust balances.
         
+        const flEarned  = latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5;
+        const splEarned = latestRecord.splEarned || latestRecord.spl || 3;
+        const wlEarned  = latestRecord.wellnessEarned || 5;
+
+        // Cap spent at annual allotment so balance never goes below 0.
+        const safeFlSpent  = Math.min(totalForceSpent,    flEarned);
+        const safeSplSpent = Math.min(totalSplSpent,      splEarned);
+        const safeWlSpent  = Math.min(totalWellnessSpent, wlEarned);
+
         // Ensure the credits object has all required fields with defaults
         const enrichedCredits = {
             ...latestRecord,
             vacationLeaveEarned: vacationLeaveEarned,
             sickLeaveEarned: sickLeaveEarned,
-            forceLeaveEarned: latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5,
-            splEarned: latestRecord.splEarned || latestRecord.spl || 3,
-            wellnessEarned: latestRecord.wellnessEarned || 5,
+            forceLeaveEarned: flEarned,
+            splEarned: splEarned,
+            wellnessEarned: wlEarned,
             vacationLeaveSpent: vacationLeaveSpent,
             sickLeaveSpent: sickLeaveSpent,
-            forceLeaveSpent: totalForceSpent,
-            splSpent: totalSplSpent,
-            wellnessSpent: totalWellnessSpent,
+            forceLeaveSpent: safeFlSpent,
+            splSpent: safeSplSpent,
+            wellnessSpent: safeWlSpent,
             forceLeaveYear: currentYear,
             splYear: currentYear,
             wellnessYear: currentYear,
