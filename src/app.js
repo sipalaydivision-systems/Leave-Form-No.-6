@@ -7,13 +7,12 @@
 
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
 const {
-    PORT, NODE_ENV, PRODUCTION_DOMAIN, APP_VERSION,
+    PORT, NODE_ENV, PRODUCTION_DOMAIN, APP_VERSION, SESSION_SECRET,
     dataDir, uploadsDir, soPdfsDir, leaveFormPdfsDir,
 } = require('./config');
 
@@ -44,9 +43,11 @@ function createApp() {
     // ------------------------------------------------------------------
     // Core Middleware
     // ------------------------------------------------------------------
-    app.use(bodyParser.json({ limit: '15mb' }));
-    app.use(bodyParser.urlencoded({ extended: true }));
-    app.use(cookieParser());
+    // Use Express built-in body parsers (replaces deprecated body-parser package)
+    app.use(express.json({ limit: '15mb' }));
+    app.use(express.urlencoded({ extended: true }));
+    // Signed cookies — SESSION_SECRET prevents client-side cookie tampering
+    app.use(cookieParser(SESSION_SECRET));
 
     // CORS
     const allowedOrigins = NODE_ENV === 'production' && PRODUCTION_DOMAIN

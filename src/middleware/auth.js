@@ -8,9 +8,16 @@ const { SESSION_DURATION_MS, SESSION_COOKIE_OPTIONS } = require('../config');
 const activeSessions = new Map();
 
 /**
- * Extract session token from HttpOnly cookie.
+ * Extract session token from HttpOnly signed cookie.
+ * Signed cookies are verified against SESSION_SECRET by cookie-parser —
+ * any tampered value comes back as `false`, which we treat as absent.
  */
 function extractToken(req) {
+    // Prefer signed cookie (tamper-evident via HMAC)
+    if (req.signedCookies && req.signedCookies.session) {
+        return req.signedCookies.session;
+    }
+    // Fallback: unsigned cookie for backward-compat during rolling deploy
     if (req.cookies && req.cookies.session) {
         return req.cookies.session;
     }

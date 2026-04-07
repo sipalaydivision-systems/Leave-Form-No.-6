@@ -4,10 +4,9 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const bodyParser = require('body-parser');
 const https = require('https');
 const multer = require('multer');
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
@@ -392,9 +391,10 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(cookieParser());
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+const SESSION_SECRET_LEGACY = process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
+app.use(cookieParser(SESSION_SECRET_LEGACY));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Security middleware - sanitize all incoming requests (must be AFTER bodyParser)
 app.use((req, res, next) => {
@@ -6571,6 +6571,30 @@ const migrationUpload = multer({
 });
 
 /**
+ * Convert an ExcelJS Worksheet to a 2-D array equivalent to
+ * xlsx.utils.sheet_to_json(ws, { header: 1 }).
+ * Cells are 0-indexed; empty trailing cells are included.
+ */
+function worksheetTo2DArray(worksheet) {
+    const data = [];
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+        const rowData = [];
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            let val = cell.value;
+            if (val !== null && val !== undefined && typeof val === 'object') {
+                if ('result' in val) val = val.result;          // formula cell
+                else if (val instanceof Date) val = val;        // date cell
+                else if (val.text !== undefined) val = val.text; // rich text
+                else val = String(val);
+            }
+            rowData[colNumber - 1] = val ?? null;
+        });
+        data[rowNumber - 1] = rowData;
+    });
+    return data;
+}
+
+/**
  * Extract VL/SL balance from a single Excel leave card buffer.
  *
  * Excel leave-card layout (DepEd standard):
@@ -6582,11 +6606,13 @@ const migrationUpload = multer({
  *  - Teaching personnel may use VSC format where a single balance is
  *    in column 8 (index 7).
  */
-function extractCreditsFromBuffer(buffer, fileName) {
+async function extractCreditsFromBuffer(buffer, fileName) {
     try {
-        const wb = xlsx.read(buffer, { type: 'buffer' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = xlsx.utils.sheet_to_json(ws, { header: 1 });
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        const ws = wb.worksheets[0];
+        if (!ws) return null;
+        const data = worksheetTo2DArray(ws);
 
         const baseName = path.basename(fileName, path.extname(fileName));
 
@@ -6731,43 +6757,45 @@ function findHeaderRow(data) {
  *   Header row contains: SO/Special Order, Period, Days Granted/Earned, Days Used, Balance
  *   Data rows follow the header.
  */
-function extractCtoFromBuffer(buffer, fileName) {
+async function extractCtoFromBuffer(buffer, fileName) {
     try {
-        const wb = xlsx.read(buffer, { type: 'buffer' });
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
         const baseName = path.basename(fileName, path.extname(fileName));
 
         // Find the CTO sheet — try named sheets first, then fall back to 2nd sheet
         let ctoSheet = null;
         let ctoSheetName = null;
         const ctoSheetNames = ['CTO', 'CTO CARD', 'CTO RECORDS', 'COMPENSATORY', 'CTO_CARD'];
-        for (const sn of wb.SheetNames) {
-            if (ctoSheetNames.includes(sn.toUpperCase().trim())) {
-                ctoSheet = wb.Sheets[sn];
-                ctoSheetName = sn;
+        for (const ws of wb.worksheets) {
+            if (ctoSheetNames.includes(ws.name.toUpperCase().trim())) {
+                ctoSheet = ws;
+                ctoSheetName = ws.name;
                 break;
             }
         }
         // Fallback: if no named match, check if 2nd sheet has CTO-like content
-        if (!ctoSheet && wb.SheetNames.length >= 2) {
-            const secondSheet = wb.Sheets[wb.SheetNames[1]];
-            const testData = xlsx.utils.sheet_to_json(secondSheet, { header: 1 });
+        if (!ctoSheet && wb.worksheets.length >= 2) {
+            const secondSheet = wb.worksheets[1];
+            const testData = worksheetTo2DArray(secondSheet);
             for (let i = 0; i < Math.min(15, testData.length); i++) {
                 const rowStr = (testData[i] || []).map(c => String(c || '').toUpperCase()).join(' ');
                 if (rowStr.includes('CTO') || rowStr.includes('COMPENSATORY') || rowStr.includes('SPECIAL ORDER')) {
                     ctoSheet = secondSheet;
-                    ctoSheetName = wb.SheetNames[1];
+                    ctoSheetName = secondSheet.name;
                     break;
                 }
             }
         }
         // Also check if the first (only) sheet IS a CTO card
-        if (!ctoSheet) {
-            const firstData = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+        if (!ctoSheet && wb.worksheets.length > 0) {
+            const firstSheet = wb.worksheets[0];
+            const firstData = worksheetTo2DArray(firstSheet);
             for (let i = 0; i < Math.min(15, firstData.length); i++) {
                 const rowStr = (firstData[i] || []).map(c => String(c || '').toUpperCase()).join(' ');
                 if (rowStr.includes('CTO') || rowStr.includes('COMPENSATORY TIME')) {
-                    ctoSheet = wb.Sheets[wb.SheetNames[0]];
-                    ctoSheetName = wb.SheetNames[0];
+                    ctoSheet = firstSheet;
+                    ctoSheetName = firstSheet.name;
                     break;
                 }
             }
@@ -6775,7 +6803,7 @@ function extractCtoFromBuffer(buffer, fileName) {
 
         if (!ctoSheet) return null;
 
-        const data = xlsx.utils.sheet_to_json(ctoSheet, { header: 1 });
+        const data = worksheetTo2DArray(ctoSheet);
 
         // Find the header row for CTO data
         // CTO sheets often have multi-row headers:
@@ -6891,17 +6919,17 @@ function extractCtoFromBuffer(buffer, fileName) {
  * Detect if an Excel file is for a teaching employee.
  * Looks for VSC header, teaching position keywords, or CTO-only content.
  */
-function detectTeachingFromExcel(buffer) {
+async function detectTeachingFromExcel(buffer) {
     try {
-        const wb = xlsx.read(buffer, { type: 'buffer' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = xlsx.utils.sheet_to_json(ws, { header: 1 });
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        if (!wb.worksheets.length) return false;
+        const data = worksheetTo2DArray(wb.worksheets[0]);
 
         for (let i = 0; i < Math.min(20, data.length); i++) {
             if (!data[i]) continue;
             const rowStr = data[i].map(c => String(c || '').toUpperCase()).join(' ');
             if (rowStr.includes('VSC') || rowStr.includes('VACATION SERVICE CREDIT')) return true;
-            // Check for teaching position field
             if (/\bTEACHER\b/.test(rowStr) || /\bHEAD\s*TEACHER\b/.test(rowStr) || /\bMASTER\s*TEACHER\b/.test(rowStr)) return true;
         }
         return false;
@@ -6931,7 +6959,7 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
         }
         next();
     });
-}, (req, res) => {
+}, async (req, res) => {
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ success: false, error: 'No Excel files uploaded' });
@@ -6947,9 +6975,11 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
         for (const file of req.files) {
             // Multer decodes filenames as latin1; re-decode as UTF-8 to handle Ñ, accents, etc.
             const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-            const isTeaching = detectTeachingFromExcel(file.buffer);
-            const extracted = extractCreditsFromBuffer(file.buffer, originalName);
-            const ctoExtracted = extractCtoFromBuffer(file.buffer, originalName);
+            const [isTeaching, extracted, ctoExtracted] = await Promise.all([
+                detectTeachingFromExcel(file.buffer),
+                extractCreditsFromBuffer(file.buffer, originalName),
+                extractCtoFromBuffer(file.buffer, originalName),
+            ]);
 
             if (isTeaching) teachingDetected.push(originalName);
 
