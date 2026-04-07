@@ -59,7 +59,7 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
                     spl: 3,
                     forceLeaveSpent: 0,
                     splSpent: 0,
-                    wellnessEarned: 3,
+                    wellnessEarned: 5,
                     wellnessSpent: 0,
                     others: 0,
                     vacationLeaveEarned: 0,
@@ -117,18 +117,14 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
         let totalForceSpent = forceLeaveSpent;
         let totalSplSpent = splSpent;
 
-        // Sum up force, special, and wellness leave usage from transactions
+        // FL/SPL/Wellness spent values are authoritative from the dedicated fields.
+        // These are reset to 0 at the start of each year (year-reset logic above)
+        // and incremented only by SDS final approval via updateLeaveCardWithUsage().
+        //
+        // Do NOT sum from transactions[] — those contain multi-year historical
+        // data imported from Excel and would produce negative balances when summed
+        // across years that have already been reset.
         let totalWellnessSpent = wellnessSpent;
-        if (latestRecord.transactions && Array.isArray(latestRecord.transactions) && latestRecord.transactions.length > 0) {
-            totalForceSpent = 0;
-            totalSplSpent = 0;
-            totalWellnessSpent = 0;
-            latestRecord.transactions.forEach(tx => {
-                totalForceSpent += parseFloat(tx.forcedLeave) || 0;
-                totalSplSpent += parseFloat(tx.splUsed) || 0;
-                totalWellnessSpent += parseFloat(tx.wellnessUsed) || 0;
-            });
-        }
 
         // Fallback for legacy cards without vl/sl fields
         const vacationLeaveEarned = latestRecord.vacationLeaveEarned || 0;
@@ -155,7 +151,7 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
             sickLeaveEarned: sickLeaveEarned,
             forceLeaveEarned: latestRecord.forceLeaveEarned || latestRecord.mandatoryForced || latestRecord.others || 5,
             splEarned: latestRecord.splEarned || latestRecord.spl || 3,
-            wellnessEarned: latestRecord.wellnessEarned || 3,
+            wellnessEarned: latestRecord.wellnessEarned || 5,
             vacationLeaveSpent: vacationLeaveSpent,
             sickLeaveSpent: sickLeaveSpent,
             forceLeaveSpent: totalForceSpent,
@@ -208,7 +204,7 @@ router.get('/api/leave-card', requireAuth(), (req, res) => {
                     sl: 0,
                     spl: 3,
                     forceLeave: 5,
-                    wellness: 3
+                    wellness: 5
                 }
             });
         }
