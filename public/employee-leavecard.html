@@ -249,12 +249,13 @@
                                         <thead>
                                             <tr>
                                                 <th rowspan="2">PERIOD COVERED</th>
-                                                <th colspan="4">LEAVE EARNED</th>
+                                                <th colspan="5">LEAVE EARNED</th>
                                                 <th rowspan="2">TOTAL</th>
-                                                <th rowspan="2" class="cto-view-col" style="width:60px">View</th>
+                                                <th rowspan="2" class="cto-view-col" style="width:60px">SO Document</th>
                                             </tr>
                                             <tr>
-                                                <th>Special Order No. and Date Issued</th>
+                                                <th>Special Order No.</th>
+                                                <th>Date Issued</th>
                                                 <th>No. of Days Granted</th>
                                                 <th>No. of Days Used</th>
                                                 <th>Balance</th>
@@ -262,7 +263,7 @@
                                         </thead>
                                         <tbody id="ctoTableBody">
                                             <tr>
-                                                <td colspan="7" style="text-align:center;padding:40px;color:var(--color-gray-400)">
+                                                <td colspan="8" style="text-align:center;padding:40px;color:var(--color-gray-400)">
                                                     Loading CTO records...
                                                 </td>
                                             </tr>
@@ -558,41 +559,74 @@
                 if (el('ctoEmpSchool')) el('ctoEmpSchool').textContent = currentUser.office || currentUser.school || 'N/A';
                 if (el('ctoEmpStation')) el('ctoEmpStation').textContent = '-';
 
-                // Render CTO grant records table
+                // Build display rows: official grant records first, then synthesize from approved
+                // leave_others applications when no grant records exist for this employee.
+                const approvedOthers = othersApps.filter(a => a.status === 'approved');
+                let displayRows = ctoRecords.map(cto => ({ _type: 'grant', cto }));
+                if (displayRows.length === 0 && approvedOthers.length > 0) {
+                    displayRows = approvedOthers.map(app => ({ _type: 'app', app }));
+                }
+
                 const tbody = document.getElementById('ctoTableBody');
-                if (ctoRecords.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--color-gray-400)">No CTO records found.</td></tr>`;
+                if (displayRows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--color-gray-400)">No CTO records found.</td></tr>`;
                 } else {
                     let runningBalance = 0;
                     window._ctoSOImages = [];
-                    tbody.innerHTML = ctoRecords.map((cto, idx) => {
-                        const type = (cto.type || 'ADD').toUpperCase();
-                        const periodCovered = cto.periodCovered || '-';
-                        const soDetails = cto.soDetails || cto.soNumber || 'N/A';
-                        const granted = parseFloat(cto.daysGranted) || 0;
-                        const used = parseFloat(cto.daysUsed) || 0;
+                    tbody.innerHTML = displayRows.map((row, idx) => {
+                        let periodDisplay, soNumber, dateIssued, granted, used, viewCell;
 
-                        if (type === 'ADD') { runningBalance += granted; } else { runningBalance -= used; }
-
-                        const periodDisplay = type === 'ADD' ? `ADD: ${periodCovered}` : `LESS: ${periodCovered}`;
-                        const soImageData = cto.soImage || '';
-                        let viewBtn;
-                        if (soImageData) {
-                            window._ctoSOImages[idx] = soImageData;
-                            viewBtn = `<button onclick="viewSOImage(${idx})" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;">View</button>`;
+                        if (row._type === 'grant') {
+                            const cto = row.cto;
+                            const type = (cto.type || 'ADD').toUpperCase();
+                            const periodCovered = cto.periodCovered || '-';
+                            soNumber = escapeHtml(cto.soDetails || cto.soNumber || '—');
+                            // Parse date from soDetails if it contains a pattern
+                            const rawDet = cto.soDetails || '';
+                            const dm = rawDet.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}\b/i)
+                                || rawDet.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/);
+                            dateIssued = dm ? escapeHtml(dm[0]) : '—';
+                            granted = parseFloat(cto.daysGranted) || 0;
+                            used = parseFloat(cto.daysUsed) || 0;
+                            if (type === 'ADD') { runningBalance += granted; } else { runningBalance -= used; }
+                            periodDisplay = `<span style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;">${type === 'ADD' ? 'ADD' : 'LESS'}: ${escapeHtml(periodCovered)}</span>`;
+                            const soImageData = cto.soImage || '';
+                            if (soImageData) {
+                                window._ctoSOImages[idx] = soImageData;
+                                viewCell = `<button onclick="viewSOImage(${idx})" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;">View</button>`;
+                            } else {
+                                viewCell = `<span style="color:var(--color-gray-400);font-size:10px;">No SO attached</span>`;
+                            }
                         } else {
-                            viewBtn = `<span style="color:var(--color-gray-400);font-size:10px;">No SO attached</span>`;
+                            // Synthesized from approved leave_others application
+                            const app = row.app;
+                            const period = app.dateFrom && app.dateTo
+                                ? `${app.dateFrom}${app.dateTo !== app.dateFrom ? ' to ' + app.dateTo : ''}`
+                                : (app.dateFrom || '—');
+                            soNumber = escapeHtml(app.otherLeaveSpecify || '—');
+                            dateIssued = escapeHtml(app.dateOfFiling || '—');
+                            granted = parseFloat(app.numDays) || 0;
+                            used = parseFloat(app.numDays) || 0;
+                            runningBalance += (granted - used); // Net 0 per approved application
+                            periodDisplay = `<span style="color:#2e7d32;font-weight:600;">ADD: ${escapeHtml(period)}</span>`;
+                            if (app.soFilePath) {
+                                const fname = escapeHtml(app.soFileName || 'Special_Order.pdf');
+                                viewCell = `<a href="${escapeHtml(app.soFilePath)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;">View PDF</a>`;
+                            } else {
+                                viewCell = `<span style="color:var(--color-gray-400);font-size:10px;">No SO attached</span>`;
+                            }
                         }
-                        const totalStyle = runningBalance <= 0 ? 'background:#d32f2f;color:white;font-weight:700;' : 'font-weight:700;';
 
+                        const totalStyle = runningBalance < 0 ? 'background:#d32f2f;color:white;font-weight:700;' : 'font-weight:700;';
                         return `<tr>
-                            <td style="color:${type === 'ADD' ? '#2e7d32' : '#c62828'};font-weight:600;text-align:left;">${periodDisplay}</td>
-                            <td style="text-align:left;font-size:11px;">${escapeHtml(soDetails)}</td>
-                            <td style="text-align:center;font-weight:600;">${type === 'ADD' ? granted : ''}</td>
-                            <td style="text-align:center;font-weight:600;color:#c62828;">${(type === 'LESS' || (type === 'ADD' && used > 0)) ? used : ''}</td>
+                            <td style="text-align:left;">${periodDisplay}</td>
+                            <td style="text-align:left;font-size:11px;">${soNumber}</td>
+                            <td style="text-align:left;font-size:11px;">${dateIssued}</td>
+                            <td style="text-align:center;font-weight:600;">${granted > 0 ? granted : ''}</td>
+                            <td style="text-align:center;font-weight:600;color:#c62828;">${used > 0 ? used : ''}</td>
                             <td style="text-align:center;font-weight:600;">${runningBalance}</td>
                             <td style="text-align:center;${totalStyle}">${runningBalance}</td>
-                            <td class="cto-view-col" style="text-align:center;">${viewBtn}</td>
+                            <td class="cto-view-col" style="text-align:center;">${viewCell}</td>
                         </tr>`;
                     }).join('');
                 }
@@ -637,16 +671,20 @@
                                 // Resolve SO fields from matched CTO grant record or fall back to app data
                                 const grant = matchGrantRecord(app);
                                 const periodCovered = grant?.periodCovered || period;
+                                // Days Granted: from grant record if matched, else numDays from the application
+                                // (the approved application proves these days were granted via the SO)
                                 const daysGranted = grant?.daysGranted != null
                                     ? String(grant.daysGranted)
-                                    : '—';
-                                // Extract SO number: prefer grant's soDetails, else app's otherLeaveSpecify
+                                    : String(app.numDays || '—');
+                                // SO Number: prefer grant's soDetails, else app's otherLeaveSpecify
                                 const soNumber = escapeHtml(grant?.soDetails || app.otherLeaveSpecify || '—');
-                                // Date issued: parse from grant soDetails or show placeholder
+                                // Date Issued: parse from grant soDetails; fall back to app's dateOfFiling
                                 const rawDet = grant?.soDetails || '';
                                 const dateMatch = rawDet.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}\b/i)
                                     || rawDet.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/);
-                                const dateIssued = dateMatch ? escapeHtml(dateMatch[0]) : '—';
+                                const dateIssued = dateMatch
+                                    ? escapeHtml(dateMatch[0])
+                                    : escapeHtml(app.dateOfFiling || '—');
 
                                 let soCell;
                                 if (app.soFilePath) {
@@ -674,7 +712,7 @@
                 }
             } catch (error) {
                 console.error('Error loading CTO records:', error);
-                document.getElementById('ctoTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--color-gray-400)">Unable to load CTO records. Please try again later.</td></tr>`;
+                document.getElementById('ctoTableBody').innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--color-gray-400)">Unable to load CTO records. Please try again later.</td></tr>`;
                 const appsContainer = document.getElementById('ctoAppsContainer');
                 if (appsContainer) appsContainer.innerHTML = `<div style="text-align:center;padding:var(--space-4);color:var(--color-neutral-400)">Unable to load applications.</div>`;
             }
