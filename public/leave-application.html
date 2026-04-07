@@ -264,7 +264,7 @@
             transform: rotate(180deg);
         }
         .leave-type-panel {
-            display: none;
+            display: none; /* shown as flex via .open */
             position: absolute;
             top: 100%;
             left: 0;
@@ -276,17 +276,21 @@
             border-bottom-right-radius: var(--radius-lg);
             box-shadow: var(--shadow-xl);
             z-index: 100;
-            max-height: 400px;
-            overflow-y: auto;
+            /* Flex column: search stays fixed, options scroll */
+            max-height: 450px;
+            flex-direction: column;
         }
         .leave-type-panel.open {
-            display: block;
+            display: flex;
+        }
+        #leave-type-options {
+            overflow-y: auto;
+            flex: 1 1 auto;
         }
         .leave-type-search {
             padding: var(--space-3);
             border-bottom: 1px solid var(--color-border-light);
-            position: sticky;
-            top: 0;
+            flex-shrink: 0;
             background: var(--color-surface);
             z-index: 1;
         }
