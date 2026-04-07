@@ -1,0 +1,13 @@
+/* ============================================================
+   EMPLOYEE PORTAL THEME — SDO Sipalay Leave Management System
+   Overrides the shared design-tokens.css primary color palette
+   for the Employee Portal only.
+   ============================================================ */
+
+:root {
+    --color-primary:        #2E6F40;
+    --color-primary-light:  #3d9155;
+    --color-primary-dark:   #1d4828;
+    --color-primary-50:     #eaf4ed;
+    --color-primary-100:    #bdd9c7;
+}

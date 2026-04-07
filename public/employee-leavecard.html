@@ -8,6 +8,7 @@
     <title>Leave Card & CTO Card — SDO Sipalay Leave System</title>
 
     <link rel="stylesheet" href="/css/design-tokens.css">
+    <link rel="stylesheet" href="/css/employee-theme.css">
     <link rel="stylesheet" href="/css/dashboard-layout.css">
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/charts.css">
@@ -596,21 +597,35 @@
                     }).join('');
                 }
 
-                // Render CTO Leave Applications section with SO PDF links
+                // Render CTO Leave Applications section with SO PDF links and resolved grant data
                 const appsContainer = document.getElementById('ctoAppsContainer');
                 if (appsContainer) {
                     if (othersApps.length === 0) {
                         appsContainer.innerHTML = `<div style="text-align:center;padding:var(--space-6);color:var(--color-neutral-400);font-size:var(--text-sm)">No CTO leave applications on record.</div>`;
                     } else {
                         const statusColors = { approved: '#2e7d32', pending: '#e65100', returned: '#c62828', rejected: '#b71c1c' };
+
+                        // Match an application to its CTO grant record by shared SO number tokens
+                        function matchGrantRecord(app) {
+                            const specify = (app.otherLeaveSpecify || '').toLowerCase();
+                            const nums = (specify.match(/\d{2,}/g) || []);
+                            if (!nums.length) return null;
+                            return ctoRecords.find(cto => {
+                                const det = (cto.soDetails || '').toLowerCase();
+                                return nums.some(n => det.includes(n));
+                            }) || null;
+                        }
+
                         appsContainer.innerHTML = `<div class="doc-table-wrap"><table style="font-size:12px;width:100%">
                             <thead><tr>
                                 <th style="text-align:left;">Application ID</th>
-                                <th style="text-align:left;">Period</th>
-                                <th style="text-align:center;">Days</th>
-                                <th style="text-align:left;">SO Reference</th>
+                                <th style="text-align:left;">Period Covered</th>
+                                <th style="text-align:center;">Days Applied</th>
+                                <th style="text-align:center;">Days Granted</th>
+                                <th style="text-align:left;">Special Order No.</th>
+                                <th style="text-align:left;">Date Issued</th>
                                 <th style="text-align:center;">Status</th>
-                                <th style="text-align:left;">Special Order PDF</th>
+                                <th style="text-align:left;">SO Document</th>
                             </tr></thead>
                             <tbody>${othersApps.map(app => {
                                 const status = (app.status || '').toLowerCase();
@@ -618,21 +633,38 @@
                                 const period = app.dateFrom && app.dateTo
                                     ? `${app.dateFrom} to ${app.dateTo}`
                                     : (app.dateFrom || '—');
-                                const specify = escapeHtml(app.otherLeaveSpecify || '—');
+
+                                // Resolve SO fields from matched CTO grant record or fall back to app data
+                                const grant = matchGrantRecord(app);
+                                const periodCovered = grant?.periodCovered || period;
+                                const daysGranted = grant?.daysGranted != null
+                                    ? String(grant.daysGranted)
+                                    : '—';
+                                // Extract SO number: prefer grant's soDetails, else app's otherLeaveSpecify
+                                const soNumber = escapeHtml(grant?.soDetails || app.otherLeaveSpecify || '—');
+                                // Date issued: parse from grant soDetails or show placeholder
+                                const rawDet = grant?.soDetails || '';
+                                const dateMatch = rawDet.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}\b/i)
+                                    || rawDet.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/);
+                                const dateIssued = dateMatch ? escapeHtml(dateMatch[0]) : '—';
+
                                 let soCell;
                                 if (app.soFilePath) {
                                     const fname = escapeHtml(app.soFileName || 'Special_Order.pdf');
-                                    soCell = `<a href="${escapeHtml(app.soFilePath)}" target="_blank" rel="noopener" style="color:var(--color-primary,#1565c0);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+                                    soCell = `<a href="${escapeHtml(app.soFilePath)}" target="_blank" rel="noopener" style="color:var(--color-primary,#2E6F40);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                         ${fname}</a>`;
                                 } else {
                                     soCell = `<span style="color:var(--color-neutral-400,#9e9e9e);font-size:11px;">No SO attached</span>`;
                                 }
+
                                 return `<tr>
                                     <td style="font-family:monospace;font-size:11px;">${escapeHtml(app.id || '')}</td>
-                                    <td>${escapeHtml(period)}</td>
+                                    <td>${escapeHtml(periodCovered)}</td>
                                     <td style="text-align:center;">${escapeHtml(String(app.numDays || '—'))}</td>
-                                    <td>${specify}</td>
+                                    <td style="text-align:center;">${escapeHtml(daysGranted)}</td>
+                                    <td>${soNumber}</td>
+                                    <td>${dateIssued}</td>
                                     <td style="text-align:center;"><span style="color:${statusColor};font-weight:600;text-transform:capitalize;">${escapeHtml(app.status || '')}</span></td>
                                     <td>${soCell}</td>
                                 </tr>`;
