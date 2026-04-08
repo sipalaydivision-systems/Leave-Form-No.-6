@@ -48,27 +48,28 @@
             color: white;
             padding: 20px 30px;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
             text-align: center;
             min-height: 120px;
         }
-        
+
         .header-content {
             display: flex;
             flex-direction: column;
             align-items: center;
             flex: 0 1 auto;
         }
-        
+
         .header-logo-left {
             display: none;
         }
 
         .header-logo {
-            width: 70px;
-            height: 70px;
+            width: 80px;
+            height: 80px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -680,15 +681,14 @@
 <body>
     <div class="login-container">
         <div class="header">
-            <div class="header-logo-left"></div>
+            <div class="header-logo">
+                <img src="/sipalay_logo.png" alt="Sipalay Division Logo" class="division-logo" onerror="this.style.display='none'">
+            </div>
             <div class="header-content">
                 <p>Republic of the Philippines</p>
                 <h1>Department of Education</h1>
                 <p>NEGROS ISLAND REGION</p>
                 <p style="font-weight: bold; color: #FFD700; font-size: 16px; margin-top: 8px;">SCHOOLS DIVISION OF SIPALAY CITY</p>
-            </div>
-            <div class="header-logo">
-                <img src="/sipalay_logo.png" alt="Sipalay Division Logo" class="division-logo" onerror="this.style.display='none'">
             </div>
         </div>
         
