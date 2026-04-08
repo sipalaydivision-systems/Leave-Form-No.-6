@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Diagrams — SDO Sipalay City Leave Management System</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .page-header {
+            background: linear-gradient(135deg, #003366 0%, #0055a5 100%);
+            color: white;
+            padding: 24px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+        }
+        .page-header img {
+            width: 72px;
+            height: 72px;
+            object-fit: cover;
+        }
+        .page-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .page-header p {
+            font-size: 13px;
+            opacity: 0.85;
+        }
+
+        /* ── Nav tabs ── */
+        .tabs-bar {
+            background: #fff;
+            border-bottom: 2px solid #e0e6ef;
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .tab-btn {
+            padding: 16px 32px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #003366; background: #f5f7fa; }
+        .tab-btn.active {
+            color: #003366;
+            border-bottom-color: #003366;
+            background: #f0f4ff;
+        }
+
+        /* ── Content ── */
+        .content { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+        .diagram-section { display: none; }
+        .diagram-section.active { display: block; }
+
+        .section-intro {
+            background: white;
+            border-radius: 12px;
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            border-left: 5px solid #003366;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .section-intro h2 {
+            font-size: 20px;
+            color: #003366;
+            margin-bottom: 8px;
+        }
+        .section-intro p {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .diagram-card {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .diagram-card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #003366;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e8ecf0;
+        }
+        .diagram-card .diagram-desc {
+            font-size: 13px;
+            color: #777;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            overflow-x: auto;
+            min-height: 80px;
+        }
+
+        /* ── Legend tables ── */
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .legend-box {
+            background: #f8faff;
+            border: 1px solid #dce3f0;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .legend-box h4 { font-size: 13px; color: #003366; margin-bottom: 10px; font-weight: 700; }
+        .legend-box ul { list-style: none; font-size: 12.5px; color: #444; }
+        .legend-box ul li { padding: 3px 0; }
+        .legend-box ul li::before { content: "• "; color: #0055a5; font-weight: bold; }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #003366;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        @media (max-width: 600px) {
+            .tab-btn { padding: 12px 14px; font-size: 12px; }
+            .content { padding: 16px 12px; }
+            .diagram-card { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="page-header">
+    <img src="/sipalay_logo.png" alt="SDO Sipalay City" onerror="this.style.display='none'">
+    <h1>System Architecture Diagrams</h1>
+    <p>SDO Sipalay City — Leave Management System (CS Form No. 6)</p>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tabs-bar">
+    <button class="tab-btn active" onclick="showTab('ctx')">Context Diagram</button>
+    <button class="tab-btn" onclick="showTab('dfd')">Data Flow Diagram</button>
+    <button class="tab-btn" onclick="showTab('erd')">ER Diagram</button>
+</div>
+
+<div class="content">
+    <a href="/" class="back-link">← Back to Main Menu</a>
+
+    <!-- ================================================================
+         TAB 1: CONTEXT DIAGRAM
+    ================================================================ -->
+    <div class="diagram-section active" id="tab-ctx">
+        <div class="section-intro">
+            <h2>Context Diagram</h2>
+            <p>Shows the Leave Management System as a single process and all external entities that interact with it. Arrows represent data flows into and out of the system boundary.</p>
+        </div>
+
+        <div class="diagram-card">
+            <h3>System Context — Level 0</h3>
+            <p class="diagram-desc">All external actors and the data they send to or receive from the central Leave Management System.</p>
+            <div class="mermaid">
+flowchart TD
+    EMP["👤 Employee\n(DepEd Staff)"]
+    AO["👤 Administrative\nOfficer (AO)"]
+    HR["👤 Human Resources\nOfficer (HR)"]
+    ASDS["👤 ASDS\n(Asst. Superintendent)"]
+    SDS["👤 SDS\n(Superintendent)"]
+    IT["👤 IT Administrator"]
+    MAIL["📧 MailerSend\n(Email API)"]
+    FS["💾 File System\n(Railway Volume)"]
+
+    subgraph SYS ["🏛️  SDO Sipalay City — Leave Management System"]
+        LMS[" "]
+    end
+
+    EMP -->|"Submit leave application\nView leave balance\nView application status\nResubmit returned application"| SYS
+    SYS -->|"Application confirmation\nApplication status updates\nLeave balance display\nEmail notifications"| EMP
+
+    AO -->|"Approve / Return leave\nView pending applications\nEdit leave card transactions"| SYS
+    SYS -->|"Pending applications list\nEmployee leave details\nApproval confirmation"| AO
+
+    HR -->|"Recommend / Return leave\nSign & certify leave credits"| SYS
+    SYS -->|"Pending applications list\nLeave credit details\nApproval confirmation"| HR
+
+    ASDS -->|"Review / Return leave\nOIC-ASDS designation"| SYS
+    SYS -->|"Pending applications list\nApplication details\nApproval confirmation"| ASDS
+
+    SDS -->|"Final approve / Reject leave\nOIC-SDS designation"| SYS
+    SYS -->|"Pending applications list\nFinal approval confirmation\nUpdated leave card"| SDS
+
+    IT -->|"Approve/reject registrations\nReset passwords\nManage system data\nRun reconciliation"| SYS
+    SYS -->|"Registration requests\nUser lists\nSystem status\nActivity logs\nBackup files"| IT
+
+    SYS -->|"Approval/rejection email\nStatus notification\nRegistration approval email"| MAIL
+    MAIL -->|"Email delivery status"| SYS
+
+    SYS -->|"Read/write JSON data files"| FS
+    FS -->|"Persisted data records"| SYS
+
+    style SYS fill:#e8f4fd,stroke:#003366,stroke-width:2px
+    style EMP fill:#d4edda,stroke:#28a745
+    style AO fill:#d1ecf1,stroke:#17a2b8
+    style HR fill:#fff3cd,stroke:#ffc107
+    style ASDS fill:#ffe0b2,stroke:#ff9800
+    style SDS fill:#f8d7da,stroke:#dc3545
+    style IT fill:#e2d9f3,stroke:#6f42c1
+    style MAIL fill:#fce4ec,stroke:#e91e63
+    style FS fill:#f3e5f5,stroke:#9c27b0
+            </div>
+        </div>
+
+        <div class="legend-grid">
+            <div class="legend-box">
+                <h4>External Entities (Users)</h4>
+                <ul>
+                    <li>Employee — DepEd staff submitting leave</li>
+                    <li>Administrative Officer (AO) — School-level approver</li>
+                    <li>Human Resources (HR) — Division-level certifier</li>
+                    <li>ASDS — Assistant Superintendent approver</li>
+                    <li>SDS — Final approving authority</li>
+                    <li>IT Administrator — System maintainer</li>
+                </ul>
+            </div>
+            <div class="legend-box">
+                <h4>External Systems</h4>
+                <ul>
+                    <li>MailerSend — Transactional email delivery API</li>
+                    <li>File System — Railway persistent volume (JSON stores)</li>
+                    <li>Browser — Vanilla JS web client for all portals</li>
+                </ul>
+            </div>
+            <div class="legend-box">
+                <h4>Approval Chain</h4>
+                <ul>
+                    <li>Step 1: Employee submits application</li>
+                    <li>Step 2: AO reviews and forwards to HR</li>
+                    <li>Step 3: HR certifies leave credits</li>
+                    <li>Step 4: ASDS reviews and recommends</li>
+                    <li>Step 5: SDS gives final approval</li>
+                    <li>Any step can return or reject</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         TAB 2: DATA FLOW DIAGRAM
+    ================================================================ -->
+    <div class="diagram-section" id="tab-dfd">
+        <div class="section-intro">
+            <h2>Data Flow Diagram</h2>
+            <p>Shows how data moves through the system. Level 0 is the top-level overview; Level 1 expands each major process with its data stores and internal flows.</p>
+        </div>
+
+        <!-- DFD Level 0 -->
+        <div class="diagram-card">
+            <h3>DFD Level 0 — System Overview</h3>
+            <p class="diagram-desc">Eight major processes and the primary data flows between external entities and the system.</p>
+            <div class="mermaid">
+flowchart LR
+    EMP(["Employee"])
+    AO(["AO"])
+    HR(["HR"])
+    ASDS(["ASDS"])
+    SDS(["SDS"])
+    IT(["IT Admin"])
+    MAIL(["MailerSend"])
+
+    P1["1.0\nAuthentication\n& Registration"]
+    P2["2.0\nLeave Application\nSubmission"]
+    P3["3.0\nApproval\nWorkflow"]
+    P4["4.0\nMonthly Leave\nAccrual"]
+    P5["5.0\nLeave Balance\nManagement"]
+    P6["6.0\nCTO\nManagement"]
+    P7["7.0\nRegistration\nApproval"]
+    P8["8.0\nData &\nSystem Admin"]
+
+    EMP -->|"Credentials"| P1
+    P1 -->|"Session token"| EMP
+    AO & HR & ASDS & SDS & IT -->|"Credentials"| P1
+
+    EMP -->|"Leave request\nSignature"| P2
+    P2 -->|"App confirmation\nApp ID"| EMP
+    P2 -->|"Notification trigger"| MAIL
+
+    AO & HR & ASDS & SDS -->|"Approval action\nRemarks"| P3
+    P3 -->|"Status update"| EMP
+    P3 -->|"Notification trigger"| MAIL
+
+    P4 -->|"Monthly credits"| EMP
+
+    EMP & AO -->|"Balance query\nCard update"| P5
+    P5 -->|"Balance data"| EMP & AO
+
+    AO -->|"CTO grant data"| P6
+    P6 -->|"CTO balance"| EMP & AO
+
+    EMP & AO & HR & ASDS & SDS -->|"Registration form"| P7
+    IT -->|"Approval decision"| P7
+    P7 -->|"Account created"| EMP & AO & HR & ASDS & SDS
+
+    IT -->|"Admin commands"| P8
+    P8 -->|"System reports\nBackups"| IT
+
+    style P1 fill:#dbeafe,stroke:#2563eb
+    style P2 fill:#dcfce7,stroke:#16a34a
+    style P3 fill:#fef9c3,stroke:#ca8a04
+    style P4 fill:#fce7f3,stroke:#db2777
+    style P5 fill:#ede9fe,stroke:#7c3aed
+    style P6 fill:#ffedd5,stroke:#ea580c
+    style P7 fill:#f0fdf4,stroke:#15803d
+    style P8 fill:#fef2f2,stroke:#dc2626
+            </div>
+        </div>
+
+        <!-- DFD Level 1 - Process 1 -->
+        <div class="diagram-card">
+            <h3>DFD Level 1 — Process 1: Authentication &amp; Registration</h3>
+            <p class="diagram-desc">Login validation, session management, and new user registration flow.</p>
+            <div class="mermaid">
+flowchart TD
+    USER(["User\n(Any Portal)"])
+
+    P1_1["1.1\nValidate\nCredentials"]
+    P1_2["1.2\nCreate\nSession"]
+    P1_3["1.3\nRegister\nNew User"]
+    P1_4["1.4\nRehash\nPassword"]
+
+    DS_USERS[("users.json\nao/hr/asds/sds/it-users.json")]
+    DS_PENDING[("pending-registrations.json")]
+    DS_SESSION[("sessions.json")]
+    DS_LOGS[("activity-logs.json")]
+
+    USER -->|"Email + password\n+ portal type"| P1_1
+    P1_1 -->|"Read user record"| DS_USERS
+    DS_USERS -->|"Stored hash"| P1_1
+    P1_1 -->|"bcrypt verify\nSHA-256 legacy check"| P1_4
+    P1_4 -->|"Updated bcrypt hash"| DS_USERS
+    P1_1 -->|"Valid credentials"| P1_2
+    P1_2 -->|"96-char hex token\n8-hour expiry"| DS_SESSION
+    P1_2 -->|"HttpOnly cookie\nSession object"| USER
+    P1_1 -->|"Login event"| DS_LOGS
+
+    USER -->|"Registration form\nName, email, position"| P1_3
+    P1_3 -->|"Pending record\nbcrypt hash"| DS_PENDING
+    P1_3 -->|"Registration event"| DS_LOGS
+
+    style P1_1 fill:#dbeafe,stroke:#2563eb
+    style P1_2 fill:#dcfce7,stroke:#16a34a
+    style P1_3 fill:#fef9c3,stroke:#ca8a04
+    style P1_4 fill:#ede9fe,stroke:#7c3aed
+    style DS_USERS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_PENDING fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_SESSION fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            </div>
+        </div>
+
+        <!-- DFD Level 1 - Process 2 & 3 -->
+        <div class="diagram-card">
+            <h3>DFD Level 1 — Process 2 &amp; 3: Leave Submission &amp; Approval Workflow</h3>
+            <p class="diagram-desc">Complete leave application lifecycle from employee submission through multi-stage approval to final balance deduction.</p>
+            <div class="mermaid">
+flowchart TD
+    EMP(["Employee"])
+    AO(["AO"])
+    HR(["HR"])
+    ASDS(["ASDS"])
+    SDS(["SDS"])
+    MAIL(["MailerSend\nAPI"])
+
+    P2_1["2.1\nValidate\nApplication"]
+    P2_2["2.2\nCheck Leave\nBalance"]
+    P2_3["2.3\nCreate\nApplication"]
+    P3_1["3.1\nAO Review"]
+    P3_2["3.2\nHR Review &\nCertify Credits"]
+    P3_3["3.3\nASDS\nReview"]
+    P3_4["3.4\nSDS Final\nApproval"]
+    P3_5["3.5\nDeduct Leave\nBalance"]
+
+    DS_APPS[("applications.json")]
+    DS_CARDS[("leavecards.json")]
+    DS_CTO[("cto-records.json")]
+    DS_LOGS[("activity-logs.json")]
+
+    EMP -->|"Leave type, dates\nnumDays, signature\nSO file (if CTO)"| P2_1
+    P2_1 -->|"Date range\nHours/days\nDuplicate check"| P2_2
+    P2_2 -->|"Query balance"| DS_CARDS
+    P2_2 -->|"Query pending apps"| DS_APPS
+    P2_2 -->|"Query CTO grants"| DS_CTO
+    DS_CARDS & DS_APPS & DS_CTO -->|"Balance data"| P2_2
+    P2_2 -->|"Sufficient balance"| P2_3
+    P2_3 -->|"New application\nstatus=pending\ncurrentApprover=AO"| DS_APPS
+    P2_3 -->|"App ID"| EMP
+    P2_3 -->|"notifyLeaveSubmitted\nnotifyNextApprover(AO)"| MAIL
+    P2_3 -->|"LEAVE_SUBMITTED event"| DS_LOGS
+
+    DS_APPS -->|"Pending apps"| P3_1
+    AO -->|"Approve / Return"| P3_1
+    P3_1 -->|"currentApprover=HR\nor status=returned"| DS_APPS
+    P3_1 -->|"notifyLeaveApproved\nor notifyLeaveReturned"| MAIL
+
+    DS_APPS -->|"AO-approved apps"| P3_2
+    HR -->|"Certify credits\nSign form"| P3_2
+    P3_2 -->|"currentApprover=ASDS\nvlEarned/slEarned certified"| DS_APPS
+    P3_2 -->|"Email notification"| MAIL
+
+    DS_APPS -->|"HR-approved apps"| P3_3
+    ASDS -->|"Approve / Return"| P3_3
+    P3_3 -->|"currentApprover=SDS\nor returned"| DS_APPS
+    P3_3 -->|"Email notification"| MAIL
+
+    DS_APPS -->|"ASDS-approved apps"| P3_4
+    SDS -->|"Final approve / Reject"| P3_4
+    P3_4 -->|"status=approved\nfinalApprovalAt"| DS_APPS
+    P3_4 -->|"Trigger deduction"| P3_5
+    P3_4 -->|"notifyLeaveApproved\n(final)"| MAIL
+
+    P3_5 -->|"Update vl/sl balance\nAdd leaveUsageHistory"| DS_CARDS
+    P3_5 -->|"Update daysUsed"| DS_CTO
+    P3_5 -->|"LEAVE_APPROVED event"| DS_LOGS
+
+    style P2_1 fill:#dcfce7,stroke:#16a34a
+    style P2_2 fill:#dcfce7,stroke:#16a34a
+    style P2_3 fill:#dcfce7,stroke:#16a34a
+    style P3_1 fill:#fef9c3,stroke:#ca8a04
+    style P3_2 fill:#fef9c3,stroke:#ca8a04
+    style P3_3 fill:#fef9c3,stroke:#ca8a04
+    style P3_4 fill:#fef9c3,stroke:#ca8a04
+    style P3_5 fill:#fce7f3,stroke:#db2777
+    style DS_APPS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_CARDS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_CTO fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            </div>
+        </div>
+
+        <!-- DFD Level 1 - Process 4 -->
+        <div class="diagram-card">
+            <h3>DFD Level 1 — Process 4: Monthly Leave Accrual</h3>
+            <p class="diagram-desc">Automated scheduler that adds 1.25 VL + 1.25 SL every month for non-teaching personnel.</p>
+            <div class="mermaid">
+flowchart TD
+    TIMER(["System Timer\n(Daily @ server start)"])
+
+    P4_1["4.1\nCheck Last\nAccrued Month"]
+    P4_2["4.2\nFilter Non-Teaching\nPersonnel"]
+    P4_3["4.3\nCatchup Missing\nMonths (new cards)"]
+    P4_4["4.4\nAdd Monthly\nCredits (+1.25 VL +1.25 SL)"]
+    P4_5["4.5\nUpdate System\nState"]
+
+    DS_STATE[("system-state.json")]
+    DS_USERS[("users.json")]
+    DS_CARDS[("leavecards.json")]
+    DS_LOGS[("activity-logs.json")]
+
+    TIMER -->|"Trigger"| P4_1
+    P4_1 -->|"Read lastAccruedMonth"| DS_STATE
+    DS_STATE -->|"Last accrual: YYYY-MM"| P4_1
+    P4_1 -->|"Months to process"| P4_2
+
+    P4_2 -->|"Load positions"| DS_USERS
+    DS_USERS -->|"email → position map"| P4_2
+    P4_2 -->|"Non-teaching\nemployee list"| P4_3
+
+    P4_3 -->|"Load all cards"| DS_CARDS
+    DS_CARDS -->|"lastAccrualDate\nper card"| P4_3
+    P4_3 -->|"Cards needing\ncatch-up months"| P4_4
+
+    P4_4 -->|"Add 1.25 VL + 1.25 SL\nper missed month\nAdd transaction record"| DS_CARDS
+    P4_4 -->|"MONTHLY_ACCRUAL event"| DS_LOGS
+
+    P4_4 -->|"Accrual complete"| P4_5
+    P4_5 -->|"Update lastAccruedMonth\nlastAccrualRun"| DS_STATE
+
+    style P4_1 fill:#fce7f3,stroke:#db2777
+    style P4_2 fill:#fce7f3,stroke:#db2777
+    style P4_3 fill:#fce7f3,stroke:#db2777
+    style P4_4 fill:#fce7f3,stroke:#db2777
+    style P4_5 fill:#fce7f3,stroke:#db2777
+    style DS_STATE fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_USERS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_CARDS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            </div>
+        </div>
+
+        <!-- DFD Level 1 - Process 7 & 8 -->
+        <div class="diagram-card">
+            <h3>DFD Level 1 — Process 7 &amp; 8: IT Administration</h3>
+            <p class="diagram-desc">IT manages user registration approvals, system data, backups, and reconciliation.</p>
+            <div class="mermaid">
+flowchart TD
+    IT(["IT Admin"])
+    MAIL(["MailerSend\nAPI"])
+
+    P7_1["7.1\nReview Pending\nRegistrations"]
+    P7_2["7.2\nApprove\nRegistration"]
+    P7_3["7.3\nReject\nRegistration"]
+    P8_1["8.1\nManage\nUser Accounts"]
+    P8_2["8.2\nBackup /\nRestore Data"]
+    P8_3["8.3\nRun Balance\nReconciliation"]
+    P8_4["8.4\nView Activity\nLogs"]
+
+    DS_PENDING[("pending-registrations.json")]
+    DS_USERS[("All *-users.json")]
+    DS_CARDS[("leavecards.json")]
+    DS_APPS[("applications.json")]
+    DS_LOGS[("activity-logs.json")]
+
+    IT -->|"View pending list"| P7_1
+    P7_1 -->|"Read"| DS_PENDING
+    DS_PENDING -->|"Pending records"| P7_1
+    P7_1 -->|"Display"| IT
+
+    IT -->|"Approve registration"| P7_2
+    P7_2 -->|"Create user record"| DS_USERS
+    P7_2 -->|"Update status=approved"| DS_PENDING
+    P7_2 -->|"Send approval email\nwith temp password"| MAIL
+    P7_2 -->|"REGISTRATION_APPROVED"| DS_LOGS
+
+    IT -->|"Reject registration"| P7_3
+    P7_3 -->|"Update status=rejected"| DS_PENDING
+    P7_3 -->|"Send rejection email"| MAIL
+    P7_3 -->|"REGISTRATION_REJECTED"| DS_LOGS
+
+    IT -->|"Reset password\nDelete user\nView users"| P8_1
+    P8_1 -->|"Update/delete records"| DS_USERS
+    P8_1 -->|"Admin action event"| DS_LOGS
+
+    IT -->|"Create / restore backup"| P8_2
+    P8_2 -->|"Read all data"| DS_USERS & DS_CARDS & DS_APPS
+    P8_2 -->|"ZIP archive"| IT
+
+    IT -->|"Run reconciliation"| P8_3
+    P8_3 -->|"Read all apps + cards"| DS_APPS & DS_CARDS
+    P8_3 -->|"Recalculate balances\nFix discrepancies"| DS_CARDS
+    P8_3 -->|"Reconciliation report"| IT
+
+    IT -->|"Query logs"| P8_4
+    P8_4 -->|"Read"| DS_LOGS
+    DS_LOGS -->|"Audit records"| P8_4
+    P8_4 -->|"Filtered log view\nCSV export"| IT
+
+    style P7_1 fill:#f0fdf4,stroke:#15803d
+    style P7_2 fill:#f0fdf4,stroke:#15803d
+    style P7_3 fill:#fef2f2,stroke:#dc2626
+    style P8_1 fill:#ede9fe,stroke:#7c3aed
+    style P8_2 fill:#ede9fe,stroke:#7c3aed
+    style P8_3 fill:#ede9fe,stroke:#7c3aed
+    style P8_4 fill:#ede9fe,stroke:#7c3aed
+    style DS_PENDING fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_USERS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_CARDS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_APPS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         TAB 3: ENTITY RELATIONSHIP DIAGRAM
+    ================================================================ -->
+    <div class="diagram-section" id="tab-erd">
+        <div class="section-intro">
+            <h2>Entity Relationship Diagram (ERD)</h2>
+            <p>Shows all data entities in the system, their attributes, and the relationships between them. Cardinality notation: ||—o{ = one-to-many, ||—|| = one-to-one.</p>
+        </div>
+
+        <!-- Full ERD -->
+        <div class="diagram-card">
+            <h3>ERD — Full System</h3>
+            <p class="diagram-desc">All entities and their relationships across the Leave Management System.</p>
+            <div class="mermaid">
+erDiagram
+    EMPLOYEE_USER {
+        string id PK
+        string email UK
+        string password
+        string name
+        string firstName
+        string lastName
+        string middleName
+        string suffix
+        string office
+        string position
+        string employeeNo UK
+        int    salaryGrade
+        int    step
+        float  salary
+        string role
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ADMIN_USER {
+        string id PK
+        string email UK
+        string password
+        string name
+        string fullName
+        string office
+        string school
+        string role
+        boolean usesPin
+        datetime createdAt
+    }
+
+    LEAVE_APPLICATION {
+        string id PK
+        string employeeEmail FK
+        string employeeName
+        string leaveType
+        float  numDays
+        date   dateFrom
+        date   dateTo
+        date   dateOfFiling
+        string status
+        string currentApprover
+        string office
+        string position
+        float  salary
+        string commutation
+        string soFilePath
+        string otherLeaveSpecify
+        int    leaveHours
+        boolean isSchoolBased
+        datetime submittedAt
+        datetime aoApprovedAt
+        datetime hrApprovedAt
+        datetime asdsApprovedAt
+        datetime sdsApprovedAt
+        datetime finalApprovalAt
+        string returnRemarks
+        datetime returnedAt
+        string returnedBy
+        string rejectionReason
+    }
+
+    APPROVAL_HISTORY {
+        string id PK
+        string applicationId FK
+        string portal
+        string action
+        string approverName
+        string approverEmail
+        string remarks
+        datetime timestamp
+    }
+
+    LEAVE_CARD {
+        string employeeId PK
+        string email UK
+        string name
+        float  vl
+        float  sl
+        float  vacationLeaveEarned
+        float  sickLeaveEarned
+        float  vacationLeaveSpent
+        float  sickLeaveSpent
+        float  splEarned
+        float  splSpent
+        int    splYear
+        float  forceLeaveEarned
+        float  forceLeaveSpent
+        int    forceLeaveYear
+        float  wellnessEarned
+        float  wellnessSpent
+        int    wellnessYear
+        string lastAccrualDate
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    LEAVE_TRANSACTION {
+        string id PK
+        string leaveCardEmail FK
+        string type
+        string periodCovered
+        float  vlEarned
+        float  slEarned
+        float  vlSpent
+        float  slSpent
+        float  forcedLeave
+        float  splUsed
+        float  wellnessUsed
+        float  vlBalance
+        float  slBalance
+        float  total
+        string source
+        datetime dateRecorded
+    }
+
+    LEAVE_USAGE_HISTORY {
+        string id PK
+        string leaveCardEmail FK
+        string applicationId FK
+        string leaveType
+        float  daysUsed
+        date   periodFrom
+        date   periodTo
+        datetime dateApproved
+        string approvedBy
+        float  balanceAfterVL
+        float  balanceAfterSL
+    }
+
+    CTO_RECORD {
+        string id PK
+        string employeeEmail FK
+        float  daysGranted
+        float  daysUsed
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    CTO_APPLICATION_LINK {
+        string ctoRecordId FK
+        string applicationId FK
+    }
+
+    PENDING_REGISTRATION {
+        string id PK
+        string portal
+        string email UK
+        string fullName
+        string firstName
+        string lastName
+        string password
+        string office
+        string position
+        string employeeNo
+        string status
+        datetime createdAt
+        datetime processedAt
+        string processedBy FK
+    }
+
+    ACTIVITY_LOG {
+        string id PK
+        datetime timestamp
+        string action
+        string portalType
+        string userEmail FK
+        string ip
+        string userAgent
+        json   details
+    }
+
+    SYSTEM_STATE {
+        string id PK
+        string lastAccruedMonth
+        datetime lastAccrualRun
+        int    lastAccrualMonths
+        int    lastAccrualEmployees
+    }
+
+    EMPLOYEE_USER         ||--o{ LEAVE_APPLICATION     : "submits"
+    EMPLOYEE_USER         ||--||  LEAVE_CARD            : "has"
+    EMPLOYEE_USER         ||--o{ CTO_RECORD             : "granted"
+    EMPLOYEE_USER         ||--o{ ACTIVITY_LOG           : "generates"
+    ADMIN_USER            ||--o{ ACTIVITY_LOG           : "generates"
+    LEAVE_APPLICATION     ||--o{ APPROVAL_HISTORY       : "records"
+    LEAVE_APPLICATION     ||--o{ LEAVE_USAGE_HISTORY    : "reflected in"
+    LEAVE_CARD            ||--o{ LEAVE_TRANSACTION      : "has"
+    LEAVE_CARD            ||--o{ LEAVE_USAGE_HISTORY    : "contains"
+    CTO_RECORD            ||--o{ CTO_APPLICATION_LINK   : "linked via"
+    LEAVE_APPLICATION     ||--o{ CTO_APPLICATION_LINK   : "linked via"
+    PENDING_REGISTRATION  ||--o| EMPLOYEE_USER          : "becomes"
+    PENDING_REGISTRATION  ||--o| ADMIN_USER             : "becomes"
+            </div>
+        </div>
+
+        <!-- Entity descriptions -->
+        <div class="diagram-card">
+            <h3>Entity Summary</h3>
+            <p class="diagram-desc">Description of each entity, its purpose, and key constraints.</p>
+            <div class="legend-grid">
+                <div class="legend-box">
+                    <h4>EMPLOYEE_USER</h4>
+                    <ul>
+                        <li>DepEd employee accounts</li>
+                        <li>PK: id (UUID)</li>
+                        <li>UK: email (@deped.gov.ph), employeeNo</li>
+                        <li>Password: bcrypt (12 rounds)</li>
+                        <li>File: users.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>ADMIN_USER</h4>
+                    <ul>
+                        <li>AO / HR / ASDS / SDS / IT accounts</li>
+                        <li>PK: id (UUID)</li>
+                        <li>UK: email per portal file</li>
+                        <li>role: ao | hr | asds | sds | it</li>
+                        <li>Files: ao/hr/asds/sds/it-users.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>LEAVE_APPLICATION</h4>
+                    <ul>
+                        <li>Core workflow entity</li>
+                        <li>PK: id (SDO Sipalay-NN-XXXX)</li>
+                        <li>FK: employeeEmail → EMPLOYEE_USER</li>
+                        <li>status: pending | approved | rejected | returned</li>
+                        <li>File: applications.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>APPROVAL_HISTORY</h4>
+                    <ul>
+                        <li>Embedded in LEAVE_APPLICATION</li>
+                        <li>One entry per approval stage action</li>
+                        <li>Tracks portal, approver, action, timestamp</li>
+                        <li>Immutable audit trail</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>LEAVE_CARD</h4>
+                    <ul>
+                        <li>Employee leave balance record</li>
+                        <li>PK: employeeId (= email)</li>
+                        <li>One card per employee</li>
+                        <li>Annual quotas reset yearly (FL/SPL/WL)</li>
+                        <li>File: leavecards.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>LEAVE_TRANSACTION</h4>
+                    <ul>
+                        <li>Embedded in LEAVE_CARD.transactions[]</li>
+                        <li>type: ADD (accrual) | LESS (usage) | LAWOP</li>
+                        <li>Running balance per transaction</li>
+                        <li>Source tracks whether system or manual</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>LEAVE_USAGE_HISTORY</h4>
+                    <ul>
+                        <li>Embedded in LEAVE_CARD.leaveUsageHistory[]</li>
+                        <li>Created on SDS final approval</li>
+                        <li>Tracks balance snapshot after each usage</li>
+                        <li>Links application to card deduction</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>CTO_RECORD</h4>
+                    <ul>
+                        <li>Compensatory Time-Off grants</li>
+                        <li>Multiple records per employee (per Special Order)</li>
+                        <li>LIFO deduction order</li>
+                        <li>File: cto-records.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>PENDING_REGISTRATION</h4>
+                    <ul>
+                        <li>Registration requests awaiting IT approval</li>
+                        <li>status: pending | approved | rejected</li>
+                        <li>Approved → creates EMPLOYEE_USER or ADMIN_USER</li>
+                        <li>File: pending-registrations.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>ACTIVITY_LOG</h4>
+                    <ul>
+                        <li>Immutable audit trail of all actions</li>
+                        <li>Archived when exceeds 10,000 entries</li>
+                        <li>Includes IP address, user agent</li>
+                        <li>File: activity-logs.json</li>
+                    </ul>
+                </div>
+                <div class="legend-box">
+                    <h4>SYSTEM_STATE</h4>
+                    <ul>
+                        <li>Global singleton for accrual tracking</li>
+                        <li>lastAccruedMonth prevents double-accrual</li>
+                        <li>Updated after every accrual run</li>
+                        <li>File: system-state.json</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cardinality summary -->
+        <div class="diagram-card">
+            <h3>Relationship Cardinality Summary</h3>
+            <p class="diagram-desc">All entity relationships with cardinality and business rules.</p>
+            <div class="mermaid">
+flowchart LR
+    subgraph "1 : 1 Relationships"
+        A1["EMPLOYEE_USER"] -->|"has exactly one"| B1["LEAVE_CARD"]
+        A2["PENDING_REGISTRATION"] -->|"becomes one (on approval)"| B2["USER ACCOUNT"]
+    end
+    subgraph "1 : N Relationships"
+        C1["EMPLOYEE_USER"] -->|"submits many"| D1["LEAVE_APPLICATION"]
+        C2["EMPLOYEE_USER"] -->|"has many"| D2["CTO_RECORD"]
+        C3["LEAVE_APPLICATION"] -->|"has many"| D3["APPROVAL_HISTORY entries"]
+        C4["LEAVE_CARD"] -->|"has many"| D4["LEAVE_TRANSACTION entries"]
+        C5["LEAVE_CARD"] -->|"has many"| D5["LEAVE_USAGE_HISTORY entries"]
+        C6["CTO_RECORD"] -->|"linked to many"| D6["LEAVE_APPLICATION (via CTO_LINK)"]
+    end
+    subgraph "M : N Relationships"
+        E1["CTO_RECORD"] -->|"used in many"| F1["LEAVE_APPLICATION"]
+        E2["LEAVE_APPLICATION"] -->|"uses many"| F2["CTO_RECORD"]
+    end
+    style A1 fill:#dbeafe,stroke:#2563eb
+    style B1 fill:#dcfce7,stroke:#16a34a
+    style C1 fill:#dbeafe,stroke:#2563eb
+    style C2 fill:#dbeafe,stroke:#2563eb
+    style C3 fill:#fef9c3,stroke:#ca8a04
+    style C4 fill:#ede9fe,stroke:#7c3aed
+    style C5 fill:#ede9fe,stroke:#7c3aed
+    style E1 fill:#ffedd5,stroke:#ea580c
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tab switching
+    function showTab(id) {
+        document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + id).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // Initialise Mermaid
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        flowchart: { curve: 'basis', padding: 20 },
+        er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75 },
+        securityLevel: 'loose'
+    });
+</script>
+
+</body>
+</html>
