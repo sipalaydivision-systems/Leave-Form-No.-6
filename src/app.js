@@ -17,7 +17,7 @@ const {
 } = require('./config');
 
 // Middleware
-const { securityHeaders, sanitizeRequestBody, noCacheForHtmlJs, corsImageHeaders } = require('./middleware/security');
+const { securityHeaders, sanitizeRequestBody, noCacheForHtmlJs, corsImageHeaders, enforceHttps } = require('./middleware/security');
 const { apiRateLimiter } = require('./middleware/rate-limit');
 
 // Routes
@@ -39,6 +39,9 @@ function createApp() {
     // Trust proxy (Railway runs behind a reverse proxy)
     // ------------------------------------------------------------------
     app.set('trust proxy', 1);
+
+    // Redirect HTTP → HTTPS in production (must be first)
+    app.use(enforceHttps);
 
     // ------------------------------------------------------------------
     // Core Middleware

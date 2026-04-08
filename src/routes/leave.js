@@ -94,14 +94,78 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid date range', message: 'End date must be on or after start date.' });
         }
 
+        // ===== DATE BOUNDARY VALIDATION =====
+        // Reject applications dated more than 30 days in the past (allows backdating for legitimate needs)
+        // or more than 365 days in the future.
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const pastLimit = new Date(today);
+        pastLimit.setDate(pastLimit.getDate() - 30);
+        const futureLimit = new Date(today);
+        futureLimit.setFullYear(futureLimit.getFullYear() + 1);
+        const dateFromParsed = new Date(applicationData.dateFrom);
+        const dateToParsed = new Date(applicationData.dateTo);
+        if (dateFromParsed < pastLimit) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid leave start date',
+                message: 'Leave applications cannot be submitted for dates more than 30 days in the past.'
+            });
+        }
+        if (dateToParsed > futureLimit) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid leave end date',
+                message: 'Leave applications cannot be submitted for dates more than 1 year in the future.'
+            });
+        }
+
         // ===== PARTIAL-DAY (HOUR-BASED) VALIDATION =====
         if (applicationData.leaveHours != null) {
             const hrs = Number(applicationData.leaveHours);
             if (!Number.isInteger(hrs) || hrs < 1 || hrs > 7) {
                 return res.status(400).json({ success: false, error: 'leaveHours must be an integer between 1 and 7' });
             }
-            // Server-side recomputation to prevent client-side tampering
+            // Server-side recomputation overrides any client-provided numDays
             applicationData.numDays = String((hrs / HOURS_PER_DAY).toFixed(3));
+        } else {
+            // Full-day leave: numDays must be a positive number; reject obviously manipulated values.
+            // Client may compute working days differently, but server caps at a reasonable ceiling.
+            const clientDays = parseFloat(applicationData.numDays);
+            if (!isFinite(clientDays) || clientDays <= 0) {
+                return res.status(400).json({ success: false, error: 'Invalid numDays', message: 'Number of leave days must be a positive number.' });
+            }
+            // Guard: no single application should span more than 90 calendar days
+            const spanMs = new Date(applicationData.dateTo) - new Date(applicationData.dateFrom);
+            const spanCalendarDays = spanMs / (1000 * 60 * 60 * 24) + 1;
+            if (clientDays > spanCalendarDays + 1) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'numDays exceeds date range',
+                    message: 'The number of leave days cannot exceed the number of calendar days in the selected range.'
+                });
+            }
+        }
+
+        // ===== SIGNATURE VALIDATION =====
+        // A blank canvas produces a fixed-size PNG with no drawn pixels.
+        // We reject submissions that have no signature data at all.
+        const sigData = applicationData.employeeSignature || '';
+        if (!sigData || !sigData.startsWith('data:image/png;base64,')) {
+            return res.status(400).json({
+                success: false,
+                error: 'Signature required',
+                message: 'You must provide your signature before submitting the application.'
+            });
+        }
+        // Reject trivially small base64 (an empty/blank canvas PNG is ~1–3 KB)
+        const sigBase64 = sigData.replace(/^data:image\/png;base64,/, '');
+        if (sigBase64.length < 1000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Signature appears blank',
+                message: 'Your signature appears to be empty. Please draw or upload your signature before submitting.'
+            });
         }
 
         // ===== DUPLICATE SUBMISSION DETECTION =====
@@ -119,6 +183,18 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
         });
         if (dupApp) {
             return res.status(409).json({ success: false, error: 'Duplicate leave application', message: `You already have a ${dupApp.status} ${leaveType.replace('leave_', '').toUpperCase()} leave application (${dupApp.id}) covering overlapping dates. Please check your existing applications.` });
+        }
+
+        // ===== LEAVE BALANCE VALIDATION =====
+        // Validate the employee has sufficient balance BEFORE creating the application.
+        // Uses the legacy (disk-read) path so we don't need to pre-load all data here.
+        const balanceCheck = validateLeaveBalance(leaveType, numDays, employeeEmail);
+        if (!balanceCheck.valid) {
+            return res.status(400).json({
+                success: false,
+                error: balanceCheck.error || 'Insufficient leave balance',
+                message: balanceCheck.message || 'You do not have enough leave balance for this request.'
+            });
         }
 
         // Determine initial status and current approver based on office
@@ -175,6 +251,24 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             submittedAt: new Date().toISOString()
         };
 
+        // ===== SO FILE PRE-VALIDATION =====
+        // Validate before pushing the application so we can reject cleanly.
+        const SO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+        if (applicationData.soFileData && applicationData.soFileName) {
+            const base64PreCheck = applicationData.soFileData.match(/^data:[^;]+;base64,(.+)$/);
+            if (!base64PreCheck) {
+                return res.status(400).json({ success: false, error: 'Invalid SO file format', message: 'Special Order file must be a valid base64-encoded PDF.' });
+            }
+            const soBytes = Math.floor(base64PreCheck[1].length * 0.75);
+            if (soBytes > SO_MAX_BYTES) {
+                return res.status(400).json({ success: false, error: 'SO file too large', message: 'Special Order PDF must be smaller than 5 MB.' });
+            }
+            const soPreview = Buffer.from(base64PreCheck[1].slice(0, 8), 'base64');
+            if (soPreview.toString('ascii', 0, 4) !== '%PDF') {
+                return res.status(400).json({ success: false, error: 'Invalid SO file type', message: 'Only PDF files are accepted for Special Order uploads.' });
+            }
+        }
+
         applications.push(newApplication);
 
         // Save SO PDF file to disk if provided (instead of keeping base64 in JSON)
@@ -218,9 +312,13 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
         const officeType = schoolBased ? 'School-based' : 'Division Office';
         console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (AO first)`);
 
-        // Send email notifications (fire-and-forget)
-        notifyLeaveSubmitted(newApplication);
-        notifyNextApprover(newApplication, 'AO');
+        // Send email notifications — log failures so they appear in Railway logs
+        Promise.resolve()
+            .then(() => notifyLeaveSubmitted(newApplication))
+            .catch(err => console.error('[EMAIL] Failed to notify employee of submission:', err.message));
+        Promise.resolve()
+            .then(() => notifyNextApprover(newApplication, 'AO'))
+            .catch(err => console.error('[EMAIL] Failed to notify AO of new application:', err.message));
 
         res.json({
             success: true,
@@ -846,7 +944,9 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
             console.log(`[LEAVE] Application ${applicationId} returned by ${approverPortal} to ${returnedTo} - Reason: ${remarks}`);
 
             // Email notification for return
-            notifyLeaveReturned(app, currentApprover, remarks);
+            Promise.resolve()
+                .then(() => notifyLeaveReturned(app, currentApprover, remarks))
+                .catch(err => console.error(`[EMAIL] Failed to send return notification for ${applicationId}:`, err.message));
 
         } else if (action === 'rejected') {
             // Final rejection - application is permanently rejected
@@ -860,7 +960,9 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
             console.log(`[LEAVE] Application ${applicationId} REJECTED by ${approverPortal} - Reason: ${remarks}`);
 
             // Email notification for rejection
-            notifyLeaveRejected(app, currentApprover, remarks);
+            Promise.resolve()
+                .then(() => notifyLeaveRejected(app, currentApprover, remarks))
+                .catch(err => console.error(`[EMAIL] Failed to send rejection notification for ${applicationId}:`, err.message));
 
         } else if (action === 'approved') {
             // Determine next approver based on workflow
@@ -937,8 +1039,10 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
 
             console.log(`[LEAVE] Application ${applicationId} approved by ${approverPortal}, new currentApprover: ${app.currentApprover}`);
 
-            // Email notification for approval (fire-and-forget)
-            notifyLeaveApproved(app, currentApprover, app.currentApprover);
+            // Email notification for approval
+            Promise.resolve()
+                .then(() => notifyLeaveApproved(app, currentApprover, app.currentApprover))
+                .catch(err => console.error(`[EMAIL] Failed to send approval notification for ${applicationId}:`, err.message));
         }
 
         applications[appIndex] = app;

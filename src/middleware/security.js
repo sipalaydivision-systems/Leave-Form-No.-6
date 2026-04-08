@@ -62,4 +62,16 @@ function corsImageHeaders(req, res, next) {
     next();
 }
 
-module.exports = { securityHeaders, sanitizeRequestBody, noCacheForHtmlJs, corsImageHeaders };
+/**
+ * Redirects HTTP requests to HTTPS in production.
+ * Railway terminates TLS at the reverse proxy and sets X-Forwarded-Proto.
+ * Must be mounted before all other middleware.
+ */
+function enforceHttps(req, res, next) {
+    if (NODE_ENV === 'production' && req.header('x-forwarded-proto') !== 'https') {
+        return res.redirect(301, 'https://' + req.header('host') + req.url);
+    }
+    next();
+}
+
+module.exports = { securityHeaders, sanitizeRequestBody, noCacheForHtmlJs, corsImageHeaders, enforceHttps };

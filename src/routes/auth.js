@@ -31,6 +31,7 @@ const aoUsersFile              = path.join(dataDir, 'ao-users.json');
 const hrUsersFile              = path.join(dataDir, 'hr-users.json');
 const asdsUsersFile            = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile             = path.join(dataDir, 'sds-users.json');
+const itUsersFile              = path.join(dataDir, 'it-users.json');
 const pendingRegistrationsFile = path.join(dataDir, 'pending-registrations.json');
 const activityLogsFile         = path.join(dataDir, 'activity-logs.json');
 
@@ -129,7 +130,8 @@ function isEmailRegisteredInAnyPortal(email, excludePortals) {
         { name: 'ao', file: aoUsersFile },
         { name: 'hr', file: hrUsersFile },
         { name: 'asds', file: asdsUsersFile },
-        { name: 'sds', file: sdsUsersFile }
+        { name: 'sds', file: sdsUsersFile },
+        { name: 'it', file: itUsersFile }
     ];
     for (const portal of portalFiles) {
         if (skipSet.has(portal.name)) continue;

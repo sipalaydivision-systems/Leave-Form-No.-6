@@ -598,11 +598,15 @@
     }
 
     // ===== 9. Submit =====
+    // Guard against double-clicks and re-entrant submits
+    let _isSubmitting = false;
+
     function setupSubmit() {
         document.getElementById('btn-submit').addEventListener('click', handleSubmit);
     }
 
     async function handleSubmit() {
+        if (_isSubmitting) return;
         const submitBtn = document.getElementById('btn-submit');
 
         // --- Validation ---
@@ -697,6 +701,12 @@
             }
         }
 
+        // Email domain — must be @deped.gov.ph
+        if (!user.email || !user.email.toLowerCase().endsWith('@deped.gov.ph')) {
+            alert('Only DepEd email addresses (@deped.gov.ph) may submit leave applications.\nPlease contact the IT administrator.');
+            return;
+        }
+
         // Signature
         if (!hasSignatureData()) {
             document.getElementById('sig-error').classList.add('show');
@@ -774,6 +784,7 @@
         }
 
         // --- Submit ---
+        _isSubmitting = true;
         submitBtn.disabled = true;
         submitBtn.textContent = 'Submitting...';
 
@@ -794,9 +805,9 @@
                 alert(errorMsg);
             }
         } catch (error) {
-            console.error('Submit error:', error);
             alert('Error submitting application. Please try again.');
         } finally {
+            _isSubmitting = false;
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Submit Application';
         }
