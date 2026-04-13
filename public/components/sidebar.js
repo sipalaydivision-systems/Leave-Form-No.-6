@@ -87,8 +87,10 @@ export function initSidebar(config) {
         return null;
     }
 
+    // Default to collapsed; only expand if user has explicitly expanded it
+    const storedCollapsed = localStorage.getItem('sidebar-collapsed');
     const state = {
-        collapsed: localStorage.getItem('sidebar-collapsed') === 'true',
+        collapsed: storedCollapsed === null ? true : storedCollapsed === 'true',
         mobileOpen: false,
         activeId: config.activeId || null,
         openDropdowns: new Set(JSON.parse(localStorage.getItem('sidebar-dropdowns') || '[]')),
@@ -239,6 +241,16 @@ export function initSidebar(config) {
                 state.collapsed = !state.collapsed;
                 localStorage.setItem('sidebar-collapsed', state.collapsed);
                 render();
+            });
+        }
+
+        // Hover-to-expand on desktop when collapsed
+        if (window.innerWidth > 768) {
+            container.addEventListener('mouseenter', () => {
+                if (state.collapsed) container.classList.add('hovering');
+            });
+            container.addEventListener('mouseleave', () => {
+                container.classList.remove('hovering');
             });
         }
     }

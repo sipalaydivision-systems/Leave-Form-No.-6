@@ -30,6 +30,34 @@
     width: var(--sidebar-collapsed);
 }
 
+/* Auto-expand on hover when collapsed (desktop only) */
+@media (min-width: 769px) {
+    .sidebar.collapsed:hover,
+    .sidebar.collapsed.hovering {
+        width: var(--sidebar-width);
+        box-shadow: var(--shadow-lg, 0 4px 24px rgba(0,0,0,0.12));
+        z-index: calc(var(--z-sticky) + 1);
+    }
+
+    .sidebar.collapsed:hover .sidebar-profile-info,
+    .sidebar.collapsed:hover .sidebar-profile-arrow,
+    .sidebar.collapsed:hover .sidebar-link-label,
+    .sidebar.collapsed:hover .sidebar-link-chip,
+    .sidebar.collapsed:hover .sidebar-section-title,
+    .sidebar.collapsed.hovering .sidebar-profile-info,
+    .sidebar.collapsed.hovering .sidebar-profile-arrow,
+    .sidebar.collapsed.hovering .sidebar-link-label,
+    .sidebar.collapsed.hovering .sidebar-link-chip,
+    .sidebar.collapsed.hovering .sidebar-section-title {
+        display: block;
+    }
+
+    .sidebar.collapsed:hover .sidebar-link-badge,
+    .sidebar.collapsed.hovering .sidebar-link-badge {
+        position: static;
+    }
+}
+
 /* -- Profile Section -- */
 .sidebar-profile {
     display: flex;

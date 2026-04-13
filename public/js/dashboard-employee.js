@@ -181,22 +181,7 @@ function populateHero() {
 }
 
 function setupTopbar() {
-    // Update title with user name
-    const title = document.getElementById('topbar-title');
-    if (title) {
-        const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'Dashboard';
-        title.textContent = `Welcome, ${firstName}`;
-    }
-
     populateHero();
-
-    // File Leave button
-    const btn = document.getElementById('btn-file-leave');
-    if (btn) {
-        btn.addEventListener('click', () => {
-            window.location.href = '/leave-form';
-        });
-    }
 
     // View All applications button
     const viewAllBtn = document.getElementById('btn-view-all-apps');
