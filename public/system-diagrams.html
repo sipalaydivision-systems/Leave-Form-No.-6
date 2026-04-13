@@ -1482,25 +1482,38 @@ flowchart LR
 </div>
 
 <script>
+    // Mermaid must NOT auto-process on load — diagrams in hidden tabs get 0-size SVGs.
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        flowchart: { curve: 'basis', padding: 20 },
+        er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75 },
+        securityLevel: 'loose'
+    });
+
+    // Render unprocessed Mermaid blocks in the given tab section.
+    function renderMermaidInTab(tabId) {
+        const tab = document.getElementById('tab-' + tabId);
+        if (!tab) return;
+        // Only select blocks that haven't been processed yet (no <svg> child)
+        const pending = Array.from(tab.querySelectorAll('.mermaid')).filter(n => !n.querySelector('svg'));
+        if (pending.length > 0) {
+            mermaid.run({ nodes: pending });
+        }
+    }
+
     // Tab switching
     function showTab(id) {
         document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + id).classList.add('active');
         event.target.classList.add('active');
+        renderMermaidInTab(id);
     }
 
-    // Set first active tab button on load
+    // Set first active tab button on load and render its diagrams
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
-
-    // Initialise Mermaid
-    mermaid.initialize({
-        startOnLoad: true,
-        theme: 'default',
-        flowchart: { curve: 'basis', padding: 20 },
-        er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75 },
-        securityLevel: 'loose'
-    });
+    renderMermaidInTab('org');
 </script>
 
 </body>
