@@ -1097,7 +1097,7 @@
             <p class="diagram-desc">Entity boxes showing key database entities, their fields, and relationships within the CS Form No. 6 Leave Management System.</p>
 
             <div style="overflow-x:auto;padding:16px 0">
-            <svg viewBox="0 0 1100 860" width="1100" height="860" xmlns="http://www.w3.org/2000/svg" style="font-family:'Segoe UI',Arial,sans-serif;max-width:100%;display:block;margin:0 auto">
+            <svg viewBox="0 0 1120 900" width="1120" height="900" xmlns="http://www.w3.org/2000/svg" style="font-family:'Segoe UI',Arial,sans-serif;max-width:100%;display:block;margin:0 auto">
 
                 <defs>
                     <!-- Solid arrow (FK / structural) -->
@@ -1311,170 +1311,156 @@
                 <text x="776" y="520" font-size="10" fill="#6b7280" font-style="italic">pending-registrations.json</text>
 
                 <!-- ══════════════════════════════════════════════════════════
-                     RELATIONSHIP LINES
-                     Entity bounds:
-                       Employee User  A1: x=30–260,  y=30–246
-                       Admin User     B1: x=400–630, y=30–226
-                       Leave App      C1: x=770–1065,y=30–286
-                       Leave Card     A2: x=30–260,  y=310–566
-                       CTO Record     B2: x=400–630, y=310–526
-                       Pending Reg    C2: x=770–1065,y=310–526
+                     RELATIONSHIP LINES — v3 (clean, no overlaps)
 
-                     Safe gutters:
-                       Left margin:       x = 8  (outside all entities)
-                       A-B gutter:        x = 330 (midpoint 260–400)
-                       B-C gutter:        x = 700 (midpoint 630–770)
-                       Right margin:      x = 1080 (outside all entities)
-                       Row gap midpoint:  y = 278 (midpoint 246–310)
-                       Below-all lane 1:  y = 580
-                       Below-all lane 2:  y = 596
+                     Entity bounds (EXACT):
+                       A1 Employee User:   x 30–260,   y  30–246
+                       B1 Admin User:      x 400–630,  y  30–226
+                       C1 Leave App:       x 770–1065, y  30–286
+                       A2 Leave Card:      x 30–260,   y 310–566
+                       B2 CTO Record:      x 400–630,  y 310–526
+                       C2 Pending Reg:     x 770–1065, y 310–526
+
+                     Routing lanes (all outside every entity box):
+                       Top margin:     y = 16   (above all tops y=30)
+                       Left margin:    x = 14   (left of all lefts x=30)
+                       A-B gutter:     x = 280, 310, 330, 370  (between 260 and 400)
+                       B-C gutter:     x = 650, 700, 750  (between 630 and 770)
+                       Right margin:   x = 1090 (right of all rights x=1065)
+                       Row gap:        y = 256, 268, 280, 296  (between 246 and 310)
+                       Bottom margin:  y = 585  (below all bottoms: max=566)
                 ══════════════════════════════════════════════════════════ -->
 
-                <!-- ── R1: Employee User → Leave Card  (1:1 "has")
-                     Anchor: bottom-centre of A1 (x=145, y=246) → top-centre of A2 (x=145, y=310)
-                     Route: straight vertical through row-gap. No other entity in this lane. -->
-                <line x1="145" y1="246" x2="145" y2="310"
+                <!-- ── R1: Employee → Leave Card  (1:1)
+                     Straight vertical drop through left side of row-gap.
+                     x=100 chosen to keep clear of R1 label on right. -->
+                <line x1="100" y1="246" x2="100" y2="310"
                       stroke="#374151" stroke-width="1.5"
                       marker-start="url(#crowOne)" marker-end="url(#crowOne)"/>
-                <!-- Label: offset to the right so it sits in clear space -->
-                <rect x="153" y="264" width="42" height="15" rx="3" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="0.5"/>
-                <text x="174" y="275" text-anchor="middle" font-size="9" font-weight="bold" fill="#374151">1 : 1</text>
-                <rect x="156" y="282" width="36" height="13" rx="3" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="0.5"/>
-                <text x="174" y="292" text-anchor="middle" font-size="8" fill="#6b7280">has</text>
+                <rect x="110" y="265" width="40" height="14" rx="3" fill="white" stroke="#d1d5db" stroke-width="0.8"/>
+                <text x="130" y="276" text-anchor="middle" font-size="9" font-weight="bold" fill="#374151">1 : 1</text>
+                <text x="130" y="296" text-anchor="middle" font-size="8.5" fill="#6b7280">has</text>
 
-                <!-- ── R2: Employee User → Leave Application  (1:N "submits")
-                     Anchor: right of A1 at y=88 (top-field row) → left of C1 at y=88
-                     Route: Exit right at y=88 → travel through A-B gutter (x=330) →
-                            continue above Admin (Admin top=30, so stay at y=15, above canvas of Admin) →
-                            drop into C1 left edge at y=88.
-                     y=15 is above all entities (all start at y=30). Safe.  -->
-                <polyline points="260,88  330,88  330,15  770,15"
-                          fill="none" stroke="#374151" stroke-width="1.5"
+                <!-- ── R2: Employee → Leave Application  (1:N "submits")
+                     Route: Employee right (260) at y=72 → gutter x=280 → up to margin y=16 →
+                            right along y=16 → down into Leave App left (770) at y=72.
+                     y=16 is above all entity tops. x=280 is in the A-B gutter. -->
+                <polyline points="260,72  280,72  280,16  750,16  750,72  770,72"
+                          fill="none" stroke="#2563eb" stroke-width="1.5"
                           marker-end="url(#crowMany)"/>
-                <!-- Label: placed in the B-C gutter above Admin, at y=8 baseline -->
-                <rect x="560" y="4" width="86" height="14" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.5"/>
-                <text x="603" y="14" text-anchor="middle" font-size="8.5" font-weight="bold" fill="#1e40af">1:N  submits</text>
+                <rect x="460" y="5" width="86" height="16" rx="4" fill="white" stroke="#93c5fd" stroke-width="0.8"/>
+                <text x="503" y="17" text-anchor="middle" font-size="9" font-weight="bold" fill="#2563eb">1:N submits</text>
 
-                <!-- ── R3: Employee User → CTO Record  (1:N "generates")
-                     Anchor: right of A1 at y=192 → left of B2 at y=368 (FK row)
-                     Route: Exit right at y=192 → A-B gutter x=330 → drop to y=368 → enter B2 left.
-                     Uses a different y-lane in the gutter (y=192→368) than R2 (y=88).
-                     The gutter x=330 is between x=260 and x=400 — never inside an entity. -->
-                <polyline points="260,192  330,192  330,368  400,368"
-                          fill="none" stroke="#374151" stroke-width="1.5"
+                <!-- ── R3: Employee → CTO Record  (1:N "generates")
+                     Route: Employee bottom (y=246) at x=220 → row-gap y=296 →
+                            right to gutter x=370 → down into CTO top (y=310) at x=440.
+                     y=296 is in the row gap below all Row1 entities.
+                     x=370 is in the A-B gutter. -->
+                <polyline points="220,246  220,296  370,296  370,310"
+                          fill="none" stroke="#c2410c" stroke-width="1.5"
                           marker-end="url(#crowMany)"/>
-                <!-- Label: on the vertical segment of the gutter, centred between y=192 and y=368.
-                     Pill placed at x=336 (just right of the line). -->
-                <rect x="336" y="268" width="52" height="28" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="0.8"/>
-                <text x="362" y="280" text-anchor="middle" font-size="9" font-weight="bold" fill="#7c2d12">1 : N</text>
-                <text x="362" y="292" text-anchor="middle" font-size="8" fill="#6b7280">generates</text>
+                <rect x="246" y="286" width="92" height="16" rx="4" fill="white" stroke="#fdba74" stroke-width="0.8"/>
+                <text x="292" y="298" text-anchor="middle" font-size="9" font-weight="bold" fill="#c2410c">1:N generates</text>
 
-                <!-- ── R4: Leave Application → Leave Card  (dashed "updates on SDS approval")
-                     Anchor: bottom of C1 (x=917, y=286) → right of A2 (x=260, y=440)
-                     Route: Exit C1 bottom at x=917, y=286 →
-                            go right to right-margin lane x=1080 →
-                            drop below all bottom entities to y=580 →
-                            go left to x=8 (left margin) →
-                            rise to y=440 (mid-height of Leave Card) →
-                            enter A2 left at y=440.
-                     This wraps entirely around the outside — never touches any box. -->
-                <polyline points="917,286  1080,286  1080,580  8,580  8,440  30,440"
-                          fill="none" stroke="#9ca3af" stroke-width="1.3" stroke-dasharray="6,4"
+                <!-- ── R4: Leave App → Leave Card  (dashed "updates on SDS approval")
+                     Route: Leave App bottom (y=286) at x=850 → right margin x=1090 →
+                            bottom margin y=585 → left margin x=14 →
+                            up to Leave Card mid-height y=440 → enter Leave Card left (x=30).
+                     Entire path goes outside all entity boxes. -->
+                <polyline points="850,286  850,296  1090,296  1090,585  14,585  14,440  30,440"
+                          fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6,4"
                           marker-end="url(#dashArrow)"/>
-                <!-- Label: on the bottom horizontal segment, centred -->
-                <rect x="462" y="570" width="142" height="14" rx="3" fill="#f9fafb" stroke="#e5e7eb" stroke-width="0.5"/>
-                <text x="533" y="580" text-anchor="middle" font-size="8.5" fill="#9ca3af" font-style="italic">updates on SDS approval</text>
+                <rect x="420" y="575" width="142" height="16" rx="4" fill="white" stroke="#d1d5db" stroke-width="0.8"/>
+                <text x="491" y="587" text-anchor="middle" font-size="8.5" fill="#6b7280" font-style="italic">updates on SDS approval</text>
 
-                <!-- ── R5: Pending Registration → Employee User  (dashed "becomes on approval")
-                     Anchor: top of C2 (x=917, y=310) → top of A1 (x=145, y=30)
-                     Route: Exit C2 top at x=917, y=310 →
-                            rise through row-gap to y=260 →
-                            go left through B-C gutter staying between B2 and C2: x=700, y=260 →
-                            continue left through A-B gutter: x=330, y=260 →
-                            rise inside row-gap to y=246 (clear of Employee bottom=246) then to y=246,
-                            actually to y=225 so connector shows above field, then left to x=145 →
-                            enter A1 bottom at y=246.
-                     Stay at y=260 in horizontal runs — row-gap is y=246–310, so y=260 is safely inside gap. -->
-                <polyline points="917,310  917,260  330,260  330,246  145,246"
-                          fill="none" stroke="#9ca3af" stroke-width="1.3" stroke-dasharray="6,4"
+                <!-- ── R5: Pending Reg → Employee  (dashed "becomes")
+                     Route: Pending Reg right (x=1065) at y=390 → right margin x=1090 →
+                            up to top margin y=16 → left margin x=14 →
+                            down to Employee mid-height y=140 → enter Employee left (x=30).
+                     Entire path goes around the outside of all entities. -->
+                <polyline points="1065,390  1090,390  1090,8  14,8  14,140  30,140"
+                          fill="none" stroke="#a855f7" stroke-width="1.2" stroke-dasharray="6,4"
                           marker-end="url(#dashArrow)"/>
-                <!-- Label: on the horizontal segment in the row-gap, clear of the R3 label -->
-                <rect x="552" y="250" width="56" height="13" rx="3" fill="#f9fafb" stroke="#e5e7eb" stroke-width="0.5"/>
-                <text x="580" y="260" text-anchor="middle" font-size="8.5" fill="#9ca3af" font-style="italic">becomes</text>
+                <rect x="432" y="-2" width="72" height="15" rx="4" fill="white" stroke="#c4b5fd" stroke-width="0.8"/>
+                <text x="468" y="10" text-anchor="middle" font-size="8.5" fill="#7c3aed" font-style="italic">becomes</text>
 
-                <!-- ── R6: Admin User → Leave Application  (dashed "reviews / approves")
-                     Anchor: right of B1 (x=630, y=128) → left of C1 (x=770, y=128)
-                     Route: straight horizontal through B-C gutter. y=128 is well within both entities'
-                     y-range (B1: y=30–226, C1: y=30–286) — this is a direct same-row connection,
-                     so just a straight line in the gutter. The gutter x=630–770 is open space. -->
-                <line x1="630" y1="128" x2="770" y2="128"
-                      fill="none" stroke="#6b7280" stroke-width="1.3" stroke-dasharray="5,3"
+                <!-- ── R6: Admin → Leave Application  (dashed "reviews / approves")
+                     Route: straight horizontal through B-C gutter.
+                     Admin right (630) at y=92 → Leave App left (770) at y=92.
+                     This is a clean straight shot through open gutter space. -->
+                <line x1="630" y1="92" x2="770" y2="92"
+                      stroke="#6b7280" stroke-width="1.2" stroke-dasharray="5,3"
                       marker-end="url(#arrowEnd)"/>
-                <!-- Label: above the line in the B-C gutter midpoint -->
-                <rect x="648" y="114" width="86" height="13" rx="3" fill="#f9fafb" stroke="#e5e7eb" stroke-width="0.5"/>
-                <text x="691" y="124" text-anchor="middle" font-size="8" fill="#6b7280" font-style="italic">reviews / approves</text>
+                <rect x="654" y="78" width="92" height="14" rx="3" fill="white" stroke="#d1d5db" stroke-width="0.8"/>
+                <text x="700" y="89" text-anchor="middle" font-size="8" fill="#6b7280" font-style="italic">reviews / approves</text>
 
                 <!-- ══════════════════════════════════════════════════════════
                      LEGEND — bottom strip
                 ══════════════════════════════════════════════════════════ -->
-                <rect x="30" y="630" width="1035" height="200" rx="8" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.2"/>
-                <text x="547" y="654" text-anchor="middle" font-size="12" font-weight="bold" fill="#1f2937">Legend</text>
+                <rect x="30" y="620" width="1060" height="200" rx="8" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.2"/>
+                <text x="560" y="644" text-anchor="middle" font-size="12" font-weight="bold" fill="#1f2937">Legend</text>
 
                 <!-- Legend row 1 -->
                 <!-- PK chip -->
-                <rect x="60" y="668" width="28" height="16" rx="3" fill="#e0e7ff" stroke="#c7d2fe" stroke-width="0.8"/>
-                <text x="74" y="680" text-anchor="middle" font-size="9" font-weight="bold" fill="#3730a3">PK</text>
-                <text x="96" y="680" font-size="10" fill="#374151">Primary Key — unique record identifier</text>
+                <rect x="60" y="658" width="28" height="16" rx="3" fill="#e0e7ff" stroke="#c7d2fe" stroke-width="0.8"/>
+                <text x="74" y="670" text-anchor="middle" font-size="9" font-weight="bold" fill="#3730a3">PK</text>
+                <text x="96" y="670" font-size="10" fill="#374151">Primary Key — unique record identifier</text>
 
                 <!-- FK chip -->
-                <rect x="60" y="692" width="28" height="16" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
-                <text x="74" y="704" text-anchor="middle" font-size="9" font-weight="bold" fill="#78350f">FK</text>
-                <text x="96" y="704" font-size="10" fill="#374151">Foreign Key — references another entity's PK</text>
+                <rect x="60" y="682" width="28" height="16" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+                <text x="74" y="694" text-anchor="middle" font-size="9" font-weight="bold" fill="#78350f">FK</text>
+                <text x="96" y="694" font-size="10" fill="#374151">Foreign Key — references another entity's PK</text>
 
                 <!-- Solid line -->
-                <line x1="60" y1="724" x2="110" y2="724" stroke="#374151" stroke-width="1.5" marker-end="url(#arrowEnd)"/>
-                <text x="120" y="728" font-size="10" fill="#374151">Structural relationship (FK constraint)</text>
+                <line x1="60" y1="714" x2="110" y2="714" stroke="#374151" stroke-width="1.5" marker-end="url(#arrowEnd)"/>
+                <text x="120" y="718" font-size="10" fill="#374151">Structural relationship (FK constraint)</text>
 
                 <!-- Dashed line -->
-                <line x1="60" y1="748" x2="110" y2="748" stroke="#9ca3af" stroke-width="1.3" stroke-dasharray="6,4" marker-end="url(#dashArrow)"/>
-                <text x="120" y="752" font-size="10" fill="#374151">Derived / soft relationship (no FK, by business rule)</text>
+                <line x1="60" y1="738" x2="110" y2="738" stroke="#9ca3af" stroke-width="1.3" stroke-dasharray="6,4" marker-end="url(#dashArrow)"/>
+                <text x="120" y="742" font-size="10" fill="#374151">Derived / soft relationship (no FK, by business rule)</text>
 
                 <!-- Legend row 2 — cardinality notation -->
                 <!-- One marker sample -->
-                <line x1="400" y1="685" x2="430" y2="685" stroke="#374151" stroke-width="1.5" marker-end="url(#crowOne)"/>
-                <text x="440" y="689" font-size="10" fill="#374151">"one" side (exactly 1)</text>
+                <line x1="400" y1="675" x2="430" y2="675" stroke="#374151" stroke-width="1.5" marker-end="url(#crowOne)"/>
+                <text x="440" y="679" font-size="10" fill="#374151">"one" side (exactly 1)</text>
 
                 <!-- Many marker sample -->
-                <line x1="400" y1="712" x2="430" y2="712" stroke="#374151" stroke-width="1.5" marker-end="url(#crowMany)"/>
-                <text x="440" y="716" font-size="10" fill="#374151">"many" side (0 or more)</text>
+                <line x1="400" y1="702" x2="430" y2="702" stroke="#374151" stroke-width="1.5" marker-end="url(#crowMany)"/>
+                <text x="440" y="706" font-size="10" fill="#374151">"many" side (0 or more)</text>
 
                 <!-- 1:1 example -->
-                <line x1="400" y1="739" x2="440" y2="739" stroke="#374151" stroke-width="1.5" marker-start="url(#crowOne)" marker-end="url(#crowOne)"/>
-                <text x="450" y="743" font-size="10" fill="#374151">One-to-One (1:1)</text>
+                <line x1="400" y1="729" x2="440" y2="729" stroke="#374151" stroke-width="1.5" marker-start="url(#crowOne)" marker-end="url(#crowOne)"/>
+                <text x="450" y="733" font-size="10" fill="#374151">One-to-One (1:1)</text>
 
                 <!-- 1:N example -->
-                <line x1="400" y1="763" x2="440" y2="763" stroke="#374151" stroke-width="1.5" marker-start="url(#crowOne)" marker-end="url(#crowMany)"/>
-                <text x="450" y="767" font-size="10" fill="#374151">One-to-Many (1:N)</text>
+                <line x1="400" y1="753" x2="440" y2="753" stroke="#374151" stroke-width="1.5" marker-start="url(#crowOne)" marker-end="url(#crowMany)"/>
+                <text x="450" y="757" font-size="10" fill="#374151">One-to-Many (1:N)</text>
 
                 <!-- Entity colour chips -->
-                <rect x="720" y="668" width="14" height="14" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
-                <text x="742" y="680" font-size="10" fill="#374151">Employee User</text>
-                <rect x="720" y="688" width="14" height="14" rx="3" fill="#fef9c3" stroke="#fcd34d" stroke-width="1"/>
-                <text x="742" y="700" font-size="10" fill="#374151">Admin User (all 5 portals)</text>
-                <rect x="720" y="708" width="14" height="14" rx="3" fill="#d1fae5" stroke="#6ee7b7" stroke-width="1"/>
-                <text x="742" y="720" font-size="10" fill="#374151">Leave Application</text>
-                <rect x="720" y="728" width="14" height="14" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1"/>
-                <text x="742" y="740" font-size="10" fill="#374151">Leave Card</text>
-                <rect x="720" y="748" width="14" height="14" rx="3" fill="#ffedd5" stroke="#fdba74" stroke-width="1"/>
-                <text x="742" y="760" font-size="10" fill="#374151">CTO Record</text>
-                <rect x="720" y="768" width="14" height="14" rx="3" fill="#fce7f3" stroke="#f9a8d4" stroke-width="1"/>
-                <text x="742" y="780" font-size="10" fill="#374151">Pending Registration</text>
+                <rect x="720" y="658" width="14" height="14" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="1"/>
+                <text x="742" y="670" font-size="10" fill="#374151">Employee User</text>
+                <rect x="720" y="678" width="14" height="14" rx="3" fill="#fef9c3" stroke="#fcd34d" stroke-width="1"/>
+                <text x="742" y="690" font-size="10" fill="#374151">Admin User (all 5 portals)</text>
+                <rect x="720" y="698" width="14" height="14" rx="3" fill="#d1fae5" stroke="#6ee7b7" stroke-width="1"/>
+                <text x="742" y="710" font-size="10" fill="#374151">Leave Application</text>
+                <rect x="720" y="718" width="14" height="14" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1"/>
+                <text x="742" y="730" font-size="10" fill="#374151">Leave Card</text>
+                <rect x="720" y="738" width="14" height="14" rx="3" fill="#ffedd5" stroke="#fdba74" stroke-width="1"/>
+                <text x="742" y="750" font-size="10" fill="#374151">CTO Record</text>
+                <rect x="720" y="758" width="14" height="14" rx="3" fill="#fce7f3" stroke="#f9a8d4" stroke-width="1"/>
+                <text x="742" y="770" font-size="10" fill="#374151">Pending Registration</text>
 
                 <!-- italic = source file note -->
-                <text x="60" y="800" font-size="9.5" fill="#9ca3af" font-style="italic">* Italic grey text below each entity indicates the JSON file where data is persisted.</text>
+                <text x="60" y="790" font-size="9.5" fill="#9ca3af" font-style="italic">* Italic grey text below each entity indicates the JSON file where data is persisted.</text>
+
+                <!-- Line colour key -->
+                <line x1="60" y1="762" x2="90" y2="762" stroke="#2563eb" stroke-width="1.5"/>
+                <text x="98" y="766" font-size="9" fill="#2563eb">Employee submits (1:N)</text>
+                <line x1="200" y1="762" x2="230" y2="762" stroke="#c2410c" stroke-width="1.5"/>
+                <text x="238" y="766" font-size="9" fill="#c2410c">Employee generates CTO (1:N)</text>
 
                 <!-- Figure caption -->
-                <text x="547" y="822" text-anchor="middle" font-size="11" fill="#6b7280" font-style="italic">Figure 5 — Entity Relationship Diagram: CS Form No. 6 Leave Management System</text>
+                <text x="560" y="812" text-anchor="middle" font-size="11" fill="#6b7280" font-style="italic">Figure 5 — Entity Relationship Diagram: CS Form No. 6 Leave Management System</text>
             </svg>
             </div>
         </div>
