@@ -1036,15 +1036,19 @@
                 // Unlinked leave cards
                 if (lc.unlinkedNames && lc.unlinkedNames.length > 0) {
                     html += '<h4 style="font-size:var(--text-md);font-weight:var(--font-semibold);margin:var(--space-5) 0 var(--space-3);color:var(--color-warning)">Unlinked Leave Cards (awaiting registration)</h4>';
-                    html += '<div class="dm-table-wrap" style="max-height:300px"><table class="dm-table"><thead><tr>';
-                    html += '<th>Name</th><th class="text-right">Emp No.</th><th class="text-right">VL</th><th class="text-right">SL</th><th class="text-center">Type</th>';
+                    html += '<p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">These cards were imported from Excel but are not yet bound to any employee account. Use <strong>Link to Account</strong> to manually assign a card to an existing registered employee.</p>';
+                    html += '<div class="dm-table-wrap" style="max-height:340px"><table class="dm-table"><thead><tr>';
+                    html += '<th>Name</th><th class="text-right">Emp No.</th><th class="text-right">VL</th><th class="text-right">SL</th><th class="text-center">Type</th><th class="text-center">Action</th>';
                     html += '</tr></thead><tbody>';
                     for (const u of lc.unlinkedNames) {
-                        html += '<tr><td>' + escapeHtml(u.name) + '</td>';
+                        const safeCardName = escapeHtml(u.name);
+                        const jsCardName = u.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        html += '<tr><td>' + safeCardName + '</td>';
                         html += '<td class="text-right text-muted">' + escapeHtml(u.employeeNo || '—') + '</td>';
                         html += '<td class="text-right text-vl">' + (u.vl || 0).toFixed(3) + '</td>';
                         html += '<td class="text-right text-sl">' + (u.sl || 0).toFixed(3) + '</td>';
-                        html += '<td class="text-center text-teaching">' + (u.isTeaching ? 'Teaching' : '') + '</td></tr>';
+                        html += '<td class="text-center text-teaching">' + (u.isTeaching ? 'Teaching' : '') + '</td>';
+                        html += '<td class="text-center"><button class="btn btn-xs btn-primary" onclick="openLinkCardModal(\'' + jsCardName + '\')">Link to Account</button></td></tr>';
                     }
                     html += '</tbody></table></div>';
                 }
@@ -1071,5 +1075,132 @@
             }
         }
     </script>
+
+<!-- Link Leave Card Modal -->
+<div id="linkCardModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:var(--color-surface,#fff);border-radius:12px;padding:var(--space-6,24px);max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+        <h3 style="margin:0 0 var(--space-2,8px);font-size:var(--text-lg,1.125rem);font-weight:var(--font-semibold,600)">Link Leave Card to Account</h3>
+        <p style="font-size:var(--text-sm,0.875rem);color:var(--color-text-muted,#6b7280);margin-bottom:var(--space-4,16px)">
+            Manually bind the imported leave card to a registered employee account.<br>
+            The employee's existing balance data will be replaced by the imported card.
+        </p>
+        <div style="margin-bottom:var(--space-3,12px)">
+            <label style="font-size:var(--text-sm,0.875rem);font-weight:var(--font-medium,500);display:block;margin-bottom:4px">Leave Card Name</label>
+            <input id="linkCardName" type="text" readonly style="width:100%;padding:8px 10px;border:1px solid var(--color-border,#e5e7eb);border-radius:6px;background:var(--color-surface-alt,#f9fafb);font-size:var(--text-sm,0.875rem);box-sizing:border-box">
+        </div>
+        <div style="margin-bottom:var(--space-4,16px)">
+            <label style="font-size:var(--text-sm,0.875rem);font-weight:var(--font-medium,500);display:block;margin-bottom:4px">Registered Employee Account</label>
+            <input id="linkEmployeeSearch" type="text" placeholder="Type name or email to search…" autocomplete="off"
+                style="width:100%;padding:8px 10px;border:1px solid var(--color-border,#e5e7eb);border-radius:6px;font-size:var(--text-sm,0.875rem);box-sizing:border-box;margin-bottom:4px"
+                oninput="filterLinkEmployees()">
+            <select id="linkEmployeeSelect" size="5"
+                style="width:100%;border:1px solid var(--color-border,#e5e7eb);border-radius:6px;font-size:var(--text-sm,0.875rem);padding:4px">
+            </select>
+            <p id="linkSelectNote" style="font-size:0.75rem;color:var(--color-text-muted,#6b7280);margin:4px 0 0">Select an employee from the list above.</p>
+        </div>
+        <div style="display:flex;gap:var(--space-2,8px);justify-content:flex-end">
+            <button class="btn btn-ghost btn-sm" onclick="closeLinkCardModal()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmLinkCard()">Link</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    let _linkAllEmployees = [];
+
+    window.openLinkCardModal = async function(cardName) {
+        document.getElementById('linkCardName').value = cardName;
+        document.getElementById('linkEmployeeSearch').value = '';
+        document.getElementById('linkSelectNote').textContent = 'Loading employees…';
+
+        const modal = document.getElementById('linkCardModal');
+        modal.style.display = 'flex';
+
+        // Load registered employees (with no leave card linked = preferred targets, but show all)
+        try {
+            const resp = await fetch('/api/all-employees', { credentials: 'include' });
+            const data = await resp.json();
+            // Only registered accounts (source === 'registered') and no linked leave card
+            _linkAllEmployees = (data.employees || data || [])
+                .filter(e => e.email && e.source !== 'leavecard-unlinked')
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        } catch (e) {
+            _linkAllEmployees = [];
+        }
+
+        renderLinkEmployeeList(_linkAllEmployees);
+        document.getElementById('linkSelectNote').textContent = 'Select an employee from the list above.';
+    };
+
+    window.filterLinkEmployees = function() {
+        const q = document.getElementById('linkEmployeeSearch').value.toLowerCase();
+        const filtered = q ? _linkAllEmployees.filter(e =>
+            (e.name || '').toLowerCase().includes(q) ||
+            (e.email || '').toLowerCase().includes(q)
+        ) : _linkAllEmployees;
+        renderLinkEmployeeList(filtered);
+    };
+
+    function renderLinkEmployeeList(list) {
+        const sel = document.getElementById('linkEmployeeSelect');
+        sel.innerHTML = '';
+        if (!list.length) {
+            const opt = document.createElement('option');
+            opt.disabled = true;
+            opt.textContent = '— No matches —';
+            sel.appendChild(opt);
+            return;
+        }
+        list.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.email;
+            opt.textContent = (e.name || e.email) + ' — ' + e.email;
+            sel.appendChild(opt);
+        });
+    }
+
+    window.closeLinkCardModal = function() {
+        document.getElementById('linkCardModal').style.display = 'none';
+    };
+
+    window.confirmLinkCard = async function() {
+        const cardName = document.getElementById('linkCardName').value;
+        const sel = document.getElementById('linkEmployeeSelect');
+        const employeeEmail = sel.value;
+        if (!employeeEmail) {
+            alert('Please select an employee from the list.');
+            return;
+        }
+        const selectedText = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : employeeEmail;
+        if (!confirm('Link leave card for "' + cardName + '" to:\n' + selectedText + '\n\nThis action cannot be undone automatically.')) return;
+
+        try {
+            const resp = await fetch('/api/it/link-leavecard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ cardName, employeeEmail })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                closeLinkCardModal();
+                alert('Success! ' + data.message + (data.ctoLinked ? '\nAlso linked ' + data.ctoLinked + ' CTO record(s).' : ''));
+                // Reload migration status to reflect updated counts
+                if (typeof loadMigrationStatus === 'function') loadMigrationStatus();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        }
+    };
+
+    // Close modal on backdrop click
+    document.getElementById('linkCardModal').addEventListener('click', function(e) {
+        if (e.target === this) closeLinkCardModal();
+    });
+})();
+</script>
 </body>
 </html>

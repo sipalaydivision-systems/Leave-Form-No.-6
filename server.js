@@ -2924,6 +2924,87 @@ app.post('/api/it/reset-pin', requireAuth('it'), (req, res) => {
     }
 });
 
+// Manually link an unlinked (Excel-migrated) leave card to a registered employee account
+// POST /api/it/link-leavecard  { cardName, employeeEmail }
+app.post('/api/it/link-leavecard', requireAuth('it'), (req, res) => {
+    try {
+        const { cardName, employeeEmail } = req.body;
+        if (!cardName || !employeeEmail) {
+            return res.status(400).json({ success: false, error: 'cardName and employeeEmail are required' });
+        }
+
+        const leavecards = readJSON(leavecardsFile);
+        const users = readJSON(usersFile);
+
+        // Verify the target employee account exists
+        const targetUser = users.find(u => (u.email || '').toLowerCase() === employeeEmail.toLowerCase());
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'No registered employee found with that email' });
+        }
+
+        // Check the target employee doesn't already have a leave card linked
+        const alreadyLinked = leavecards.find(lc =>
+            (lc.email || '').toLowerCase() === employeeEmail.toLowerCase() ||
+            (lc.employeeId || '').toLowerCase() === employeeEmail.toLowerCase()
+        );
+        if (alreadyLinked) {
+            return res.status(409).json({ success: false, error: `${employeeEmail} already has a leave card linked (${alreadyLinked.name})` });
+        }
+
+        // Find the unlinked card by name (must have no email)
+        const normalizedTarget = cardName.toUpperCase().replace(/\s+/g, ' ').trim();
+        const cardIdx = leavecards.findIndex(lc => {
+            if (lc.email) return false; // already linked
+            const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+            return lcName === normalizedTarget;
+        });
+
+        if (cardIdx === -1) {
+            return res.status(404).json({ success: false, error: `No unlinked leave card found with name "${cardName}"` });
+        }
+
+        // Perform the link
+        const card = leavecards[cardIdx];
+        card.email = targetUser.email;
+        card.employeeId = targetUser.email;
+        card.firstName = card.firstName || targetUser.firstName || '';
+        card.lastName = card.lastName || targetUser.lastName || '';
+        card.middleName = card.middleName || targetUser.middleName || '';
+        card.updatedAt = new Date().toISOString();
+        writeJSON(leavecardsFile, leavecards);
+
+        // Also link any unlinked CTO records matching this card's name
+        let ctoLinked = 0;
+        try {
+            ensureFile(ctoRecordsFile);
+            const ctoRecords = readJSON(ctoRecordsFile);
+            ctoRecords.forEach(rec => {
+                if (rec.employeeId || rec.email) return;
+                const recName = (rec.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                if (recName === normalizedTarget) {
+                    rec.employeeId = targetUser.email;
+                    rec.email = targetUser.email;
+                    ctoLinked++;
+                }
+            });
+            if (ctoLinked > 0) writeJSON(ctoRecordsFile, ctoRecords);
+        } catch (ctoErr) {
+            console.error('[LINK-LEAVECARD] CTO linking error:', ctoErr.message);
+        }
+
+        logActivity('link_leavecard', 'it', {
+            actor: req.session.email,
+            details: { cardName, linkedTo: targetUser.email, ctoLinked }
+        });
+
+        console.log(`[LINK-LEAVECARD] "${cardName}" linked to ${targetUser.email} by ${req.session.email}`);
+        res.json({ success: true, message: `Leave card for "${cardName}" linked to ${targetUser.email}`, ctoLinked });
+    } catch (error) {
+        console.error('[LINK-LEAVECARD] Error:', error);
+        res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
+    }
+});
+
 // Get user details by email
 app.get('/api/user-details', requireAuth(), (req, res) => {
     try {
