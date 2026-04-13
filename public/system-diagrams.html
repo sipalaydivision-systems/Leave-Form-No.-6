@@ -523,16 +523,16 @@
             <p class="diagram-desc">All external actors and the data they send to or receive from the central Leave Management System.</p>
             <div class="mermaid">
 flowchart TD
-    EMP["👤 Employee\n(DepEd Staff)"]
-    AO["👤 Administrative\nOfficer (AO)"]
-    HR["👤 Human Resources\nOfficer (HR)"]
-    ASDS["👤 ASDS\n(Asst. Superintendent)"]
-    SDS["👤 SDS\n(Superintendent)"]
-    IT["👤 IT Administrator"]
-    MAIL["📧 MailerSend\n(Email API)"]
-    FS["💾 File System\n(Railway Volume)"]
+    EMP["Employee\n(DepEd Staff)"]
+    AO["Administrative\nOfficer (AO)"]
+    HR["Human Resources\nOfficer (HR)"]
+    ASDS["ASDS\n(Asst. Superintendent)"]
+    SDS["SDS\n(Superintendent)"]
+    IT["IT Administrator"]
+    MAIL["MailerSend\n(Email API)"]
+    FS["File System\n(Railway Volume)"]
 
-    subgraph SYS ["🏛️  SDO Sipalay City — Leave Management System"]
+    subgraph SYS ["SDO Sipalay City — Leave Management System"]
         LMS[" "]
     end
 
@@ -1139,19 +1139,17 @@ flowchart TD
 erDiagram
     EMPLOYEE_USER {
         string id PK
-        string email UK
+        string email
         string password
         string name
         string firstName
         string lastName
         string middleName
-        string suffix
         string office
         string position
-        string employeeNo UK
-        int    salaryGrade
-        int    step
-        float  salary
+        string employeeNo
+        int salaryGrade
+        float salary
         string role
         datetime createdAt
         datetime updatedAt
@@ -1159,14 +1157,12 @@ erDiagram
 
     ADMIN_USER {
         string id PK
-        string email UK
+        string email
         string password
         string name
         string fullName
         string office
-        string school
         string role
-        boolean usesPin
         datetime createdAt
     }
 
@@ -1175,20 +1171,19 @@ erDiagram
         string employeeEmail FK
         string employeeName
         string leaveType
-        float  numDays
-        date   dateFrom
-        date   dateTo
-        date   dateOfFiling
+        float numDays
+        date dateFrom
+        date dateTo
+        date dateOfFiling
         string status
         string currentApprover
         string office
         string position
-        float  salary
+        float salary
         string commutation
         string soFilePath
         string otherLeaveSpecify
-        int    leaveHours
-        boolean isSchoolBased
+        int leaveHours
         datetime submittedAt
         datetime aoApprovedAt
         datetime hrApprovedAt
@@ -1214,23 +1209,23 @@ erDiagram
 
     LEAVE_CARD {
         string employeeId PK
-        string email UK
+        string email
         string name
-        float  vl
-        float  sl
-        float  vacationLeaveEarned
-        float  sickLeaveEarned
-        float  vacationLeaveSpent
-        float  sickLeaveSpent
-        float  splEarned
-        float  splSpent
-        int    splYear
-        float  forceLeaveEarned
-        float  forceLeaveSpent
-        int    forceLeaveYear
-        float  wellnessEarned
-        float  wellnessSpent
-        int    wellnessYear
+        float vl
+        float sl
+        float vacationLeaveEarned
+        float sickLeaveEarned
+        float vacationLeaveSpent
+        float sickLeaveSpent
+        float splEarned
+        float splSpent
+        int splYear
+        float forceLeaveEarned
+        float forceLeaveSpent
+        int forceLeaveYear
+        float wellnessEarned
+        float wellnessSpent
+        int wellnessYear
         string lastAccrualDate
         datetime createdAt
         datetime updatedAt
@@ -1241,16 +1236,16 @@ erDiagram
         string leaveCardEmail FK
         string type
         string periodCovered
-        float  vlEarned
-        float  slEarned
-        float  vlSpent
-        float  slSpent
-        float  forcedLeave
-        float  splUsed
-        float  wellnessUsed
-        float  vlBalance
-        float  slBalance
-        float  total
+        float vlEarned
+        float slEarned
+        float vlSpent
+        float slSpent
+        float forcedLeave
+        float splUsed
+        float wellnessUsed
+        float vlBalance
+        float slBalance
+        float total
         string source
         datetime dateRecorded
     }
@@ -1260,20 +1255,22 @@ erDiagram
         string leaveCardEmail FK
         string applicationId FK
         string leaveType
-        float  daysUsed
-        date   periodFrom
-        date   periodTo
+        float daysUsed
+        date periodFrom
+        date periodTo
         datetime dateApproved
         string approvedBy
-        float  balanceAfterVL
-        float  balanceAfterSL
+        float balanceAfterVL
+        float balanceAfterSL
     }
 
     CTO_RECORD {
         string id PK
         string employeeEmail FK
-        float  daysGranted
-        float  daysUsed
+        string soDetails
+        string periodCovered
+        float daysGranted
+        float daysUsed
         datetime createdAt
         datetime updatedAt
     }
@@ -1286,7 +1283,7 @@ erDiagram
     PENDING_REGISTRATION {
         string id PK
         string portal
-        string email UK
+        string email
         string fullName
         string firstName
         string lastName
@@ -1308,30 +1305,30 @@ erDiagram
         string userEmail FK
         string ip
         string userAgent
-        json   details
+        string details
     }
 
     SYSTEM_STATE {
         string id PK
         string lastAccruedMonth
         datetime lastAccrualRun
-        int    lastAccrualMonths
-        int    lastAccrualEmployees
+        int lastAccrualMonths
+        int lastAccrualEmployees
     }
 
-    EMPLOYEE_USER         ||--o{ LEAVE_APPLICATION     : "submits"
-    EMPLOYEE_USER         ||--||  LEAVE_CARD            : "has"
-    EMPLOYEE_USER         ||--o{ CTO_RECORD             : "granted"
-    EMPLOYEE_USER         ||--o{ ACTIVITY_LOG           : "generates"
-    ADMIN_USER            ||--o{ ACTIVITY_LOG           : "generates"
-    LEAVE_APPLICATION     ||--o{ APPROVAL_HISTORY       : "records"
-    LEAVE_APPLICATION     ||--o{ LEAVE_USAGE_HISTORY    : "reflected in"
-    LEAVE_CARD            ||--o{ LEAVE_TRANSACTION      : "has"
-    LEAVE_CARD            ||--o{ LEAVE_USAGE_HISTORY    : "contains"
-    CTO_RECORD            ||--o{ CTO_APPLICATION_LINK   : "linked via"
-    LEAVE_APPLICATION     ||--o{ CTO_APPLICATION_LINK   : "linked via"
-    PENDING_REGISTRATION  ||--o| EMPLOYEE_USER          : "becomes"
-    PENDING_REGISTRATION  ||--o| ADMIN_USER             : "becomes"
+    EMPLOYEE_USER ||--o{ LEAVE_APPLICATION : "submits"
+    EMPLOYEE_USER ||--|| LEAVE_CARD : "has"
+    EMPLOYEE_USER ||--o{ CTO_RECORD : "granted"
+    EMPLOYEE_USER ||--o{ ACTIVITY_LOG : "generates"
+    ADMIN_USER ||--o{ ACTIVITY_LOG : "generates"
+    LEAVE_APPLICATION ||--o{ APPROVAL_HISTORY : "records"
+    LEAVE_APPLICATION ||--o{ LEAVE_USAGE_HISTORY : "reflected in"
+    LEAVE_CARD ||--o{ LEAVE_TRANSACTION : "has"
+    LEAVE_CARD ||--o{ LEAVE_USAGE_HISTORY : "contains"
+    CTO_RECORD ||--o{ CTO_APPLICATION_LINK : "linked via"
+    LEAVE_APPLICATION ||--o{ CTO_APPLICATION_LINK : "linked via"
+    PENDING_REGISTRATION }o--o| EMPLOYEE_USER : "becomes"
+    PENDING_REGISTRATION }o--o| ADMIN_USER : "becomes"
             </div>
         </div>
 
@@ -1482,7 +1479,7 @@ flowchart LR
 </div>
 
 <script>
-    // Mermaid must NOT auto-process on load — diagrams in hidden tabs get 0-size SVGs.
+    // startOnLoad:false — diagrams in hidden tabs produce 0-size SVGs with auto-processing.
     mermaid.initialize({
         startOnLoad: false,
         theme: 'default',
@@ -1491,29 +1488,43 @@ flowchart LR
         securityLevel: 'loose'
     });
 
-    // Render unprocessed Mermaid blocks in the given tab section.
-    function renderMermaidInTab(tabId) {
-        const tab = document.getElementById('tab-' + tabId);
-        if (!tab) return;
-        // Only select blocks that haven't been processed yet (no <svg> child)
-        const pending = Array.from(tab.querySelectorAll('.mermaid')).filter(n => !n.querySelector('svg'));
-        if (pending.length > 0) {
-            mermaid.run({ nodes: pending });
-        }
-    }
-
-    // Tab switching
+    // Tab switching — pure CSS class swap, no re-rendering needed.
     function showTab(id) {
         document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + id).classList.add('active');
         event.target.classList.add('active');
-        renderMermaidInTab(id);
     }
 
-    // Set first active tab button on load and render its diagrams
+    // Set first tab button active.
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
-    renderMermaidInTab('org');
+
+    // Render every .mermaid block using mermaid.render() — this API generates the SVG
+    // via a detached scratch element and does NOT require the target to be visible.
+    (async function initDiagrams() {
+        // Off-screen scratch area: wide enough for Mermaid's internal layout calculations.
+        const scratch = document.createElement('div');
+        scratch.style.cssText = 'position:fixed;left:-9999px;top:0;width:960px;height:auto;visibility:hidden;pointer-events:none';
+        document.body.appendChild(scratch);
+
+        let idx = 0;
+        for (const el of document.querySelectorAll('.mermaid')) {
+            const definition = el.textContent.trim();
+            const renderId = 'mmd-' + (idx++);
+            try {
+                const { svg, bindFunctions } = await mermaid.render(renderId, definition, scratch);
+                el.innerHTML = svg;
+                if (typeof bindFunctions === 'function') bindFunctions(el);
+                // Clean up any leftover element mermaid may have appended to scratch.
+                scratch.querySelector('#' + renderId)?.remove();
+            } catch (err) {
+                console.error('[Mermaid] render failed for', renderId, err);
+                el.innerHTML = '<div style="color:#c62828;padding:12px;border:1px dashed #c62828;border-radius:6px;font-size:12px;font-family:monospace">⚠ Diagram failed to render — check console for details.</div>';
+            }
+        }
+
+        document.body.removeChild(scratch);
+    })();
 </script>
 
 </body>
