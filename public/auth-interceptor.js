@@ -84,9 +84,9 @@
 (function () {
     'use strict';
 
-    var IDLE_MS    = 50000;   // show warning after 50 s of inactivity
+    var IDLE_MS    = 290000;  // show warning after 4 min 50 s of inactivity
     var WARN_MS    = 10000;   // countdown duration (10 s)
-    var TIMEOUT_MS = 60000;   // total before forced logout (50 + 10)
+    var TIMEOUT_MS = 300000;  // total before forced logout (4 min 50 s + 10 s)
 
     // ── portal helpers (duplicated to keep this IIFE self-contained) ──────────
     function getLoginUrl() {
