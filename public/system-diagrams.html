@@ -170,7 +170,9 @@
 
 <!-- Tab Navigation -->
 <div class="tabs-bar">
-    <button class="tab-btn active" onclick="showTab('ctx')">Context Diagram</button>
+    <button class="tab-btn active" onclick="showTab('org')">Org. Flow</button>
+    <button class="tab-btn" onclick="showTab('opf')">Operational Framework</button>
+    <button class="tab-btn" onclick="showTab('ctx')">Context Diagram</button>
     <button class="tab-btn" onclick="showTab('dfd')">Data Flow Diagram</button>
     <button class="tab-btn" onclick="showTab('erd')">ER Diagram</button>
 </div>
@@ -179,16 +181,345 @@
     <a href="/" class="back-link">← Back to Main Menu</a>
 
     <!-- ================================================================
+         TAB 0-A: ORGANIZATIONAL FLOW
+    ================================================================ -->
+    <div class="diagram-section active" id="tab-org">
+        <div class="section-intro">
+            <h2>Organizational Flow — Leave Approval Chain</h2>
+            <p>Shows the hierarchical structure of the SDO Sipalay City Leave Management System and the leave approval authority chain from employee level through the Schools Division Superintendent.</p>
+        </div>
+
+        <div class="diagram-card">
+            <h3>Figure 1 — Current Flow of Leave Approval (SDO Sipalay City)</h3>
+            <p class="diagram-desc">Hierarchical flow of leave approval authority and system administration within the Schools Division of Sipalay City.</p>
+
+            <div style="display:flex;justify-content:center;overflow-x:auto;padding:16px 0">
+            <svg viewBox="0 0 760 620" width="760" height="620" xmlns="http://www.w3.org/2000/svg" style="font-family:'Segoe UI',Arial,sans-serif;max-width:100%">
+                <defs>
+                    <marker id="orgArrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                        <polygon points="0 0, 8 3, 0 6" fill="#333"/>
+                    </marker>
+                </defs>
+
+                <!-- ── Top box: SDO Sipalay City ── -->
+                <rect x="200" y="20" width="360" height="62" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="380" y="46" text-anchor="middle" font-size="13" font-weight="bold">SDO SIPALAY CITY</text>
+                <text x="380" y="64" text-anchor="middle" font-size="11" fill="#444">Schools Division Office</text>
+
+                <!-- trunk line down then branch -->
+                <line x1="380" y1="82" x2="380" y2="118" stroke="#333" stroke-width="1.5"/>
+                <line x1="155" y1="118" x2="598" y2="118" stroke="#333" stroke-width="1.5"/>
+                <line x1="155" y1="118" x2="155" y2="148" stroke="#333" stroke-width="1.5"/>
+                <line x1="598" y1="118" x2="598" y2="148" stroke="#333" stroke-width="1.5"/>
+
+                <!-- ── LEFT BRANCH: Leave Approval Workflow ── -->
+                <rect x="30" y="148" width="250" height="58" fill="#f0f4ff" stroke="#003366" stroke-width="1.5"/>
+                <text x="155" y="172" text-anchor="middle" font-size="12" font-weight="bold" fill="#003366">LEAVE APPROVAL</text>
+                <text x="155" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#003366">WORKFLOW</text>
+
+                <!-- Left branch connector lines -->
+                <line x1="155" y1="206" x2="155" y2="240" stroke="#333" stroke-width="1.5"/>
+
+                <!-- SDS box -->
+                <rect x="60" y="240" width="190" height="58" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="155" y="264" text-anchor="middle" font-size="11" font-weight="bold">Schools Division</text>
+                <text x="155" y="280" text-anchor="middle" font-size="11" font-weight="bold">Superintendent (SDS)</text>
+
+                <line x1="155" y1="298" x2="155" y2="332" stroke="#333" stroke-width="1.5"/>
+
+                <!-- ASDS box -->
+                <rect x="60" y="332" width="190" height="58" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="155" y="356" text-anchor="middle" font-size="11" font-weight="bold">Asst. Schools Division</text>
+                <text x="155" y="372" text-anchor="middle" font-size="11" font-weight="bold">Superintendent (ASDS)</text>
+
+                <line x1="155" y1="390" x2="155" y2="424" stroke="#333" stroke-width="1.5"/>
+
+                <!-- HR box -->
+                <rect x="60" y="424" width="190" height="58" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="155" y="448" text-anchor="middle" font-size="11" font-weight="bold">Human Resources</text>
+                <text x="155" y="464" text-anchor="middle" font-size="11" font-weight="bold">Officer (HR)</text>
+
+                <line x1="155" y1="482" x2="155" y2="510" stroke="#333" stroke-width="1.5"/>
+                <line x1="92" y1="510" x2="218" y2="510" stroke="#333" stroke-width="1.5"/>
+                <line x1="92" y1="510" x2="92" y2="530" stroke="#333" stroke-width="1.5"/>
+                <line x1="218" y1="510" x2="218" y2="530" stroke="#333" stroke-width="1.5"/>
+
+                <!-- AO box -->
+                <rect x="24" y="530" width="136" height="52" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="92" y="552" text-anchor="middle" font-size="10.5" font-weight="bold">Administrative</text>
+                <text x="92" y="568" text-anchor="middle" font-size="10.5" font-weight="bold">Officer (AO)</text>
+
+                <!-- Non-Teaching box -->
+                <rect x="150" y="530" width="136" height="52" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="218" y="552" text-anchor="middle" font-size="10.5" font-weight="bold">Non-Teaching</text>
+                <text x="218" y="568" text-anchor="middle" font-size="10.5" font-weight="bold">Personnel</text>
+
+                <!-- ── RIGHT BRANCH: IT Administration ── -->
+                <rect x="468" y="148" width="260" height="58" fill="#f0fff4" stroke="#006633" stroke-width="1.5"/>
+                <text x="598" y="172" text-anchor="middle" font-size="12" font-weight="bold" fill="#006633">IT ADMINISTRATION</text>
+                <text x="598" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#006633">SECTION</text>
+
+                <line x1="598" y1="206" x2="598" y2="240" stroke="#333" stroke-width="1.5"/>
+
+                <!-- IT Admin box -->
+                <rect x="468" y="240" width="260" height="58" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="598" y="264" text-anchor="middle" font-size="11" font-weight="bold">IT Administrator</text>
+                <text x="598" y="280" text-anchor="middle" font-size="10.5" fill="#555">(System Management)</text>
+
+                <line x1="598" y1="298" x2="598" y2="332" stroke="#333" stroke-width="1.5"/>
+                <line x1="535" y1="332" x2="661" y2="332" stroke="#333" stroke-width="1.5"/>
+                <line x1="535" y1="332" x2="535" y2="352" stroke="#333" stroke-width="1.5"/>
+                <line x1="661" y1="332" x2="661" y2="352" stroke="#333" stroke-width="1.5"/>
+
+                <!-- Data Management box -->
+                <rect x="460" y="352" width="148" height="50" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="534" y="372" text-anchor="middle" font-size="10.5" font-weight="bold">Data &amp; Backup</text>
+                <text x="534" y="388" text-anchor="middle" font-size="10.5" font-weight="bold">Management</text>
+
+                <!-- User Management box -->
+                <rect x="613" y="352" width="148" height="50" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="687" y="372" text-anchor="middle" font-size="10.5" font-weight="bold">User Account</text>
+                <text x="687" y="388" text-anchor="middle" font-size="10.5" font-weight="bold">Management</text>
+
+                <!-- Figure caption -->
+                <text x="380" y="610" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Figure 1 — Leave Approval Authority Chain, SDO Sipalay City</text>
+            </svg>
+            </div>
+        </div>
+
+        <div class="legend-grid">
+            <div class="legend-box">
+                <h4>Leave Approval Chain (Left Branch)</h4>
+                <ul>
+                    <li>SDS — Final approving authority for all leave</li>
+                    <li>ASDS — Second-level recommending authority</li>
+                    <li>HR Officer — Certifies leave credits and balances</li>
+                    <li>AO — First-level approver at school/office level</li>
+                    <li>Non-Teaching Personnel — Submit leave applications</li>
+                </ul>
+            </div>
+            <div class="legend-box">
+                <h4>IT Administration (Right Branch)</h4>
+                <ul>
+                    <li>IT Administrator — Manages the leave management system</li>
+                    <li>Data &amp; Backup Management — Backup, restore, and export data</li>
+                    <li>User Account Management — Approve registrations, reset passwords</li>
+                    <li>Handles Excel migration, reconciliation, and audit logs</li>
+                </ul>
+            </div>
+            <div class="legend-box">
+                <h4>Approval Sequence</h4>
+                <ul>
+                    <li>Employee files leave → AO receives and reviews</li>
+                    <li>AO approves → HR certifies leave credits</li>
+                    <li>HR certifies → ASDS reviews and recommends</li>
+                    <li>ASDS recommends → SDS gives final approval</li>
+                    <li>Any level may return application with remarks</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         TAB 0-B: OPERATIONAL FRAMEWORK
+    ================================================================ -->
+    <div class="diagram-section" id="tab-opf">
+        <div class="section-intro">
+            <h2>Operational Framework</h2>
+            <p>Shows the system's input–process–output structure: the features provided by the CS Form No. 6 Leave Management System and the expected outputs it delivers to DepEd SDO Sipalay City.</p>
+        </div>
+
+        <div class="diagram-card">
+            <h3>Figure 2 — Operational Framework</h3>
+            <p class="diagram-desc">System features and expected outputs of the CS Form No. 6 Leave Management Web Application for DepEd SDO Sipalay City.</p>
+
+            <div style="overflow-x:auto;padding:8px 0">
+            <div style="display:flex;align-items:stretch;border:2px solid #333;max-width:860px;margin:0 auto;min-height:360px;background:#fff">
+
+                <!-- Left narrow panel: system name -->
+                <div style="width:140px;min-width:140px;border-right:2px solid #333;display:flex;align-items:center;justify-content:center;padding:16px 10px;background:#f8f9ff">
+                    <div style="writing-mode:vertical-lr;transform:rotate(180deg);font-size:13px;font-weight:700;color:#003366;text-align:center;line-height:1.4">
+                        CS Form No. 6 Leave Management System
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div style="display:flex;align-items:center;justify-content:center;width:36px;min-width:36px;font-size:22px;color:#333;font-weight:bold">&#10132;</div>
+
+                <!-- Middle panel: Features + Expected Output -->
+                <div style="flex:1;border-left:2px solid #333">
+                    <!-- Column headers -->
+                    <div style="display:flex;border-bottom:2px solid #333">
+                        <div style="flex:1;padding:10px 14px;border-right:1px solid #bbb;font-size:13px;font-weight:700;text-align:center;background:#fafafa;color:#003366">FEATURES</div>
+                        <div style="flex:1;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;background:#fafafa;color:#003366">EXPECTED OUTPUT</div>
+                    </div>
+                    <!-- Content rows -->
+                    <div style="display:flex;min-height:300px">
+                        <div style="flex:1;padding:14px 16px;border-right:1px solid #bbb;font-size:12.5px;line-height:2;color:#222">
+                            <div>1. Employee Registration &amp; Authentication</div>
+                            <div>2. Leave Application Filing (CS Form No. 6)</div>
+                            <div>3. Multi-level Approval Workflow</div>
+                            <div>4. Leave Balance Tracking (VL, SL, SPL, FL, WL)</div>
+                            <div>5. Monthly Leave Credit Accrual</div>
+                            <div>6. CTO (Compensatory Time-Off) Management</div>
+                            <div>7. Data Backup &amp; Recovery</div>
+                        </div>
+                        <div style="flex:1;padding:14px 16px;font-size:12.5px;line-height:2;color:#222">
+                            <div>1. Admin Log-in Authentication and Access Rights</div>
+                            <div>2. Digital CS Form No. 6 Generation</div>
+                            <div>3. Real-time Application Status Tracking</div>
+                            <div>4. Automated Email Notifications</div>
+                            <div>5. Leave Balance Reports per Employee</div>
+                            <div>6. Audit Trail of All Approval Actions</div>
+                            <div>7. Excel Leave Card Migration Tool</div>
+                            <div>8. Activity Logs &amp; System Reports</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div style="display:flex;align-items:center;justify-content:center;width:36px;min-width:36px;font-size:22px;color:#333;font-weight:bold">&#10132;</div>
+
+                <!-- Right narrow panel: product -->
+                <div style="width:140px;min-width:140px;border-left:2px solid #333;display:flex;align-items:center;justify-content:center;padding:16px 10px;background:#f8fff8">
+                    <div style="writing-mode:vertical-lr;font-size:13px;font-weight:700;color:#006633;text-align:center;line-height:1.4">
+                        Web-based Leave Management System of SDO Sipalay City
+                    </div>
+                </div>
+            </div>
+            <p style="text-align:center;font-size:11px;color:#777;margin-top:10px;font-style:italic">Figure 2 — Operational Framework of the CS Form No. 6 Leave Management System</p>
+            </div>
+        </div>
+
+        <div class="legend-grid">
+            <div class="legend-box">
+                <h4>Leave Types Supported</h4>
+                <ul>
+                    <li>VL — Vacation Leave (1.25 days/month accrual)</li>
+                    <li>SL — Sick Leave (1.25 days/month accrual)</li>
+                    <li>FL — Forced/Mandatory Leave (5 days/year)</li>
+                    <li>SPL — Special Privilege Leave (3 days/year)</li>
+                    <li>WL — Wellness Leave (3 days/year)</li>
+                    <li>CTO — Compensatory Time-Off (per Special Order)</li>
+                </ul>
+            </div>
+            <div class="legend-box">
+                <h4>User Roles</h4>
+                <ul>
+                    <li>Employee — Files leave, views status and balance</li>
+                    <li>AO (Administrative Officer) — 1st-level approver</li>
+                    <li>HR Officer — Certifies leave credits</li>
+                    <li>ASDS — 2nd-level recommending authority</li>
+                    <li>SDS — Final approving authority</li>
+                    <li>IT Admin — System administration and maintenance</li>
+                </ul>
+            </div>
+            <div class="legend-box">
+                <h4>Technology Stack</h4>
+                <ul>
+                    <li>Backend: Node.js + Express.js</li>
+                    <li>Frontend: Vanilla HTML, CSS, JavaScript</li>
+                    <li>Storage: JSON flat files (Railway Volume)</li>
+                    <li>Email: MailerSend API</li>
+                    <li>Authentication: bcrypt + HttpOnly session cookies</li>
+                    <li>Deployment: Railway (cloud hosting)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
          TAB 1: CONTEXT DIAGRAM
     ================================================================ -->
-    <div class="diagram-section active" id="tab-ctx">
+    <div class="diagram-section" id="tab-ctx">
         <div class="section-intro">
             <h2>Context Diagram</h2>
             <p>Shows the Leave Management System as a single process and all external entities that interact with it. Arrows represent data flows into and out of the system boundary.</p>
         </div>
 
+        <!-- Traditional DFD Context Diagram (Figure 3 style) -->
         <div class="diagram-card">
-            <h3>System Context — Level 0</h3>
+            <h3>Figure 3 — Context Diagram (DFD Level 0, Traditional View)</h3>
+            <p class="diagram-desc">Traditional Data Flow Diagram showing the CS Form No. 6 Leave Management System as a single central process with all external entities and data flows.</p>
+
+            <div style="display:flex;justify-content:center;overflow-x:auto;padding:12px 0">
+            <svg viewBox="0 0 800 470" width="800" height="470" xmlns="http://www.w3.org/2000/svg" style="font-family:'Segoe UI',Arial,sans-serif;max-width:100%">
+                <defs>
+                    <marker id="ctxArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+                        <polygon points="0 0, 9 3.5, 0 7" fill="#333"/>
+                    </marker>
+                </defs>
+
+                <!-- ── Employee / User entity (left) ── -->
+                <rect x="15" y="170" width="148" height="110" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="89" y="212" text-anchor="middle" font-size="13" font-weight="bold">Employee</text>
+                <text x="89" y="230" text-anchor="middle" font-size="11">(User)</text>
+
+                <!-- Top arrow: Employee → System -->
+                <line x1="163" y1="203" x2="286" y2="203" stroke="#333" stroke-width="1.5" marker-end="url(#ctxArrow)"/>
+                <!-- Label above top arrow -->
+                <text x="168" y="185" font-size="9.5" fill="#333">User Information</text>
+                <text x="168" y="196" font-size="9.5" fill="#333">Leave Applications</text>
+
+                <!-- Bottom arrow: System → Employee -->
+                <line x1="286" y1="250" x2="163" y2="250" stroke="#333" stroke-width="1.5" marker-end="url(#ctxArrow)"/>
+                <!-- Label below bottom arrow -->
+                <text x="168" y="264" font-size="9.5" fill="#333">Application Status</text>
+                <text x="168" y="275" font-size="9.5" fill="#333">Leave Balance</text>
+                <text x="168" y="286" font-size="9.5" fill="#333">Email Notifications</text>
+                <text x="168" y="297" font-size="9.5" fill="#333">CS Form No. 6</text>
+
+                <!-- ── Central Process "0" ── -->
+                <rect x="286" y="158" width="228" height="138" fill="white" stroke="#222" stroke-width="2"/>
+                <!-- Inner border (double line effect) -->
+                <rect x="292" y="164" width="216" height="126" fill="none" stroke="#555" stroke-width="0.5"/>
+                <text x="400" y="207" text-anchor="middle" font-size="26" font-weight="bold" fill="#003366">0</text>
+                <text x="400" y="232" text-anchor="middle" font-size="11" font-weight="bold">CS Form No. 6</text>
+                <text x="400" y="248" text-anchor="middle" font-size="11" font-weight="bold">Leave Management</text>
+                <text x="400" y="264" text-anchor="middle" font-size="11" font-weight="bold">System</text>
+                <text x="400" y="283" text-anchor="middle" font-size="9.5" fill="#666">SDO Sipalay City</text>
+
+                <!-- Top arrow: System → Admin -->
+                <line x1="514" y1="203" x2="635" y2="203" stroke="#333" stroke-width="1.5" marker-end="url(#ctxArrow)"/>
+                <!-- Label above -->
+                <text x="518" y="185" font-size="9.5" fill="#333">Pending Applications</text>
+                <text x="518" y="196" font-size="9.5" fill="#333">Employee Leave Data</text>
+
+                <!-- Bottom arrow: Admin → System -->
+                <line x1="635" y1="250" x2="514" y2="250" stroke="#333" stroke-width="1.5" marker-end="url(#ctxArrow)"/>
+                <!-- Label below -->
+                <text x="518" y="264" font-size="9.5" fill="#333">Approval Actions</text>
+                <text x="518" y="275" font-size="9.5" fill="#333">Registration Decisions</text>
+                <text x="518" y="286" font-size="9.5" fill="#333">System Management</text>
+
+                <!-- ── Administrator entity (right) ── -->
+                <rect x="635" y="170" width="150" height="110" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="710" y="207" text-anchor="middle" font-size="13" font-weight="bold">Administrator</text>
+                <text x="710" y="224" text-anchor="middle" font-size="10">(AO / HR / ASDS</text>
+                <text x="710" y="240" text-anchor="middle" font-size="10">/ SDS / IT)</text>
+
+                <!-- ── MailerSend (bottom center) ── -->
+                <rect x="316" y="360" width="168" height="58" fill="white" stroke="#222" stroke-width="1.5"/>
+                <text x="400" y="381" text-anchor="middle" font-size="11" font-weight="bold">MailerSend</text>
+                <text x="400" y="397" text-anchor="middle" font-size="10" fill="#555">(Email Service)</text>
+
+                <!-- Arrow: System → MailerSend -->
+                <line x1="400" y1="296" x2="400" y2="360" stroke="#333" stroke-width="1.5" marker-end="url(#ctxArrow)"/>
+                <text x="408" y="333" font-size="9.5" fill="#333">Notification Trigger</text>
+
+                <!-- Arrow: MailerSend → Employee (implied, show as dashed) -->
+                <line x1="316" y1="388" x2="89" y2="280" stroke="#555" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#ctxArrow)"/>
+                <text x="170" y="355" font-size="9" fill="#666" font-style="italic">Email delivery</text>
+
+                <!-- Figure caption -->
+                <text x="400" y="455" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Figure 3 — Context Diagram: CS Form No. 6 Leave Management System</text>
+            </svg>
+            </div>
+        </div>
+
+        <!-- Detailed Mermaid version -->
+        <div class="diagram-card">
+            <h3>System Context — Detailed View (All Actors)</h3>
             <p class="diagram-desc">All external actors and the data they send to or receive from the central Leave Management System.</p>
             <div class="mermaid">
 flowchart TD
@@ -599,7 +930,208 @@ flowchart TD
             <p>Shows all data entities in the system, their attributes, and the relationships between them. Cardinality notation: ||—o{ = one-to-many, ||—|| = one-to-one.</p>
         </div>
 
-        <!-- Full ERD -->
+        <!-- Figure 5 style: Entity boxes with fields and relationship lines -->
+        <div class="diagram-card">
+            <h3>Figure 5 — Entity Relationship Diagram (Traditional View)</h3>
+            <p class="diagram-desc">Entity boxes showing key database entities, their fields, and relationships within the CS Form No. 6 Leave Management System.</p>
+
+            <div style="overflow-x:auto;padding:12px 0">
+            <svg viewBox="0 0 900 620" width="900" height="620" xmlns="http://www.w3.org/2000/svg" style="font-family:'Segoe UI',Arial,sans-serif;max-width:100%">
+
+                <defs>
+                    <marker id="erdArrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                        <polygon points="0 0, 8 3, 0 6" fill="#555"/>
+                    </marker>
+                    <marker id="erdArrowR" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto-start-reverse">
+                        <polygon points="0 3, 8 0, 8 6" fill="#555"/>
+                    </marker>
+                </defs>
+
+                <!-- Helper: entity box header is 26px tall, each field row 20px -->
+
+                <!-- ══ EMPLOYEE USER ══ (top-left) x=20,y=20 w=200 -->
+                <rect x="20" y="20" width="200" height="186" fill="white" stroke="#333" stroke-width="1.5"/>
+                <!-- Header -->
+                <rect x="20" y="20" width="200" height="26" fill="#dbeafe" stroke="#333" stroke-width="1.5"/>
+                <text x="120" y="37" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e3a8a">Employee User</text>
+                <!-- PK row -->
+                <rect x="20" y="46" width="36" height="20" fill="#e5e7eb" stroke="#333" stroke-width="0.8"/>
+                <text x="38" y="60" text-anchor="middle" font-size="9" font-weight="bold">PK</text>
+                <line x1="56" y1="46" x2="56" y2="66" stroke="#333" stroke-width="0.8"/>
+                <text x="62" y="60" font-size="10">_id</text>
+                <!-- Fields -->
+                <line x1="20" y1="66" x2="220" y2="66" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="80" font-size="10">email (unique)</text>
+                <line x1="20" y1="86" x2="220" y2="86" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="100" font-size="10">name / firstName / lastName</text>
+                <line x1="20" y1="106" x2="220" y2="106" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="120" font-size="10">office / position</text>
+                <line x1="20" y1="126" x2="220" y2="126" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="140" font-size="10">employeeNo (unique)</text>
+                <line x1="20" y1="146" x2="220" y2="146" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="160" font-size="10">salaryGrade / salary</text>
+                <line x1="20" y1="166" x2="220" y2="166" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="180" font-size="10">password (bcrypt)</text>
+                <line x1="20" y1="186" x2="220" y2="186" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="200" font-size="10">createdAt / updatedAt</text>
+
+                <!-- ══ ADMIN USER ══ (top-center) x=340,y=20 w=200 -->
+                <rect x="340" y="20" width="200" height="166" fill="white" stroke="#333" stroke-width="1.5"/>
+                <rect x="340" y="20" width="200" height="26" fill="#fef9c3" stroke="#333" stroke-width="1.5"/>
+                <text x="440" y="37" text-anchor="middle" font-size="12" font-weight="bold" fill="#713f12">Admin User</text>
+                <rect x="340" y="46" width="36" height="20" fill="#e5e7eb" stroke="#333" stroke-width="0.8"/>
+                <text x="358" y="60" text-anchor="middle" font-size="9" font-weight="bold">PK</text>
+                <line x1="376" y1="46" x2="376" y2="66" stroke="#333" stroke-width="0.8"/>
+                <text x="382" y="60" font-size="10">_id</text>
+                <line x1="340" y1="66" x2="540" y2="66" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="80" font-size="10">email (unique per portal)</text>
+                <line x1="340" y1="86" x2="540" y2="86" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="100" font-size="10">role (ao/hr/asds/sds/it)</text>
+                <line x1="340" y1="106" x2="540" y2="106" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="120" font-size="10">name / fullName</text>
+                <line x1="340" y1="126" x2="540" y2="126" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="140" font-size="10">office / school</text>
+                <line x1="340" y1="146" x2="540" y2="146" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="160" font-size="10">password (bcrypt)</text>
+
+                <!-- ══ LEAVE APPLICATION ══ (top-right) x=660,y=20 w=220 -->
+                <rect x="660" y="20" width="220" height="226" fill="white" stroke="#333" stroke-width="1.5"/>
+                <rect x="660" y="20" width="220" height="26" fill="#dcfce7" stroke="#333" stroke-width="1.5"/>
+                <text x="770" y="37" text-anchor="middle" font-size="12" font-weight="bold" fill="#14532d">Leave Application</text>
+                <rect x="660" y="46" width="36" height="20" fill="#e5e7eb" stroke="#333" stroke-width="0.8"/>
+                <text x="678" y="60" text-anchor="middle" font-size="9" font-weight="bold">PK</text>
+                <line x1="696" y1="46" x2="696" y2="66" stroke="#333" stroke-width="0.8"/>
+                <text x="702" y="60" font-size="10">_id (SDO Sipalay-NN-XXXX)</text>
+                <line x1="660" y1="66" x2="880" y2="66" stroke="#bbb" stroke-width="0.8"/>
+                <rect x="660" y="66" width="36" height="20" fill="#fef3c7" stroke="#333" stroke-width="0.8"/>
+                <text x="678" y="80" text-anchor="middle" font-size="9" font-weight="bold">FK</text>
+                <line x1="696" y1="66" x2="696" y2="86" stroke="#333" stroke-width="0.8"/>
+                <text x="702" y="80" font-size="10">employeeEmail</text>
+                <line x1="660" y1="86" x2="880" y2="86" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="100" font-size="10">leaveType / numDays</text>
+                <line x1="660" y1="106" x2="880" y2="106" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="120" font-size="10">dateFrom / dateTo</text>
+                <line x1="660" y1="126" x2="880" y2="126" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="140" font-size="10">status (pending/approved/...)</text>
+                <line x1="660" y1="146" x2="880" y2="146" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="160" font-size="10">currentApprover</text>
+                <line x1="660" y1="166" x2="880" y2="166" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="180" font-size="10">office / position / salary</text>
+                <line x1="660" y1="186" x2="880" y2="186" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="200" font-size="10">aoApprovedAt / hrApprovedAt</text>
+                <line x1="660" y1="206" x2="880" y2="206" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="220" font-size="10">sdsApprovedAt / returnedAt</text>
+                <line x1="660" y1="226" x2="880" y2="226" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="240" font-size="10">returnRemarks / rejectionReason</text>
+
+                <!-- ══ LEAVE CARD ══ (bottom-left) x=20,y=340 w=210 -->
+                <rect x="20" y="340" width="210" height="226" fill="white" stroke="#333" stroke-width="1.5"/>
+                <rect x="20" y="340" width="210" height="26" fill="#ede9fe" stroke="#333" stroke-width="1.5"/>
+                <text x="125" y="357" text-anchor="middle" font-size="12" font-weight="bold" fill="#4c1d95">Leave Card</text>
+                <rect x="20" y="366" width="36" height="20" fill="#e5e7eb" stroke="#333" stroke-width="0.8"/>
+                <text x="38" y="380" text-anchor="middle" font-size="9" font-weight="bold">PK</text>
+                <line x1="56" y1="366" x2="56" y2="386" stroke="#333" stroke-width="0.8"/>
+                <text x="62" y="380" font-size="10">employeeId (= email)</text>
+                <line x1="20" y1="386" x2="230" y2="386" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="400" font-size="10">vl / sl (current balances)</text>
+                <line x1="20" y1="406" x2="230" y2="406" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="420" font-size="10">vacationLeaveEarned</text>
+                <line x1="20" y1="426" x2="230" y2="426" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="440" font-size="10">sickLeaveEarned</text>
+                <line x1="20" y1="446" x2="230" y2="446" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="460" font-size="10">splEarned / forceLeaveEarned</text>
+                <line x1="20" y1="466" x2="230" y2="466" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="480" font-size="10">wellnessEarned (5/yr)</text>
+                <line x1="20" y1="486" x2="230" y2="486" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="500" font-size="10">transactions[] / leaveUsageHistory[]</text>
+                <line x1="20" y1="506" x2="230" y2="506" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="520" font-size="10">isTeaching / migrated_from</text>
+                <line x1="20" y1="526" x2="230" y2="526" stroke="#bbb" stroke-width="0.8"/>
+                <text x="26" y="540" font-size="10">leave_year / createdAt</text>
+
+                <!-- ══ CTO RECORD ══ (bottom-center) x=340,y=340 w=200 -->
+                <rect x="340" y="340" width="200" height="186" fill="white" stroke="#333" stroke-width="1.5"/>
+                <rect x="340" y="340" width="200" height="26" fill="#ffedd5" stroke="#333" stroke-width="1.5"/>
+                <text x="440" y="357" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c2d12">CTO Record</text>
+                <rect x="340" y="366" width="36" height="20" fill="#e5e7eb" stroke="#333" stroke-width="0.8"/>
+                <text x="358" y="380" text-anchor="middle" font-size="9" font-weight="bold">PK</text>
+                <line x1="376" y1="366" x2="376" y2="386" stroke="#333" stroke-width="0.8"/>
+                <text x="382" y="380" font-size="10">_id</text>
+                <line x1="340" y1="386" x2="540" y2="386" stroke="#bbb" stroke-width="0.8"/>
+                <rect x="340" y="386" width="36" height="20" fill="#fef3c7" stroke="#333" stroke-width="0.8"/>
+                <text x="358" y="400" text-anchor="middle" font-size="9" font-weight="bold">FK</text>
+                <line x1="376" y1="386" x2="376" y2="406" stroke="#333" stroke-width="0.8"/>
+                <text x="382" y="400" font-size="10">employeeEmail</text>
+                <line x1="340" y1="406" x2="540" y2="406" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="420" font-size="10">soDetails (Special Order)</text>
+                <line x1="340" y1="426" x2="540" y2="426" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="440" font-size="10">periodCovered</text>
+                <line x1="340" y1="446" x2="540" y2="446" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="460" font-size="10">daysGranted / daysUsed</text>
+                <line x1="340" y1="466" x2="540" y2="466" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="480" font-size="10">source / migrated_from</text>
+                <line x1="340" y1="486" x2="540" y2="486" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="500" font-size="10">createdAt</text>
+                <line x1="340" y1="506" x2="540" y2="506" stroke="#bbb" stroke-width="0.8"/>
+                <text x="346" y="520" font-size="10">soImage (base64)</text>
+
+                <!-- ══ PENDING REGISTRATION ══ (bottom-right) x=660,y=340 w=220 -->
+                <rect x="660" y="340" width="220" height="186" fill="white" stroke="#333" stroke-width="1.5"/>
+                <rect x="660" y="340" width="220" height="26" fill="#fce7f3" stroke="#333" stroke-width="1.5"/>
+                <text x="770" y="357" text-anchor="middle" font-size="12" font-weight="bold" fill="#831843">Pending Registration</text>
+                <rect x="660" y="366" width="36" height="20" fill="#e5e7eb" stroke="#333" stroke-width="0.8"/>
+                <text x="678" y="380" text-anchor="middle" font-size="9" font-weight="bold">PK</text>
+                <line x1="696" y1="366" x2="696" y2="386" stroke="#333" stroke-width="0.8"/>
+                <text x="702" y="380" font-size="10">_id</text>
+                <line x1="660" y1="386" x2="880" y2="386" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="400" font-size="10">portal (employee/ao/hr/...)</text>
+                <line x1="660" y1="406" x2="880" y2="406" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="420" font-size="10">email / fullName</text>
+                <line x1="660" y1="426" x2="880" y2="426" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="440" font-size="10">firstName / lastName</text>
+                <line x1="660" y1="446" x2="880" y2="446" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="460" font-size="10">office / position / employeeNo</text>
+                <line x1="660" y1="466" x2="880" y2="466" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="480" font-size="10">status (pending/approved/rejected)</text>
+                <line x1="660" y1="486" x2="880" y2="486" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="500" font-size="10">processedAt / processedBy</text>
+                <line x1="660" y1="506" x2="880" y2="506" stroke="#bbb" stroke-width="0.8"/>
+                <text x="666" y="520" font-size="10">createdAt</text>
+
+                <!-- ── Relationship lines ── -->
+                <!-- Employee → Leave Card (1:1) -->
+                <line x1="120" y1="206" x2="120" y2="340" stroke="#666" stroke-width="1.2"/>
+                <text x="130" y="278" font-size="9.5" fill="#555">1:1</text>
+                <text x="130" y="290" font-size="9" fill="#555">has</text>
+
+                <!-- Employee → Leave Application (1:N) -->
+                <line x1="220" y1="113" x2="660" y2="113" stroke="#666" stroke-width="1.2"/>
+                <text x="430" y="108" font-size="9.5" fill="#555">1:N  submits</text>
+
+                <!-- Employee → CTO Record (1:N) -->
+                <line x1="220" y1="158" x2="300" y2="158" stroke="#666" stroke-width="1.2"/>
+                <line x1="300" y1="158" x2="300" y2="440" stroke="#666" stroke-width="1.2"/>
+                <line x1="300" y1="440" x2="340" y2="440" stroke="#666" stroke-width="1.2"/>
+                <text x="308" y="440" font-size="9" fill="#555">1:N</text>
+
+                <!-- Leave Application → Leave Card (update on approval) -->
+                <line x1="660" y1="180" x2="610" y2="180" stroke="#666" stroke-width="1" stroke-dasharray="4,3"/>
+                <line x1="610" y1="180" x2="610" y2="430" stroke="#666" stroke-width="1" stroke-dasharray="4,3"/>
+                <line x1="610" y1="430" x2="230" y2="430" stroke="#666" stroke-width="1" stroke-dasharray="4,3"/>
+                <text x="350" y="422" font-size="9" fill="#888" font-style="italic">updates on approval</text>
+
+                <!-- Pending Reg → Employee (becomes) -->
+                <line x1="770" y1="340" x2="770" y2="246" stroke="#666" stroke-width="1" stroke-dasharray="5,3"/>
+                <line x1="770" y1="246" x2="540" y2="186" stroke="#666" stroke-width="1" stroke-dasharray="5,3"/>
+                <text x="650" y="250" font-size="9" fill="#888" font-style="italic">→ becomes</text>
+
+                <!-- Figure caption -->
+                <text x="450" y="610" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Figure 5 — Entity Relationship Diagram: CS Form No. 6 Leave Management System</text>
+            </svg>
+            </div>
+        </div>
+
+        <!-- Full ERD (Mermaid) -->
         <div class="diagram-card">
             <h3>ERD — Full System</h3>
             <p class="diagram-desc">All entities and their relationships across the Leave Management System.</p>
@@ -957,6 +1489,9 @@ flowchart LR
         document.getElementById('tab-' + id).classList.add('active');
         event.target.classList.add('active');
     }
+
+    // Set first active tab button on load
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
 
     // Initialise Mermaid
     mermaid.initialize({

@@ -704,6 +704,7 @@ const CATEGORY_TO_FILE = {
     'sdsUsers': () => sdsUsersFile,
     'applications': () => applicationsFile,
     'leavecards': () => leavecardsFile,
+    'ctoRecords': () => ctoRecordsFile,
     'pendingRegistrations': () => pendingRegistrationsFile,
     'schools': () => schoolsFile
 };
@@ -3629,7 +3630,9 @@ app.get('/api/data-items/:category', requireAuth('it'), (req, res) => {
             } else if (category === 'applications') {
                 displayName = `${item.applicationId || item.id || 'N/A'} - ${item.employeeName || item.name || 'N/A'} (${item.leaveType || 'N/A'})`;
             } else if (category === 'leavecards') {
-                displayName = `${item.email || item.employeeId || 'N/A'} - VL: ${item.vl ?? 'N/A'}, SL: ${item.sl ?? 'N/A'}`;
+                displayName = `${item.name || item.email || item.employeeId || 'N/A'} — VL: ${item.vl ?? 'N/A'}, SL: ${item.sl ?? 'N/A'}`;
+            } else if (category === 'ctoRecords') {
+                displayName = `${item.name || 'N/A'} — SO: ${item.soDetails || 'N/A'} (${item.daysGranted ?? 0}d granted, ${item.daysUsed ?? 0}d used)`;
             } else if (category === 'pendingRegistrations') {
                 displayName = `${item.fullName || item.name || 'N/A'} (${item.email || 'N/A'}) [${item.status || 'N/A'}]`;
             } else {
@@ -6418,36 +6421,6 @@ app.get('/api/data/backups', requireAuth('it'), (req, res) => {
 });
 
 
-// DELETE /api/data/backup/:backupId - Delete a specific backup
-app.delete('/api/data/backup/:backupId', requireAuth('it'), (req, res) => {
-    try {
-        const { backupId } = req.params;
-        const validPrefixes = ['backup-', 'auto-startup-', 'pre-restore-', 'pre-import-'];
-        if (!validPrefixes.some(p => backupId.startsWith(p))) {
-            return res.status(400).json({ success: false, error: 'Invalid backup ID format' });
-        }
-        // SECURITY: Sanitize backupId to prevent path traversal
-        const safeName = path.basename(backupId);
-        if (safeName !== backupId || /[\/\\]/.test(backupId)) {
-            return res.status(400).json({ success: false, error: 'Invalid backup ID' });
-        }
-        const backupPath = path.join(backupDir, safeName);
-        if (!fs.existsSync(backupPath)) {
-            return res.status(404).json({ success: false, error: 'Backup not found' });
-        }
-        fs.rmSync(backupPath, { recursive: true, force: true });
-        logActivity('data_backup_delete', 'it', {
-            userEmail: req.session.email,
-            userId: req.session.userId,
-            ip: getClientIp(req),
-            details: { backupId, deletedAt: new Date().toISOString() }
-        });
-        res.json({ success: true, message: 'Backup deleted successfully' });
-    } catch (error) {
-        console.error('Delete backup error:', error);
-        res.status(500).json({ success: false, error: 'Failed to delete backup: ' + error.message });
-    }
-});
 // POST /api/data/restore - Restore data from a specific backup
 app.post('/api/data/restore', requireAuth('it'), (req, res) => {
     try {
@@ -7049,8 +7022,68 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             });
         }
 
-        // Import mode — write to leavecards.json AND cto-records.json
-        // Create safety backup first
+        // Import mode — full validation-first, atomic, reconciled pipeline
+        // ─────────────────────────────────────────────────────────────────
+        // Phase 1: Pre-migration validation (no writes yet)
+        // ─────────────────────────────────────────────────────────────────
+        const validationErrors = [];   // row-level errors (name, file, reason)
+        const seenNames = new Map();   // intra-file duplicate detection (normalizedName → first file index)
+
+        for (let i = 0; i < results.length; i++) {
+            const entry = results[i];
+
+            // V1: Name must be non-empty
+            if (!entry.name || !entry.name.trim()) {
+                validationErrors.push({ file: entry.name || '(unknown)', reason: 'Missing or empty employee name' });
+                results[i]._validationFailed = true;
+                continue;
+            }
+
+            // V2: Balances must be non-negative
+            if (typeof entry.vacationLeave === 'number' && entry.vacationLeave < 0) {
+                validationErrors.push({ file: entry.name, reason: `Negative VL balance: ${entry.vacationLeave}` });
+                results[i]._validationFailed = true;
+                continue;
+            }
+            if (typeof entry.sickLeave === 'number' && entry.sickLeave < 0) {
+                validationErrors.push({ file: entry.name, reason: `Negative SL balance: ${entry.sickLeave}` });
+                results[i]._validationFailed = true;
+                continue;
+            }
+
+            // V3: Intra-file duplicate detection
+            const normalizedKey = entry.name.toUpperCase().replace(/\s+/g, ' ').trim();
+            if (seenNames.has(normalizedKey)) {
+                validationErrors.push({ file: entry.name, reason: `Duplicate within uploaded files — same name already present at position ${seenNames.get(normalizedKey) + 1}` });
+                results[i]._validationFailed = true;
+                continue;
+            }
+            seenNames.set(normalizedKey, i);
+        }
+
+        // Phase 1b: Abort threshold — if >10% of files fail validation, abort entirely
+        const totalParsed = results.length;
+        const failedValidation = validationErrors.length;
+        const parseErrors = errors.length;   // files that couldn't be parsed at all
+        const totalAccountedErrors = failedValidation + parseErrors;
+        const totalFileCount = req.files.length;
+        const errorRate = totalFileCount > 0 ? totalAccountedErrors / totalFileCount : 0;
+
+        if (errorRate > 0.10) {
+            return res.status(422).json({
+                success: false,
+                aborted: true,
+                error: `Migration aborted: ${totalAccountedErrors} of ${totalFileCount} files (${Math.round(errorRate * 100)}%) failed validation — threshold is 10%. Fix errors and retry.`,
+                parseErrors: errors,
+                validationErrors,
+                totalFiles: totalFileCount,
+                failedCount: totalAccountedErrors
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Phase 2: Build all changes in memory (atomic — no partial writes)
+        // ─────────────────────────────────────────────────────────────────
         const safetyTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const safetyFolder = path.join(backupDir, `pre-migration-${safetyTimestamp}`);
         fs.mkdirSync(safetyFolder, { recursive: true });
@@ -7065,18 +7098,19 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
         let created = 0, updated = 0, skipped = 0;
         let ctoCreated = 0;
         const importDetails = [];
+        const importYear = new Date().getFullYear();
 
         for (const entry of results) {
+            // Skip entries that failed validation
+            if (entry._validationFailed) continue;
+
             const normalizedName = entry.name.toUpperCase().replace(/\s+/g, ' ').trim();
             const entryEmpNo = (entry.employeeNo || '').trim();
 
-            // Primary matching: first name + last name from filename
-            // Secondary fallback: employee number from Leave Card data
+            // Cross-database duplicate detection via 3-tier name matching
             const existingIdx = leavecards.findIndex(lc => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
-                // Primary: match by normalized full name (LASTNAME, FIRSTNAME)
                 if (lcName === normalizedName) return true;
-                // Extended primary: match by firstName + lastName components
                 const entryParts = parseFullNameIntoParts(entry.name);
                 const entryFirst = (entryParts.firstName || '').toUpperCase().trim();
                 const entryLast = (entryParts.lastName || '').toUpperCase().trim();
@@ -7084,7 +7118,6 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 const lcLast = (lc.lastName || '').toUpperCase().trim();
                 if (entryFirst && entryLast && lcFirst && lcLast &&
                     entryFirst === lcFirst && entryLast === lcLast) return true;
-                // Secondary fallback: match by employeeNo
                 if (entryEmpNo && lc.employeeNo) {
                     return String(lc.employeeNo).trim() === entryEmpNo;
                 }
@@ -7093,8 +7126,21 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
 
             if (existingIdx !== -1 && !allowOverwrite) {
                 skipped++;
-                importDetails.push({ name: entry.name, action: 'skipped', reason: 'Already exists (use overwrite to replace)', isTeaching: entry.isTeaching });
+                importDetails.push({ name: entry.name, action: 'skipped', reason: 'Already exists in system (use overwrite to replace)', isTeaching: entry.isTeaching });
                 continue;
+            }
+
+            // Resolve leave_year: use the year of the latest transaction if available,
+            // otherwise fall back to the current calendar year
+            let resolvedLeaveYear = importYear;
+            if (entry.transactions && entry.transactions.length > 0) {
+                const lastTx = entry.transactions[entry.transactions.length - 1];
+                if (lastTx.date) {
+                    const txYear = new Date(lastTx.date).getFullYear();
+                    if (!isNaN(txYear) && txYear >= 2000 && txYear <= importYear + 1) {
+                        resolvedLeaveYear = txYear;
+                    }
+                }
             }
 
             // Parse name into parts
@@ -7131,28 +7177,29 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 initialCreditsSource: entry.emptyLeaveCard ? 'excel-migration-empty' : 'excel-migration',
+                // Year tagging — every migrated record carries its resolved leave year
+                // and a source flag for traceability and balance-calculation exclusion
+                leave_year: resolvedLeaveYear,
+                migrated_from: 'excel_migration',
                 isTeaching: entry.isTeaching || false,
                 emptyLeaveCard: entry.emptyLeaveCard || false
             };
 
             if (existingIdx !== -1) {
-                // Overwrite existing
                 const existing = leavecards[existingIdx];
                 newCard.employeeId = existing.employeeId || '';
                 newCard.email = existing.email || '';
                 leavecards[existingIdx] = newCard;
                 updated++;
-                importDetails.push({ name: entry.name, action: 'updated', vl: entry.vacationLeave, sl: entry.sickLeave, isTeaching: entry.isTeaching, emptyLeaveCard: entry.emptyLeaveCard });
+                importDetails.push({ name: entry.name, action: 'updated', vl: entry.vacationLeave, sl: entry.sickLeave, leave_year: resolvedLeaveYear, isTeaching: entry.isTeaching, emptyLeaveCard: entry.emptyLeaveCard });
             } else {
                 leavecards.push(newCard);
                 created++;
-                importDetails.push({ name: entry.name, action: 'created', vl: entry.vacationLeave, sl: entry.sickLeave, isTeaching: entry.isTeaching, emptyLeaveCard: entry.emptyLeaveCard });
+                importDetails.push({ name: entry.name, action: 'created', vl: entry.vacationLeave, sl: entry.sickLeave, leave_year: resolvedLeaveYear, isTeaching: entry.isTeaching, emptyLeaveCard: entry.emptyLeaveCard });
             }
         }
 
-        writeJSON(leavecardsFile, leavecards);
-
-        // === CTO Records Import ===
+        // === CTO Records — build in memory ===
         ensureFile(ctoRecordsFile);
         let ctoRecordsAll = readJSON(ctoRecordsFile);
         let ctoRemoved = 0;
@@ -7163,16 +7210,12 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             const entryFirst = (entryParts.firstName || '').toUpperCase().trim();
             const entryLast = (entryParts.lastName || '').toUpperCase().trim();
 
-            // When overwrite is enabled, remove previously-migrated CTO records
-            // for this person so we don't create duplicates on re-import
             if (allowOverwrite) {
                 const beforeCount = ctoRecordsAll.length;
                 ctoRecordsAll = ctoRecordsAll.filter(r => {
-                    // Only remove excel-migration records; keep manually-added ones
                     if (r.source !== 'excel-migration') return true;
                     const rName = (r.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                     if (rName === normalizedName) return false;
-                    // Also match by first+last name components
                     const rParts = parseFullNameIntoParts(r.name || '');
                     const rFirst = (rParts.firstName || '').toUpperCase().trim();
                     const rLast = (rParts.lastName || '').toUpperCase().trim();
@@ -7183,8 +7226,6 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 ctoRemoved += (beforeCount - ctoRecordsAll.length);
             }
 
-            // Find matching leave card to get employeeId/email
-            // Use flexible matching: exact name, first+last components, or substring containment
             const matchedCard = leavecards.find(lc => {
                 const lcName = (lc.name || '').toUpperCase().replace(/\s+/g, ' ').trim();
                 if (lcName === normalizedName) return true;
@@ -7192,10 +7233,8 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                 const lcLast = (lc.lastName || '').toUpperCase().trim();
                 if (entryFirst && entryLast && lcFirst && lcLast &&
                     entryFirst === lcFirst && entryLast === lcLast) return true;
-                // Fuzzy: one name contains the other (handles middle initial differences)
                 if (lcName && normalizedName && lcLast === entryLast) {
                     if (lcName.includes(normalizedName) || normalizedName.includes(lcName)) return true;
-                    // Match if first names start the same (e.g., "MA. ROSANA" vs "MA. ROSANA E.")
                     if (lcFirst && entryFirst &&
                         (lcFirst.startsWith(entryFirst) || entryFirst.startsWith(lcFirst))) return true;
                 }
@@ -7218,6 +7257,7 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
                     balance: 0,
                     soImage: '',
                     source: 'excel-migration',
+                    migrated_from: 'excel_migration',
                     createdAt: new Date().toISOString()
                 };
                 ctoRecordsAll.push(newCtoRecord);
@@ -7225,32 +7265,78 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // Phase 3: Atomic write — both files written only after all
+        // in-memory changes are fully assembled; if either write throws,
+        // the pre-migration backup is left intact for manual recovery.
+        // ─────────────────────────────────────────────────────────────────
+        writeJSON(leavecardsFile, leavecards);
         if (ctoCreated > 0 || ctoRemoved > 0) {
             writeJSON(ctoRecordsFile, ctoRecordsAll);
         }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Phase 4: Post-migration reconciliation
+        // Every file must be accounted for: imported (created+updated) OR
+        // skipped (duplicate) OR failed (parse error or validation error).
+        // ─────────────────────────────────────────────────────────────────
+        const importedCount = created + updated;
+        const skippedCount = skipped;
+        const failedCount = validationErrors.length + errors.length;
+        const accountedFor = importedCount + skippedCount + failedCount;
+        const reconciliationPassed = accountedFor === totalFileCount;
+        if (!reconciliationPassed) {
+            console.error(`[MIGRATION] Reconciliation warning: ${totalFileCount} files uploaded but only ${accountedFor} accounted for (${importedCount} imported, ${skippedCount} skipped, ${failedCount} failed)`);
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Phase 5: Audit log + structured migration report
+        // ─────────────────────────────────────────────────────────────────
+        const migrationRunId = `migration-${safetyTimestamp}`;
 
         logActivity('EXCEL_MIGRATION', 'it', {
             userEmail: req.session.email,
             userId: req.session.userId,
             ip: getClientIp(req),
             details: {
-                totalFiles: req.files.length,
+                migrationRunId,
+                totalFiles: totalFileCount,
                 leaveCardsCreated: created,
                 leaveCardsUpdated: updated,
                 leaveCardsSkipped: skipped,
                 ctoRecordsCreated: ctoCreated,
                 ctoRecordsRemoved: ctoRemoved,
                 teachingPersonnel: teachingDetected.length,
-                errors: errors.length
+                parseErrors: errors.length,
+                validationErrors: validationErrors.length,
+                totalFailed: failedCount,
+                reconciliationPassed,
+                safetyBackup: `pre-migration-${safetyTimestamp}`
             }
         });
 
-        console.log(`[MIGRATION] Excel import complete: ${created} LC created, ${updated} LC updated, ${skipped} LC skipped, ${ctoCreated} CTO created${ctoRemoved > 0 ? `, ${ctoRemoved} CTO replaced` : ''}, ${teachingDetected.length} teaching, ${errors.length} errors`);
+        console.log(`[MIGRATION] Excel import complete: ${created} LC created, ${updated} LC updated, ${skipped} LC skipped, ${ctoCreated} CTO created${ctoRemoved > 0 ? `, ${ctoRemoved} CTO replaced` : ''}, ${teachingDetected.length} teaching, ${failedCount} failed, reconciliation: ${reconciliationPassed ? 'PASS' : 'WARN'}`);
 
         res.json({
             success: true,
             mode: 'import',
             message: `Migration complete: ${created} leave cards created, ${updated} updated, ${skipped} skipped, ${ctoCreated} CTO records imported${ctoRemoved > 0 ? ` (${ctoRemoved} replaced)` : ''}`,
+            // Structured migration report
+            report: {
+                migrationRunId,
+                runAt: new Date().toISOString(),
+                uploadedBy: req.session.email,
+                totalFiles: totalFileCount,
+                successfullyImported: importedCount,
+                skippedDuplicates: skipped,
+                failed: failedCount,
+                failedRows: [
+                    ...errors.map(e => ({ file: e.file, reason: e.error })),
+                    ...validationErrors.map(e => ({ file: e.file, reason: e.reason }))
+                ],
+                reconciliationPassed,
+                safetyBackup: `pre-migration-${safetyTimestamp}`
+            },
             safetyBackup: `pre-migration-${safetyTimestamp}`,
             created,
             updated,
@@ -7259,9 +7345,11 @@ app.post('/api/migrate-leave-cards', requireAuth('it'), (req, res, next) => {
             ctoRemoved,
             teachingCount: teachingDetected.length,
             errors,
+            validationErrors,
             details: importDetails,
             totalCards: leavecards.length,
-            totalCtoRecords: ctoRecordsAll.length
+            totalCtoRecords: ctoRecordsAll.length,
+            reconciliationPassed
         });
     } catch (error) {
         console.error('[MIGRATION] Error:', error);

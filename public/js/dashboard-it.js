@@ -25,6 +25,9 @@ let users = [];
 
 let registrationsTable = null;
 let usersTable = null;
+let appsTable = null;
+let cardsTable = null;
+let ctoTable = null;
 let rolesChart = null;
 let appStatusChart = null;
 let leaveCalendar = null;
@@ -81,6 +84,7 @@ function setupSidebar() {
                     { id: 'overview', label: 'Overview', icon: ICONS.home },
                     { id: 'registrations', label: 'Registrations', icon: ICONS.userPlus, badge: 0 },
                     { id: 'users', label: 'User Management', icon: ICONS.users },
+                    { id: 'data', label: 'Data Records', icon: ICONS.database || ICONS.server },
                 ],
             },
             {
@@ -117,6 +121,7 @@ function setupTabs() {
             { id: 'overview', label: 'Overview' },
             { id: 'registrations', label: 'Registrations', badge: 0 },
             { id: 'users', label: 'Users' },
+            { id: 'data', label: 'Data Records' },
             { id: 'calendar', label: 'Calendar' },
             { id: 'system', label: 'System' },
         ],
@@ -132,6 +137,7 @@ function onTabChange(tabId) {
     switch (tabId) {
         case 'registrations': if (!registrationsTable) loadRegistrations(); break;
         case 'users': if (!usersTable) loadUsers(); break;
+        case 'data': loadDataTab(); break;
         case 'calendar':
             if (!leaveCalendar) {
                 leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'it', email: user.email });
@@ -516,6 +522,157 @@ function showAddStaffModal() {
             }
         } catch { toast.error('Network error.'); }
     });
+}
+
+// ---------------------------------------------------------------------------
+// Data Records Tab
+// ---------------------------------------------------------------------------
+function loadDataTab() {
+    wireDataCategory({
+        loadBtnId: 'btn-load-apps',
+        clearBtnId: 'btn-clear-apps',
+        tableElId: 'apps-delete-table',
+        countElId: 'apps-record-count',
+        category: 'applications',
+        clearKey: 'deleteApplications',
+        label: 'Leave Applications',
+    });
+    wireDataCategory({
+        loadBtnId: 'btn-load-cards',
+        clearBtnId: 'btn-clear-cards',
+        tableElId: 'cards-delete-table',
+        countElId: 'cards-record-count',
+        category: 'leavecards',
+        clearKey: 'deleteLeavecards',
+        label: 'Leave Cards',
+    });
+    wireDataCategory({
+        loadBtnId: 'btn-load-cto',
+        clearBtnId: 'btn-clear-cto',
+        tableElId: 'cto-delete-table',
+        countElId: 'cto-record-count',
+        category: 'ctoRecords',
+        clearKey: 'deleteCtoRecords',
+        label: 'CTO Records',
+    });
+}
+
+function wireDataCategory({ loadBtnId, clearBtnId, tableElId, countElId, category, clearKey, label }) {
+    const loadBtn = document.getElementById(loadBtnId);
+    const clearBtn = document.getElementById(clearBtnId);
+    if (!loadBtn || loadBtn.dataset.bound) return;
+    loadBtn.dataset.bound = 'true';
+
+    loadBtn.addEventListener('click', () =>
+        loadCategoryForDelete({ tableElId, countElId, clearBtnId, category, label })
+    );
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            confirmModal({
+                title: `Clear All ${label}`,
+                message: `Permanently delete ALL ${label.toLowerCase()}? This cannot be undone.`,
+                confirmText: 'Clear All',
+                confirmClass: 'btn-danger',
+                onConfirm: async () => {
+                    try {
+                        const res = await fetch('/api/delete-selected-data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ [clearKey]: true }),
+                        });
+                        if (res.ok) {
+                            toast.success(`All ${label.toLowerCase()} deleted.`);
+                            clearBtn.style.display = 'none';
+                            setText(countElId, `${label} — 0 records`);
+                            document.getElementById(tableElId).innerHTML = '';
+                            if (category === 'applications') appsTable = null;
+                            else if (category === 'leavecards') cardsTable = null;
+                            else if (category === 'ctoRecords') ctoTable = null;
+                        } else {
+                            const data = await res.json().catch(() => ({}));
+                            toast.error(data.error || `Failed to clear ${label.toLowerCase()}.`);
+                        }
+                    } catch { toast.error('Network error.'); }
+                },
+            });
+        });
+    }
+
+    // Delegated row-delete listener — attached once to the container
+    document.getElementById(tableElId)?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-del-record');
+        if (!btn) return;
+        const { id: itemId, category: cat, label: itemLabel } = btn.dataset;
+        confirmModal({
+            title: 'Delete Record',
+            message: `Permanently delete "${itemLabel}"? This cannot be undone.`,
+            confirmText: 'Delete',
+            confirmClass: 'btn-danger',
+            onConfirm: async () => {
+                try {
+                    const delRes = await fetch('/api/delete-specific-items', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ category: cat, ids: [itemId] }),
+                    });
+                    if (delRes.ok) {
+                        toast.success('Record deleted.');
+                        if (cat === 'applications') appsTable = null;
+                        else if (cat === 'leavecards') cardsTable = null;
+                        else if (cat === 'ctoRecords') ctoTable = null;
+                        loadCategoryForDelete({ tableElId, countElId, clearBtnId, category: cat, label });
+                    } else {
+                        const d = await delRes.json().catch(() => ({}));
+                        toast.error(d.error || 'Failed to delete record.');
+                    }
+                } catch { toast.error('Network error.'); }
+            },
+        });
+    });
+}
+
+async function loadCategoryForDelete({ tableElId, countElId, clearBtnId, category, label }) {
+    try {
+        const res = await fetch(`/api/data-items/${category}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const items = data.items || [];
+
+        setText(countElId, `${label} — ${items.length} record${items.length !== 1 ? 's' : ''}`);
+
+        const clearBtn = document.getElementById(clearBtnId);
+        if (clearBtn) clearBtn.style.display = items.length > 0 ? '' : 'none';
+
+        const table = createDataTable({
+            el: `#${tableElId}`,
+            columns: [
+                { key: 'displayName', label: label, sortable: true },
+                {
+                    key: 'actions', label: '',
+                    render: (v, row) => `<div class="cell-actions">
+                        <button class="btn btn-danger btn-sm btn-del-record"
+                            data-id="${esc(String(row.id))}"
+                            data-category="${esc(category)}"
+                            data-label="${esc(row.displayName)}">Delete</button>
+                    </div>`,
+                },
+            ],
+            data: items.map(item => ({
+                id: item.id,
+                displayName: item.displayName || item.id || 'Unknown',
+            })),
+            searchable: true,
+            searchKeys: ['displayName'],
+            pageSize: 20,
+            emptyTitle: `No ${label}`,
+            emptyMessage: `No records found for ${label.toLowerCase()}.`,
+        });
+
+        if (category === 'applications') appsTable = table;
+        else if (category === 'leavecards') cardsTable = table;
+        else if (category === 'ctoRecords') ctoTable = table;
+    } catch { toast.error(`Failed to load ${label.toLowerCase()}.`); }
 }
 
 // ---------------------------------------------------------------------------

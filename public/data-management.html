@@ -558,18 +558,6 @@
         </div>
     </div>
 
-    <!-- Confirm Delete Modal -->
-    <div class="dm-modal-overlay" id="confirmDeleteModal">
-        <div class="dm-modal">
-            <h3>Delete Backup</h3>
-            <p>Are you sure you want to permanently delete <strong id="deleteBackupName"></strong>? This action cannot be undone.</p>
-            <div class="dm-modal-actions">
-                <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">Yes, Delete</button>
-                <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Confirm Restore Modal -->
     <div class="dm-modal-overlay" id="confirmRestoreModal">
         <div class="dm-modal">
@@ -656,7 +644,6 @@
                         </div>
                         <div class="dm-backup-actions">
                             <button class="btn btn-primary btn-sm" onclick="confirmRestore('${escapeHtml(backup.id)}')">Restore</button>
-                            <button class="btn btn-danger btn-sm" onclick="confirmDelete('${escapeHtml(backup.id)}')">Delete</button>
                         </div>
                     </li>`;
                 }
@@ -686,24 +673,6 @@
                     showStatus('Restored ' + data.files.length + ' files from ' + backupId + '. Safety backup: ' + data.preRestoreBackup, 'success');
                     loadBackups();
                 } else { showStatus(data.error || 'Restore failed', 'error'); }
-            } catch (err) { showStatus('Network error: ' + err.message, 'error'); }
-        }
-
-        // ========== DELETE ==========
-        function confirmDelete(backupId) {
-            document.getElementById('deleteBackupName').textContent = backupId;
-            document.getElementById('confirmDeleteModal').classList.add('show');
-            document.getElementById('confirmDeleteBtn').onclick = () => doDelete(backupId);
-        }
-        function closeDeleteModal() { document.getElementById('confirmDeleteModal').classList.remove('show'); }
-        async function doDelete(backupId) {
-            closeDeleteModal();
-            try {
-                showStatus('Deleting backup...', 'info');
-                const resp = await fetch('/api/data/backup/' + encodeURIComponent(backupId), { method: 'DELETE', headers: getAuthHeaders() });
-                const data = await resp.json();
-                if (data.success) { showStatus(data.message, 'success'); loadBackups(); }
-                else { showStatus(data.error || 'Delete failed', 'error'); }
             } catch (err) { showStatus('Network error: ' + err.message, 'error'); }
         }
 
@@ -837,23 +806,78 @@
                 showStatus('Importing leave cards...', 'info');
                 const resp = await fetch('/api/migrate-leave-cards?mode=import&overwrite=' + overwrite, { method: 'POST', body: formData });
                 const data = await resp.json();
-                if (!data.success) { showStatus(data.error || 'Import failed', 'error'); return; }
+                if (!data.success) {
+                    showStatus(data.error || 'Import failed', 'error');
+                    // Show abort detail if threshold exceeded
+                    if (data.aborted) {
+                        let abortHtml = '<div class="dm-error-box"><h4 style="color:var(--color-danger)">Migration Aborted — Too Many Errors</h4>';
+                        abortHtml += '<p style="font-size:var(--text-xs);margin-bottom:var(--space-2)">' + escapeHtml(data.error) + '</p>';
+                        const allFailed = [...(data.parseErrors || []).map(e => ({ file: e.file, reason: e.error })),
+                                           ...(data.validationErrors || []).map(e => ({ file: e.file, reason: e.reason }))];
+                        if (allFailed.length > 0) {
+                            abortHtml += '<ul style="font-size:var(--text-xs)">';
+                            for (const fr of allFailed) abortHtml += '<li><strong>' + escapeHtml(fr.file || '(unknown)') + '</strong> — ' + escapeHtml(fr.reason || '') + '</li>';
+                            abortHtml += '</ul>';
+                        }
+                        abortHtml += '</div>';
+                        document.getElementById('migrationResultContent').innerHTML = abortHtml;
+                        document.getElementById('migrationResults').style.display = 'block';
+                    }
+                    return;
+                }
 
-                let resultHtml = '<div class="dm-result-box"><h4>Migration Complete</h4>';
-                resultHtml += '<div class="dm-result-meta">';
-                resultHtml += '<span>LC Created: <strong>' + data.created + '</strong></span>';
-                resultHtml += '<span>LC Updated: <strong>' + data.updated + '</strong></span>';
-                resultHtml += '<span>Skipped: <strong>' + data.skipped + '</strong></span>';
-                resultHtml += '<span>CTO Records: <strong>' + (data.ctoCreated || 0) + '</strong>' + (data.ctoRemoved ? ' (' + data.ctoRemoved + ' replaced)' : '') + '</span>';
-                if (data.teachingCount) resultHtml += '<span style="color:#6a1b9a">Teaching: <strong>' + data.teachingCount + '</strong></span>';
-                resultHtml += '<span>Total cards: <strong>' + data.totalCards + '</strong></span>';
+                const r = data.report || {};
+                // ── Migration Summary Report ──────────────────────────────────
+                let resultHtml = '<div class="dm-result-box">';
+                resultHtml += '<h4 style="margin-bottom:var(--space-3)">Migration Report</h4>';
+                // Run metadata
+                resultHtml += '<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">';
+                resultHtml += 'Run ID: <code>' + escapeHtml(r.migrationRunId || data.safetyBackup || '—') + '</code>';
+                if (r.runAt) resultHtml += ' &nbsp;&middot;&nbsp; ' + new Date(r.runAt).toLocaleString();
+                if (r.uploadedBy) resultHtml += ' &nbsp;&middot;&nbsp; By: ' + escapeHtml(r.uploadedBy);
+                resultHtml += '</div>';
+                // Summary stats line (mimics the spec format)
+                const totalFiles = r.totalFiles || data.totalCards || 0;
+                const imported   = r.successfullyImported !== undefined ? r.successfullyImported : (data.created + data.updated);
+                const dupSkipped = r.skippedDuplicates !== undefined ? r.skippedDuplicates : data.skipped;
+                const failed     = r.failed !== undefined ? r.failed : (data.errors ? data.errors.length : 0);
+                resultHtml += '<div style="font-family:monospace;font-size:var(--text-xs);background:var(--color-gray-100);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3);white-space:pre">';
+                resultHtml += 'Total files uploaded:       ' + String(r.totalFiles || totalFiles).padStart(5) + '\n';
+                resultHtml += 'Successfully imported:      ' + String(imported).padStart(5) + '\n';
+                resultHtml += 'Skipped (duplicates):       ' + String(dupSkipped).padStart(5) + '\n';
+                resultHtml += 'Failed (validation errors): ' + String(failed).padStart(5) + '\n';
+                if (data.ctoCreated) resultHtml += 'CTO records imported:       ' + String(data.ctoCreated).padStart(5) + (data.ctoRemoved ? ' (' + data.ctoRemoved + ' replaced)' : '') + '\n';
+                if (data.teachingCount) resultHtml += 'Teaching personnel:         ' + String(data.teachingCount).padStart(5) + '\n';
+                resultHtml += '</div>';
+                // Reconciliation badge
+                const reconOk = data.reconciliationPassed !== false;
+                resultHtml += '<div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3);font-size:var(--text-xs)">';
+                if (reconOk) {
+                    resultHtml += '<span style="color:var(--color-success);font-weight:var(--font-semibold)">Reconciliation: PASS — every file accounted for</span>';
+                } else {
+                    resultHtml += '<span style="color:var(--color-danger);font-weight:var(--font-semibold)">Reconciliation: WARN — not all files accounted for. Check server logs.</span>';
+                }
                 resultHtml += '</div>';
                 resultHtml += '<div class="dm-result-safety">Safety backup: ' + escapeHtml(data.safetyBackup) + '</div>';
                 resultHtml += '</div>';
 
+                // ── Failed Rows ───────────────────────────────────────────────
+                const failedRows = (r.failedRows && r.failedRows.length > 0) ? r.failedRows
+                    : [...(data.errors || []).map(e => ({ file: e.file, reason: e.error })),
+                       ...(data.validationErrors || []).map(e => ({ file: e.file, reason: e.reason }))];
+                if (failedRows.length > 0) {
+                    resultHtml += '<div class="dm-error-box" style="margin-top:var(--space-4)">';
+                    resultHtml += '<h4 style="color:var(--color-danger);margin-bottom:var(--space-2)">Failed rows (' + failedRows.length + '):</h4><ul style="font-size:var(--text-xs)">';
+                    for (const fr of failedRows) {
+                        resultHtml += '<li><strong>' + escapeHtml(fr.file || '(unknown)') + '</strong> — ' + escapeHtml(fr.reason || 'Unknown error') + '</li>';
+                    }
+                    resultHtml += '</ul></div>';
+                }
+
+                // ── Per-record detail table ───────────────────────────────────
                 if (data.details && data.details.length > 0) {
                     resultHtml += '<div class="dm-table-wrap" style="margin-top:var(--space-4);max-height:300px"><table class="dm-table"><thead><tr>';
-                    resultHtml += '<th>Name</th><th class="text-center">Action</th><th class="text-right">VL</th><th class="text-right">SL</th><th class="text-center">Type</th>';
+                    resultHtml += '<th>Name</th><th class="text-center">Action</th><th class="text-right">VL</th><th class="text-right">SL</th><th class="text-right">Year</th><th class="text-center">Type</th>';
                     resultHtml += '</tr></thead><tbody>';
                     for (const d of data.details) {
                         const actionCls = d.action === 'created' ? 'color:var(--color-success)' : d.action === 'updated' ? 'color:var(--color-info)' : 'color:var(--color-warning)';
@@ -862,6 +886,7 @@
                         resultHtml += '<td class="text-center" style="' + actionCls + '">' + escapeHtml(d.action) + '</td>';
                         resultHtml += '<td class="text-right text-vl">' + (d.vl !== undefined ? d.vl.toFixed(3) : '&mdash;') + '</td>';
                         resultHtml += '<td class="text-right text-sl">' + (d.sl !== undefined ? d.sl.toFixed(3) : '&mdash;') + '</td>';
+                        resultHtml += '<td class="text-right text-muted">' + (d.leave_year || '&mdash;') + '</td>';
                         resultHtml += '<td class="text-center text-teaching">' + typeLabel + '</td></tr>';
                     }
                     resultHtml += '</tbody></table></div>';
@@ -871,7 +896,8 @@
                 document.getElementById('migrationResults').style.display = 'block';
                 document.getElementById('migrationPreview').style.display = 'none';
                 document.getElementById('migrationImportBtn').disabled = true;
-                showStatus('Migration complete: ' + data.created + ' created, ' + data.updated + ' updated, ' + (data.ctoCreated || 0) + ' CTO records', 'success');
+                const reconMsg = data.reconciliationPassed === false ? ' — reconciliation WARNING' : '';
+                showStatus('Migration complete: ' + data.created + ' created, ' + data.updated + ' updated, ' + data.skipped + ' skipped, ' + (data.ctoCreated || 0) + ' CTO records' + reconMsg, data.reconciliationPassed === false ? 'error' : 'success');
                 loadBackups();
             } catch (err) { showStatus('Migration failed: ' + err.message, 'error'); }
         }
