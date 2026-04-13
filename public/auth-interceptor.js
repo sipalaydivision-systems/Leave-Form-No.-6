@@ -53,6 +53,11 @@
     window.fetch = function(url, options) {
         // Only intercept API calls to our server
         if (typeof url === 'string' && url.startsWith('/api/')) {
+            // Treat any API call as user activity so long-running requests
+            // (e.g. Excel migration preview) don't get aborted by the idle timer
+            if (url !== '/api/logout' && typeof window.__resetIdleTimer === 'function') {
+                window.__resetIdleTimer();
+            }
             return _originalFetch.call(this, url, options).then(function(response) {
                 if (response.status === 401 && !_isRedirecting) {
                     // Skip redirect for login/register/health endpoints
@@ -196,6 +201,9 @@
         _warnTimer   = setTimeout(showWarning,  IDLE_MS);
         _logoutTimer = setTimeout(forceLogout,  TIMEOUT_MS);
     }
+
+    // Expose so the fetch interceptor (IIFE 1) can reset the timer on API calls
+    window.__resetIdleTimer = resetIdle;
 
     // ── activity event listeners ──────────────────────────────────────────────
     var EVENTS = ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'click', 'scroll'];

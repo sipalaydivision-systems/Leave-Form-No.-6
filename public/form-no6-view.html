@@ -43,6 +43,13 @@ body {
     box-sizing: border-box;
     box-shadow: 0 2px 16px rgba(0,0,0,.2);
     font-size: 8.5px;
+    display: flex;
+    flex-direction: column;
+}
+#form-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ── Header ─────────────────────────────────────── */
@@ -176,7 +183,12 @@ body {
     border-right: 0.8px solid #000;
     font-size: 8px;
 }
-.bottom-col:last-child { border-right: none; }
+.bottom-col:last-child {
+    border-right: none;
+    display: flex;
+    flex-direction: column;
+}
+.bottom-col:last-child .sig-area { margin-top: auto; }
 .inclusive-dates { display: flex; gap: 10px; margin-top: 2px; }
 .sig-area { margin-top: 8px; text-align: center; font-size: 7.5px; }
 .sig-line { border-bottom: 0.5px solid #000; margin: 14px 12px 2px; }
@@ -193,13 +205,17 @@ body {
 .action-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
+    flex: 1;
 }
 .action-col {
     padding: 3px 5px;
     border-right: 0.8px solid #000;
     font-size: 8px;
+    display: flex;
+    flex-direction: column;
 }
 .action-col:last-child { border-right: none; }
+.action-col .officer-block { margin-top: auto; }
 .col-sub-header {
     font-size: 8px; font-weight: bold;
     text-decoration: underline; margin-bottom: 2px;
@@ -222,6 +238,13 @@ body {
 .officer-sig-img {
     display: none; height: 28px;
     max-width: 130px; object-fit: contain;
+    margin: 0 auto 2px;
+}
+
+/* ── Employee (applicant) signature ─────────────── */
+.employee-sig-img {
+    display: none; height: 38px;
+    max-width: 200px; object-fit: contain;
     margin: 0 auto 2px;
 }
 .officer-name {
@@ -276,7 +299,7 @@ body {
         width: 210mm;
         height: 297mm;
         min-height: unset;
-        overflow: hidden;
+        overflow: visible;
         box-shadow: none;
         padding: 7mm 9mm 6mm 9mm;
     }
@@ -454,6 +477,7 @@ body {
                     <span class="chk" id="chk-comm-req">&#9744;</span><span>Requested</span>
                 </div>
                 <div class="sig-area">
+                    <img id="sig-employee" class="employee-sig-img" alt="Applicant Signature">
                     <div class="sig-line"></div>
                     (Signature of Applicant)
                 </div>
@@ -701,6 +725,7 @@ body {
     setText('f-sds-name',  app.sdsOfficerName        || (sdsEntry  && sdsEntry.approverName)  || '');
 
     // ── Signatures ───────────────────────────────────
+    setSig('sig-employee', app.employeeSignature || app.employee_signature || '');
     setSig('sig-hr',   app.authorizedOfficerSignature || (hrEntry   && hrEntry.signature) || '');
     setSig('sig-asds', app.asdsOfficerSignature       || (asdsEntry && asdsEntry.signature) || '');
     setSig('sig-sds',  app.sdsOfficerSignature        || (sdsEntry  && sdsEntry.signature)  || '');
