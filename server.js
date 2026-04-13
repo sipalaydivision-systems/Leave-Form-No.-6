@@ -5837,16 +5837,152 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
 
 // Function to update employee leave balance after final approval
 /**
- * Update employee leave balance after SDS final approval.
- * YAGNI/S8 fix: Removed dead `leaveCredits` field from employees.json.
- * The single source of truth for balances is leavecards.json (vl/sl fields).
+ * Appends a LESS transaction to the employee's leave card after SDS final approval.
+ * Balances are derived from the running transactions[] array by normalizeLeaveCardTransactions.
  */
 function updateEmployeeLeaveBalance(application) {
     try {
-        const leaveType = application.typeOfLeave || application.leaveType || '';
-        console.log(`[LEAVE] Auto leave-card update skipped for ${application.employeeEmail} (${leaveType}). AO manual encoding is required.`);
+        const lType = (application.typeOfLeave || application.leaveType || '').toLowerCase();
+        const numDays = parseFloat(application.numDays) || parseFloat(application.daysApplied) || 0;
+        if (!numDays) {
+            console.log(`[LEAVECARD] No days to deduct for application ${application.id} — skipping.`);
+            return;
+        }
+
+        // Map leave type to transaction fields
+        let vlSpent = 0, slSpent = 0, forcedLeave = 0, splUsed = 0;
+        let leaveLabel = '';
+
+        if (lType === 'leave_vl' || lType.includes('vacation')) {
+            vlSpent = numDays;
+            leaveLabel = 'Vacation Leave';
+        } else if (lType === 'leave_sl' || lType.includes('sick')) {
+            slSpent = numDays;
+            leaveLabel = 'Sick Leave';
+        } else if (lType === 'leave_mfl' || lType.includes('force')) {
+            forcedLeave = numDays;
+            vlSpent = numDays; // FL draws from VL accrual
+            leaveLabel = 'Mandatory Force Leave';
+        } else if (lType === 'leave_spl' || lType.includes('special')) {
+            splUsed = numDays;
+            leaveLabel = 'Special Privilege Leave';
+        } else if (lType === 'leave_wl' || lType === 'leave_wellness' || lType.includes('wellness')) {
+            // Wellness leave — no VL/SL impact, track in a separate field
+            leaveLabel = 'Wellness Leave';
+            // No VL/SL deduction; handled by wellnessSpent field below
+        } else if (lType === 'leave_others' || lType.includes('others')) {
+            leaveLabel = 'Others/CTO';
+            // CTO deduction handled separately via cto-records; no VL/SL impact
+        } else {
+            vlSpent = numDays; // Fallback: treat unknown as VL
+            leaveLabel = 'Leave';
+        }
+
+        const leavecards = readJSON(leavecardsFile);
+        const lcIndex = leavecards.findIndex(lc =>
+            lc.email === application.employeeEmail || lc.employeeId === application.employeeEmail
+        );
+
+        if (lcIndex === -1) {
+            console.log(`[LEAVECARD] No leave card found for ${application.employeeEmail} — skipping deduction.`);
+            return;
+        }
+
+        const lc = leavecards[lcIndex];
+        if (!lc.transactions) lc.transactions = [];
+
+        const dateFrom = application.dateFrom || application.date_from || application.inclusiveDatesFrom || '';
+        const dateTo   = application.dateTo   || application.date_to   || application.inclusiveDatesTo   || '';
+        const periodLabel = dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : (dateFrom || new Date().toISOString().slice(0, 10));
+
+        // Compute current running balance from last transaction
+        let currentVL = 0, currentSL = 0;
+        if (lc.transactions.length > 0) {
+            const last = lc.transactions[lc.transactions.length - 1];
+            currentVL = parseFloat(last.vlBalance) || 0;
+            currentSL = parseFloat(last.slBalance) || 0;
+        }
+
+        if (vlSpent > 0 || slSpent > 0) {
+            const actualVL = Math.min(vlSpent, currentVL);
+            const actualSL = Math.min(slSpent, currentSL);
+            const newVL = +(currentVL - actualVL).toFixed(3);
+            const newSL = +(currentSL - actualSL).toFixed(3);
+
+            lc.transactions.push({
+                id: crypto.randomUUID(),
+                type: 'LESS',
+                periodCovered: `LESS: ${periodLabel}`,
+                vlEarned: 0,
+                slEarned: 0,
+                vlSpent: actualVL,
+                slSpent: actualSL,
+                forcedLeave: forcedLeave,
+                splUsed: splUsed,
+                source: `auto-deduct:${application.id}`,
+                dateRecorded: new Date().toISOString(),
+                vlBalance: newVL,
+                slBalance: newSL,
+                total: +(newVL + newSL).toFixed(3),
+                leaveType: leaveLabel
+            });
+
+            // Keep top-level vl/sl fields in sync
+            lc.vl = newVL;
+            lc.sl = newSL;
+        }
+
+        // Wellness: track spent separately (no VL/SL impact)
+        if (lType === 'leave_wl' || lType === 'leave_wellness' || lType.includes('wellness')) {
+            const currentYear = new Date().getFullYear();
+            if (!lc.wellnessYear || lc.wellnessYear !== currentYear) {
+                lc.wellnessSpent = 0;
+                lc.wellnessYear = currentYear;
+            }
+            lc.wellnessSpent = +((lc.wellnessSpent || 0) + numDays).toFixed(3);
+        }
+
+        // SPL: track spent separately
+        if (splUsed > 0) {
+            const currentYear = new Date().getFullYear();
+            if (!lc.splYear || lc.splYear !== currentYear) {
+                lc.splSpent = 0;
+                lc.splYear = currentYear;
+            }
+            lc.splSpent = +((lc.splSpent || 0) + splUsed).toFixed(3);
+        }
+
+        // CTO: deduct from cto-records
+        if (lType === 'leave_others' || lType.includes('others')) {
+            try {
+                ensureFile(ctoRecordsFile);
+                const ctoRecords = readJSON(ctoRecordsFile);
+                const empCto = ctoRecords.filter(r => r.employeeId === application.employeeEmail);
+                let remaining = numDays;
+                for (let i = empCto.length - 1; i >= 0 && remaining > 0; i--) {
+                    const rec = empCto[i];
+                    const recIndex = ctoRecords.indexOf(rec);
+                    const avail = (parseFloat(rec.daysGranted) || 0) - (parseFloat(rec.daysUsed) || 0);
+                    if (avail > 0) {
+                        const deduct = Math.min(remaining, avail);
+                        ctoRecords[recIndex].daysUsed = +((parseFloat(rec.daysUsed) || 0) + deduct).toFixed(3);
+                        remaining -= deduct;
+                    }
+                }
+                writeJSON(ctoRecordsFile, ctoRecords);
+                console.log(`[LEAVECARD] Deducted ${numDays} CTO day(s) for ${application.employeeEmail}`);
+            } catch (ctoErr) {
+                console.error('[LEAVECARD] CTO deduction error:', ctoErr);
+            }
+        }
+
+        lc.updatedAt = new Date().toISOString();
+        leavecards[lcIndex] = lc;
+        writeJSON(leavecardsFile, leavecards);
+
+        console.log(`[LEAVECARD] Deducted ${numDays}d (${leaveLabel}) for ${application.employeeEmail}. VL=${lc.vl}, SL=${lc.sl}`);
     } catch (error) {
-        console.error('Error updating leave balance:', error);
+        console.error('[LEAVECARD] Error in updateEmployeeLeaveBalance:', error);
     }
 }
 
