@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Diagrams — SDO Sipalay City Leave Management System</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <!-- Mermaid removed: replaced with pure SVG/HTML diagrams -->
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -517,58 +517,62 @@
             </div>
         </div>
 
-        <!-- Detailed Mermaid version -->
+        <!-- Detailed actor/data-flow table -->
         <div class="diagram-card">
             <h3>System Context — Detailed View (All Actors)</h3>
             <p class="diagram-desc">All external actors and the data they send to or receive from the central Leave Management System.</p>
-            <div class="mermaid">
-flowchart TD
-    EMP["Employee\n(DepEd Staff)"]
-    AO["Administrative\nOfficer (AO)"]
-    HR["Human Resources\nOfficer (HR)"]
-    ASDS["ASDS\n(Asst. Superintendent)"]
-    SDS["SDS\n(Superintendent)"]
-    IT["IT Administrator"]
-    MAIL["MailerSend\n(Email API)"]
-    FS["File System\n(Railway Volume)"]
-
-    subgraph SYS ["SDO Sipalay City — Leave Management System"]
-        LMS[" "]
-    end
-
-    EMP -->|"Submit leave application\nView leave balance\nView application status\nResubmit returned application"| SYS
-    SYS -->|"Application confirmation\nApplication status updates\nLeave balance display\nEmail notifications"| EMP
-
-    AO -->|"Approve / Return leave\nView pending applications\nEdit leave card transactions"| SYS
-    SYS -->|"Pending applications list\nEmployee leave details\nApproval confirmation"| AO
-
-    HR -->|"Recommend / Return leave\nSign & certify leave credits"| SYS
-    SYS -->|"Pending applications list\nLeave credit details\nApproval confirmation"| HR
-
-    ASDS -->|"Review / Return leave\nOIC-ASDS designation"| SYS
-    SYS -->|"Pending applications list\nApplication details\nApproval confirmation"| ASDS
-
-    SDS -->|"Final approve / Reject leave\nOIC-SDS designation"| SYS
-    SYS -->|"Pending applications list\nFinal approval confirmation\nUpdated leave card"| SDS
-
-    IT -->|"Approve/reject registrations\nReset passwords\nManage system data\nRun reconciliation"| SYS
-    SYS -->|"Registration requests\nUser lists\nSystem status\nActivity logs\nBackup files"| IT
-
-    SYS -->|"Approval/rejection email\nStatus notification\nRegistration approval email"| MAIL
-    MAIL -->|"Email delivery status"| SYS
-
-    SYS -->|"Read/write JSON data files"| FS
-    FS -->|"Persisted data records"| SYS
-
-    style SYS fill:#e8f4fd,stroke:#003366,stroke-width:2px
-    style EMP fill:#d4edda,stroke:#28a745
-    style AO fill:#d1ecf1,stroke:#17a2b8
-    style HR fill:#fff3cd,stroke:#ffc107
-    style ASDS fill:#ffe0b2,stroke:#ff9800
-    style SDS fill:#f8d7da,stroke:#dc3545
-    style IT fill:#e2d9f3,stroke:#6f42c1
-    style MAIL fill:#fce4ec,stroke:#e91e63
-    style FS fill:#f3e5f5,stroke:#9c27b0
+            <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+                <thead>
+                    <tr style="background:#003366;color:white">
+                        <th style="padding:9px 12px;text-align:left;width:160px">Actor</th>
+                        <th style="padding:9px 12px;text-align:left">Data Sent TO System</th>
+                        <th style="padding:9px 12px;text-align:left">Data Received FROM System</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background:#d4edda">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #b8dfc5">Employee<br><span style="font-weight:normal;font-size:11px;color:#555">(DepEd Staff)</span></td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #b8dfc5;font-size:12px">Leave application, Employee signature, SO file (for CTO), Credentials</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #b8dfc5;font-size:12px">App confirmation, Status updates, Leave balance, Email notifications, CS Form No. 6</td>
+                    </tr>
+                    <tr style="background:#d1ecf1">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #a9d4df">Administrative Officer (AO)</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #a9d4df;font-size:12px">Approval / Return action, Remarks, Leave card edits, CTO grants</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #a9d4df;font-size:12px">Pending applications list, Employee leave details, Approval confirmation</td>
+                    </tr>
+                    <tr style="background:#fff3cd">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #ffe08a">Human Resources (HR)</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #ffe08a;font-size:12px">Recommend / Return, Certified VL/SL credits, Signature</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #ffe08a;font-size:12px">Pending applications, Leave credit details, Approval confirmation</td>
+                    </tr>
+                    <tr style="background:#ffe0b2">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #ffcc80">ASDS</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #ffcc80;font-size:12px">Review / Return, OIC-ASDS designation</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #ffcc80;font-size:12px">Pending applications, Application details, Approval confirmation</td>
+                    </tr>
+                    <tr style="background:#f8d7da">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #f5c6cb">SDS (Superintendent)</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #f5c6cb;font-size:12px">Final approve / Reject, OIC-SDS designation</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #f5c6cb;font-size:12px">Pending applications, Final approval confirmation, Updated leave card</td>
+                    </tr>
+                    <tr style="background:#e2d9f3">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #c5b3e6">IT Administrator</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #c5b3e6;font-size:12px">Approve/reject registrations, Reset passwords, Delete records, Admin commands</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #c5b3e6;font-size:12px">Registration requests, User lists, System status, Activity logs, Backup files</td>
+                    </tr>
+                    <tr style="background:#fce4ec">
+                        <td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #f8bbd0">MailerSend API</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #f8bbd0;font-size:12px">Email delivery status</td>
+                        <td style="padding:8px 12px;border-bottom:1px solid #f8bbd0;font-size:12px">Approval/rejection emails, Status notifications, Registration approval emails</td>
+                    </tr>
+                    <tr style="background:#f3e5f5">
+                        <td style="padding:8px 12px;font-weight:bold">File System (Railway)</td>
+                        <td style="padding:8px 12px;font-size:12px">Persisted JSON data records</td>
+                        <td style="padding:8px 12px;font-size:12px">Read: users, applications, leavecards, cto-records, sessions, logs</td>
+                    </tr>
+                </tbody>
+            </table>
             </div>
         </div>
 
@@ -619,60 +623,146 @@ flowchart TD
         <div class="diagram-card">
             <h3>DFD Level 0 — System Overview</h3>
             <p class="diagram-desc">Eight major processes and the primary data flows between external entities and the system.</p>
-            <div class="mermaid">
-flowchart LR
-    EMP(["Employee"])
-    AO(["AO"])
-    HR(["HR"])
-    ASDS(["ASDS"])
-    SDS(["SDS"])
-    IT(["IT Admin"])
-    MAIL(["MailerSend"])
-
-    P1["1.0\nAuthentication\n& Registration"]
-    P2["2.0\nLeave Application\nSubmission"]
-    P3["3.0\nApproval\nWorkflow"]
-    P4["4.0\nMonthly Leave\nAccrual"]
-    P5["5.0\nLeave Balance\nManagement"]
-    P6["6.0\nCTO\nManagement"]
-    P7["7.0\nRegistration\nApproval"]
-    P8["8.0\nData &\nSystem Admin"]
-
-    EMP -->|"Credentials"| P1
-    P1 -->|"Session token"| EMP
-    AO & HR & ASDS & SDS & IT -->|"Credentials"| P1
-
-    EMP -->|"Leave request\nSignature"| P2
-    P2 -->|"App confirmation\nApp ID"| EMP
-    P2 -->|"Notification trigger"| MAIL
-
-    AO & HR & ASDS & SDS -->|"Approval action\nRemarks"| P3
-    P3 -->|"Status update"| EMP
-    P3 -->|"Notification trigger"| MAIL
-
-    P4 -->|"Monthly credits"| EMP
-
-    EMP & AO -->|"Balance query\nCard update"| P5
-    P5 -->|"Balance data"| EMP & AO
-
-    AO -->|"CTO grant data"| P6
-    P6 -->|"CTO balance"| EMP & AO
-
-    EMP & AO & HR & ASDS & SDS -->|"Registration form"| P7
-    IT -->|"Approval decision"| P7
-    P7 -->|"Account created"| EMP & AO & HR & ASDS & SDS
-
-    IT -->|"Admin commands"| P8
-    P8 -->|"System reports\nBackups"| IT
-
-    style P1 fill:#dbeafe,stroke:#2563eb
-    style P2 fill:#dcfce7,stroke:#16a34a
-    style P3 fill:#fef9c3,stroke:#ca8a04
-    style P4 fill:#fce7f3,stroke:#db2777
-    style P5 fill:#ede9fe,stroke:#7c3aed
-    style P6 fill:#ffedd5,stroke:#ea580c
-    style P7 fill:#f0fdf4,stroke:#15803d
-    style P8 fill:#fef2f2,stroke:#dc2626
+            <div style="overflow-x:auto;padding:8px 0">
+            <svg viewBox="0 0 820 550" width="820" height="550" xmlns="http://www.w3.org/2000/svg" style="font-family:'Segoe UI',Arial,sans-serif;max-width:100%;display:block;margin:0 auto">
+              <defs>
+                <marker id="dfa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#444"/></marker>
+                <marker id="dfad" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#999"/></marker>
+              </defs>
+              <!-- External Entities -->
+              <rect x="10" y="40" width="115" height="70" fill="white" stroke="#222" stroke-width="1.5"/>
+              <text x="67" y="70" text-anchor="middle" font-size="12" font-weight="bold">Employee</text>
+              <text x="67" y="86" text-anchor="middle" font-size="10" fill="#555">(DepEd Staff)</text>
+              <rect x="10" y="200" width="115" height="90" fill="white" stroke="#222" stroke-width="1.5"/>
+              <text x="67" y="230" text-anchor="middle" font-size="11" font-weight="bold">Admin Portals</text>
+              <text x="67" y="246" text-anchor="middle" font-size="9.5" fill="#555">AO / HR</text>
+              <text x="67" y="261" text-anchor="middle" font-size="9.5" fill="#555">ASDS / SDS</text>
+              <rect x="10" y="415" width="115" height="65" fill="white" stroke="#222" stroke-width="1.5"/>
+              <text x="67" y="444" text-anchor="middle" font-size="12" font-weight="bold">IT Admin</text>
+              <text x="67" y="460" text-anchor="middle" font-size="9.5" fill="#555">(Administrator)</text>
+              <rect x="682" y="40" width="128" height="70" fill="white" stroke="#222" stroke-width="1.5"/>
+              <text x="746" y="70" text-anchor="middle" font-size="12" font-weight="bold">MailerSend</text>
+              <text x="746" y="86" text-anchor="middle" font-size="10" fill="#555">(Email API)</text>
+              <rect x="682" y="355" width="128" height="75" fill="white" stroke="#222" stroke-width="1.5"/>
+              <text x="746" y="385" text-anchor="middle" font-size="11" font-weight="bold">File System</text>
+              <text x="746" y="401" text-anchor="middle" font-size="9.5" fill="#555">JSON Data Stores</text>
+              <!-- Process boxes: Gane-Sarson style (number band + body) -->
+              <!-- P1 Auth & Registration -->
+              <rect x="175" y="18" width="155" height="95" fill="white" stroke="#2563eb" stroke-width="1.5" rx="2"/>
+              <rect x="175" y="18" width="155" height="22" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5" rx="2"/>
+              <line x1="175" y1="40" x2="330" y2="40" stroke="#2563eb" stroke-width="0.8"/>
+              <text x="196" y="33" font-size="10" font-weight="bold" fill="#1e3a8a">P1</text><line x1="207" y1="18" x2="207" y2="40" stroke="#2563eb" stroke-width="0.8"/>
+              <text x="268" y="33" text-anchor="middle" font-size="9.5" fill="#1e3a8a">Auth &amp; Registration</text>
+              <text x="252" y="57" text-anchor="middle" font-size="11" font-weight="bold">Authentication</text>
+              <text x="252" y="72" text-anchor="middle" font-size="10">&amp; Registration</text>
+              <text x="252" y="89" text-anchor="middle" font-size="8.5" fill="#555">users.json · sessions.json</text>
+              <!-- P2 Leave Submission -->
+              <rect x="360" y="18" width="155" height="95" fill="white" stroke="#16a34a" stroke-width="1.5" rx="2"/>
+              <rect x="360" y="18" width="155" height="22" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5" rx="2"/>
+              <line x1="360" y1="40" x2="515" y2="40" stroke="#16a34a" stroke-width="0.8"/>
+              <text x="381" y="33" font-size="10" font-weight="bold" fill="#14532d">P2</text><line x1="392" y1="18" x2="392" y2="40" stroke="#16a34a" stroke-width="0.8"/>
+              <text x="453" y="33" text-anchor="middle" font-size="9.5" fill="#14532d">Leave Submission</text>
+              <text x="437" y="57" text-anchor="middle" font-size="11" font-weight="bold">Leave Application</text>
+              <text x="437" y="72" text-anchor="middle" font-size="10">Submission</text>
+              <text x="437" y="89" text-anchor="middle" font-size="8.5" fill="#555">applications.json</text>
+              <!-- P3 Approval Workflow -->
+              <rect x="175" y="168" width="155" height="95" fill="white" stroke="#ca8a04" stroke-width="1.5" rx="2"/>
+              <rect x="175" y="168" width="155" height="22" fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5" rx="2"/>
+              <line x1="175" y1="190" x2="330" y2="190" stroke="#ca8a04" stroke-width="0.8"/>
+              <text x="196" y="183" font-size="10" font-weight="bold" fill="#713f12">P3</text><line x1="207" y1="168" x2="207" y2="190" stroke="#ca8a04" stroke-width="0.8"/>
+              <text x="268" y="183" text-anchor="middle" font-size="9.5" fill="#713f12">Approval Workflow</text>
+              <text x="252" y="207" text-anchor="middle" font-size="11" font-weight="bold">Approval Workflow</text>
+              <text x="252" y="222" text-anchor="middle" font-size="9.5">AO → HR → ASDS → SDS</text>
+              <text x="252" y="239" text-anchor="middle" font-size="8.5" fill="#555">applications.json</text>
+              <!-- P4 Monthly Accrual -->
+              <rect x="360" y="168" width="155" height="95" fill="white" stroke="#db2777" stroke-width="1.5" rx="2"/>
+              <rect x="360" y="168" width="155" height="22" fill="#fce7f3" stroke="#db2777" stroke-width="1.5" rx="2"/>
+              <line x1="360" y1="190" x2="515" y2="190" stroke="#db2777" stroke-width="0.8"/>
+              <text x="381" y="183" font-size="10" font-weight="bold" fill="#9d174d">P4</text><line x1="392" y1="168" x2="392" y2="190" stroke="#db2777" stroke-width="0.8"/>
+              <text x="453" y="183" text-anchor="middle" font-size="9.5" fill="#9d174d">Monthly Accrual</text>
+              <text x="437" y="207" text-anchor="middle" font-size="11" font-weight="bold">Monthly Leave</text>
+              <text x="437" y="222" text-anchor="middle" font-size="10">Accrual (+1.25 VL/SL)</text>
+              <text x="437" y="239" text-anchor="middle" font-size="8.5" fill="#555">leavecards.json</text>
+              <!-- P5 Balance Management -->
+              <rect x="175" y="318" width="155" height="95" fill="white" stroke="#7c3aed" stroke-width="1.5" rx="2"/>
+              <rect x="175" y="318" width="155" height="22" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5" rx="2"/>
+              <line x1="175" y1="340" x2="330" y2="340" stroke="#7c3aed" stroke-width="0.8"/>
+              <text x="196" y="333" font-size="10" font-weight="bold" fill="#4c1d95">P5</text><line x1="207" y1="318" x2="207" y2="340" stroke="#7c3aed" stroke-width="0.8"/>
+              <text x="268" y="333" text-anchor="middle" font-size="9.5" fill="#4c1d95">Balance Mgmt</text>
+              <text x="252" y="357" text-anchor="middle" font-size="11" font-weight="bold">Leave Balance</text>
+              <text x="252" y="372" text-anchor="middle" font-size="10">Management</text>
+              <text x="252" y="389" text-anchor="middle" font-size="8.5" fill="#555">leavecards.json · cto-records.json</text>
+              <!-- P6 CTO Management -->
+              <rect x="360" y="318" width="155" height="95" fill="white" stroke="#ea580c" stroke-width="1.5" rx="2"/>
+              <rect x="360" y="318" width="155" height="22" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5" rx="2"/>
+              <line x1="360" y1="340" x2="515" y2="340" stroke="#ea580c" stroke-width="0.8"/>
+              <text x="381" y="333" font-size="10" font-weight="bold" fill="#9a3412">P6</text><line x1="392" y1="318" x2="392" y2="340" stroke="#ea580c" stroke-width="0.8"/>
+              <text x="453" y="333" text-anchor="middle" font-size="9.5" fill="#9a3412">CTO Management</text>
+              <text x="437" y="357" text-anchor="middle" font-size="11" font-weight="bold">CTO Management</text>
+              <text x="437" y="372" text-anchor="middle" font-size="10">Compensatory Time-Off</text>
+              <text x="437" y="389" text-anchor="middle" font-size="8.5" fill="#555">cto-records.json</text>
+              <!-- P7 Registration Approval -->
+              <rect x="175" y="430" width="155" height="85" fill="white" stroke="#15803d" stroke-width="1.5" rx="2"/>
+              <rect x="175" y="430" width="155" height="22" fill="#f0fdf4" stroke="#15803d" stroke-width="1.5" rx="2"/>
+              <line x1="175" y1="452" x2="330" y2="452" stroke="#15803d" stroke-width="0.8"/>
+              <text x="196" y="445" font-size="10" font-weight="bold" fill="#14532d">P7</text><line x1="207" y1="430" x2="207" y2="452" stroke="#15803d" stroke-width="0.8"/>
+              <text x="268" y="445" text-anchor="middle" font-size="9.5" fill="#14532d">Reg. Approval</text>
+              <text x="252" y="470" text-anchor="middle" font-size="11" font-weight="bold">Registration</text>
+              <text x="252" y="485" text-anchor="middle" font-size="10">Approval</text>
+              <text x="252" y="502" text-anchor="middle" font-size="8.5" fill="#555">pending-regs.json</text>
+              <!-- P8 System Admin -->
+              <rect x="360" y="430" width="155" height="85" fill="white" stroke="#dc2626" stroke-width="1.5" rx="2"/>
+              <rect x="360" y="430" width="155" height="22" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5" rx="2"/>
+              <line x1="360" y1="452" x2="515" y2="452" stroke="#dc2626" stroke-width="0.8"/>
+              <text x="381" y="445" font-size="10" font-weight="bold" fill="#991b1b">P8</text><line x1="392" y1="430" x2="392" y2="452" stroke="#dc2626" stroke-width="0.8"/>
+              <text x="453" y="445" text-anchor="middle" font-size="9.5" fill="#991b1b">System Admin</text>
+              <text x="437" y="470" text-anchor="middle" font-size="11" font-weight="bold">Data &amp; System</text>
+              <text x="437" y="485" text-anchor="middle" font-size="10">Administration</text>
+              <text x="437" y="502" text-anchor="middle" font-size="8.5" fill="#555">all JSON stores</text>
+              <!-- Arrows: Employee ↔ P1 -->
+              <line x1="125" y1="72" x2="175" y2="55" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="130" y="57" font-size="8.5" fill="#222">Credentials</text>
+              <line x1="175" y1="80" x2="125" y2="86" stroke="#888" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#dfad)"/>
+              <text x="128" y="98" font-size="8.5" fill="#666">Session token</text>
+              <!-- Employee → P2, P2 → Employee -->
+              <line x1="125" y1="96" x2="360" y2="70" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="200" y="74" font-size="8.5" fill="#222">Leave application</text>
+              <line x1="360" y1="88" x2="125" y2="107" stroke="#888" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#dfad)"/>
+              <text x="215" y="110" font-size="8.5" fill="#666">Confirmation</text>
+              <!-- Admin → P3, P3 → Admin -->
+              <line x1="125" y1="235" x2="175" y2="225" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="122" y="224" font-size="8.5" fill="#222">Approval action</text>
+              <line x1="175" y1="248" x2="125" y2="256" stroke="#888" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#dfad)"/>
+              <text x="127" y="270" font-size="8.5" fill="#666">Status update</text>
+              <!-- Admin → P5, P5 → Admin -->
+              <line x1="125" y1="272" x2="175" y2="355" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="96" y="318" font-size="8.5" fill="#222">Balance query</text>
+              <line x1="175" y1="372" x2="125" y2="283" stroke="#888" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#dfad)"/>
+              <!-- IT → P7, IT → P8 -->
+              <line x1="125" y1="440" x2="175" y2="462" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="110" y="448" font-size="8.5" fill="#222">Reg. decision</text>
+              <line x1="125" y1="453" x2="360" y2="468" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="195" y="455" font-size="8.5" fill="#222">Admin commands</text>
+              <!-- P2 → MailerSend -->
+              <line x1="515" y1="65" x2="682" y2="72" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="536" y="58" font-size="8.5" fill="#222">Email notifications</text>
+              <!-- P3 → MailerSend (dashed) -->
+              <line x1="330" y1="208" x2="682" y2="95" stroke="#bbb" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#dfad)"/>
+              <!-- P6 → File System -->
+              <line x1="515" y1="392" x2="682" y2="392" stroke="#333" stroke-width="1.3" marker-end="url(#dfa)"/>
+              <text x="540" y="384" font-size="8.5" fill="#222">Data R/W</text>
+              <!-- P2 → P3 (pending app flow) -->
+              <line x1="252" y1="113" x2="252" y2="168" stroke="#333" stroke-width="1.2" marker-end="url(#dfa)"/>
+              <text x="255" y="145" font-size="8" fill="#333">Pending app</text>
+              <!-- P3 → P5 (balance deduction) -->
+              <line x1="252" y1="263" x2="252" y2="318" stroke="#333" stroke-width="1.2" marker-end="url(#dfa)"/>
+              <text x="255" y="295" font-size="8" fill="#333">Bal. deduction</text>
+              <!-- P4 → P5 (credits) -->
+              <line x1="360" y1="235" x2="330" y2="335" stroke="#aaa" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#dfad)"/>
+              <text x="310" y="285" font-size="8" fill="#888">+Credits</text>
+              <!-- Caption -->
+              <text x="410" y="538" text-anchor="middle" font-size="11" fill="#555" font-style="italic">Figure 4 — DFD Level 0: CS Form No. 6 Leave Management System</text>
+            </svg>
             </div>
         </div>
 
@@ -680,42 +770,55 @@ flowchart LR
         <div class="diagram-card">
             <h3>DFD Level 1 — Process 1: Authentication &amp; Registration</h3>
             <p class="diagram-desc">Login validation, session management, and new user registration flow.</p>
-            <div class="mermaid">
-flowchart TD
-    USER(["User\n(Any Portal)"])
-
-    P1_1["1.1\nValidate\nCredentials"]
-    P1_2["1.2\nCreate\nSession"]
-    P1_3["1.3\nRegister\nNew User"]
-    P1_4["1.4\nRehash\nPassword"]
-
-    DS_USERS[("users.json\nao/hr/asds/sds/it-users.json")]
-    DS_PENDING[("pending-registrations.json")]
-    DS_SESSION[("sessions.json")]
-    DS_LOGS[("activity-logs.json")]
-
-    USER -->|"Email + password\n+ portal type"| P1_1
-    P1_1 -->|"Read user record"| DS_USERS
-    DS_USERS -->|"Stored hash"| P1_1
-    P1_1 -->|"bcrypt verify\nSHA-256 legacy check"| P1_4
-    P1_4 -->|"Updated bcrypt hash"| DS_USERS
-    P1_1 -->|"Valid credentials"| P1_2
-    P1_2 -->|"96-char hex token\n8-hour expiry"| DS_SESSION
-    P1_2 -->|"HttpOnly cookie\nSession object"| USER
-    P1_1 -->|"Login event"| DS_LOGS
-
-    USER -->|"Registration form\nName, email, position"| P1_3
-    P1_3 -->|"Pending record\nbcrypt hash"| DS_PENDING
-    P1_3 -->|"Registration event"| DS_LOGS
-
-    style P1_1 fill:#dbeafe,stroke:#2563eb
-    style P1_2 fill:#dcfce7,stroke:#16a34a
-    style P1_3 fill:#fef9c3,stroke:#ca8a04
-    style P1_4 fill:#ede9fe,stroke:#7c3aed
-    style DS_USERS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_PENDING fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_SESSION fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+                <div style="background:#dbeafe;border:1.5px solid #2563eb;border-radius:4px;overflow:hidden">
+                    <div style="background:#bfdbfe;padding:6px 12px;border-bottom:1px solid #2563eb;display:flex;align-items:center;gap:8px">
+                        <span style="background:#2563eb;color:white;font-size:9px;font-weight:bold;padding:2px 7px;border-radius:3px">P1.1</span>
+                        <span style="font-size:11px;font-weight:bold;color:#1e3a8a">Validate Credentials</span>
+                    </div>
+                    <div style="padding:10px 12px;font-size:11px;color:#1e40af;line-height:1.6">
+                        <b>Input:</b> Email + password + portal type<br>
+                        <b>Process:</b> bcrypt verify → SHA-256 legacy fallback → rehash if needed<br>
+                        <b>Reads:</b> users.json / *-users.json<br>
+                        <b>Output:</b> Valid/invalid credential result → activity-logs.json
+                    </div>
+                </div>
+                <div style="background:#dcfce7;border:1.5px solid #16a34a;border-radius:4px;overflow:hidden">
+                    <div style="background:#bbf7d0;padding:6px 12px;border-bottom:1px solid #16a34a;display:flex;align-items:center;gap:8px">
+                        <span style="background:#16a34a;color:white;font-size:9px;font-weight:bold;padding:2px 7px;border-radius:3px">P1.2</span>
+                        <span style="font-size:11px;font-weight:bold;color:#14532d">Create Session</span>
+                    </div>
+                    <div style="padding:10px 12px;font-size:11px;color:#15803d;line-height:1.6">
+                        <b>Input:</b> Valid credentials from P1.1<br>
+                        <b>Process:</b> Generate 96-char hex token, 8-hour expiry<br>
+                        <b>Writes:</b> sessions.json<br>
+                        <b>Output:</b> HttpOnly cookie set on user browser
+                    </div>
+                </div>
+                <div style="background:#fef9c3;border:1.5px solid #ca8a04;border-radius:4px;overflow:hidden">
+                    <div style="background:#fef08a;padding:6px 12px;border-bottom:1px solid #ca8a04;display:flex;align-items:center;gap:8px">
+                        <span style="background:#ca8a04;color:white;font-size:9px;font-weight:bold;padding:2px 7px;border-radius:3px">P1.3</span>
+                        <span style="font-size:11px;font-weight:bold;color:#713f12">Register New User</span>
+                    </div>
+                    <div style="padding:10px 12px;font-size:11px;color:#713f12;line-height:1.6">
+                        <b>Input:</b> Name, email, position, office, portal type<br>
+                        <b>Process:</b> Validate fields → bcrypt hash password<br>
+                        <b>Writes:</b> pending-registrations.json, activity-logs.json<br>
+                        <b>Output:</b> Registration confirmation to user
+                    </div>
+                </div>
+                <div style="background:#ede9fe;border:1.5px solid #7c3aed;border-radius:4px;overflow:hidden">
+                    <div style="background:#ddd6fe;padding:6px 12px;border-bottom:1px solid #7c3aed;display:flex;align-items:center;gap:8px">
+                        <span style="background:#7c3aed;color:white;font-size:9px;font-weight:bold;padding:2px 7px;border-radius:3px">P1.4</span>
+                        <span style="font-size:11px;font-weight:bold;color:#4c1d95">Rehash Password</span>
+                    </div>
+                    <div style="padding:10px 12px;font-size:11px;color:#5b21b6;line-height:1.6">
+                        <b>Input:</b> Legacy SHA-256 hash detected in P1.1<br>
+                        <b>Process:</b> Re-hash with bcrypt (12 rounds)<br>
+                        <b>Writes:</b> Updated hash back to users.json<br>
+                        <b>Output:</b> Account upgraded to bcrypt silently
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -723,78 +826,65 @@ flowchart TD
         <div class="diagram-card">
             <h3>DFD Level 1 — Process 2 &amp; 3: Leave Submission &amp; Approval Workflow</h3>
             <p class="diagram-desc">Complete leave application lifecycle from employee submission through multi-stage approval to final balance deduction.</p>
-            <div class="mermaid">
-flowchart TD
-    EMP(["Employee"])
-    AO(["AO"])
-    HR(["HR"])
-    ASDS(["ASDS"])
-    SDS(["SDS"])
-    MAIL(["MailerSend\nAPI"])
-
-    P2_1["2.1\nValidate\nApplication"]
-    P2_2["2.2\nCheck Leave\nBalance"]
-    P2_3["2.3\nCreate\nApplication"]
-    P3_1["3.1\nAO Review"]
-    P3_2["3.2\nHR Review &\nCertify Credits"]
-    P3_3["3.3\nASDS\nReview"]
-    P3_4["3.4\nSDS Final\nApproval"]
-    P3_5["3.5\nDeduct Leave\nBalance"]
-
-    DS_APPS[("applications.json")]
-    DS_CARDS[("leavecards.json")]
-    DS_CTO[("cto-records.json")]
-    DS_LOGS[("activity-logs.json")]
-
-    EMP -->|"Leave type, dates\nnumDays, signature\nSO file (if CTO)"| P2_1
-    P2_1 -->|"Date range\nHours/days\nDuplicate check"| P2_2
-    P2_2 -->|"Query balance"| DS_CARDS
-    P2_2 -->|"Query pending apps"| DS_APPS
-    P2_2 -->|"Query CTO grants"| DS_CTO
-    DS_CARDS & DS_APPS & DS_CTO -->|"Balance data"| P2_2
-    P2_2 -->|"Sufficient balance"| P2_3
-    P2_3 -->|"New application\nstatus=pending\ncurrentApprover=AO"| DS_APPS
-    P2_3 -->|"App ID"| EMP
-    P2_3 -->|"notifyLeaveSubmitted\nnotifyNextApprover(AO)"| MAIL
-    P2_3 -->|"LEAVE_SUBMITTED event"| DS_LOGS
-
-    DS_APPS -->|"Pending apps"| P3_1
-    AO -->|"Approve / Return"| P3_1
-    P3_1 -->|"currentApprover=HR\nor status=returned"| DS_APPS
-    P3_1 -->|"notifyLeaveApproved\nor notifyLeaveReturned"| MAIL
-
-    DS_APPS -->|"AO-approved apps"| P3_2
-    HR -->|"Certify credits\nSign form"| P3_2
-    P3_2 -->|"currentApprover=ASDS\nvlEarned/slEarned certified"| DS_APPS
-    P3_2 -->|"Email notification"| MAIL
-
-    DS_APPS -->|"HR-approved apps"| P3_3
-    ASDS -->|"Approve / Return"| P3_3
-    P3_3 -->|"currentApprover=SDS\nor returned"| DS_APPS
-    P3_3 -->|"Email notification"| MAIL
-
-    DS_APPS -->|"ASDS-approved apps"| P3_4
-    SDS -->|"Final approve / Reject"| P3_4
-    P3_4 -->|"status=approved\nfinalApprovalAt"| DS_APPS
-    P3_4 -->|"Trigger deduction"| P3_5
-    P3_4 -->|"notifyLeaveApproved\n(final)"| MAIL
-
-    P3_5 -->|"Update vl/sl balance\nAdd leaveUsageHistory"| DS_CARDS
-    P3_5 -->|"Update daysUsed"| DS_CTO
-    P3_5 -->|"LEAVE_APPROVED event"| DS_LOGS
-
-    style P2_1 fill:#dcfce7,stroke:#16a34a
-    style P2_2 fill:#dcfce7,stroke:#16a34a
-    style P2_3 fill:#dcfce7,stroke:#16a34a
-    style P3_1 fill:#fef9c3,stroke:#ca8a04
-    style P3_2 fill:#fef9c3,stroke:#ca8a04
-    style P3_3 fill:#fef9c3,stroke:#ca8a04
-    style P3_4 fill:#fef9c3,stroke:#ca8a04
-    style P3_5 fill:#fce7f3,stroke:#db2777
-    style DS_APPS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_CARDS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_CTO fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:540px">
+                <thead><tr style="background:#003366;color:white">
+                    <th style="padding:8px 10px;text-align:left;width:80px">Process</th>
+                    <th style="padding:8px 10px;text-align:left">Actor / Input</th>
+                    <th style="padding:8px 10px;text-align:left">Processing</th>
+                    <th style="padding:8px 10px;text-align:left">Output / Data Store</th>
+                </tr></thead>
+                <tbody>
+                    <tr style="background:#dcfce7">
+                        <td style="padding:7px 10px;font-weight:bold;color:#14532d">P2.1<br>Validate</td>
+                        <td style="padding:7px 10px">Employee submits: leave type, dates, numDays, signature, SO file</td>
+                        <td style="padding:7px 10px">Date range check, hours/days calc, duplicate detection</td>
+                        <td style="padding:7px 10px">Passes to P2.2; error returned to employee on failure</td>
+                    </tr>
+                    <tr style="background:#f0fdf4">
+                        <td style="padding:7px 10px;font-weight:bold;color:#14532d">P2.2<br>Balance Check</td>
+                        <td style="padding:7px 10px">Validated application from P2.1</td>
+                        <td style="padding:7px 10px">Query leavecards.json, applications.json, cto-records.json for sufficient balance</td>
+                        <td style="padding:7px 10px">Passes to P2.3 if balance OK; rejects if insufficient</td>
+                    </tr>
+                    <tr style="background:#dcfce7">
+                        <td style="padding:7px 10px;font-weight:bold;color:#14532d">P2.3<br>Create App</td>
+                        <td style="padding:7px 10px">Approved balance check from P2.2</td>
+                        <td style="padding:7px 10px">Write new application (status=pending, currentApprover=AO)</td>
+                        <td style="padding:7px 10px">→ applications.json, activity-logs.json; email via MailerSend</td>
+                    </tr>
+                    <tr style="background:#fef9c3">
+                        <td style="padding:7px 10px;font-weight:bold;color:#713f12">P3.1<br>AO Review</td>
+                        <td style="padding:7px 10px">AO: Approve or Return with remarks</td>
+                        <td style="padding:7px 10px">Update currentApprover=HR or status=returned</td>
+                        <td style="padding:7px 10px">→ applications.json; MailerSend notification to HR/Employee</td>
+                    </tr>
+                    <tr style="background:#fef9c3">
+                        <td style="padding:7px 10px;font-weight:bold;color:#713f12">P3.2<br>HR Review</td>
+                        <td style="padding:7px 10px">HR: Certify VL/SL credits, sign form</td>
+                        <td style="padding:7px 10px">Update vlEarned/slEarned; currentApprover=ASDS</td>
+                        <td style="padding:7px 10px">→ applications.json; MailerSend notification</td>
+                    </tr>
+                    <tr style="background:#fef9c3">
+                        <td style="padding:7px 10px;font-weight:bold;color:#713f12">P3.3<br>ASDS Review</td>
+                        <td style="padding:7px 10px">ASDS: Approve or Return</td>
+                        <td style="padding:7px 10px">Update currentApprover=SDS or status=returned</td>
+                        <td style="padding:7px 10px">→ applications.json; MailerSend notification</td>
+                    </tr>
+                    <tr style="background:#fef9c3">
+                        <td style="padding:7px 10px;font-weight:bold;color:#713f12">P3.4<br>SDS Final</td>
+                        <td style="padding:7px 10px">SDS: Final approve or reject</td>
+                        <td style="padding:7px 10px">Set status=approved, finalApprovalAt, trigger P3.5</td>
+                        <td style="padding:7px 10px">→ applications.json; MailerSend final notification</td>
+                    </tr>
+                    <tr style="background:#fce7f3">
+                        <td style="padding:7px 10px;font-weight:bold;color:#9d174d">P3.5<br>Deduct Balance</td>
+                        <td style="padding:7px 10px">Triggered by P3.4 final approval</td>
+                        <td style="padding:7px 10px">Subtract VL/SL days; add leaveUsageHistory entry; update CTO daysUsed</td>
+                        <td style="padding:7px 10px">→ leavecards.json, cto-records.json, activity-logs.json</td>
+                    </tr>
+                </tbody>
+            </table>
             </div>
         </div>
 
@@ -802,49 +892,61 @@ flowchart TD
         <div class="diagram-card">
             <h3>DFD Level 1 — Process 4: Monthly Leave Accrual</h3>
             <p class="diagram-desc">Automated scheduler that adds 1.25 VL + 1.25 SL every month for non-teaching personnel.</p>
-            <div class="mermaid">
-flowchart TD
-    TIMER(["System Timer\n(Daily @ server start)"])
-
-    P4_1["4.1\nCheck Last\nAccrued Month"]
-    P4_2["4.2\nFilter Non-Teaching\nPersonnel"]
-    P4_3["4.3\nCatchup Missing\nMonths (new cards)"]
-    P4_4["4.4\nAdd Monthly\nCredits (+1.25 VL +1.25 SL)"]
-    P4_5["4.5\nUpdate System\nState"]
-
-    DS_STATE[("system-state.json")]
-    DS_USERS[("users.json")]
-    DS_CARDS[("leavecards.json")]
-    DS_LOGS[("activity-logs.json")]
-
-    TIMER -->|"Trigger"| P4_1
-    P4_1 -->|"Read lastAccruedMonth"| DS_STATE
-    DS_STATE -->|"Last accrual: YYYY-MM"| P4_1
-    P4_1 -->|"Months to process"| P4_2
-
-    P4_2 -->|"Load positions"| DS_USERS
-    DS_USERS -->|"email → position map"| P4_2
-    P4_2 -->|"Non-teaching\nemployee list"| P4_3
-
-    P4_3 -->|"Load all cards"| DS_CARDS
-    DS_CARDS -->|"lastAccrualDate\nper card"| P4_3
-    P4_3 -->|"Cards needing\ncatch-up months"| P4_4
-
-    P4_4 -->|"Add 1.25 VL + 1.25 SL\nper missed month\nAdd transaction record"| DS_CARDS
-    P4_4 -->|"MONTHLY_ACCRUAL event"| DS_LOGS
-
-    P4_4 -->|"Accrual complete"| P4_5
-    P4_5 -->|"Update lastAccruedMonth\nlastAccrualRun"| DS_STATE
-
-    style P4_1 fill:#fce7f3,stroke:#db2777
-    style P4_2 fill:#fce7f3,stroke:#db2777
-    style P4_3 fill:#fce7f3,stroke:#db2777
-    style P4_4 fill:#fce7f3,stroke:#db2777
-    style P4_5 fill:#fce7f3,stroke:#db2777
-    style DS_STATE fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_USERS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_CARDS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+                <div style="background:#fce7f3;border:1.5px solid #db2777;border-radius:4px;overflow:hidden">
+                    <div style="background:#fbcfe8;padding:6px 10px;border-bottom:1px solid #db2777;display:flex;align-items:center;gap:6px">
+                        <span style="background:#db2777;color:white;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:3px">P4.1</span>
+                        <span style="font-size:10.5px;font-weight:bold;color:#9d174d">Check Accrual Month</span>
+                    </div>
+                    <div style="padding:9px 10px;font-size:10.5px;color:#9d174d;line-height:1.5">
+                        <b>Trigger:</b> Server start (daily)<br>
+                        <b>Reads:</b> system-state.json<br>
+                        <b>Output:</b> List of months to process
+                    </div>
+                </div>
+                <div style="background:#fce7f3;border:1.5px solid #db2777;border-radius:4px;overflow:hidden">
+                    <div style="background:#fbcfe8;padding:6px 10px;border-bottom:1px solid #db2777;display:flex;align-items:center;gap:6px">
+                        <span style="background:#db2777;color:white;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:3px">P4.2</span>
+                        <span style="font-size:10.5px;font-weight:bold;color:#9d174d">Filter Personnel</span>
+                    </div>
+                    <div style="padding:9px 10px;font-size:10.5px;color:#9d174d;line-height:1.5">
+                        <b>Reads:</b> users.json (position field)<br>
+                        <b>Process:</b> Exclude teaching staff<br>
+                        <b>Output:</b> Non-teaching employee list
+                    </div>
+                </div>
+                <div style="background:#fce7f3;border:1.5px solid #db2777;border-radius:4px;overflow:hidden">
+                    <div style="background:#fbcfe8;padding:6px 10px;border-bottom:1px solid #db2777;display:flex;align-items:center;gap:6px">
+                        <span style="background:#db2777;color:white;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:3px">P4.3</span>
+                        <span style="font-size:10.5px;font-weight:bold;color:#9d174d">Catch-up Missing Months</span>
+                    </div>
+                    <div style="padding:9px 10px;font-size:10.5px;color:#9d174d;line-height:1.5">
+                        <b>Reads:</b> leavecards.json (lastAccrualDate)<br>
+                        <b>Process:</b> Calculate months owed<br>
+                        <b>Output:</b> Cards needing back-credits
+                    </div>
+                </div>
+                <div style="background:#fce7f3;border:1.5px solid #db2777;border-radius:4px;overflow:hidden;grid-column:span 2">
+                    <div style="background:#fbcfe8;padding:6px 10px;border-bottom:1px solid #db2777;display:flex;align-items:center;gap:6px">
+                        <span style="background:#db2777;color:white;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:3px">P4.4</span>
+                        <span style="font-size:10.5px;font-weight:bold;color:#9d174d">Add Monthly Credits (+1.25 VL +1.25 SL)</span>
+                    </div>
+                    <div style="padding:9px 10px;font-size:10.5px;color:#9d174d;line-height:1.5">
+                        <b>Input:</b> Cards from P4.3<br>
+                        <b>Process:</b> Add 1.25 VL + 1.25 SL per missed month; append transaction record; update lastAccrualDate<br>
+                        <b>Writes:</b> leavecards.json (transactions array), activity-logs.json
+                    </div>
+                </div>
+                <div style="background:#fce7f3;border:1.5px solid #db2777;border-radius:4px;overflow:hidden">
+                    <div style="background:#fbcfe8;padding:6px 10px;border-bottom:1px solid #db2777;display:flex;align-items:center;gap:6px">
+                        <span style="background:#db2777;color:white;font-size:9px;font-weight:bold;padding:2px 6px;border-radius:3px">P4.5</span>
+                        <span style="font-size:10.5px;font-weight:bold;color:#9d174d">Update System State</span>
+                    </div>
+                    <div style="padding:9px 10px;font-size:10.5px;color:#9d174d;line-height:1.5">
+                        <b>Input:</b> Accrual complete signal<br>
+                        <b>Writes:</b> system-state.json<br>(lastAccruedMonth, lastAccrualRun)
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -852,71 +954,24 @@ flowchart TD
         <div class="diagram-card">
             <h3>DFD Level 1 — Process 7 &amp; 8: IT Administration</h3>
             <p class="diagram-desc">IT manages user registration approvals, system data, backups, and reconciliation.</p>
-            <div class="mermaid">
-flowchart TD
-    IT(["IT Admin"])
-    MAIL(["MailerSend\nAPI"])
-
-    P7_1["7.1\nReview Pending\nRegistrations"]
-    P7_2["7.2\nApprove\nRegistration"]
-    P7_3["7.3\nReject\nRegistration"]
-    P8_1["8.1\nManage\nUser Accounts"]
-    P8_2["8.2\nBackup /\nRestore Data"]
-    P8_3["8.3\nRun Balance\nReconciliation"]
-    P8_4["8.4\nView Activity\nLogs"]
-
-    DS_PENDING[("pending-registrations.json")]
-    DS_USERS[("All *-users.json")]
-    DS_CARDS[("leavecards.json")]
-    DS_APPS[("applications.json")]
-    DS_LOGS[("activity-logs.json")]
-
-    IT -->|"View pending list"| P7_1
-    P7_1 -->|"Read"| DS_PENDING
-    DS_PENDING -->|"Pending records"| P7_1
-    P7_1 -->|"Display"| IT
-
-    IT -->|"Approve registration"| P7_2
-    P7_2 -->|"Create user record"| DS_USERS
-    P7_2 -->|"Update status=approved"| DS_PENDING
-    P7_2 -->|"Send approval email\nwith temp password"| MAIL
-    P7_2 -->|"REGISTRATION_APPROVED"| DS_LOGS
-
-    IT -->|"Reject registration"| P7_3
-    P7_3 -->|"Update status=rejected"| DS_PENDING
-    P7_3 -->|"Send rejection email"| MAIL
-    P7_3 -->|"REGISTRATION_REJECTED"| DS_LOGS
-
-    IT -->|"Reset password\nDelete user\nView users"| P8_1
-    P8_1 -->|"Update/delete records"| DS_USERS
-    P8_1 -->|"Admin action event"| DS_LOGS
-
-    IT -->|"Create / restore backup"| P8_2
-    P8_2 -->|"Read all data"| DS_USERS & DS_CARDS & DS_APPS
-    P8_2 -->|"ZIP archive"| IT
-
-    IT -->|"Run reconciliation"| P8_3
-    P8_3 -->|"Read all apps + cards"| DS_APPS & DS_CARDS
-    P8_3 -->|"Recalculate balances\nFix discrepancies"| DS_CARDS
-    P8_3 -->|"Reconciliation report"| IT
-
-    IT -->|"Query logs"| P8_4
-    P8_4 -->|"Read"| DS_LOGS
-    DS_LOGS -->|"Audit records"| P8_4
-    P8_4 -->|"Filtered log view\nCSV export"| IT
-
-    style P7_1 fill:#f0fdf4,stroke:#15803d
-    style P7_2 fill:#f0fdf4,stroke:#15803d
-    style P7_3 fill:#fef2f2,stroke:#dc2626
-    style P8_1 fill:#ede9fe,stroke:#7c3aed
-    style P8_2 fill:#ede9fe,stroke:#7c3aed
-    style P8_3 fill:#ede9fe,stroke:#7c3aed
-    style P8_4 fill:#ede9fe,stroke:#7c3aed
-    style DS_PENDING fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_USERS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_CARDS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_APPS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
-    style DS_LOGS fill:#f1f5f9,stroke:#64748b,stroke-dasharray:5
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+                <div>
+                    <div style="font-size:11px;font-weight:bold;color:#14532d;background:#f0fdf4;border:1px solid #86efac;padding:6px 10px;border-radius:4px 4px 0 0;border-bottom:none">Process 7 — Registration Approval</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:11px">
+                        <tr style="background:#f0fdf4"><td style="padding:6px 10px;border:1px solid #bbf7d0;font-weight:bold;color:#15803d">P7.1 Review</td><td style="padding:6px 10px;border:1px solid #bbf7d0">IT views pending list → reads pending-registrations.json</td></tr>
+                        <tr style="background:#f0fdf4"><td style="padding:6px 10px;border:1px solid #bbf7d0;font-weight:bold;color:#15803d">P7.2 Approve</td><td style="padding:6px 10px;border:1px solid #bbf7d0">Creates user record in *-users.json; updates status=approved; sends temp password email via MailerSend</td></tr>
+                        <tr style="background:#fef2f2"><td style="padding:6px 10px;border:1px solid #fca5a5;font-weight:bold;color:#dc2626">P7.3 Reject</td><td style="padding:6px 10px;border:1px solid #fca5a5">Updates status=rejected in pending-registrations.json; sends rejection email via MailerSend</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:bold;color:#4c1d95;background:#ede9fe;border:1px solid #c4b5fd;padding:6px 10px;border-radius:4px 4px 0 0;border-bottom:none">Process 8 — System Administration</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:11px">
+                        <tr style="background:#ede9fe"><td style="padding:6px 10px;border:1px solid #c4b5fd;font-weight:bold;color:#7c3aed">P8.1 Users</td><td style="padding:6px 10px;border:1px solid #c4b5fd">Reset passwords, delete users, view accounts → *-users.json + activity-logs.json</td></tr>
+                        <tr style="background:#ede9fe"><td style="padding:6px 10px;border:1px solid #c4b5fd;font-weight:bold;color:#7c3aed">P8.2 Backup</td><td style="padding:6px 10px;border:1px solid #c4b5fd">Create/restore backups from all JSON stores; ZIP archive download</td></tr>
+                        <tr style="background:#ede9fe"><td style="padding:6px 10px;border:1px solid #c4b5fd;font-weight:bold;color:#7c3aed">P8.3 Reconcile</td><td style="padding:6px 10px;border:1px solid #c4b5fd">Read applications.json + leavecards.json; recalculate balances; fix discrepancies</td></tr>
+                        <tr style="background:#ede9fe"><td style="padding:6px 10px;border:1px solid #c4b5fd;font-weight:bold;color:#7c3aed">P8.4 Logs</td><td style="padding:6px 10px;border:1px solid #c4b5fd">Query activity-logs.json; filtered view + CSV export</td></tr>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -1135,200 +1190,94 @@ flowchart TD
         <div class="diagram-card">
             <h3>ERD — Full System</h3>
             <p class="diagram-desc">All entities and their relationships across the Leave Management System.</p>
-            <div class="mermaid">
-erDiagram
-    EMPLOYEE_USER {
-        string id PK
-        string email
-        string password
-        string name
-        string firstName
-        string lastName
-        string middleName
-        string office
-        string position
-        string employeeNo
-        int salaryGrade
-        float salary
-        string role
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    ADMIN_USER {
-        string id PK
-        string email
-        string password
-        string name
-        string fullName
-        string office
-        string role
-        datetime createdAt
-    }
-
-    LEAVE_APPLICATION {
-        string id PK
-        string employeeEmail FK
-        string employeeName
-        string leaveType
-        float numDays
-        date dateFrom
-        date dateTo
-        date dateOfFiling
-        string status
-        string currentApprover
-        string office
-        string position
-        float salary
-        string commutation
-        string soFilePath
-        string otherLeaveSpecify
-        int leaveHours
-        datetime submittedAt
-        datetime aoApprovedAt
-        datetime hrApprovedAt
-        datetime asdsApprovedAt
-        datetime sdsApprovedAt
-        datetime finalApprovalAt
-        string returnRemarks
-        datetime returnedAt
-        string returnedBy
-        string rejectionReason
-    }
-
-    APPROVAL_HISTORY {
-        string id PK
-        string applicationId FK
-        string portal
-        string action
-        string approverName
-        string approverEmail
-        string remarks
-        datetime timestamp
-    }
-
-    LEAVE_CARD {
-        string employeeId PK
-        string email
-        string name
-        float vl
-        float sl
-        float vacationLeaveEarned
-        float sickLeaveEarned
-        float vacationLeaveSpent
-        float sickLeaveSpent
-        float splEarned
-        float splSpent
-        int splYear
-        float forceLeaveEarned
-        float forceLeaveSpent
-        int forceLeaveYear
-        float wellnessEarned
-        float wellnessSpent
-        int wellnessYear
-        string lastAccrualDate
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    LEAVE_TRANSACTION {
-        string id PK
-        string leaveCardEmail FK
-        string type
-        string periodCovered
-        float vlEarned
-        float slEarned
-        float vlSpent
-        float slSpent
-        float forcedLeave
-        float splUsed
-        float wellnessUsed
-        float vlBalance
-        float slBalance
-        float total
-        string source
-        datetime dateRecorded
-    }
-
-    LEAVE_USAGE_HISTORY {
-        string id PK
-        string leaveCardEmail FK
-        string applicationId FK
-        string leaveType
-        float daysUsed
-        date periodFrom
-        date periodTo
-        datetime dateApproved
-        string approvedBy
-        float balanceAfterVL
-        float balanceAfterSL
-    }
-
-    CTO_RECORD {
-        string id PK
-        string employeeEmail FK
-        string soDetails
-        string periodCovered
-        float daysGranted
-        float daysUsed
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    CTO_APPLICATION_LINK {
-        string ctoRecordId FK
-        string applicationId FK
-    }
-
-    PENDING_REGISTRATION {
-        string id PK
-        string portal
-        string email
-        string fullName
-        string firstName
-        string lastName
-        string password
-        string office
-        string position
-        string employeeNo
-        string status
-        datetime createdAt
-        datetime processedAt
-        string processedBy FK
-    }
-
-    ACTIVITY_LOG {
-        string id PK
-        datetime timestamp
-        string action
-        string portalType
-        string userEmail FK
-        string ip
-        string userAgent
-        string details
-    }
-
-    SYSTEM_STATE {
-        string id PK
-        string lastAccruedMonth
-        datetime lastAccrualRun
-        int lastAccrualMonths
-        int lastAccrualEmployees
-    }
-
-    EMPLOYEE_USER ||--o{ LEAVE_APPLICATION : "submits"
-    EMPLOYEE_USER ||--|| LEAVE_CARD : "has"
-    EMPLOYEE_USER ||--o{ CTO_RECORD : "granted"
-    EMPLOYEE_USER ||--o{ ACTIVITY_LOG : "generates"
-    ADMIN_USER ||--o{ ACTIVITY_LOG : "generates"
-    LEAVE_APPLICATION ||--o{ APPROVAL_HISTORY : "records"
-    LEAVE_APPLICATION ||--o{ LEAVE_USAGE_HISTORY : "reflected in"
-    LEAVE_CARD ||--o{ LEAVE_TRANSACTION : "has"
-    LEAVE_CARD ||--o{ LEAVE_USAGE_HISTORY : "contains"
-    CTO_RECORD ||--o{ CTO_APPLICATION_LINK : "linked via"
-    LEAVE_APPLICATION ||--o{ CTO_APPLICATION_LINK : "linked via"
-    PENDING_REGISTRATION }o--o| EMPLOYEE_USER : "becomes"
-    PENDING_REGISTRATION }o--o| ADMIN_USER : "becomes"
+            <div style="background:#f0f9ff;border-left:4px solid #2563eb;border-radius:6px;padding:16px 20px;margin-bottom:12px">
+                <p style="margin:0;color:#1e3a8a;font-size:13px"><strong>Visual ERD:</strong> The complete Entity Relationship Diagram with entity boxes, attributes, and relationships is displayed above in <strong>Figure 5 — Entity Relationship Diagram (Traditional View)</strong>. All 11 entities (EMPLOYEE_USER, ADMIN_USER, LEAVE_APPLICATION, APPROVAL_HISTORY, LEAVE_CARD, LEAVE_TRANSACTION, LEAVE_USAGE_HISTORY, CTO_RECORD, CTO_APPLICATION_LINK, PENDING_REGISTRATION, ACTIVITY_LOG, SYSTEM_STATE) and their foreign-key relationships are shown there.</p>
+            </div>
+            <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="background:#1e3a8a;color:#fff">
+                            <th style="padding:8px 10px;text-align:left;white-space:nowrap">Entity</th>
+                            <th style="padding:8px 10px;text-align:left;white-space:nowrap">Primary Key</th>
+                            <th style="padding:8px 10px;text-align:left">Key Attributes</th>
+                            <th style="padding:8px 10px;text-align:left">Storage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background:#dbeafe">
+                            <td style="padding:7px 10px;font-weight:600">EMPLOYEE_USER</td>
+                            <td style="padding:7px 10px;font-family:monospace">id (UUID)</td>
+                            <td style="padding:7px 10px">email, name, office, position, employeeNo, salaryGrade, salary, role</td>
+                            <td style="padding:7px 10px;font-family:monospace">users.json</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:7px 10px;font-weight:600">ADMIN_USER</td>
+                            <td style="padding:7px 10px;font-family:monospace">id (UUID)</td>
+                            <td style="padding:7px 10px">email, name, fullName, office, role (ao|hr|asds|sds|it)</td>
+                            <td style="padding:7px 10px;font-family:monospace">*-users.json</td>
+                        </tr>
+                        <tr style="background:#fef9c3">
+                            <td style="padding:7px 10px;font-weight:600">LEAVE_APPLICATION</td>
+                            <td style="padding:7px 10px;font-family:monospace">id (SDO-NN-XXXX)</td>
+                            <td style="padding:7px 10px">employeeEmail FK, leaveType, numDays, dateFrom, dateTo, status, currentApprover</td>
+                            <td style="padding:7px 10px;font-family:monospace">applications.json</td>
+                        </tr>
+                        <tr style="background:#ede9fe">
+                            <td style="padding:7px 10px;font-weight:600">APPROVAL_HISTORY</td>
+                            <td style="padding:7px 10px;font-family:monospace">id</td>
+                            <td style="padding:7px 10px">applicationId FK, portal, action, approverName, remarks, timestamp</td>
+                            <td style="padding:7px 10px;font-family:monospace">embedded in application</td>
+                        </tr>
+                        <tr style="background:#dbeafe">
+                            <td style="padding:7px 10px;font-weight:600">LEAVE_CARD</td>
+                            <td style="padding:7px 10px;font-family:monospace">employeeId (email)</td>
+                            <td style="padding:7px 10px">vl, sl, vlEarned, slEarned, vlSpent, slSpent, splEarned, splSpent, wellnessEarned</td>
+                            <td style="padding:7px 10px;font-family:monospace">leavecards.json</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:7px 10px;font-weight:600">LEAVE_TRANSACTION</td>
+                            <td style="padding:7px 10px;font-family:monospace">id</td>
+                            <td style="padding:7px 10px">leaveCardEmail FK, type (ADD|LESS|LAWOP), periodCovered, vlEarned, slEarned, total</td>
+                            <td style="padding:7px 10px;font-family:monospace">embedded in leavecard</td>
+                        </tr>
+                        <tr style="background:#ffedd5">
+                            <td style="padding:7px 10px;font-weight:600">LEAVE_USAGE_HISTORY</td>
+                            <td style="padding:7px 10px;font-family:monospace">id</td>
+                            <td style="padding:7px 10px">leaveCardEmail FK, applicationId FK, leaveType, daysUsed, balanceAfterVL, balanceAfterSL</td>
+                            <td style="padding:7px 10px;font-family:monospace">embedded in leavecard</td>
+                        </tr>
+                        <tr style="background:#fce7f3">
+                            <td style="padding:7px 10px;font-weight:600">CTO_RECORD</td>
+                            <td style="padding:7px 10px;font-family:monospace">id</td>
+                            <td style="padding:7px 10px">employeeEmail FK, soDetails, periodCovered, daysGranted, daysUsed</td>
+                            <td style="padding:7px 10px;font-family:monospace">cto-records.json</td>
+                        </tr>
+                        <tr style="background:#f1f5f9">
+                            <td style="padding:7px 10px;font-weight:600">CTO_APPLICATION_LINK</td>
+                            <td style="padding:7px 10px;font-family:monospace">(composite)</td>
+                            <td style="padding:7px 10px">ctoRecordId FK, applicationId FK — junction table for M:N</td>
+                            <td style="padding:7px 10px;font-family:monospace">embedded in application</td>
+                        </tr>
+                        <tr style="background:#fef9c3">
+                            <td style="padding:7px 10px;font-weight:600">PENDING_REGISTRATION</td>
+                            <td style="padding:7px 10px;font-family:monospace">id</td>
+                            <td style="padding:7px 10px">portal, email, fullName, status (pending|approved|rejected), processedBy FK</td>
+                            <td style="padding:7px 10px;font-family:monospace">pending-registrations.json</td>
+                        </tr>
+                        <tr style="background:#ede9fe">
+                            <td style="padding:7px 10px;font-weight:600">ACTIVITY_LOG</td>
+                            <td style="padding:7px 10px;font-family:monospace">id</td>
+                            <td style="padding:7px 10px">timestamp, action, portalType, userEmail FK, ip, userAgent, details</td>
+                            <td style="padding:7px 10px;font-family:monospace">activity-logs.json</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:7px 10px;font-weight:600">SYSTEM_STATE</td>
+                            <td style="padding:7px 10px;font-family:monospace">id (singleton)</td>
+                            <td style="padding:7px 10px">lastAccruedMonth, lastAccrualRun, lastAccrualMonths, lastAccrualEmployees</td>
+                            <td style="padding:7px 10px;font-family:monospace">system-state.json</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -1447,84 +1396,99 @@ erDiagram
         <div class="diagram-card">
             <h3>Relationship Cardinality Summary</h3>
             <p class="diagram-desc">All entity relationships with cardinality and business rules.</p>
-            <div class="mermaid">
-flowchart LR
-    subgraph "1 : 1 Relationships"
-        A1["EMPLOYEE_USER"] -->|"has exactly one"| B1["LEAVE_CARD"]
-        A2["PENDING_REGISTRATION"] -->|"becomes one (on approval)"| B2["USER ACCOUNT"]
-    end
-    subgraph "1 : N Relationships"
-        C1["EMPLOYEE_USER"] -->|"submits many"| D1["LEAVE_APPLICATION"]
-        C2["EMPLOYEE_USER"] -->|"has many"| D2["CTO_RECORD"]
-        C3["LEAVE_APPLICATION"] -->|"has many"| D3["APPROVAL_HISTORY entries"]
-        C4["LEAVE_CARD"] -->|"has many"| D4["LEAVE_TRANSACTION entries"]
-        C5["LEAVE_CARD"] -->|"has many"| D5["LEAVE_USAGE_HISTORY entries"]
-        C6["CTO_RECORD"] -->|"linked to many"| D6["LEAVE_APPLICATION (via CTO_LINK)"]
-    end
-    subgraph "M : N Relationships"
-        E1["CTO_RECORD"] -->|"used in many"| F1["LEAVE_APPLICATION"]
-        E2["LEAVE_APPLICATION"] -->|"uses many"| F2["CTO_RECORD"]
-    end
-    style A1 fill:#dbeafe,stroke:#2563eb
-    style B1 fill:#dcfce7,stroke:#16a34a
-    style C1 fill:#dbeafe,stroke:#2563eb
-    style C2 fill:#dbeafe,stroke:#2563eb
-    style C3 fill:#fef9c3,stroke:#ca8a04
-    style C4 fill:#ede9fe,stroke:#7c3aed
-    style C5 fill:#ede9fe,stroke:#7c3aed
-    style E1 fill:#ffedd5,stroke:#ea580c
+            <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                    <thead>
+                        <tr style="background:#1e3a8a;color:#fff">
+                            <th style="padding:9px 12px;text-align:center;width:100px">Cardinality</th>
+                            <th style="padding:9px 12px;text-align:left">From Entity</th>
+                            <th style="padding:9px 12px;text-align:center;width:80px">Symbol</th>
+                            <th style="padding:9px 12px;text-align:left">To Entity</th>
+                            <th style="padding:9px 12px;text-align:left">Business Rule</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 1:1 -->
+                        <tr style="background:#dbeafe">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#1e40af">1 : 1</td>
+                            <td style="padding:8px 12px;font-weight:600">EMPLOYEE_USER</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—||</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_CARD</td>
+                            <td style="padding:8px 12px;color:#374151">Each employee has exactly one leave card tracking their balances.</td>
+                        </tr>
+                        <tr style="background:#dbeafe">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#1e40af">1 : 1</td>
+                            <td style="padding:8px 12px;font-weight:600">PENDING_REGISTRATION</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">}o—o|</td>
+                            <td style="padding:8px 12px;font-weight:600">USER ACCOUNT</td>
+                            <td style="padding:8px 12px;color:#374151">An approved registration becomes exactly one employee or admin user.</td>
+                        </tr>
+                        <!-- 1:N -->
+                        <tr style="background:#dcfce7">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#166534">1 : N</td>
+                            <td style="padding:8px 12px;font-weight:600">EMPLOYEE_USER</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_APPLICATION</td>
+                            <td style="padding:8px 12px;color:#374151">An employee may submit many leave applications over time.</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#166534">1 : N</td>
+                            <td style="padding:8px 12px;font-weight:600">EMPLOYEE_USER</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">CTO_RECORD</td>
+                            <td style="padding:8px 12px;color:#374151">An employee can have multiple CTO grants from different Special Orders.</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#166534">1 : N</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_APPLICATION</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">APPROVAL_HISTORY</td>
+                            <td style="padding:8px 12px;color:#374151">Each application accumulates one approval record per workflow stage (up to 5).</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#166534">1 : N</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_CARD</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_TRANSACTION</td>
+                            <td style="padding:8px 12px;color:#374151">A leave card accumulates monthly accrual and usage transaction rows.</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#166534">1 : N</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_CARD</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_USAGE_HISTORY</td>
+                            <td style="padding:8px 12px;color:#374151">Each SDS-approved leave adds one usage history snapshot to the card.</td>
+                        </tr>
+                        <tr style="background:#dcfce7">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#166534">1 : N</td>
+                            <td style="padding:8px 12px;font-weight:600">EMPLOYEE_USER / ADMIN_USER</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">||—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">ACTIVITY_LOG</td>
+                            <td style="padding:8px 12px;color:#374151">Every user action generates an immutable audit log entry.</td>
+                        </tr>
+                        <!-- M:N -->
+                        <tr style="background:#ffedd5">
+                            <td style="padding:8px 12px;text-align:center;font-weight:700;color:#9a3412">M : N</td>
+                            <td style="padding:8px 12px;font-weight:600">CTO_RECORD</td>
+                            <td style="padding:8px 12px;text-align:center;font-family:monospace;color:#374151">}o—o{</td>
+                            <td style="padding:8px 12px;font-weight:600">LEAVE_APPLICATION</td>
+                            <td style="padding:8px 12px;color:#374151">A CTO record can fund multiple applications; an application can draw from multiple CTO records. Resolved via CTO_APPLICATION_LINK junction.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // startOnLoad:false — diagrams in hidden tabs produce 0-size SVGs with auto-processing.
-    mermaid.initialize({
-        startOnLoad: false,
-        theme: 'default',
-        flowchart: { curve: 'basis', padding: 20 },
-        er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75 },
-        securityLevel: 'loose'
-    });
-
-    // Tab switching — pure CSS class swap, no re-rendering needed.
     function showTab(id) {
         document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + id).classList.add('active');
         event.target.classList.add('active');
     }
-
-    // Set first tab button active.
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
-
-    // Render every .mermaid block using mermaid.render() — this API generates the SVG
-    // via a detached scratch element and does NOT require the target to be visible.
-    (async function initDiagrams() {
-        // Off-screen scratch area: wide enough for Mermaid's internal layout calculations.
-        const scratch = document.createElement('div');
-        scratch.style.cssText = 'position:fixed;left:-9999px;top:0;width:960px;height:auto;visibility:hidden;pointer-events:none';
-        document.body.appendChild(scratch);
-
-        let idx = 0;
-        for (const el of document.querySelectorAll('.mermaid')) {
-            const definition = el.textContent.trim();
-            const renderId = 'mmd-' + (idx++);
-            try {
-                const { svg, bindFunctions } = await mermaid.render(renderId, definition, scratch);
-                el.innerHTML = svg;
-                if (typeof bindFunctions === 'function') bindFunctions(el);
-                // Clean up any leftover element mermaid may have appended to scratch.
-                scratch.querySelector('#' + renderId)?.remove();
-            } catch (err) {
-                console.error('[Mermaid] render failed for', renderId, err);
-                el.innerHTML = '<div style="color:#c62828;padding:12px;border:1px dashed #c62828;border-radius:6px;font-size:12px;font-family:monospace">⚠ Diagram failed to render — check console for details.</div>';
-            }
-        }
-
-        document.body.removeChild(scratch);
-    })();
 </script>
 
 </body>
