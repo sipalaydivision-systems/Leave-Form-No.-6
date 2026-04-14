@@ -638,12 +638,12 @@
         </div>
         
         <div class="tabs">
-            <button type="button" class="tab active" data-tab="login" onclick="switchTab('login')">HR LOGIN</button>
-            <button type="button" class="tab" data-tab="register" onclick="switchTab('register')">CREATE HR ACCOUNT</button>
+            <button type="button" class="tab active" data-tab="login" onclick="switchTab('login')">ADMIN OFFICER V LOGIN</button>
+            <button type="button" class="tab" data-tab="register" onclick="switchTab('register')">CREATE ADMIN OFFICER V ACCOUNT</button>
         </div>
         
         <div class="form-container">
-            <!-- HR Login Form -->
+            <!-- Admin Officer V Login Form -->
             <div id="loginForm" class="form-section active">
                 <div id="loginMessage" class="message"></div>
                 
@@ -668,23 +668,23 @@
                     </div>
                     
                     <button type="submit" class="btn btn-primary" id="loginBtn">
-                        <span>HR LOGIN</span>
+                        <span>ADMIN OFFICER V LOGIN</span>
                         <div class="spinner"></div>
                     </button>
                 </form>
                 
                 <div class="toggle-mode">
                     <div><a href="#" onclick="openForgotPasswordModal(event)" style="color: #003366; text-decoration: none; font-size: 13px;">Forgot Password?</a></div>
-                    <div style="margin-top: 10px;">Don't have an HR account? <a onclick="switchTab('register')">Create one here</a></div>
+                    <div style="margin-top: 10px;">Don't have an Admin Officer V account? <a onclick="switchTab('register')">Create one here</a></div>
                 </div>
             </div>
             
-            <!-- HR Registration Form -->
+            <!-- Admin Officer V Registration Form -->
             <div id="registerForm" class="form-section">
                 <div id="registerMessage" class="message"></div>
                 
                 <div class="info-box">
-                    <strong>Create HR Account:</strong> Register a new Human Resource account to access the leave approval portal.
+                    <strong>Create Admin Officer V Account:</strong> Register a new Admin Officer V account to access the leave approval portal.
                 </div>
                 
                 <form onsubmit="handleHRRegister(event)">
@@ -721,7 +721,7 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>HR Email <span class="required">*</span></label>
+                        <label>Admin Officer V Email <span class="required">*</span></label>
                         <input type="email" id="regEmail" placeholder="example@deped.gov.ph" required>
                         <p class="hint">Must be a valid DepEd email ending with @deped.gov.ph</p>
                         <div id="emailError" class="error-message">Please use a valid DepEd email (@deped.gov.ph)</div>
@@ -906,7 +906,7 @@
                 </form>
                 
                 <div class="toggle-mode">
-                    Already have an HR account? <a onclick="switchTab('login')">Login here</a>
+                    Already have an Admin Officer V account? <a onclick="switchTab('login')">Login here</a>
                 </div>
             </div>
         </div>
@@ -1149,14 +1149,14 @@
                 if (response.ok && result.success) {
                     localStorage.setItem('hrUser', JSON.stringify(result.user));
                     localStorage.setItem('userRole', 'hr');
-                    message.textContent = '✓ HR Login Successful! Redirecting to approval portal...';
+                    message.textContent = '✓ Admin Officer V Login Successful! Redirecting to approval portal...';
                     message.className = 'message success';
                     message.style.display = 'block';
                     setTimeout(() => {
                         window.location.href = '/admin-officer-approval.html';
                     }, 1500);
                 } else {
-                    message.textContent = result.error || 'HR login failed';
+                    message.textContent = result.error || 'Admin Officer V login failed';
                     message.className = 'message error';
                     message.style.display = 'block';
                 }
@@ -1194,7 +1194,7 @@
                 let missingFields = [];
                 if (!lastName) missingFields.push('Last Name');
                 if (!firstName) missingFields.push('First Name');
-                if (!email) missingFields.push('HR Email');
+                if (!email) missingFields.push('Admin Officer V Email');
                 if (!password) missingFields.push('Password');
                 if (!confirmPassword) missingFields.push('Confirm Password');
                 if (!office) missingFields.push('Office/Division');
@@ -1276,7 +1276,7 @@
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
-                    message.textContent = '✓ HR Account Created Successfully! You can now login.';
+                    message.textContent = '✓ Admin Officer V Account Created Successfully! You can now login.';
                     message.className = 'message success';
                     message.style.display = 'block';
                     setTimeout(() => {
