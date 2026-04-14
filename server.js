@@ -1948,6 +1948,18 @@ function validatePortalPassword(password) {
     return { valid: true };
 }
 
+// Stricter password policy for IT accounts (min 8 chars, letter + digit + special)
+function validateITPassword(password) {
+    if (!password) return { valid: false, error: 'Password is required' };
+    if (password.length < 8) return { valid: false, error: 'Password must be at least 8 characters' };
+    if (password.length > 64) return { valid: false, error: 'Password must not exceed 64 characters' };
+    if (!/[a-zA-Z]/.test(password)) return { valid: false, error: 'Password must contain at least one letter' };
+    if (!/[0-9]/.test(password)) return { valid: false, error: 'Password must contain at least one number' };
+    if (!/[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?]/.test(password))
+        return { valid: false, error: 'Password must contain at least one special character (!@#$%^&* etc.)' };
+    return { valid: true };
+}
+
 function buildEmployeeRecord(office, fullName, email, position, salaryGrade, step, salary, district, suffix, employeeNo) {
     let lastName = '', firstName = '', middleName = '';
     if (fullName && fullName.includes(',')) {
@@ -2595,7 +2607,8 @@ function createLoginHandler(config) {
  */
 function createProfileUpdateHandler(config) {
     const { portalName, portalLabel, userFile, updatableFields = [],
-            usesPin = false, syncToEmployees = false, syncToLeaveCards = false,
+            usesPin = false, validatePasswordFn = null,
+            syncToEmployees = false, syncToLeaveCards = false,
             responseFields } = config;
     return (req, res) => {
         try {
@@ -2632,7 +2645,8 @@ function createProfileUpdateHandler(config) {
                 }
                 users[userIndex].password = hashPasswordWithSalt(newPin);
             } else if (!usesPin && newPassword) {
-                const passwordValidation = validatePortalPassword(newPassword);
+                const validator = validatePasswordFn || validatePortalPassword;
+                const passwordValidation = validator(newPassword);
                 if (!passwordValidation.valid) {
                     return res.status(400).json({ success: false, error: passwordValidation.error });
                 }
@@ -2869,19 +2883,19 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
     }
 });
 
-// Reset IT staff PIN (separate from password reset because IT uses numeric PINs)
+// Reset IT staff password
 app.post('/api/it/reset-pin', requireAuth('it'), (req, res) => {
     try {
-        const { email, newPin } = req.body;
+        const { email, newPin, newPassword } = req.body;
         const resetBy = req.session.email || 'IT Admin';
+        const pw = (newPassword || newPin || '').trim();
 
-        if (!email || !newPin) {
-            return res.status(400).json({ success: false, error: 'Email and new PIN are required' });
+        if (!email || !pw) {
+            return res.status(400).json({ success: false, error: 'Email and new password are required' });
         }
 
-        if (!/^\d{6}$/.test(newPin)) {
-            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
-        }
+        const pwv = validateITPassword(pw);
+        if (!pwv.valid) return res.status(400).json({ success: false, error: pwv.error });
 
         let itUsers = readJSON(itUsersFile);
         const userIdx = itUsers.findIndex(u => (u.email || '').toLowerCase() === email.toLowerCase());
@@ -2890,7 +2904,7 @@ app.post('/api/it/reset-pin', requireAuth('it'), (req, res) => {
             return res.status(404).json({ success: false, error: 'IT staff not found' });
         }
 
-        itUsers[userIdx].password = hashPasswordWithSalt(newPin);
+        itUsers[userIdx].password = hashPasswordWithSalt(pw);
         itUsers[userIdx].pinResetAt = new Date().toISOString();
         itUsers[userIdx].pinResetBy = resetBy;
         writeJSON(itUsersFile, itUsers);
@@ -3115,11 +3129,10 @@ app.post('/api/it-bootstrap', loginRateLimiter, (req, res) => {
         }
 
         if (!email || !pin || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email, PIN, and fullName are required' });
+            return res.status(400).json({ success: false, error: 'Email, password, and fullName are required' });
         }
-        if (!/^\d{6}$/.test(pin)) {
-            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
-        }
+        const pwv = validateITPassword(pin);
+        if (!pwv.valid) return res.status(400).json({ success: false, error: pwv.error });
 
         const newITUser = {
             id: crypto.randomUUID(),
@@ -3145,27 +3158,31 @@ app.post('/api/it-bootstrap', loginRateLimiter, (req, res) => {
 app.post('/api/it-login', loginRateLimiter, (req, res) => {
     try {
         const rawEmail = req.body?.email;
-        const rawPin = req.body?.pin;
+        const rawPassword = req.body?.password || req.body?.pin; // accept both during transition
         const email = (rawEmail || '').trim().toLowerCase();
-        const pin = (rawPin || '').trim();
+        const password = (rawPassword || '').trim();
 
-        if (!email || !pin) {
-            return res.status(400).json({ success: false, error: 'Email and PIN are required' });
+        if (!email || !password) {
+            return res.status(400).json({ success: false, error: 'Email and password are required' });
         }
 
-        if (!/^\d{6}$/.test(pin)) {
-            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
+        // Accept legacy 6-digit PINs so existing accounts are not locked out;
+        // new or reset passwords must meet the stricter policy.
+        const isLegacyPin = /^\d{6}$/.test(password);
+        if (!isLegacyPin) {
+            const pwv = validateITPassword(password);
+            if (!pwv.valid) return res.status(400).json({ success: false, error: pwv.error });
         }
 
         let itUsers = readJSON(itUsersFile);
-        const itUser = itUsers.find(u => (u.email || '').toLowerCase() === email && verifyPassword(pin, u.password));
+        const itUser = itUsers.find(u => (u.email || '').toLowerCase() === email && verifyPassword(password, u.password));
 
         if (!itUser) {
-            return res.status(401).json({ success: false, error: 'Invalid IT email or PIN' });
+            return res.status(401).json({ success: false, error: 'Invalid IT email or password' });
         }
 
         // Transparently upgrade password hash to bcrypt on successful login
-        rehashIfNeeded(pin, itUser.password, itUser, itUsers, itUsersFile);
+        rehashIfNeeded(password, itUser.password, itUser, itUsers, itUsersFile);
 
         const token = createSession(itUser, 'it');
 
@@ -3182,23 +3199,22 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
 app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
     try {
         const rawEmail = req.body?.email;
-        const rawPin = req.body?.pin;
-        const rawFullName = req.body?.fullName;
+        const rawPassword = req.body?.password || req.body?.pin;
+        const rawFullName = req.body?.fullName || req.body?.name;
         const email = (rawEmail || '').trim().toLowerCase();
-        const pin = (rawPin || '').trim();
+        const pin = (rawPassword || '').trim();
         const fullName = (rawFullName || '').trim();
 
         if (!email || !pin || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email, PIN, and name are required' });
+            return res.status(400).json({ success: false, error: 'Email, password, and name are required' });
         }
 
         if (!validateDepEdEmail(email)) {
             return res.status(400).json({ success: false, error: 'Please use a valid DepEd email (@deped.gov.ph)' });
         }
 
-        if (!/^\d{6}$/.test(pin)) {
-            return res.status(400).json({ success: false, error: 'PIN must be exactly 6 digits' });
-        }
+        const pwv = validateITPassword(pin);
+        if (!pwv.valid) return res.status(400).json({ success: false, error: pwv.error });
 
         let itUsers = readJSON(itUsersFile);
         if (itUsers.find(u => (u.email || '').toLowerCase() === email)) {
@@ -3226,7 +3242,7 @@ app.post('/api/add-it-staff', requireAuth('it'), (req, res) => {
 // Update IT Profile endpoint
 app.post('/api/update-it-profile', requireAuth('it'), createProfileUpdateHandler({
     portalName: 'it', portalLabel: 'IT', userFile: itUsersFile,
-    usesPin: true, responseFields: ['id', 'email', 'fullName', 'name']
+    usesPin: false, validatePasswordFn: validateITPassword, responseFields: ['id', 'email', 'fullName', 'name']
 }));
 
 

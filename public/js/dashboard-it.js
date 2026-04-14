@@ -480,7 +480,8 @@ function showAddStaffModal() {
         </div>
         <div class="form-group">
             <label class="form-label">Password</label>
-            <input type="password" class="form-input" id="staff-password" placeholder="Minimum 6 characters">
+            <input type="password" class="form-input" id="staff-password" placeholder="Min 8 chars, letter + number + special">
+            <div style="font-size:11px;color:#666;margin-top:4px">e.g. MyP@ss2025 — must include a letter, number, and special character</div>
         </div>
     `;
 
@@ -501,7 +502,10 @@ function showAddStaffModal() {
         const password = document.getElementById('staff-password')?.value;
 
         if (!name || !email || !password) { toast.warning('All fields are required.'); return; }
-        if (password.length < 6) { toast.warning('Password must be at least 6 characters.'); return; }
+        if (password.length < 8) { toast.warning('Password must be at least 8 characters.'); return; }
+        if (!/[a-zA-Z]/.test(password)) { toast.warning('Password must contain at least one letter.'); return; }
+        if (!/[0-9]/.test(password)) { toast.warning('Password must contain at least one number.'); return; }
+        if (!/[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?]/.test(password)) { toast.warning('Password must contain at least one special character.'); return; }
 
         try {
             const res = await fetch('/api/add-it-staff', {

@@ -267,6 +267,41 @@
             margin-top: 5px;
         }
 
+        .pw-strength {
+            margin-top: 8px;
+            font-size: 11px;
+        }
+        .pw-strength .bar-wrap {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-bottom: 5px;
+            overflow: hidden;
+        }
+        .pw-strength .bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s, background 0.3s;
+            width: 0%;
+        }
+        .pw-strength .req-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 10px;
+        }
+        .pw-strength .req-list li {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #aaa;
+            transition: color 0.2s;
+        }
+        .pw-strength .req-list li.met { color: #1DB954; }
+        .pw-strength .req-list li::before { content: '✗'; font-size: 10px; }
+        .pw-strength .req-list li.met::before { content: '✓'; }
+
         .password-wrapper {
             position: relative;
             display: flex;
@@ -349,12 +384,20 @@
                 <div class="form-group">
                     <label>Password</label>
                     <div class="password-wrapper">
-                        <input type="password" id="loginPassword" placeholder="123456" required>
-                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Show/Hide PIN">
+                        <input type="password" id="loginPassword" placeholder="e.g. MyP@ss2025" required oninput="checkStrength(this.value)">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Show/Hide Password">
                             👁️
                         </button>
                     </div>
-                    <p class="hint">Exactly 6 digits</p>
+                    <div class="pw-strength" id="pwStrength">
+                        <div class="bar-wrap"><div class="bar" id="pwBar"></div></div>
+                        <ul class="req-list">
+                            <li id="req-len">Min 8 characters</li>
+                            <li id="req-letter">Contains a letter</li>
+                            <li id="req-num">Contains a number</li>
+                            <li id="req-special">Special character</li>
+                        </ul>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn" id="loginBtn">
@@ -378,41 +421,54 @@
 
     <script>
         function togglePasswordVisibility() {
-            const passwordInput = document.getElementById('loginPassword');
-            const currentType = passwordInput.type;
-            passwordInput.type = currentType === 'password' ? 'text' : 'password';
+            const input = document.getElementById('loginPassword');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function checkStrength(val) {
+            const reqs = {
+                'req-len':     val.length >= 8,
+                'req-letter':  /[a-zA-Z]/.test(val),
+                'req-num':     /[0-9]/.test(val),
+                'req-special': /[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?]/.test(val)
+            };
+            let met = 0;
+            for (const [id, ok] of Object.entries(reqs)) {
+                document.getElementById(id).classList.toggle('met', ok);
+                if (ok) met++;
+            }
+            const bar = document.getElementById('pwBar');
+            const pct = (met / 4) * 100;
+            bar.style.width = pct + '%';
+            bar.style.background = pct <= 25 ? '#e53935' : pct <= 50 ? '#fb8c00' : pct <= 75 ? '#fdd835' : '#1DB954';
         }
 
         async function handleITLogin(event) {
             event.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const pin = document.getElementById('loginPassword').value;
+            const email    = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
             const messageDiv = document.getElementById('loginMessage');
             const btn = document.getElementById('loginBtn');
-            
+
             messageDiv.style.display = 'none';
             btn.classList.add('loading');
             btn.disabled = true;
-            
+
             try {
                 const response = await fetch('/api/it-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, pin })
+                    body: JSON.stringify({ email, password })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     messageDiv.className = 'message success';
                     messageDiv.textContent = 'Login successful! Redirecting...';
                     messageDiv.style.display = 'block';
-                    
                     localStorage.setItem('itUser', JSON.stringify(data.user));
-                    
-                    setTimeout(() => {
-                        window.location.href = '/it-dashboard.html';
-                    }, 1000);
+                    setTimeout(() => { window.location.href = '/it-dashboard.html'; }, 1000);
                 } else {
                     messageDiv.className = 'message error';
                     messageDiv.textContent = data.error || 'Login failed';
@@ -423,7 +479,7 @@
                 messageDiv.textContent = 'Connection error. Please try again.';
                 messageDiv.style.display = 'block';
             }
-            
+
             btn.classList.remove('loading');
             btn.disabled = false;
         }
