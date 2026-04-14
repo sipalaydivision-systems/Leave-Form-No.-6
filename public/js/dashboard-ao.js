@@ -1,5 +1,5 @@
 /**
- * AO Dashboard — Administrative Officer portal module.
+ * HR Dashboard — HR Portal module (formerly AO).
  *
  * Features: pending approvals, approve/return/reject workflow,
  * employee leave card management, CTO records, approval charts.
@@ -169,8 +169,8 @@ function getGreeting() {
 
 function setupTopbar() {
     const title = document.getElementById('topbar-title');
-    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'AO';
-    if (title) title.textContent = `AO Dashboard — ${firstName}`;
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'HR';
+    if (title) title.textContent = `HR Dashboard — ${firstName}`;
 
     // Hero
     setText('hero-greeting', `${getGreeting()}, ${firstName}`);
@@ -842,7 +842,7 @@ function showProfileModal() {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
             <div><label class="form-label">Name</label><div>${esc(user.name || user.fullName || '')}</div></div>
             <div><label class="form-label">Email</label><div>${esc(user.email || '')}</div></div>
-            <div><label class="form-label">Role</label><div>Administrative Officer</div></div>
+            <div><label class="form-label">Role</label><div>HR Officer</div></div>
         </div>
     `;
     openModal({ title: 'My Profile', content, size: 'md' });

@@ -172,20 +172,79 @@ export function createBarChart(config) {
 
 /**
  * Create a doughnut chart (balance overview).
+ * Visual design follows the shadcn/ui ChartContainer + ChartTooltipContent +
+ * ChartLegendContent pattern: light tooltip with border/shadow, centered legend
+ * with 8×8 px rounded-square (2 px radius) color indicators.
  */
 export function createDoughnutChart(config) {
     const canvas = resolveCanvas(config.el);
     if (!canvas) return null;
 
-    const colors = config.colors || config.data.map((_, i) => COLOR_LIST[i % COLOR_LIST.length]);
+    const colors = config.colors || (config.data || []).map((_, i) => COLOR_LIST[i % COLOR_LIST.length]);
+    const labels  = config.labels || [];
 
+    // ── Legend injection ──────────────────────────────────────────────────────
+    // Walk up to .chart-card-body so the legend can sit below the chart ring.
+    const cardBody = canvas.closest('.chart-card-body');
+    if (cardBody) {
+        // Switch body to column so the legend stacks below the doughnut wrapper.
+        cardBody.style.flexDirection = 'column';
+        cardBody.style.alignItems    = 'center';
+        // Remove stale legend from a previous render before re-injecting.
+        const stale = cardBody.querySelector('.pie-chart-legend');
+        if (stale) stale.remove();
+        // Build legend matching ChartLegendContent style.
+        if (labels.length > 0) {
+            const legendEl = document.createElement('div');
+            legendEl.className = 'pie-chart-legend';
+            legendEl.innerHTML = labels.map((label, i) =>
+                `<div class="pie-chart-legend-item">` +
+                `<span class="pie-chart-legend-dot" style="background:${colors[i % colors.length]}"></span>` +
+                `<span>${label}</span>` +
+                `</div>`
+            ).join('');
+            cardBody.appendChild(legendEl);
+        }
+    }
+
+    // ── Chart options ─────────────────────────────────────────────────────────
     const options = {
         ...getBaseOptions(config.title),
         cutout: config.cutout || '70%',
+        // Entry animation: segments sweep in and scale up from the centre,
+        // matching Recharts' default pie entry animation in the shadcn design.
+        animation: {
+            animateRotate: true,   // arc sweep from 0 → full angle
+            animateScale:  true,   // ring scales from 0 → full radius
+            duration:      700,    // ms — snappy but visible
+            easing:        'easeInOutQuart',
+        },
+        // Hover transition: smooth arc expansion when a segment is hovered.
+        transitions: {
+            active: {
+                animation: {
+                    duration: 200,
+                    easing:   'easeOutQuart',
+                },
+            },
+        },
         plugins: {
             ...getBaseOptions(config.title).plugins,
+            legend: { display: false },
+            // Light tooltip matching ChartTooltipContent: white bg, subtle border,
+            // xs text, label left / value right, 8×8 rounded-square color swatch.
             tooltip: {
-                ...getBaseOptions(config.title).plugins.tooltip,
+                backgroundColor: '#ffffff',
+                titleColor:       '#111827',
+                bodyColor:        '#6b7280',
+                borderColor:      'rgba(0,0,0,0.08)',
+                borderWidth:      1,
+                cornerRadius:     8,
+                padding:          10,
+                boxPadding:       4,
+                boxWidth:         8,
+                boxHeight:        8,
+                displayColors:    true,
                 callbacks: {
                     label: (ctx) => {
                         const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
@@ -200,12 +259,12 @@ export function createDoughnutChart(config) {
     return new Chart(canvas, {
         type: 'doughnut',
         data: {
-            labels: config.labels || [],
+            labels,
             datasets: [{
-                data: config.data || [],
+                data:            config.data || [],
                 backgroundColor: colors,
-                borderWidth: 0,
-                hoverOffset: 6,
+                borderWidth:     0,
+                hoverOffset:     10,   // visible lift on hover
             }],
         },
         options,

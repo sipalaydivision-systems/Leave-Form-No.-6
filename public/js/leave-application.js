@@ -866,7 +866,7 @@
             document.getElementById('ts-submitted').classList.add('completed');
             setTimeout(() => {
                 document.getElementById('ts-ao').classList.add('active');
-                document.getElementById('tracker-status-text').textContent = 'Pending AO Approval';
+                document.getElementById('tracker-status-text').textContent = 'Pending HR Approval';
             }, 400);
         }, 400);
 

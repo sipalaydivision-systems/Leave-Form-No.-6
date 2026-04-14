@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1e3c72">
-    <title>Edit Employee Cards — AO Portal</title>
+    <title>Edit Employee Cards — HR Portal</title>
 
     <link rel="stylesheet" href="/css/design-tokens.css">
     <link rel="stylesheet" href="/css/dashboard-layout.css">
@@ -47,7 +47,7 @@
                     <h1 class="topbar-title" id="topbar-title">Edit Employee Cards</h1>
                 </div>
                 <div class="topbar-right">
-                    <button class="btn btn-outline btn-sm" id="btn-back" title="Back to AO Dashboard">
+                    <button class="btn btn-outline btn-sm" id="btn-back" title="Back to HR Dashboard">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         Dashboard
                     </button>
@@ -372,11 +372,11 @@
             // Sidebar — AO role
             sidebar = initSidebar({
                 el: '#sidebar',
-                profile: { name: parsed.name || parsed.fullName || 'Admin Officer', role: 'Administrative Officer' },
+                profile: { name: parsed.name || parsed.fullName || 'HR Officer', role: 'HR' },
                 roleColor: '#1e3c72',
                 activeId: 'employee-cards',
                 sections: [{
-                    title: 'AO Dashboard',
+                    title: 'HR Dashboard',
                     links: [
                         { id: 'overview', label: 'Overview', icon: ICONS.home, href: '/ao-dashboard' },
                         { id: 'employee-cards', label: 'Employee Cards', icon: ICONS.creditCard },
@@ -402,7 +402,7 @@
                 if (backParam === 'ao-dashboard') {
                     // Coming from Pending Approvals — label the button clearly
                     backBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Pending';
-                    backBtn.title = 'Back to AO Dashboard — Pending Approvals';
+                    backBtn.title = 'Back to HR Dashboard — Pending Approvals';
                 }
                 backBtn.addEventListener('click', () => { window.location.href = '/ao-dashboard'; });
             }
