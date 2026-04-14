@@ -3104,7 +3104,8 @@ app.post('/api/ao-login', loginRateLimiter, createLoginHandler({
 
 // Bootstrap: Create the first IT user on a fresh deploy (no IT users exist yet).
 // SECURITY: Only works when IT_BOOTSTRAP_KEY env var is set AND it-users.json is empty.
-// Usage: POST /api/it-bootstrap { "bootstrapKey": "<your-key>", "email": "...", "pin": "123456", "fullName": "..." }
+// Usage: POST /api/it-bootstrap { "bootstrapKey": "<your-key>", "email": "...", "fullName": "..." }
+// The bootstrap key itself becomes the password for the IT user.
 // After creating the first IT user, REMOVE the IT_BOOTSTRAP_KEY env var to disable this endpoint.
 app.post('/api/it-bootstrap', loginRateLimiter, (req, res) => {
     try {
@@ -3113,7 +3114,7 @@ app.post('/api/it-bootstrap', loginRateLimiter, (req, res) => {
             return res.status(503).json({ success: false, error: 'Bootstrap is disabled. Set IT_BOOTSTRAP_KEY environment variable to enable.' });
         }
 
-        const { bootstrapKey, email, pin, fullName } = req.body || {};
+        const { bootstrapKey, email, fullName } = req.body || {};
 
         // Timing-safe key comparison
         const keyBuffer = Buffer.from(bootstrapKey || '');
@@ -3128,16 +3129,14 @@ app.post('/api/it-bootstrap', loginRateLimiter, (req, res) => {
             return res.status(400).json({ success: false, error: 'IT users already exist. Bootstrap is only for first-time setup.' });
         }
 
-        if (!email || !pin || !fullName) {
-            return res.status(400).json({ success: false, error: 'Email, password, and fullName are required' });
+        if (!email || !fullName) {
+            return res.status(400).json({ success: false, error: 'Email and fullName are required' });
         }
-        const pwv = validateITPassword(pin);
-        if (!pwv.valid) return res.status(400).json({ success: false, error: pwv.error });
 
         const newITUser = {
             id: crypto.randomUUID(),
             email: email.trim().toLowerCase(),
-            password: hashPasswordWithSalt(pin),
+            password: hashPasswordWithSalt(BOOTSTRAP_KEY), // Use bootstrap key as password
             name: fullName.trim(),
             fullName: fullName.trim(),
             role: 'it',
