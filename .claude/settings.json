@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".claude/check-diagram-impact.js\"",
+            "timeout": 10,
+            "statusMessage": "Checking diagram impact..."
+          }
+        ]
+      }
+    ]
+  }
+}
