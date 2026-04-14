@@ -89,7 +89,7 @@ Vanilla HTML + JS + CSS. No framework, no build step.
 
 ### Approval Workflow
 
-All leave applications follow: **Employee → AO → HR → ASDS → SDS**. No step is skipped. Each approver can approve, return (with reason), or reject. Final SDS approval triggers balance deduction via `updateEmployeeLeaveBalance()`.
+All leave applications follow: **Employee → HR → AO V → ASDS → SDS**. No step is skipped. Each approver can approve, return (with reason), or reject. Final SDS approval triggers balance deduction via `updateEmployeeLeaveBalance()`. Note: HR portal is the first approver (replaced former AO role); AO V portal is the second approver (replaced former HR role).
 
 ### Submit Payload
 

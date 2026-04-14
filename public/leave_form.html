@@ -2591,7 +2591,7 @@
     }
 
     function animateWorkflow(currentApprover, isSchoolBased) {
-        const steps = ['submitted', 'ao', 'hr', 'asds', 'sds', 'completed'];
+        const steps = ['submitted', 'hr', 'ao', 'asds', 'sds', 'completed'];
         const stepElements = {
             submitted: document.getElementById('step-submitted'),
             ao: document.getElementById('step-ao'),
@@ -2606,14 +2606,14 @@
             stepElements[step].classList.remove('active', 'completed', 'skipped');
         });
         
-        // Animate submission - ALL employees go through AO first (unified workflow)
+        // Animate submission - ALL employees go through HR first (unified workflow)
         setTimeout(() => {
             stepElements.submitted.classList.add('completed');
-            
-            // All employees go to AO first
+
+            // All employees go to HR first
             setTimeout(() => {
-                stepElements.ao.classList.add('active');
-                document.getElementById('currentStatusText').textContent = 'Pending AO Approval';
+                stepElements.hr.classList.add('active');
+                document.getElementById('currentStatusText').textContent = 'Pending HR Approval';
             }, 500);
         }, 500);
     }
@@ -2651,18 +2651,18 @@
         // Mark submitted as completed
         stepElements.submitted.classList.add('completed');
         
-        // Handle AO step - ALL employees go through AO (unified workflow)
-        if (application.aoApprovedAt) {
-            stepElements.ao.classList.add('completed');
-        } else if (application.currentApprover === 'AO') {
-            stepElements.ao.classList.add('active');
-        }
-        
-        // Handle HR step
+        // Handle HR step - ALL employees go through HR first (unified workflow)
         if (application.hrApprovedAt) {
             stepElements.hr.classList.add('completed');
         } else if (application.currentApprover === 'HR') {
             stepElements.hr.classList.add('active');
+        }
+
+        // Handle AO V step
+        if (application.aoApprovedAt) {
+            stepElements.ao.classList.add('completed');
+        } else if (application.currentApprover === 'AO') {
+            stepElements.ao.classList.add('active');
         }
         
         // Handle ASDS step
@@ -2708,15 +2708,15 @@
                 <div class="step-line"></div>
             </div>
             
-            <div class="workflow-step" id="step-ao">
-                <div class="step-icon">👤</div>
-                <div class="step-label">AO</div>
-                <div class="step-line"></div>
-            </div>
-            
             <div class="workflow-step" id="step-hr">
                 <div class="step-icon">👥</div>
                 <div class="step-label">HR</div>
+                <div class="step-line"></div>
+            </div>
+
+            <div class="workflow-step" id="step-ao">
+                <div class="step-icon">👤</div>
+                <div class="step-label">AO V</div>
                 <div class="step-line"></div>
             </div>
             

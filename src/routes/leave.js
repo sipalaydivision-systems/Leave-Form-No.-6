@@ -204,8 +204,8 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
         // Generate sequential Application ID (SDO Sipalay-01, SDO Sipalay-02, etc.)
         const applicationId = generateApplicationId(applications);
 
-        // ALL applications go to AO first, regardless of whether they're school-based or not
-        // Unified workflow: AO -> HR -> ASDS -> SDS
+        // ALL applications go to HR first, regardless of whether they're school-based or not
+        // Unified workflow: HR -> AO -> ASDS -> SDS
         const newApplication = {
             id: applicationId,
             // SECURITY: Whitelist only expected fields (prevent mass assignment attack)
@@ -246,7 +246,7 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             soFilePath: null,  // Will be set if SO file was uploaded
             isSchoolBased: schoolBased,
             status: 'pending',
-            currentApprover: 'AO',
+            currentApprover: 'HR',
             approvalHistory: [],
             submittedAt: new Date().toISOString()
         };
@@ -310,15 +310,15 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
         });
 
         const officeType = schoolBased ? 'School-based' : 'Division Office';
-        console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (AO first)`);
+        console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (HR first)`);
 
         // Send email notifications — log failures so they appear in Railway logs
         Promise.resolve()
             .then(() => notifyLeaveSubmitted(newApplication))
             .catch(err => console.error('[EMAIL] Failed to notify employee of submission:', err.message));
         Promise.resolve()
-            .then(() => notifyNextApprover(newApplication, 'AO'))
-            .catch(err => console.error('[EMAIL] Failed to notify AO of new application:', err.message));
+            .then(() => notifyNextApprover(newApplication, 'HR'))
+            .catch(err => console.error('[EMAIL] Failed to notify HR of new application:', err.message));
 
         res.json({
             success: true,
@@ -789,9 +789,9 @@ router.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             timestamp: new Date().toISOString()
         });
 
-        // Reset status and send back to AO
+        // Reset status and send back to HR
         app.status = 'pending';
-        app.currentApprover = 'AO';
+        app.currentApprover = 'HR';
         app.resubmittedAt = new Date().toISOString();
 
         applications[appIndex] = app;
@@ -897,13 +897,13 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
 
         if (action === 'returned') {
             // Return application to a specific step or previous step for compliance
-            // Workflow: Employee <- AO <- HR <- ASDS <- SDS
+            // Workflow: Employee <- HR <- AO <- ASDS <- SDS
             // With returnTo parameter, approver can send directly to any lower step
-            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'AO', 'HR', 'ASDS'
+            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'HR', 'AO', 'ASDS'
             let returnedTo = null;
 
             // Define the workflow hierarchy (lower index = lower in chain)
-            const workflowOrder = ['EMPLOYEE', 'AO', 'HR', 'ASDS', 'SDS'];
+            const workflowOrder = ['EMPLOYEE', 'HR', 'AO', 'ASDS', 'SDS'];
             const currentIndex = workflowOrder.indexOf(currentApprover);
 
             if (returnTo && workflowOrder.indexOf(returnTo) < currentIndex) {
@@ -918,18 +918,18 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
                 returnedTo = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
             } else {
                 // Default: return to previous step
-                if (currentApprover === 'AO') {
+                if (currentApprover === 'HR') {
                     app.status = 'returned';
                     app.currentApprover = 'EMPLOYEE';
                     returnedTo = 'Employee';
-                } else if (currentApprover === 'HR') {
-                    app.status = 'pending';
-                    app.currentApprover = 'AO';
-                    returnedTo = 'AO';
-                } else if (currentApprover === 'ASDS') {
+                } else if (currentApprover === 'AO') {
                     app.status = 'pending';
                     app.currentApprover = 'HR';
                     returnedTo = 'HR';
+                } else if (currentApprover === 'ASDS') {
+                    app.status = 'pending';
+                    app.currentApprover = 'AO';
+                    returnedTo = 'AO';
                 } else if (currentApprover === 'SDS') {
                     app.status = 'pending';
                     app.currentApprover = 'ASDS';
@@ -966,23 +966,10 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
 
         } else if (action === 'approved') {
             // Determine next approver based on workflow
-            if (currentApprover === 'AO') {
-                // AO approved -> goes to HR
-                app.currentApprover = 'HR';
-                app.aoApprovedAt = new Date().toISOString();
-                console.log(`[WORKFLOW] AO approved - Moving to HR`);
-            } else if (currentApprover === 'HR') {
-                // HR approved -> goes to ASDS
-                app.currentApprover = 'ASDS';
+            if (currentApprover === 'HR') {
+                // HR approved -> goes to AO
+                app.currentApprover = 'AO';
                 app.hrApprovedAt = new Date().toISOString();
-
-                // Store authorized officer info for Section 7.A of the final form
-                if (authorizedOfficerName) {
-                    app.authorizedOfficerName = authorizedOfficerName;
-                }
-                if (authorizedOfficerSignature) {
-                    app.authorizedOfficerSignature = authorizedOfficerSignature;
-                }
 
                 // Store leave credits certified by HR
                 if (vlEarned !== undefined) app.vlEarned = vlEarned;
@@ -1001,7 +988,21 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
                 if (ctoLess !== undefined) app.ctoLess = ctoLess;
                 if (ctoBalance !== undefined) app.ctoBalance = ctoBalance;
 
-                console.log(`[WORKFLOW] HR approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
+                console.log(`[WORKFLOW] HR approved - Moving to AO`);
+            } else if (currentApprover === 'AO') {
+                // AO approved -> goes to ASDS
+                app.currentApprover = 'ASDS';
+                app.aoApprovedAt = new Date().toISOString();
+
+                // Store authorized officer info for Section 7.A of the final form
+                if (authorizedOfficerName) {
+                    app.authorizedOfficerName = authorizedOfficerName;
+                }
+                if (authorizedOfficerSignature) {
+                    app.authorizedOfficerSignature = authorizedOfficerSignature;
+                }
+
+                console.log(`[WORKFLOW] AO approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
             } else if (currentApprover === 'ASDS') {
                 // ASDS approved -> goes to SDS
                 app.currentApprover = 'SDS';
@@ -1197,9 +1198,16 @@ function updateLeaveCardWithUsage(application, vlUsed, slUsed) {
 
         // Deduct from balance based on leave type
         if (forceLeaveUsed > 0) {
-            // Force Leave is a separate 5-day yearly allocation — NOT charged against VL
+            // Force Leave is charged against VL credits (per CSC rules) and also
+            // counts toward the 5-day annual FL quota tracked by forceLeaveSpent.
             leavecard.forceLeaveSpent = (leavecard.forceLeaveSpent || 0) + forceLeaveUsed;
-            // Do NOT deduct from leavecard.vl or vacationLeaveSpent
+            const currentVlForFL = leavecard.vl || 0;
+            const actualFlVlDeduction = Math.min(forceLeaveUsed, currentVlForFL);
+            leavecard.vl = Math.max(0, currentVlForFL - actualFlVlDeduction);
+            leavecard.vacationLeaveSpent = (leavecard.vacationLeaveSpent || 0) + actualFlVlDeduction;
+            if (forceLeaveUsed > currentVlForFL) {
+                console.log(`[LEAVECARD] FL VL capped: requested ${forceLeaveUsed} but only ${currentVlForFL} VL available for ${application.employeeEmail}`);
+            }
         } else if (splUsed > 0) {
             leavecard.splSpent = (leavecard.splSpent || 0) + splUsed;
         } else if (wellnessUsed > 0) {

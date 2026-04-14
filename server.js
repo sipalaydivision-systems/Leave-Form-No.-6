@@ -4424,8 +4424,8 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         // Generate sequential Application ID (SDO Sipalay-01, SDO Sipalay-02, etc.)
         const applicationId = generateApplicationId(applications);
         
-        // ALL applications go to AO first, regardless of whether they're school-based or not
-        // Unified workflow: AO â†’ HR â†’ ASDS â†’ SDS
+        // ALL applications go to HR first, regardless of whether they're school-based or not
+        // Unified workflow: HR → AO → ASDS → SDS
         const newApplication = {
             id: applicationId,
             // SECURITY: Whitelist only expected fields (prevent mass assignment attack)
@@ -4463,11 +4463,11 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
             soFilePath: null,  // Will be set if SO file was uploaded
             isSchoolBased: schoolBased,
             status: 'pending',
-            currentApprover: 'AO',
+            currentApprover: 'HR',
             approvalHistory: [],
             submittedAt: new Date().toISOString()
         };
-        
+
         applications.push(newApplication);
         
         // Save SO PDF file to disk if provided (instead of keeping base64 in JSON)
@@ -4509,11 +4509,11 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         });
         
         const officeType = schoolBased ? 'School-based' : 'Division Office';
-        console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (AO first)`);
+        console.log(`[LEAVE] New application submitted by ${applicationData.employeeName} - ${officeType} (HR first)`);
         
         // Send email notifications (fire-and-forget)
         notifyLeaveSubmitted(newApplication);
-        notifyNextApprover(newApplication, 'AO');
+        notifyNextApprover(newApplication, 'HR');
         
         res.json({ 
             success: true, 
@@ -5389,9 +5389,9 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
             timestamp: new Date().toISOString()
         });
         
-        // Reset status and send back to AO
+        // Reset status and send back to HR
         app.status = 'pending';
-        app.currentApprover = 'AO';
+        app.currentApprover = 'HR';
         app.resubmittedAt = new Date().toISOString();
         
         applications[appIndex] = app;
@@ -5683,13 +5683,13 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         
         if (action === 'returned') {
             // Return application to a specific step or previous step for compliance
-            // Workflow: Employee <- AO <- HR <- ASDS <- SDS
+            // Workflow: Employee <- HR <- AO <- ASDS <- SDS
             // With returnTo parameter, approver can send directly to any lower step
-            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'AO', 'HR', 'ASDS'
+            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'HR', 'AO', 'ASDS'
             let returnedTo = null;
             
             // Define the workflow hierarchy (lower index = lower in chain)
-            const workflowOrder = ['EMPLOYEE', 'AO', 'HR', 'ASDS', 'SDS'];
+            const workflowOrder = ['EMPLOYEE', 'HR', 'AO', 'ASDS', 'SDS'];
             const currentIndex = workflowOrder.indexOf(currentApprover);
             
             if (returnTo && workflowOrder.indexOf(returnTo) < currentIndex) {
@@ -5704,18 +5704,18 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
                 returnedTo = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
             } else {
                 // Default: return to previous step
-                if (currentApprover === 'AO') {
+                if (currentApprover === 'HR') {
                     app.status = 'returned';
                     app.currentApprover = 'EMPLOYEE';
                     returnedTo = 'Employee';
-                } else if (currentApprover === 'HR') {
-                    app.status = 'pending';
-                    app.currentApprover = 'AO';
-                    returnedTo = 'AO';
-                } else if (currentApprover === 'ASDS') {
+                } else if (currentApprover === 'AO') {
                     app.status = 'pending';
                     app.currentApprover = 'HR';
                     returnedTo = 'HR';
+                } else if (currentApprover === 'ASDS') {
+                    app.status = 'pending';
+                    app.currentApprover = 'AO';
+                    returnedTo = 'AO';
                 } else if (currentApprover === 'SDS') {
                     app.status = 'pending';
                     app.currentApprover = 'ASDS';
@@ -5748,15 +5748,15 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
             
         } else if (action === 'approved') {
             // Determine next approver based on workflow
-            if (currentApprover === 'AO') {
-                // AO approved -> goes to HR
-                app.currentApprover = 'HR';
-                app.aoApprovedAt = new Date().toISOString();
-                console.log(`[WORKFLOW] AO approved - Moving to HR`);
-            } else if (currentApprover === 'HR') {
-                // HR approved -> goes to ASDS
-                app.currentApprover = 'ASDS';
+            if (currentApprover === 'HR') {
+                // HR approved -> goes to AO
+                app.currentApprover = 'AO';
                 app.hrApprovedAt = new Date().toISOString();
+                console.log(`[WORKFLOW] HR approved - Moving to AO`);
+            } else if (currentApprover === 'AO') {
+                // AO approved -> goes to ASDS
+                app.currentApprover = 'ASDS';
+                app.aoApprovedAt = new Date().toISOString();
                 
                 // Store authorized officer info for Section 7.A of the final form
                 if (authorizedOfficerName) {
@@ -5783,7 +5783,7 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
                 if (ctoLess !== undefined) app.ctoLess = ctoLess;
                 if (ctoBalance !== undefined) app.ctoBalance = ctoBalance;
                 
-                console.log(`[WORKFLOW] HR approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
+                console.log(`[WORKFLOW] AO approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
             } else if (currentApprover === 'ASDS') {
                 // ASDS approved -> goes to SDS
                 app.currentApprover = 'SDS';
