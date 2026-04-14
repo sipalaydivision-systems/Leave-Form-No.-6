@@ -618,7 +618,7 @@ function wireDataCategory({ loadBtnId, clearBtnId, tableElId, countElId, categor
                     const delRes = await fetch('/api/delete-specific-items', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ category: cat, ids: [itemId] }),
+                        body: JSON.stringify({ category: cat, itemIds: [itemId] }),
                     });
                     if (delRes.ok) {
                         toast.success('Record deleted.');
