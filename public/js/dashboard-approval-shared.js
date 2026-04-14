@@ -223,8 +223,8 @@ export async function showApprovalModal(app, portal, user, onDone) {
         </div>
         ${balanceHtml}
         <div class="form-group">
-            <label class="form-label">Remarks (optional)</label>
-            <textarea id="approval-remarks" class="form-textarea" rows="2" placeholder="Add remarks..."></textarea>
+            <label class="form-label">Remarks <span id="remarks-required-note" style="color:var(--color-danger);display:none">* required for Return/Reject</span></label>
+            <textarea id="approval-remarks" class="form-textarea" rows="2" placeholder="Add remarks... (required when returning or rejecting)"></textarea>
         </div>
         <div class="card" style="margin-top:var(--space-4)">
             <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">${sigLabel}</h4></div>
@@ -256,23 +256,30 @@ export async function showApprovalModal(app, portal, user, onDone) {
     // Initialize signature canvas
     initSharedSignatureCanvas('shared-sig-canvas', 'shared-sig-clear', 'shared-sig-upload');
 
-    async function doAction(action) {
-        const remarks = document.getElementById('approval-remarks')?.value || '';
+    // Build return-to options based on portal level
+    const RETURN_OPTIONS = {
+        ASDS: [
+            { value: 'HR',       label: 'Admin Officer V (previous approver)' },
+            { value: 'AO',       label: 'HR Portal' },
+            { value: 'EMPLOYEE', label: 'Employee (for revision)' },
+        ],
+        SDS: [
+            { value: 'ASDS',     label: 'ASDS (previous approver)' },
+            { value: 'HR',       label: 'Admin Officer V' },
+            { value: 'AO',       label: 'HR Portal' },
+            { value: 'EMPLOYEE', label: 'Employee (for revision)' },
+        ],
+    };
+
+    async function submitAction(action, remarks, returnTo) {
         const approverName = user.name || user.fullName || '';
+        const payload = { applicationId: appId, action, remarks, portal, approverName };
 
-        const payload = {
-            applicationId: appId,
-            action,
-            remarks,
-            portal,
-            approverName,
-        };
+        if (returnTo) payload.returnTo = returnTo;
 
-        // Capture signature for approve action
         if (action === 'approved') {
             const canvas = document.getElementById('shared-sig-canvas');
             const sigData = canvas ? canvas.toDataURL('image/png') : '';
-
             if (portalUpper === 'ASDS') {
                 payload.asdsOfficerName = approverName;
                 if (sigData) payload.asdsOfficerSignature = sigData;
@@ -282,7 +289,6 @@ export async function showApprovalModal(app, portal, user, onDone) {
             }
         }
 
-        modal.close();
         try {
             const res = await fetch('/api/approve-leave', {
                 method: 'POST',
@@ -297,15 +303,86 @@ export async function showApprovalModal(app, portal, user, onDone) {
                 if (onDone) onDone();
             } else {
                 const data = await res.json().catch(() => ({}));
-                toast.error(data.error?.message || data.message || 'Failed to process.');
+                const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || data.message || 'Failed to process.');
+                toast.error(errMsg);
             }
         } catch { toast.error('Network error.'); }
     }
 
+    function openReturnModal() {
+        const returnOpts = RETURN_OPTIONS[portalUpper] || [];
+        const selectHtml = returnOpts.length
+            ? `<div class="form-group" style="margin-bottom:var(--space-3)">
+                <label class="form-label">Return To</label>
+                <select class="form-input" id="shared-return-target">
+                    ${returnOpts.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
+                </select>
+               </div>`
+            : '';
+
+        const retModal = openModal({
+            title: 'Return Application',
+            content: `
+                <p>Return <strong>${esc(appId)}</strong>.</p>
+                ${selectHtml}
+                <div class="form-group">
+                    <label class="form-label">Reason for Return <span style="color:var(--color-danger)">*</span></label>
+                    <textarea class="form-textarea" id="shared-return-reason" rows="3" placeholder="Specify what needs to be corrected..."></textarea>
+                </div>
+            `,
+            size: 'md',
+            footer: `
+                <button class="btn btn-ghost btn-sm" id="ret-cancel">Cancel</button>
+                <button class="btn btn-warning btn-sm" id="ret-confirm">Return</button>
+            `,
+        });
+
+        document.getElementById('ret-cancel')?.addEventListener('click', () => retModal.close());
+        document.getElementById('ret-confirm')?.addEventListener('click', async () => {
+            const reason = document.getElementById('shared-return-reason')?.value?.trim() || '';
+            const returnTo = document.getElementById('shared-return-target')?.value || undefined;
+            if (!reason) { toast.warning('Please provide a reason for return.'); return; }
+            retModal.close();
+            modal.close();
+            await submitAction('returned', reason, returnTo);
+        });
+    }
+
+    function openRejectModal() {
+        const rejModal = openModal({
+            title: 'Reject Application',
+            content: `
+                <p>Permanently reject <strong>${esc(appId)}</strong>? This cannot be undone.</p>
+                <div class="form-group" style="margin-top:var(--space-3)">
+                    <label class="form-label">Reason for Rejection <span style="color:var(--color-danger)">*</span></label>
+                    <textarea class="form-textarea" id="shared-reject-reason" rows="3" placeholder="Specify the reason for rejection..."></textarea>
+                </div>
+            `,
+            size: 'md',
+            footer: `
+                <button class="btn btn-ghost btn-sm" id="rej-cancel">Cancel</button>
+                <button class="btn btn-danger btn-sm" id="rej-confirm">Reject</button>
+            `,
+        });
+
+        document.getElementById('rej-cancel')?.addEventListener('click', () => rejModal.close());
+        document.getElementById('rej-confirm')?.addEventListener('click', async () => {
+            const reason = document.getElementById('shared-reject-reason')?.value?.trim() || '';
+            if (!reason) { toast.warning('Please provide a reason for rejection.'); return; }
+            rejModal.close();
+            modal.close();
+            await submitAction('rejected', reason);
+        });
+    }
+
     document.getElementById('modal-cancel')?.addEventListener('click', () => modal.close());
-    document.getElementById('modal-approve')?.addEventListener('click', () => doAction('approved'));
-    document.getElementById('modal-return')?.addEventListener('click', () => doAction('returned'));
-    document.getElementById('modal-reject')?.addEventListener('click', () => doAction('rejected'));
+    document.getElementById('modal-approve')?.addEventListener('click', async () => {
+        const remarks = document.getElementById('approval-remarks')?.value || '';
+        modal.close();
+        await submitAction('approved', remarks);
+    });
+    document.getElementById('modal-return')?.addEventListener('click', () => openReturnModal());
+    document.getElementById('modal-reject')?.addEventListener('click', () => openRejectModal());
 }
 
 // ---------------------------------------------------------------------------
