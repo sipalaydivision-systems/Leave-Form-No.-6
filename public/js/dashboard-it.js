@@ -394,7 +394,7 @@ async function loadUsers() {
                     key: 'actions', label: '',
                     render: (v, row) => `<div class="cell-actions">
                         <button class="btn btn-ghost btn-sm btn-reset-pw" data-email="${esc(row.email)}">Reset PW</button>
-                        <button class="btn btn-ghost btn-sm btn-delete-user" data-email="${esc(row.email)}" style="color:var(--color-danger)">Delete</button>
+                        <button class="btn btn-ghost btn-sm btn-delete-user" data-email="${esc(row.email)}" data-portal="${esc(row.portal)}" style="color:var(--color-danger)">Delete</button>
                     </div>`,
                 },
             ],
@@ -424,7 +424,7 @@ async function loadUsers() {
             const resetBtn = e.target.closest('.btn-reset-pw');
             if (resetBtn) { resetPassword(resetBtn.dataset.email); return; }
             const deleteBtn = e.target.closest('.btn-delete-user');
-            if (deleteBtn) deleteUser(deleteBtn.dataset.email);
+            if (deleteBtn) deleteUser(deleteBtn.dataset.email, deleteBtn.dataset.portal);
         });
 
         // Add IT Staff button
@@ -480,7 +480,7 @@ function resetPassword(email) {
     });
 }
 
-function deleteUser(email) {
+function deleteUser(email, portal) {
     confirmModal({
         title: 'Delete User',
         message: `Permanently delete ${email}? This cannot be undone.`,
@@ -491,7 +491,7 @@ function deleteUser(email) {
                 const res = await fetch('/api/delete-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email }),
+                    body: JSON.stringify({ email, portal }),
                 });
                 if (res.ok) {
                     toast.success('User deleted.');
@@ -499,7 +499,10 @@ function deleteUser(email) {
                     users = [];
                     loadUsers();
                     loadOverviewData();
-                } else { toast.error('Failed to delete user.'); }
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    toast.error(data.error || 'Failed to delete user.');
+                }
             } catch { toast.error('Network error.'); }
         },
     });
