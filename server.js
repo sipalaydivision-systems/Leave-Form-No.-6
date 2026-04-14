@@ -2339,17 +2339,17 @@ function generateWorkflowEmail(heading, recipientName, mainMessage, nextSteps, a
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/hr-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-login.html')));
+app.get('/admin-officer-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-officer-login.html')));
 app.get('/asds-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-login.html')));
 app.get('/sds-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-login.html')));
-app.get('/ao-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-login.html')));
-app.get('/ao-register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-register.html')));
+app.get('/hr-register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-register.html')));
 app.get('/it-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-login.html')));
 app.get('/it-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'it-dashboard.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-app.get('/ao-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ao-dashboard.html')));
+app.get('/hr-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-dashboard.html')));
 app.get('/leave-form', (req, res) => res.sendFile(path.join(__dirname, 'public', 'leave-application.html')));
 app.get('/leave-form-legacy', (req, res) => res.sendFile(path.join(__dirname, 'public', 'leave_form.html')));
-app.get('/hr-approval', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hr-approval.html')));
+app.get('/admin-officer-approval', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-officer-approval.html')));
 app.get('/asds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asds-dashboard.html')));
 app.get('/sds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-dashboard.html')));
 app.get('/activity-logs', (req, res) => res.sendFile(path.join(__dirname, 'public', 'activity-logs.html')));
@@ -3058,13 +3058,13 @@ app.get('/api/user-details', requireAuth(), (req, res) => {
     }
 });
 
-// ========== HR REGISTRATION & LOGIN (DRY: uses factory) ==========
-app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
+// ========== ADMIN OFFICER V REGISTRATION & LOGIN (DRY: uses factory) ==========
+app.post('/api/admin-officer-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'hr', portalLabel: 'Admin Officer V', userFile: hrUsersFile,
     excludePortals: ['hr', 'user'],
-    defaultValues: { office: 'Schools Division', position: 'HR Staff' }
+    defaultValues: { office: 'Schools Division', position: 'Administrative Officer V' }
 }));
-app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
+app.post('/api/admin-officer-login', loginRateLimiter, createLoginHandler({
     portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
@@ -3090,12 +3090,12 @@ app.post('/api/sds-login', loginRateLimiter, createLoginHandler({
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
-// ========== AO REGISTRATION & LOGIN (DRY: uses factory) ==========
-app.post('/api/ao-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'ao', portalLabel: 'AO', userFile: aoUsersFile,
+// ========== HR PORTAL REGISTRATION & LOGIN (DRY: uses factory) ==========
+app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'ao', portalLabel: 'HR', userFile: aoUsersFile,
     excludePortals: ['ao', 'user']
 }));
-app.post('/api/ao-login', loginRateLimiter, createLoginHandler({
+app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
     portalName: 'ao', userFile: aoUsersFile, sessionRole: 'ao',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));

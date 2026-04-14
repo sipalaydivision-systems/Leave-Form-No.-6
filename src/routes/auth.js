@@ -364,18 +364,18 @@ const publicDir = path.join(__dirname, '..', '..', 'public');
 
 router.get('/',               (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 router.get('/login',          (req, res) => res.sendFile(path.join(publicDir, 'login.html')));
-router.get('/hr-login',       (req, res) => res.sendFile(path.join(publicDir, 'hr-login.html')));
-router.get('/asds-login',     (req, res) => res.sendFile(path.join(publicDir, 'asds-login.html')));
-router.get('/sds-login',      (req, res) => res.sendFile(path.join(publicDir, 'sds-login.html')));
-router.get('/ao-login',       (req, res) => res.sendFile(path.join(publicDir, 'ao-login.html')));
-router.get('/ao-register',    (req, res) => res.sendFile(path.join(publicDir, 'ao-register.html')));
+router.get('/hr-login',             (req, res) => res.sendFile(path.join(publicDir, 'hr-login.html')));
+router.get('/admin-officer-login',  (req, res) => res.sendFile(path.join(publicDir, 'admin-officer-login.html')));
+router.get('/asds-login',           (req, res) => res.sendFile(path.join(publicDir, 'asds-login.html')));
+router.get('/sds-login',            (req, res) => res.sendFile(path.join(publicDir, 'sds-login.html')));
+router.get('/hr-register',    (req, res) => res.sendFile(path.join(publicDir, 'hr-register.html')));
 router.get('/it-login',       (req, res) => res.sendFile(path.join(publicDir, 'it-login.html')));
 router.get('/it-dashboard',   (req, res) => res.sendFile(path.join(publicDir, 'it-dashboard.html')));
 router.get('/dashboard',      (req, res) => res.sendFile(path.join(publicDir, 'dashboard.html')));
-router.get('/ao-dashboard',   (req, res) => res.sendFile(path.join(publicDir, 'ao-dashboard.html')));
+router.get('/hr-dashboard',   (req, res) => res.sendFile(path.join(publicDir, 'hr-dashboard.html')));
 router.get('/leave-form',     (req, res) => res.sendFile(path.join(publicDir, 'leave-application.html')));
 router.get('/leave-form-legacy', (req, res) => res.sendFile(path.join(publicDir, 'leave_form.html')));
-router.get('/hr-approval',    (req, res) => res.sendFile(path.join(publicDir, 'hr-approval.html')));
+router.get('/admin-officer-approval',    (req, res) => res.sendFile(path.join(publicDir, 'admin-officer-approval.html')));
 router.get('/asds-dashboard', (req, res) => res.sendFile(path.join(publicDir, 'asds-dashboard.html')));
 router.get('/sds-dashboard',  (req, res) => res.sendFile(path.join(publicDir, 'sds-dashboard.html')));
 router.get('/activity-logs',  (req, res) => res.sendFile(path.join(publicDir, 'activity-logs.html')));
@@ -470,13 +470,13 @@ router.post('/api/login', loginRateLimiter, createLoginHandler({
 // ADMIN PORTAL REGISTRATION & LOGIN (DRY: uses factories)
 // =========================================================================
 
-// HR
-router.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
+// Admin Officer V
+router.post('/api/admin-officer-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'hr', portalLabel: 'Admin Officer V', userFile: hrUsersFile,
     excludePortals: ['hr', 'user'],
-    defaultValues: { office: 'Schools Division', position: 'HR Staff' }
+    defaultValues: { office: 'Schools Division', position: 'Administrative Officer V' }
 }));
-router.post('/api/hr-login', loginRateLimiter, createLoginHandler({
+router.post('/api/admin-officer-login', loginRateLimiter, createLoginHandler({
     portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
@@ -502,12 +502,12 @@ router.post('/api/sds-login', loginRateLimiter, createLoginHandler({
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
-// AO
-router.post('/api/ao-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'ao', portalLabel: 'AO', userFile: aoUsersFile,
+// HR Portal (first-level approver, internal role: ao)
+router.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
+    portalName: 'ao', portalLabel: 'HR', userFile: aoUsersFile,
     excludePortals: ['ao', 'user']
 }));
-router.post('/api/ao-login', loginRateLimiter, createLoginHandler({
+router.post('/api/hr-login', loginRateLimiter, createLoginHandler({
     portalName: 'ao', userFile: aoUsersFile, sessionRole: 'ao',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));

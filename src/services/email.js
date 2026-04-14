@@ -305,7 +305,7 @@ function notifyLeaveSubmitted(app) {
         'Application Submitted',
         app.employeeName || empEmail,
         `Your leave application <strong>${app.id}</strong> (${formatLeaveType(app.leaveType)}) for ${app.numDays} day(s) from ${app.dateFrom} to ${app.dateTo} has been submitted successfully.`,
-        'Your application is now with the <strong>Administrative Officer (AO)</strong> for initial review.',
+        'Your application is now with the <strong>HR Portal</strong> for initial review.',
         '#28a745'
     );
     sendEmail(empEmail, app.employeeName || '', subject, html).catch(e => console.error('[EMAIL] Submit notification failed:', e.message));

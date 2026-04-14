@@ -444,12 +444,12 @@
         </div>
         
         <div class="tabs">
-            <button type="button" class="tab active" data-tab="login">AO LOGIN</button>
-            <button type="button" class="tab" data-tab="register">CREATE AO ACCOUNT</button>
+            <button type="button" class="tab active" data-tab="login">HR LOGIN</button>
+            <button type="button" class="tab" data-tab="register">CREATE HR ACCOUNT</button>
         </div>
         
         <div class="form-container">
-            <!-- AO Login Form -->
+            <!-- HR Login Form -->
             <div id="loginForm" class="form-section active">
                 <div id="loginMessage" class="message"></div>
                 
@@ -471,7 +471,7 @@
                     </div>
                     
                     <button type="submit" class="btn btn-primary" id="loginBtn">
-                        <span>AO LOGIN</span>
+                        <span>HR LOGIN</span>
                         <div class="spinner"></div>
                     </button>
                 </form>
@@ -481,7 +481,7 @@
                 </div>
             </div>
             
-            <!-- AO Registration Form -->
+            <!-- HR Registration Form -->
             <div id="registerForm" class="form-section">
                 <div id="registerMessage" class="message"></div>
                 
@@ -497,7 +497,7 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>AO Email <span class="required">*</span></label>
+                        <label>HR Email <span class="required">*</span></label>
                         <input type="email" id="regEmail" placeholder="example@deped.gov.ph" required>
                         <p class="hint">Must be a valid DepEd email ending with @deped.gov.ph</p>
                         <div id="emailError" class="error-message">Please use a valid DepEd email (@deped.gov.ph)</div>
@@ -773,7 +773,7 @@
             btn.disabled = true;
             
             try {
-                const response = await fetch('/api/ao-login', {
+                const response = await fetch('/api/hr-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
@@ -787,7 +787,7 @@
                     messageDiv.textContent = 'Login successful! Redirecting...';
                     messageDiv.style.display = 'block';
                     setTimeout(() => {
-                        window.location.href = '/ao-dashboard';
+                        window.location.href = '/hr-dashboard';
                     }, 1500);
                 } else {
                     messageDiv.className = 'message error';
@@ -849,7 +849,7 @@
             btn.disabled = true;
             
             try {
-                const response = await fetch('/api/ao-register', {
+                const response = await fetch('/api/hr-register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

@@ -12,8 +12,8 @@
     // Detect which portal we're on and return the appropriate login URL
     function getLoginRedirect() {
         var path = window.location.pathname;
-        if (path.includes('ao-') || path.includes('edit-employee-cards') || path.includes('employee-leavecard')) return '/ao-login.html';
-        if (path.includes('hr-')) return '/hr-login.html';
+        if (path.includes('admin-officer-')) return '/admin-officer-login.html';
+        if (path.includes('edit-employee-cards') || path.includes('employee-leavecard') || path.includes('hr-')) return '/hr-login.html';
         if (path.includes('asds-')) return '/asds-login.html';
         if (path.includes('sds-')) return '/sds-login.html';
         if (path.includes('it-') || path.includes('data-management') || path.includes('activity-logs')) return '/it-login.html';
@@ -91,8 +91,8 @@
     // ── portal helpers (duplicated to keep this IIFE self-contained) ──────────
     function getLoginUrl() {
         var p = window.location.pathname;
-        if (p.includes('ao-') || p.includes('edit-employee-cards') || p.includes('employee-leavecard')) return '/ao-login.html';
-        if (p.includes('hr-')) return '/hr-login.html';
+        if (p.includes('admin-officer-')) return '/admin-officer-login.html';
+        if (p.includes('edit-employee-cards') || p.includes('employee-leavecard') || p.includes('hr-')) return '/hr-login.html';
         if (p.includes('asds-')) return '/asds-login.html';
         if (p.includes('sds-')) return '/sds-login.html';
         if (p.includes('it-') || p.includes('data-management') || p.includes('activity-logs')) return '/it-login.html';

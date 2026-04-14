@@ -1190,7 +1190,7 @@ function showResubmitModal(appId) {
 
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                toast.success('Application resubmitted successfully. It will be reviewed by AO.');
+                toast.success('Application resubmitted successfully. It will be reviewed by HR.');
                 modal.close();
                 applications = [];
                 applicationsTable = null;

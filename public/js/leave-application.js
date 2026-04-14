@@ -951,7 +951,7 @@
             document.getElementById('tracker-status-text').style.color = 'var(--color-warning)';
             stopPolling();
         } else {
-            const names = { AO: 'AO', HR: 'HR', ASDS: 'ASDS', SDS: 'SDS' };
+            const names = { AO: 'HR', HR: 'Admin Officer V', ASDS: 'ASDS', SDS: 'SDS' };
             document.getElementById('tracker-status-text').textContent =
                 'Pending ' + (names[app.currentApprover] || '') + ' Approval';
         }

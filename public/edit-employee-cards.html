@@ -359,15 +359,15 @@
             let parsed = null;
             try {
                 const meResp = await fetch('/api/me');
-                if (!meResp.ok) { window.location.href = '/ao-login.html'; return; }
+                if (!meResp.ok) { window.location.href = '/hr-login.html'; return; }
                 const meData = await meResp.json();
                 parsed = meData.user || meData;
                 // Verify this is an AO/IT session (not an employee)
                 const role = (parsed.role || parsed.portal || '').toLowerCase();
                 if (role !== 'ao' && role !== 'it' && role !== 'hr') {
-                    window.location.href = '/ao-login.html'; return;
+                    window.location.href = '/hr-login.html'; return;
                 }
-            } catch(e) { window.location.href = '/ao-login.html'; return; }
+            } catch(e) { window.location.href = '/hr-login.html'; return; }
 
             // Sidebar — AO role
             sidebar = initSidebar({
@@ -378,7 +378,7 @@
                 sections: [{
                     title: 'HR Dashboard',
                     links: [
-                        { id: 'overview', label: 'Overview', icon: ICONS.home, href: '/ao-dashboard' },
+                        { id: 'overview', label: 'Overview', icon: ICONS.home, href: '/hr-dashboard' },
                         { id: 'employee-cards', label: 'Employee Cards', icon: ICONS.creditCard },
                     ],
                 }],
@@ -399,12 +399,12 @@
             const backParam = new URLSearchParams(window.location.search).get('back');
             const backBtn = document.getElementById('btn-back');
             if (backBtn) {
-                if (backParam === 'ao-dashboard') {
+                if (backParam === 'hr-dashboard') {
                     // Coming from Pending Approvals — label the button clearly
                     backBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Pending';
                     backBtn.title = 'Back to HR Dashboard — Pending Approvals';
                 }
-                backBtn.addEventListener('click', () => { window.location.href = '/ao-dashboard'; });
+                backBtn.addEventListener('click', () => { window.location.href = '/hr-dashboard'; });
             }
 
             // Tabs — check URL for tab param

@@ -1,8 +1,8 @@
 /**
- * HR Dashboard — Human Resources certification portal module.
+ * HR Dashboard — HR Portal module (formerly AO).
  *
- * Features: leave credit certification, digital signature capture,
- * approval/return workflow, analytics charts, employee card views.
+ * Features: pending approvals, approve/return/reject workflow,
+ * employee leave card management, CTO records, approval charts.
  */
 
 import { initSidebar, ICONS } from '../components/sidebar.js';
@@ -10,7 +10,7 @@ import { createTabs } from '../components/tabs.js';
 import { createDataTable } from '../components/table.js';
 import { createBarChart, createDoughnutChart, destroyChart } from '../components/chart-wrapper.js';
 import { toast } from '../components/toast.js';
-import { openModal, closeModal, confirmModal } from '../components/modal.js';
+import { openModal, closeModal, closeAllModals, confirmModal } from '../components/modal.js';
 import { renderEmptyState } from '../components/empty-state.js';
 import { initLeaveCalendar } from './leave-calendar-shared.js';
 
@@ -20,19 +20,20 @@ import { initLeaveCalendar } from './leave-calendar-shared.js';
 let user = null;
 let sidebar = null;
 let tabs = null;
-let pendingApps = [];
-let certifiedApps = [];
-let allApps = [];
+let allApplications = [];
 let employees = [];
 
+// Tables
 let pendingTable = null;
-let certifiedTable = null;
+let approvedTable = null;
 let employeesTable = null;
+let ctoTable = null;
 
-let monthlyChart = null;
+// Charts
+let activityChart = null;
 let typesChart = null;
-let statusChart = null;
-let officeChart = null;
+
+// Calendar
 let leaveCalendar = null;
 
 // ---------------------------------------------------------------------------
@@ -58,13 +59,16 @@ async function init() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
 async function fetchUser() {
     const res = await fetch('/api/me');
     if (!res.ok) { window.location.href = '/hr-login'; return null; }
     const data = await res.json();
     const u = data.user || data;
     const role = (u.role || u.portal || '').toLowerCase();
-    if (role !== 'hr' && role !== 'it') { window.location.href = '/hr-login'; return null; }
+    if (role !== 'ao' && role !== 'it') { window.location.href = '/hr-login'; return null; }
     if (u.mustChangePassword) { window.location.href = '/change-password.html'; return null; }
     return u;
 }
@@ -76,18 +80,18 @@ function setupSidebar() {
     sidebar = initSidebar({
         el: '#sidebar',
         profile: {
-            name: user.name || user.fullName || 'Admin Officer V',
-            role: 'Admin Officer V',
+            name: user.name || user.fullName || 'HR Officer',
+            role: 'Human Resources',
         },
-        roleColor: '#FF6B00',
+        roleColor: '#1e3c72',
         activeId: 'overview',
         sections: [
             {
                 title: 'Dashboard',
                 links: [
                     { id: 'overview', label: 'Overview', icon: ICONS.home },
-                    { id: 'pending', label: 'Pending Certification', icon: ICONS.clipboardList, badge: 0 },
-                    { id: 'certified', label: 'Certified', icon: ICONS.checkCircle },
+                    { id: 'pending', label: 'Pending Approvals', icon: ICONS.clipboardList, badge: 0 },
+                    { id: 'approved', label: 'Approved', icon: ICONS.checkCircle },
                 ],
             },
             {
@@ -95,7 +99,6 @@ function setupSidebar() {
                 links: [
                     { id: 'cards', label: 'Employee Cards', icon: ICONS.creditCard },
                     { id: 'calendar', label: 'Leave Calendar', icon: ICONS.calendar },
-                    { id: 'reports', label: 'Reports', icon: ICONS.barChart },
                 ],
             },
         ],
@@ -124,10 +127,9 @@ function setupTabs() {
         tabs: [
             { id: 'overview', label: 'Overview' },
             { id: 'pending', label: 'Pending', badge: 0 },
-            { id: 'certified', label: 'Certified' },
+            { id: 'approved', label: 'Approved' },
             { id: 'cards', label: 'Employee Cards' },
             { id: 'calendar', label: 'Calendar' },
-            { id: 'reports', label: 'Reports' },
         ],
         activeTab: 'overview',
         onChange: (tabId) => {
@@ -139,16 +141,21 @@ function setupTabs() {
 
 function onTabChange(tabId) {
     switch (tabId) {
-        case 'pending': if (!pendingTable) renderPendingTable(); break;
-        case 'certified': if (!certifiedTable) renderCertifiedTable(); break;
-        case 'cards': if (!employeesTable) loadEmployees(); break;
+        case 'pending':
+            if (!pendingTable) renderPendingTable();
+            break;
+        case 'approved':
+            if (!approvedTable) renderApprovedTable();
+            break;
+        case 'cards':
+            if (!employeesTable) loadEmployees();
+            break;
         case 'calendar':
             if (!leaveCalendar) {
-                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'hr', email: user.email });
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'ao', email: user.email });
             }
             leaveCalendar.load();
             break;
-        case 'reports': renderReportCharts(); break;
     }
 }
 
@@ -171,6 +178,7 @@ function setupTopbar() {
     setText('hero-date', dateParts.filter(Boolean).join(' · '));
 
     document.getElementById('btn-refresh')?.addEventListener('click', refreshAll);
+
     document.getElementById('btn-view-all-pending')?.addEventListener('click', () => {
         tabs.setActive('pending');
         sidebar.setActive('pending');
@@ -179,8 +187,9 @@ function setupTopbar() {
 
 async function refreshAll() {
     toast.info('Refreshing...');
+    allApplications = [];
     pendingTable = null;
-    certifiedTable = null;
+    approvedTable = null;
     await loadOverviewData();
     toast.success('Data refreshed.');
 }
@@ -189,50 +198,60 @@ async function refreshAll() {
 // Overview Data
 // ---------------------------------------------------------------------------
 async function loadOverviewData() {
-    const [pendingRes, certifiedRes] = await Promise.all([
-        fetch(`/api/pending-applications/HR?t=${Date.now()}`).then(r => r.ok ? r.json() : null),
-        fetch(`/api/hr-approved-applications?t=${Date.now()}`).then(r => r.ok ? r.json() : null),
-    ]);
+    const res = await fetch(`/api/portal-applications/AO?t=${Date.now()}`);
+    if (!res.ok) {
+        toast.error('Failed to load applications.');
+        return;
+    }
 
-    pendingApps = pendingRes?.applications || pendingRes || [];
-    certifiedApps = certifiedRes?.applications || certifiedRes || [];
-    allApps = [...pendingApps, ...certifiedApps];
+    const data = await res.json();
+    allApplications = data.applications || data || [];
+
+    const pending = allApplications.filter(a =>
+        a.status === 'pending' && (a.currentApprover || a.current_approver || '').toUpperCase() === 'AO'
+    );
+    const approved = allApplications.filter(a => a.status !== 'pending' || (a.currentApprover || a.current_approver || '').toUpperCase() !== 'AO');
 
     const now = new Date();
-    const thisMonthCertified = certifiedApps.filter(a => {
-        const d = new Date(a.hrApprovedAt || a.hr_approved_at || '');
+    const thisMonth = approved.filter(a => {
+        const d = new Date(a.aoApprovedAt || a.ao_approved_at || a.updatedAt || a.updated_at || '');
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const returned = allApps.filter(a => a.status === 'returned').length;
 
-    setText('stat-pending', pendingApps.length);
-    setText('stat-certified', thisMonthCertified.length);
-    setText('stat-returned', returned);
-    setText('stat-total', allApps.length);
+    // Stat cards
+    setText('stat-pending', pending.length);
+    setText('stat-approved', thisMonth.length);
+    setText('stat-total', allApplications.length);
 
     // Hero metric
-    setText('hero-metric', pendingApps.length);
+    setText('hero-metric', pending.length);
 
-    tabs.updateBadge('pending', pendingApps.length);
-    sidebar.updateBadge('pending', pendingApps.length);
+    // Badges
+    tabs.updateBadge('pending', pending.length);
+    sidebar.updateBadge('pending', pending.length);
 
-    renderRecentPending(pendingApps.slice(0, 5));
-    renderMonthlyChart();
-    renderTypesChart();
+    // Render recent pending
+    renderRecentPending(pending);
+
+    // Charts
+    renderActivityChart(allApplications);
+    renderTypesChart(allApplications);
 }
 
 // ---------------------------------------------------------------------------
 // Recent Pending (Overview)
 // ---------------------------------------------------------------------------
-function renderRecentPending(apps) {
+function renderRecentPending(pending) {
     const container = document.getElementById('recent-pending-list');
     if (!container) return;
 
-    if (apps.length === 0) {
+    const recent = pending.slice(0, 5);
+
+    if (recent.length === 0) {
         renderEmptyState(container, {
             icon: 'inbox',
-            title: 'No Pending Certifications',
-            description: 'All caught up! No applications awaiting HR certification.',
+            title: 'No Pending Applications',
+            description: 'All caught up! No applications awaiting your review.',
         });
         return;
     }
@@ -241,121 +260,117 @@ function renderRecentPending(apps) {
     html += '<th>Employee</th><th>Leave Type</th><th>Period</th><th>Days</th><th>Actions</th>';
     html += '</tr></thead><tbody>';
 
-    for (const app of apps) {
+    for (const app of recent) {
+        const name = app.employeeName || app.employee_name || app.employeeEmail || '';
+        const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
+        const from = fmtDate(app.dateFrom || app.date_from);
+        const to = fmtDate(app.dateTo || app.date_to);
         html += `<tr>`;
-        html += `<td>${esc(app.employeeName || app.employee_name || '')}</td>`;
-        html += `<td>${esc(getLeaveTypeLabel(app.leaveType || app.leave_type))}</td>`;
-        html += `<td>${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</td>`;
-        html += `<td>${fmt(toNum(app.numDays || app.num_days))}</td>`;
+        html += `<td>${esc(name)}</td>`;
+        html += `<td>${esc(type)}</td>`;
+        html += `<td>${esc(from)} - ${esc(to)}</td>`;
+        html += `<td>${fmtDays(app)}</td>`;
         html += `<td><div class="cell-actions">
-            <button class="btn btn-success btn-sm btn-certify" data-id="${esc(app.id)}">Certify</button>
-            <button class="btn btn-ghost btn-sm btn-view" data-id="${esc(app.id)}">View</button>
+            <button class="btn btn-success btn-sm btn-quick-approve" data-id="${esc(app.id)}">Approve</button>
+            <button class="btn btn-ghost btn-sm btn-quick-view" data-id="${esc(app.id)}">View</button>
         </div></td>`;
         html += '</tr>';
     }
+
     html += '</tbody></table></div>';
     container.innerHTML = html;
 
+    // Bind quick actions
     container.addEventListener('click', (e) => {
-        const certBtn = e.target.closest('.btn-certify');
-        if (certBtn) { openCertificationModal(certBtn.dataset.id); return; }
-        const viewBtn = e.target.closest('.btn-view');
-        if (viewBtn) showApplicationDetail(viewBtn.dataset.id);
+        const approveBtn = e.target.closest('.btn-quick-approve');
+        if (approveBtn) { showApprovalModal(approveBtn.dataset.id, 'approved'); return; }
+        const viewBtn = e.target.closest('.btn-quick-view');
+        if (viewBtn) { showApplicationDetail(viewBtn.dataset.id); }
     });
 }
 
 // ---------------------------------------------------------------------------
 // Charts
 // ---------------------------------------------------------------------------
-function renderMonthlyChart() {
-    destroyChart(monthlyChart);
+function renderActivityChart(apps) {
+    destroyChart(activityChart);
+    const container = document.getElementById('chart-activity');
+    if (!container) return;
+
     const now = new Date();
     const months = [];
-    const counts = [];
+    const approvedCounts = [];
+    const returnedCounts = [];
 
     for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         months.push(d.toLocaleString('en-US', { month: 'short' }));
-        const m = d.getMonth(), y = d.getFullYear();
-        counts.push(certifiedApps.filter(a => {
-            const dt = new Date(a.hrApprovedAt || a.hr_approved_at || a.updatedAt || '');
-            return dt.getMonth() === m && dt.getFullYear() === y;
+        const m = d.getMonth();
+        const y = d.getFullYear();
+
+        approvedCounts.push(apps.filter(a => {
+            const dt = new Date(a.aoApprovedAt || a.ao_approved_at || a.updatedAt || a.updated_at || '');
+            return dt.getMonth() === m && dt.getFullYear() === y &&
+                   a.status !== 'pending' && a.status !== 'returned';
+        }).length);
+
+        returnedCounts.push(apps.filter(a => {
+            const dt = new Date(a.updatedAt || a.updated_at || '');
+            return dt.getMonth() === m && dt.getFullYear() === y && a.status === 'returned';
         }).length);
     }
 
-    monthlyChart = createBarChart({
-        el: '#chart-monthly',
+    activityChart = createBarChart({
+        el: '#chart-activity',
         labels: months,
-        datasets: [{ label: 'Certified', data: counts, color: '#d32f2f' }],
+        datasets: [
+            { label: 'Forwarded', data: approvedCounts, color: '#2e7d32' },
+            { label: 'Returned', data: returnedCounts, color: '#e65100' },
+        ],
     });
 }
 
-function renderTypesChart() {
+function renderTypesChart(apps) {
     destroyChart(typesChart);
+    const container = document.getElementById('chart-types');
+    if (!container) return;
+
     const typeCounts = {};
-    for (const app of allApps) {
+    for (const app of apps) {
         const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
         typeCounts[type] = (typeCounts[type] || 0) + 1;
     }
-    const total = Object.values(typeCounts).reduce((a, b) => a + b, 0);
+
+    const labels = Object.keys(typeCounts);
+    const data = Object.values(typeCounts);
+    const total = data.reduce((a, b) => a + b, 0);
+
     typesChart = createDoughnutChart({
         el: '#chart-types',
-        labels: Object.keys(typeCounts),
-        data: Object.values(typeCounts),
-        colors: ['#1565c0', '#c62828', '#e65100', '#6a1b9a', '#2e7d32', '#ff8f00', '#283593'],
+        labels,
+        data,
+        colors: ['#1565c0', '#c62828', '#e65100', '#6a1b9a', '#2e7d32', '#ff8f00', '#283593', '#00838f'],
     });
+
     setText('chart-types-total', total);
 }
 
-function renderReportCharts() {
-    // Status distribution
-    destroyChart(statusChart);
-    const statusCounts = {};
-    for (const app of allApps) {
-        const s = app.status || 'pending';
-        statusCounts[s] = (statusCounts[s] || 0) + 1;
-    }
-    statusChart = createBarChart({
-        el: '#chart-status',
-        labels: Object.keys(statusCounts),
-        datasets: [{ label: 'Count', data: Object.values(statusCounts), colors: Object.keys(statusCounts).map(s => {
-            if (s === 'approved') return '#2e7d32';
-            if (s === 'pending') return '#ff8f00';
-            if (s === 'returned') return '#e65100';
-            if (s === 'rejected') return '#c62828';
-            return '#546e7a';
-        }) }],
-        dimOnHover: true,
-    });
-
-    // Office breakdown
-    destroyChart(officeChart);
-    const officeCounts = {};
-    for (const app of allApps) {
-        const o = app.office || 'Unknown';
-        officeCounts[o] = (officeCounts[o] || 0) + 1;
-    }
-    const sorted = Object.entries(officeCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    officeChart = createBarChart({
-        el: '#chart-office',
-        labels: sorted.map(e => e[0].length > 25 ? e[0].substring(0, 25) + '...' : e[0]),
-        datasets: [{ label: 'Applications', data: sorted.map(e => e[1]), color: '#d32f2f' }],
-        horizontal: true,
-    });
-}
-
 // ---------------------------------------------------------------------------
-// Pending Table
+// Pending Approvals Table
 // ---------------------------------------------------------------------------
 function renderPendingTable() {
-    const tableData = pendingApps.map(app => ({
+    const pending = allApplications.filter(a =>
+        a.status === 'pending' && (a.currentApprover || a.current_approver || '').toUpperCase() === 'AO'
+    );
+
+    const tableData = pending.map(app => ({
         id: app.id,
-        employee: app.employeeName || app.employee_name || '',
+        employee: app.employeeName || app.employee_name || app.employeeEmail || '',
         leaveType: getLeaveTypeLabel(app.leaveType || app.leave_type),
         dates: fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to),
         numDays: toNum(app.numDays || app.num_days),
-        office: app.office || '',
         filed: fmtDate(app.submittedAt || app.created_at || app.createdAt),
+        office: app.office || '',
         _raw: app,
     }));
 
@@ -367,324 +382,241 @@ function renderPendingTable() {
             { key: 'dates', label: 'Period', sortable: false },
             { key: 'numDays', label: 'Days', sortable: true, type: 'number' },
             { key: 'office', label: 'Office', sortable: true },
+            { key: 'filed', label: 'Filed', sortable: true, type: 'date' },
             {
                 key: 'actions', label: 'Actions',
                 render: (val, row) => `<div class="cell-actions">
-                    <button class="btn btn-success btn-sm btn-certify" data-id="${esc(row.id)}">Certify</button>
+                    <button class="btn btn-success btn-sm btn-approve" data-id="${esc(row.id)}">Approve</button>
                     <button class="btn btn-warning btn-sm btn-return" data-id="${esc(row.id)}">Return</button>
+                    <button class="btn btn-danger btn-sm btn-reject" data-id="${esc(row.id)}">Reject</button>
+                    <button class="btn btn-ghost btn-sm btn-view" data-id="${esc(row.id)}">View</button>
+                    <button class="btn btn-ghost btn-sm btn-view-card" data-id="${esc(row.id)}" title="View Leave Card">Card</button>
                 </div>`,
             },
         ],
         data: tableData,
         searchable: true,
         searchKeys: ['employee', 'leaveType', 'office'],
+        searchPlaceholder: 'Search pending applications...',
         pageSize: 15,
-        emptyTitle: 'No Pending Certifications',
-        emptyMessage: 'All applications have been processed.',
+        emptyTitle: 'No Pending Applications',
+        emptyMessage: 'There are no applications awaiting your review.',
     });
 
     bindTableActions('#pending-table');
 }
 
 // ---------------------------------------------------------------------------
-// Certified Table
+// Approved Table
 // ---------------------------------------------------------------------------
-function renderCertifiedTable() {
-    const tableData = certifiedApps.map(app => ({
+function renderApprovedTable() {
+    const processed = allApplications.filter(a =>
+        a.status !== 'pending' || (a.currentApprover || a.current_approver || '').toUpperCase() !== 'AO'
+    );
+
+    const tableData = processed.map(app => ({
         id: app.id,
-        employee: app.employeeName || app.employee_name || '',
+        employee: app.employeeName || app.employee_name || app.employeeEmail || '',
         leaveType: getLeaveTypeLabel(app.leaveType || app.leave_type),
         dates: fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to),
         numDays: toNum(app.numDays || app.num_days),
         status: app.status || 'pending',
         currentApprover: app.currentApprover || app.current_approver || '',
-        certified: fmtDate(app.hrApprovedAt || app.hr_approved_at),
         _raw: app,
     }));
 
-    certifiedTable = createDataTable({
-        el: '#certified-table',
+    approvedTable = createDataTable({
+        el: '#approved-table',
         columns: [
             { key: 'employee', label: 'Employee', sortable: true },
             { key: 'leaveType', label: 'Leave Type', sortable: true },
             { key: 'dates', label: 'Period', sortable: false },
             { key: 'numDays', label: 'Days', sortable: true, type: 'number' },
-            { key: 'status', label: 'Status', sortable: true, render: (v, r) => statusBadge(v, r.currentApprover) },
-            { key: 'certified', label: 'Certified', sortable: true, type: 'date' },
-            { key: 'actions', label: '', render: (v, r) => `<button class="btn btn-ghost btn-sm btn-view" data-id="${esc(r.id)}">View</button>` },
+            {
+                key: 'status', label: 'Status', sortable: true,
+                render: (val, row) => statusBadge(val, row.currentApprover),
+            },
+            {
+                key: 'actions', label: '',
+                render: (val, row) => `<button class="btn btn-ghost btn-sm btn-view" data-id="${esc(row.id)}">View</button>`,
+            },
         ],
         data: tableData,
         searchable: true,
-        searchKeys: ['employee', 'leaveType'],
+        searchKeys: ['employee', 'leaveType', 'status'],
         pageSize: 15,
         filters: [
             { key: 'status', label: 'Status', options: ['All', 'pending', 'approved', 'returned', 'rejected'] },
         ],
-        emptyTitle: 'No Certified Applications',
-        emptyMessage: 'No applications have been certified yet.',
+        emptyTitle: 'No Processed Applications',
+        emptyMessage: 'No applications have been processed yet.',
         onRowClick: (row) => showApplicationDetail(row.id),
     });
 
-    bindTableActions('#certified-table');
+    bindTableActions('#approved-table');
 }
 
+// ---------------------------------------------------------------------------
+// Table Action Delegation
+// ---------------------------------------------------------------------------
 function bindTableActions(selector) {
-    document.querySelector(selector)?.addEventListener('click', (e) => {
-        const certBtn = e.target.closest('.btn-certify');
-        if (certBtn) { e.stopPropagation(); openCertificationModal(certBtn.dataset.id); return; }
-        const retBtn = e.target.closest('.btn-return');
-        if (retBtn) { e.stopPropagation(); showReturnModal(retBtn.dataset.id); return; }
+    const el = document.querySelector(selector);
+    if (!el) return;
+
+    el.addEventListener('click', (e) => {
+        const approveBtn = e.target.closest('.btn-approve');
+        if (approveBtn) { e.stopPropagation(); showApprovalModal(approveBtn.dataset.id, 'approved'); return; }
+
+        const returnBtn = e.target.closest('.btn-return');
+        if (returnBtn) { e.stopPropagation(); showApprovalModal(returnBtn.dataset.id, 'returned'); return; }
+
+        const rejectBtn = e.target.closest('.btn-reject');
+        if (rejectBtn) { e.stopPropagation(); showApprovalModal(rejectBtn.dataset.id, 'rejected'); return; }
+
         const viewBtn = e.target.closest('.btn-view');
-        if (viewBtn) { e.stopPropagation(); showApplicationDetail(viewBtn.dataset.id); }
+        if (viewBtn) { e.stopPropagation(); showApplicationDetail(viewBtn.dataset.id); return; }
+
+        const cardBtn = e.target.closest('.btn-view-card');
+        if (cardBtn) { e.stopPropagation(); viewApplicantLeaveCard(cardBtn.dataset.id); }
     });
 }
 
 // ---------------------------------------------------------------------------
-// HR Certification Modal (core workflow)
+// Approval Modal
 // ---------------------------------------------------------------------------
-async function openCertificationModal(appId) {
-    const app = [...pendingApps, ...certifiedApps].find(a => a.id === appId);
+async function showApprovalModal(appId, action) {
+    const app = allApplications.find(a => a.id === appId);
     if (!app) { toast.warning('Application not found.'); return; }
 
-    const email = app.employeeEmail || app.employee_email;
-    toast.info('Loading leave credits...');
+    const actionLabel = action === 'approved' ? 'Approve & Forward to HR' : action === 'returned' ? 'Return' : 'Reject';
+    const actionClass = action === 'approved' ? 'btn-success' : action === 'returned' ? 'btn-warning' : 'btn-danger';
+    const employee = app.employeeName || app.employee_name || app.employeeEmail || '';
+    const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
+    const email = app.employeeEmail || app.employee_email || '';
 
-    // Fetch employee credits + CTO in parallel
-    const [creditsRes, ctoRes] = await Promise.all([
-        fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]);
+    // Fetch live leave balances
+    let balanceHtml = '';
+    if (email) {
+        const [creditsRes, ctoRes] = await Promise.all([
+            fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch(`/api/cto-records?employeeId=${encodeURIComponent(email)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        const credits = creditsRes?.credits || {};
+        const ctoRecords = ctoRes?.records || [];
+        const ctoBalance = ctoRecords.reduce((s, r) => s + toNum(toNum(r.daysGranted) - toNum(r.daysUsed)), 0);
 
-    const credits = creditsRes?.credits || {};
-    const ctoRecords = ctoRes?.records || [];
-    const ctoBalance = ctoRecords.reduce((s, r) => s + toNum(r.balance || (toNum(r.daysGranted || r.days_granted) - toNum(r.daysUsed || r.days_used))), 0);
+        const vlEarned = toNum(credits.vacationLeaveEarned);
+        const vlSpent  = toNum(credits.vacationLeaveSpent);
+        const slEarned = toNum(credits.sickLeaveEarned);
+        const slSpent  = toNum(credits.sickLeaveSpent);
+        const splEarned = toNum(credits.splEarned || credits.spl || 3);
+        const splSpent  = toNum(credits.splSpent);
+        const flEarned  = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
+        const flSpent   = toNum(credits.forceLeaveSpent);
+        const wlEarned  = toNum(credits.wellnessEarned || 5);
+        const wlSpent   = toNum(credits.wellnessSpent);
 
-    const vlEarned = toNum(credits.vacationLeaveEarned || credits.vacation_leave_earned);
-    const vlSpent = toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
-    const slEarned = toNum(credits.sickLeaveEarned || credits.sick_leave_earned);
-    const slSpent = toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
-    const splEarned = toNum(credits.splEarned || credits.spl || 3);
-    const splSpent = toNum(credits.splSpent);
-    const flEarned = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
-    const flSpent = toNum(credits.forceLeaveSpent);
-    const wlEarned = toNum(credits.wellnessEarned || credits.wellness_earned || 5);
-    const wlSpent = toNum(credits.wellnessSpent || credits.wellness_spent);
-    const ctoEarned = ctoBalance;
-    const ctoSpent = 0;
+        if (creditsRes) {
+            balanceHtml = `
+            <div class="card" style="margin-bottom:var(--space-4)">
+                <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">Leave Credits (Live)</h4></div>
+                <div class="card-body">
+                    <div class="cert-grid">
+                        <div class="cert-grid-header"></div>
+                        <div class="cert-grid-header">Earned</div>
+                        <div class="cert-grid-header">Less</div>
+                        <div class="cert-grid-header">Balance</div>
+                        <div class="cert-grid-label">Vacation Leave</div>
+                        <div class="cert-grid-val">${fmt(vlEarned)}</div>
+                        <div class="cert-grid-val">${fmt(vlSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(vlEarned - vlSpent)}</div>
+                        <div class="cert-grid-label">Sick Leave</div>
+                        <div class="cert-grid-val">${fmt(slEarned)}</div>
+                        <div class="cert-grid-val">${fmt(slSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(slEarned - slSpent)}</div>
+                        <div class="cert-grid-label">Special Privilege</div>
+                        <div class="cert-grid-val">${fmt(splEarned)}</div>
+                        <div class="cert-grid-val">${fmt(splSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(splEarned - splSpent)}</div>
+                        <div class="cert-grid-label">Force Leave</div>
+                        <div class="cert-grid-val">${fmt(flEarned)}</div>
+                        <div class="cert-grid-val">${fmt(flSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(flEarned - flSpent)}</div>
+                        <div class="cert-grid-label">Wellness Leave</div>
+                        <div class="cert-grid-val">${fmt(wlEarned)}</div>
+                        <div class="cert-grid-val">${fmt(wlSpent)}</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(wlEarned - wlSpent)}</div>
+                        <div class="cert-grid-label">CTO</div>
+                        <div class="cert-grid-val">${fmt(ctoBalance)}</div>
+                        <div class="cert-grid-val">—</div>
+                        <div class="cert-grid-val" style="font-weight:var(--font-semibold);color:var(--color-primary)">${fmt(ctoBalance)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
 
-    if (!creditsRes) {
-        toast.warning('Could not load leave credits. Balances may show as 0.');
+    // SO file link in approval modal
+    let soLink = '';
+    const soPath = app.soFilePath || app.so_file_path || '';
+    const soName = app.soFileName || app.so_file_name || '';
+    if (soPath || soName) {
+        const href = soPath || '#';
+        const displayName = soName || 'Special Order (PDF)';
+        soLink = `<p style="margin-top:var(--space-2)"><strong>Attachment:</strong> <a href="${esc(href)}" target="_blank" rel="noopener" style="color:var(--color-primary);text-decoration:underline">${esc(displayName)}</a></p>`;
     }
 
     const content = `
         <div style="margin-bottom:var(--space-4)">
-            <p><strong>Employee:</strong> ${esc(app.employeeName || app.employee_name || '')}</p>
-            <p><strong>Leave Type:</strong> ${esc(getLeaveTypeLabel(app.leaveType || app.leave_type))}</p>
+            <p><strong>Employee:</strong> ${esc(employee)}</p>
+            <p><strong>Leave Type:</strong> ${esc(type)}</p>
             <p><strong>Period:</strong> ${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</p>
-            <p><strong>Days Requested:</strong> ${fmt(toNum(app.numDays || app.num_days))}</p>
+            <p><strong>Days:</strong> ${fmtDays(app)}</p>
+            ${soLink}
         </div>
-
-        <div class="card" style="margin-bottom:var(--space-4)">
-            <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">7.A — Certification of Leave Credits</h4></div>
-            <div class="card-body">
-                <div class="cert-grid">
-                    <div class="cert-grid-header"></div>
-                    <div class="cert-grid-header">Earned</div>
-                    <div class="cert-grid-header">Less</div>
-                    <div class="cert-grid-header">Balance</div>
-
-                    <div class="cert-grid-label">Vacation Leave</div>
-                    <div><input type="number" step="0.001" id="cert-vl-earned" value="${fmt(vlEarned)}"></div>
-                    <div><input type="number" step="0.001" id="cert-vl-less" value="${fmt(vlSpent)}"></div>
-                    <div><input type="number" step="0.001" id="cert-vl-balance" value="${fmt(vlEarned - vlSpent)}" readonly></div>
-
-                    <div class="cert-grid-label">Sick Leave</div>
-                    <div><input type="number" step="0.001" id="cert-sl-earned" value="${fmt(slEarned)}"></div>
-                    <div><input type="number" step="0.001" id="cert-sl-less" value="${fmt(slSpent)}"></div>
-                    <div><input type="number" step="0.001" id="cert-sl-balance" value="${fmt(slEarned - slSpent)}" readonly></div>
-
-                    <div class="cert-grid-label">Special Privilege</div>
-                    <div><input type="number" step="0.001" id="cert-spl-earned" value="${fmt(splEarned)}"></div>
-                    <div><input type="number" step="0.001" id="cert-spl-less" value="${fmt(splSpent)}"></div>
-                    <div><input type="number" step="0.001" id="cert-spl-balance" value="${fmt(splEarned - splSpent)}" readonly></div>
-
-                    <div class="cert-grid-label">Force Leave</div>
-                    <div><input type="number" step="0.001" id="cert-fl-earned" value="${fmt(flEarned)}"></div>
-                    <div><input type="number" step="0.001" id="cert-fl-less" value="${fmt(flSpent)}"></div>
-                    <div><input type="number" step="0.001" id="cert-fl-balance" value="${fmt(flEarned - flSpent)}" readonly></div>
-
-                    <div class="cert-grid-label">Wellness Leave</div>
-                    <div><input type="number" step="0.001" id="cert-wl-earned" value="${fmt(wlEarned)}"></div>
-                    <div><input type="number" step="0.001" id="cert-wl-less" value="${fmt(wlSpent)}"></div>
-                    <div><input type="number" step="0.001" id="cert-wl-balance" value="${fmt(wlEarned - wlSpent)}" readonly></div>
-
-                    <div class="cert-grid-label">CTO</div>
-                    <div><input type="number" step="0.001" id="cert-cto-earned" value="${fmt(ctoEarned)}"></div>
-                    <div><input type="number" step="0.001" id="cert-cto-less" value="${fmt(ctoSpent)}"></div>
-                    <div><input type="number" step="0.001" id="cert-cto-balance" value="${fmt(ctoEarned - ctoSpent)}" readonly></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom:var(--space-4)">
-            <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">7.B — Recommendation</h4></div>
-            <div class="card-body">
-                <div class="form-group">
-                    <label class="form-label">Days Approved</label>
-                    <input type="number" step="0.001" class="form-input" id="cert-days-approved" value="${fmt(toNum(app.numDays || app.num_days))}" style="max-width:150px">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Remarks</label>
-                    <textarea class="form-textarea" id="cert-remarks" rows="2" placeholder="Optional remarks..."></textarea>
-                </div>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom:var(--space-4)">
-            <div class="card-header"><h4 class="card-title" style="font-size:var(--text-sm)">Authorized Officer Signature</h4></div>
-            <div class="card-body">
-                <canvas id="cert-signature-canvas" class="signature-canvas" width="500" height="120"></canvas>
-                <div style="margin-top:var(--space-2);display:flex;gap:var(--space-2)">
-                    <button class="btn btn-ghost btn-sm" id="cert-sig-clear">Clear</button>
-                    <label class="btn btn-ghost btn-sm" style="cursor:pointer">
-                        Upload Image
-                        <input type="file" accept="image/*" id="cert-sig-upload" style="display:none">
-                    </label>
-                </div>
-            </div>
+        ${balanceHtml}
+        <div class="form-group">
+            <label class="form-label">Remarks (optional)</label>
+            <textarea id="approval-remarks" class="form-textarea" rows="3" placeholder="Add remarks..."></textarea>
         </div>
     `;
 
     const modal = openModal({
-        title: `Certify — ${appId}`,
+        title: `${actionLabel.replace(' & Forward to HR', '')} Application — ${appId}`,
         content,
         size: 'lg',
         footer: `
-            <button class="btn btn-ghost btn-sm" id="cert-cancel">Cancel</button>
-            <button class="btn btn-warning btn-sm" id="cert-return">Return to Employee</button>
-            <button class="btn btn-success btn-sm" id="cert-approve">Certify & Forward to ASDS</button>
+            <button class="btn btn-ghost btn-sm" id="modal-cancel">Cancel</button>
+            <button class="btn ${actionClass} btn-sm" id="modal-confirm">${actionLabel}</button>
         `,
     });
 
-    // Initialize signature canvas
-    initSignatureCanvas('cert-signature-canvas', 'cert-sig-clear', 'cert-sig-upload');
-
-    // Auto-calculate balances for all leave types
-    function bindBalanceCalc(prefix) {
-        ['cert-' + prefix + '-earned', 'cert-' + prefix + '-less'].forEach(id => {
-            document.getElementById(id)?.addEventListener('input', () => {
-                const earned = toNum(document.getElementById('cert-' + prefix + '-earned')?.value);
-                const less = toNum(document.getElementById('cert-' + prefix + '-less')?.value);
-                const balEl = document.getElementById('cert-' + prefix + '-balance');
-                if (balEl) balEl.value = fmt(earned - less);
-            });
-        });
-    }
-    ['vl', 'sl', 'spl', 'fl', 'wl', 'cto'].forEach(bindBalanceCalc);
-
-    // Actions
-    document.getElementById('cert-cancel')?.addEventListener('click', () => modal.close());
-    document.getElementById('cert-return')?.addEventListener('click', () => {
-        modal.close();
-        showReturnModal(appId);
-    });
-    document.getElementById('cert-approve')?.addEventListener('click', async () => {
-        const canvas = document.getElementById('cert-signature-canvas');
-        const signatureData = canvas ? canvas.toDataURL('image/png') : '';
-        const remarks = document.getElementById('cert-remarks')?.value || '';
-        const daysApproved = document.getElementById('cert-days-approved')?.value || '';
-
-        // Collect all certified balance data
-        const certData = {
-            vlEarned: toNum(document.getElementById('cert-vl-earned')?.value),
-            vlLess: toNum(document.getElementById('cert-vl-less')?.value),
-            vlBalance: toNum(document.getElementById('cert-vl-balance')?.value),
-            slEarned: toNum(document.getElementById('cert-sl-earned')?.value),
-            slLess: toNum(document.getElementById('cert-sl-less')?.value),
-            slBalance: toNum(document.getElementById('cert-sl-balance')?.value),
-            splEarned: toNum(document.getElementById('cert-spl-earned')?.value),
-            splLess: toNum(document.getElementById('cert-spl-less')?.value),
-            splBalance: toNum(document.getElementById('cert-spl-balance')?.value),
-            flEarned: toNum(document.getElementById('cert-fl-earned')?.value),
-            flLess: toNum(document.getElementById('cert-fl-less')?.value),
-            flBalance: toNum(document.getElementById('cert-fl-balance')?.value),
-            wlEarned: toNum(document.getElementById('cert-wl-earned')?.value),
-            wlLess: toNum(document.getElementById('cert-wl-less')?.value),
-            wlBalance: toNum(document.getElementById('cert-wl-balance')?.value),
-            ctoEarned: toNum(document.getElementById('cert-cto-earned')?.value),
-            ctoLess: toNum(document.getElementById('cert-cto-less')?.value),
-            ctoBalance: toNum(document.getElementById('cert-cto-balance')?.value),
-            daysApproved: toNum(daysApproved),
-        };
-
-        await processHRAction(appId, 'approved', remarks, signatureData, certData);
+    // Bind footer actions
+    document.getElementById('modal-cancel')?.addEventListener('click', () => modal.close());
+    document.getElementById('modal-confirm')?.addEventListener('click', async () => {
+        const remarks = document.getElementById('approval-remarks')?.value || '';
+        await processApproval(appId, action, remarks);
         modal.close();
     });
 }
 
-// ---------------------------------------------------------------------------
-// Return Modal
-// ---------------------------------------------------------------------------
-function showReturnModal(appId) {
-    const app = [...pendingApps, ...certifiedApps].find(a => a.id === appId);
-    if (!app) return;
-
-    const content = `
-        <p>Return <strong>${esc(appId)}</strong> to employee for revision.</p>
-        <div class="form-group" style="margin-top:var(--space-3)">
-            <label class="form-label">Reason for Return</label>
-            <textarea class="form-textarea" id="return-reason" rows="3" placeholder="Specify what needs to be corrected..."></textarea>
-        </div>
-    `;
-
-    const modal = openModal({
-        title: 'Return Application',
-        content,
-        size: 'md',
-        footer: `
-            <button class="btn btn-ghost btn-sm" id="return-cancel">Cancel</button>
-            <button class="btn btn-warning btn-sm" id="return-confirm">Return to Employee</button>
-        `,
-    });
-
-    document.getElementById('return-cancel')?.addEventListener('click', () => modal.close());
-    document.getElementById('return-confirm')?.addEventListener('click', async () => {
-        const reason = document.getElementById('return-reason')?.value || '';
-        if (!reason.trim()) { toast.warning('Please provide a reason for return.'); return; }
-        await processHRAction(appId, 'returned', reason, '');
-        modal.close();
-    });
-}
-
-// ---------------------------------------------------------------------------
-// Process HR Action
-// ---------------------------------------------------------------------------
-async function processHRAction(appId, action, remarks, signature, certData) {
+async function processApproval(appId, action, remarks) {
     try {
-        const payload = {
-            applicationId: appId,
-            action,
-            remarks,
-            portal: 'HR',
-            approverName: user.name || user.fullName || '',
-            authorizedOfficerName: user.name || user.fullName || '',
-            authorizedOfficerSignature: signature || undefined,
-        };
-
-        // Include certified balance data when approving
-        if (certData) {
-            Object.assign(payload, certData);
-        }
-
         const res = await fetch('/api/approve-leave', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({
+                applicationId: appId,
+                action,
+                remarks,
+                portal: 'AO',
+                approverName: user.name || user.fullName || '',
+            }),
         });
 
         if (res.ok) {
-            const label = action === 'approved' ? 'certified and forwarded to ASDS' : 'returned to employee';
-            toast.success(`Application ${label}.`);
+            const label = action === 'approved' ? 'forwarded to HR' : action === 'returned' ? 'returned to employee' : 'rejected';
+            toast.success(`Application ${label} successfully.`);
             await refreshAll();
         } else {
             const data = await res.json().catch(() => ({}));
@@ -696,81 +628,19 @@ async function processHRAction(appId, action, remarks, signature, certData) {
 }
 
 // ---------------------------------------------------------------------------
-// Signature Canvas
-// ---------------------------------------------------------------------------
-function initSignatureCanvas(canvasId, clearBtnId, uploadInputId) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    let isDrawing = false;
-
-    function getPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
-    }
-
-    function startDraw(e) {
-        e.preventDefault();
-        isDrawing = true;
-        const pos = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-    }
-
-    function draw(e) {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const pos = getPos(e);
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#000';
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-        canvas.classList.add('has-signature');
-    }
-
-    function stopDraw() { isDrawing = false; }
-
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDraw);
-    canvas.addEventListener('mouseleave', stopDraw);
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', stopDraw);
-
-    document.getElementById(clearBtnId)?.addEventListener('click', () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        canvas.classList.remove('has-signature');
-    });
-
-    document.getElementById(uploadInputId)?.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const img = new Image();
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-            const w = img.width * scale;
-            const h = img.height * scale;
-            ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-            canvas.classList.add('has-signature');
-        };
-        img.src = URL.createObjectURL(file);
-    });
-}
-
-// ---------------------------------------------------------------------------
-// Application Detail
+// Application Detail Modal
 // ---------------------------------------------------------------------------
 function showApplicationDetail(appId) {
-    const app = [...pendingApps, ...certifiedApps].find(a => a.id === appId);
+    const app = allApplications.find(a => a.id === appId);
     if (!app) { toast.warning('Application not found.'); return; }
+
+    const type = getLeaveTypeLabel(app.leaveType || app.leave_type);
+    const status = app.status || 'pending';
+    const approver = app.currentApprover || app.current_approver || '';
+    const employee = app.employeeName || app.employee_name || '';
+    const from = fmtDate(app.dateFrom || app.date_from);
+    const to = fmtDate(app.dateTo || app.date_to);
+    const filed = fmtDate(app.submittedAt || app.created_at || app.createdAt);
 
     const history = app.approvalHistory || app.approval_history || [];
     let timeline = '';
@@ -815,20 +685,57 @@ function showApplicationDetail(appId) {
     const content = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
             <div><label class="form-label">Application ID</label><div>${esc(app.id)}</div></div>
-            <div><label class="form-label">Status</label><div>${statusBadge(app.status, app.currentApprover || app.current_approver)}</div></div>
-            <div><label class="form-label">Employee</label><div>${esc(app.employeeName || app.employee_name || '')}</div></div>
-            <div><label class="form-label">Leave Type</label><div>${esc(getLeaveTypeLabel(app.leaveType || app.leave_type))}</div></div>
-            <div><label class="form-label">Period</label><div>${esc(fmtDateRange(app.dateFrom || app.date_from, app.dateTo || app.date_to))}</div></div>
-            <div><label class="form-label">Days</label><div>${fmt(toNum(app.numDays || app.num_days))}</div></div>
+            <div><label class="form-label">Status</label><div>${statusBadge(status, approver)}</div></div>
+            <div><label class="form-label">Employee</label><div>${esc(employee)}</div></div>
+            <div><label class="form-label">Leave Type</label><div>${esc(type)}</div></div>
+            <div><label class="form-label">Period</label><div>${esc(from)} to ${esc(to)}</div></div>
+            <div><label class="form-label">Days</label><div>${fmtDays(app)}</div></div>
             <div><label class="form-label">Office</label><div>${esc(app.office || '')}</div></div>
-            <div><label class="form-label">Filed</label><div>${esc(fmtDate(app.submittedAt || app.created_at))}</div></div>
+            <div><label class="form-label">Filed</label><div>${esc(filed)}</div></div>
             ${leaveDetails}
         </div>
         ${soSection}
         ${timeline}
     `;
 
-    openModal({ title: `Application — ${appId}`, content, size: 'lg' });
+    const isPending = status === 'pending' && approver.toUpperCase() === 'AO';
+    const employeeEmail = app.employeeEmail || app.employee_email || '';
+    const viewCardBtn = employeeEmail
+        ? `<button class="btn btn-ghost btn-sm" onclick="window.location.href='/edit-employee-cards.html?email=${encodeURIComponent(employeeEmail)}&back=hr-dashboard'">View Leave Card</button>`
+        : '';
+
+    openModal({
+        title: `Application Details — ${app.id}`,
+        content,
+        size: 'lg',
+        footer: isPending
+            ? `${viewCardBtn}
+               <button class="btn btn-success btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'approved'}}))">Approve</button>
+               <button class="btn btn-warning btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'returned'}}))">Return</button>
+               <button class="btn btn-danger btn-sm" onclick="document.dispatchEvent(new CustomEvent('ao-action',{detail:{id:'${esc(app.id)}',action:'rejected'}}))">Reject</button>`
+            : viewCardBtn,
+    });
+}
+
+// Listen for action events from detail modal
+document.addEventListener('ao-action', (e) => {
+    const { id, action } = e.detail;
+    closeAllModals(); // Close detail modal before opening action modal
+    showApprovalModal(id, action);
+});
+
+// ---------------------------------------------------------------------------
+// View Applicant Leave Card (from Pending Approvals)
+// ---------------------------------------------------------------------------
+function viewApplicantLeaveCard(appId) {
+    const app = allApplications.find(a => a.id === appId);
+    if (!app) { toast.warning('Application not found.'); return; }
+
+    const email = app.employeeEmail || app.employee_email || '';
+    if (!email) { toast.warning('Employee email not available.'); return; }
+
+    // Navigate to the leave card page with a back parameter for return navigation
+    window.location.href = `/edit-employee-cards.html?email=${encodeURIComponent(email)}&back=hr-dashboard`;
 }
 
 // ---------------------------------------------------------------------------
@@ -837,9 +744,17 @@ function showApplicationDetail(appId) {
 async function loadEmployees() {
     try {
         const res = await fetch('/api/all-employees');
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error('Failed to fetch employees');
         const data = await res.json();
         employees = data.employees || [];
+
+        const tableData = employees.map(emp => ({
+            id: emp.email,
+            name: emp.name || emp.fullName || '',
+            email: emp.email || '',
+            office: emp.office || '',
+            employeeNo: emp.employeeNo || emp.employee_number || '',
+        }));
 
         employeesTable = createDataTable({
             el: '#employees-table',
@@ -847,69 +762,90 @@ async function loadEmployees() {
                 { key: 'name', label: 'Name', sortable: true },
                 { key: 'email', label: 'Email', sortable: true },
                 { key: 'office', label: 'Office', sortable: true },
+                { key: 'employeeNo', label: 'Employee No.', sortable: true },
                 {
                     key: 'actions', label: '',
-                    render: (v, row) => `<button class="btn btn-primary btn-sm btn-open-card" data-email="${esc(row.email)}">View Card</button>`,
+                    render: (val, row) => `<button class="btn btn-primary btn-sm btn-open-card" data-email="${esc(row.email)}">Open Card</button>`,
                 },
             ],
-            data: employees.map(e => ({
-                id: e.email,
-                name: e.name || e.fullName || '',
-                email: e.email || '',
-                office: e.office || '',
-            })),
+            data: tableData,
             searchable: true,
-            searchKeys: ['name', 'email', 'office'],
+            searchKeys: ['name', 'email', 'office', 'employeeNo'],
+            searchPlaceholder: 'Search employees...',
             pageSize: 15,
             emptyTitle: 'No Employees',
             emptyMessage: 'No registered employees found.',
         });
 
-        document.getElementById('employees-table')?.addEventListener('click', async (e) => {
+        document.getElementById('employees-table')?.addEventListener('click', (e) => {
             const btn = e.target.closest('.btn-open-card');
-            if (!btn) return;
-            const email = btn.dataset.email;
-            try {
-                const res = await fetch(`/api/leave-credits?employeeId=${encodeURIComponent(email)}`);
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                const c = data.credits || {};
-                const vlBal = toNum(c.vacationLeaveEarned || c.vacation_leave_earned) - toNum(c.vacationLeaveSpent || c.vacation_leave_spent);
-                const slBal = toNum(c.sickLeaveEarned || c.sick_leave_earned) - toNum(c.sickLeaveSpent || c.sick_leave_spent);
-                openModal({
-                    title: `Leave Card — ${esc(c.name || email)}`,
-                    content: `
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-                            <div class="stat-card" style="text-align:center;padding:var(--space-3)">
-                                <div style="font-size:var(--text-2xl);font-weight:bold;color:var(--color-info)">${fmt(vlBal)}</div>
-                                <div style="font-size:var(--text-xs)">VL Balance</div>
-                            </div>
-                            <div class="stat-card" style="text-align:center;padding:var(--space-3)">
-                                <div style="font-size:var(--text-2xl);font-weight:bold;color:var(--color-danger)">${fmt(slBal)}</div>
-                                <div style="font-size:var(--text-xs)">SL Balance</div>
-                            </div>
-                        </div>`,
-                    size: 'md',
-                });
-            } catch { toast.error('Failed to load leave card.'); }
+            if (btn) window.location.href = `/edit-employee-cards.html?email=${encodeURIComponent(btn.dataset.email)}`;
         });
-    } catch { toast.error('Failed to load employees.'); }
+    } catch (err) {
+        toast.error('Failed to load employee list.');
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CTO Tab
+// ---------------------------------------------------------------------------
+async function loadEmployeesForCTO() {
+    if (employees.length === 0) {
+        try {
+            const res = await fetch('/api/all-employees');
+            if (res.ok) {
+                const data = await res.json();
+                employees = data.employees || [];
+            }
+        } catch (err) { /* fall through */ }
+    }
+
+    const tableData = employees.map(emp => ({
+        id: emp.email,
+        name: emp.name || emp.fullName || '',
+        email: emp.email || '',
+        office: emp.office || '',
+    }));
+
+    ctoTable = createDataTable({
+        el: '#cto-table',
+        columns: [
+            { key: 'name', label: 'Name', sortable: true },
+            { key: 'email', label: 'Email', sortable: true },
+            { key: 'office', label: 'Office', sortable: true },
+            {
+                key: 'actions', label: '',
+                render: (val, row) => `<button class="btn btn-primary btn-sm btn-open-cto" data-email="${esc(row.email)}">View CTO</button>`,
+            },
+        ],
+        data: tableData,
+        searchable: true,
+        searchKeys: ['name', 'email', 'office'],
+        pageSize: 15,
+        emptyTitle: 'No Employees',
+        emptyMessage: 'No employees found.',
+    });
+
+    document.getElementById('cto-table')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-open-cto');
+        if (btn) {
+            window.location.href = `/edit-employee-cards.html?email=${encodeURIComponent(btn.dataset.email)}&tab=ctocard`;
+        }
+    });
 }
 
 // ---------------------------------------------------------------------------
 // Profile Modal
 // ---------------------------------------------------------------------------
 function showProfileModal() {
-    openModal({
-        title: 'My Profile',
-        content: `
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-                <div><label class="form-label">Name</label><div>${esc(user.name || user.fullName || '')}</div></div>
-                <div><label class="form-label">Email</label><div>${esc(user.email || '')}</div></div>
-                <div><label class="form-label">Role</label><div>Human Resources</div></div>
-            </div>`,
-        size: 'md',
-    });
+    const content = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+            <div><label class="form-label">Name</label><div>${esc(user.name || user.fullName || '')}</div></div>
+            <div><label class="form-label">Email</label><div>${esc(user.email || '')}</div></div>
+            <div><label class="form-label">Role</label><div>HR Officer</div></div>
+        </div>
+    `;
+    openModal({ title: 'My Profile', content, size: 'md' });
 }
 
 // ---------------------------------------------------------------------------
@@ -917,10 +853,31 @@ function showProfileModal() {
 // ---------------------------------------------------------------------------
 function toNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 function fmt(v) { const n = toNum(v); return n % 1 === 0 ? String(n) : n.toFixed(3); }
-function fmtDate(s) { if (!s) return '--'; const d = new Date(s); return isNaN(d) ? String(s) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-function fmtDateRange(f, t) { const a = fmtDate(f), b = fmtDate(t); return a === b || b === '--' ? a : `${a} - ${b}`; }
-function esc(s) { return escapeHtml(s); }
-function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function fmtDays(app) {
+    const d = toNum(app.numDays || app.num_days);
+    if (app.leaveHours != null && app.leaveHours > 0 && app.leaveHours < 8) {
+        return `${fmt(d)} (${app.leaveHours} hr${app.leaveHours > 1 ? 's' : ''})`;
+    }
+    if (app.isHalfDay) return '0.5 (4 hrs)';
+    return fmt(d);
+}
+
+function fmtDate(dateStr) {
+    if (!dateStr) return '--';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtDateRange(from, to) {
+    const f = fmtDate(from);
+    const t = fmtDate(to);
+    if (f === t || t === '--') return f;
+    return `${f} - ${t}`;
+}
+
+function esc(str) { return escapeHtml(str); }
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
 function statusBadge(status, approver) {
     const s = (status || '').toLowerCase();
