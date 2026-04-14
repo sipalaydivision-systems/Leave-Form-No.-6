@@ -351,13 +351,45 @@ async function loadUsers() {
             }
         }
 
+        const PORTAL_LABELS = {
+            employee: 'Employee', user: 'Employee',
+            ao: 'HR Portal', hr: 'Admin Officer V',
+            asds: 'ASDS', sds: 'SDS', it: 'IT',
+        };
+        const PORTAL_COLORS = {
+            employee: '#1DB954', user: '#1DB954',
+            ao: '#0369a1', hr: '#7c3aed',
+            asds: '#b45309', sds: '#1d4ed8', it: '#374151',
+        };
+        const STATUS_COLORS = { approved: '#15803d', pending: '#b45309', rejected: '#dc2626', deleted: '#6b7280' };
+
         usersTable = createDataTable({
             el: '#users-table',
             columns: [
                 { key: 'name', label: 'Name', sortable: true },
                 { key: 'email', label: 'Email', sortable: true },
-                { key: 'role', label: 'Role', sortable: true, render: (v) => `<span class="badge badge-info">${esc((v || '').toUpperCase())}</span>` },
+                {
+                    key: 'portal', label: 'Portal', sortable: true,
+                    render: (v) => {
+                        const label = PORTAL_LABELS[v] || v.toUpperCase();
+                        const color = PORTAL_COLORS[v] || '#374151';
+                        return `<span class="badge" style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${esc(label)}</span>`;
+                    },
+                },
+                { key: 'position', label: 'Position', sortable: true },
+                { key: 'employeeNo', label: 'Employee No.', sortable: true },
                 { key: 'office', label: 'Office', sortable: true },
+                {
+                    key: 'status', label: 'Status', sortable: true,
+                    render: (v) => {
+                        const color = STATUS_COLORS[v] || '#374151';
+                        return `<span style="color:${color};font-weight:600;font-size:12px;text-transform:capitalize">${esc(v || 'active')}</span>`;
+                    },
+                },
+                {
+                    key: 'createdAt', label: 'Registered', sortable: true,
+                    render: (v) => v ? new Date(v).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—',
+                },
                 {
                     key: 'actions', label: '',
                     render: (v, row) => `<div class="cell-actions">
@@ -370,14 +402,19 @@ async function loadUsers() {
                 id: u.email || u.id,
                 name: u.name || u.fullName || '',
                 email: u.email || '',
-                role: u.role || u.portal || 'user',
-                office: u.office || '',
+                portal: (u.role || u.portal || 'employee').toLowerCase(),
+                position: u.position || '—',
+                employeeNo: u.employeeNo || '—',
+                office: u.office || '—',
+                status: u.status || 'approved',
+                createdAt: u.createdAt || '',
             })),
             searchable: true,
-            searchKeys: ['name', 'email', 'role', 'office'],
+            searchKeys: ['name', 'email', 'portal', 'position', 'employeeNo', 'office'],
             pageSize: 20,
             filters: [
-                { key: 'role', label: 'Role', options: ['All', 'user', 'ao', 'hr', 'asds', 'sds', 'it'] },
+                { key: 'portal', label: 'Portal', options: ['All', 'employee', 'ao', 'hr', 'asds', 'sds', 'it'] },
+                { key: 'status', label: 'Status', options: ['All', 'approved', 'pending', 'rejected'] },
             ],
             emptyTitle: 'No Users',
             emptyMessage: 'No registered users found.',
