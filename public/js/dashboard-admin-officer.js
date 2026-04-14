@@ -561,7 +561,7 @@ async function openCertificationModal(appId) {
         size: 'lg',
         footer: `
             <button class="btn btn-ghost btn-sm" id="cert-cancel">Cancel</button>
-            <button class="btn btn-warning btn-sm" id="cert-return">Return to Employee</button>
+            <button class="btn btn-warning btn-sm" id="cert-return">Return</button>
             <button class="btn btn-success btn-sm" id="cert-approve">Certify & Forward to ASDS</button>
         `,
     });
@@ -630,9 +630,16 @@ function showReturnModal(appId) {
     if (!app) return;
 
     const content = `
-        <p>Return <strong>${esc(appId)}</strong> to employee for revision.</p>
+        <p>Select where to return <strong>${esc(appId)}</strong>:</p>
         <div class="form-group" style="margin-top:var(--space-3)">
-            <label class="form-label">Reason for Return</label>
+            <label class="form-label">Return To</label>
+            <select class="form-input" id="return-target">
+                <option value="AO">HR Portal (previous approver)</option>
+                <option value="EMPLOYEE">Employee (for revision)</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:var(--space-3)">
+            <label class="form-label">Reason for Return <span style="color:var(--color-danger)">*</span></label>
             <textarea class="form-textarea" id="return-reason" rows="3" placeholder="Specify what needs to be corrected..."></textarea>
         </div>
     `;
@@ -643,15 +650,16 @@ function showReturnModal(appId) {
         size: 'md',
         footer: `
             <button class="btn btn-ghost btn-sm" id="return-cancel">Cancel</button>
-            <button class="btn btn-warning btn-sm" id="return-confirm">Return to Employee</button>
+            <button class="btn btn-warning btn-sm" id="return-confirm">Return</button>
         `,
     });
 
     document.getElementById('return-cancel')?.addEventListener('click', () => modal.close());
     document.getElementById('return-confirm')?.addEventListener('click', async () => {
         const reason = document.getElementById('return-reason')?.value || '';
+        const returnTo = document.getElementById('return-target')?.value || 'AO';
         if (!reason.trim()) { toast.warning('Please provide a reason for return.'); return; }
-        await processHRAction(appId, 'returned', reason, '');
+        await processHRAction(appId, 'returned', reason, '', null, returnTo);
         modal.close();
     });
 }
@@ -659,7 +667,7 @@ function showReturnModal(appId) {
 // ---------------------------------------------------------------------------
 // Process HR Action
 // ---------------------------------------------------------------------------
-async function processHRAction(appId, action, remarks, signature, certData) {
+async function processHRAction(appId, action, remarks, signature, certData, returnTo) {
     try {
         const payload = {
             applicationId: appId,
@@ -670,6 +678,8 @@ async function processHRAction(appId, action, remarks, signature, certData) {
             authorizedOfficerName: user.name || user.fullName || '',
             authorizedOfficerSignature: signature || undefined,
         };
+
+        if (returnTo) payload.returnTo = returnTo;
 
         // Include certified balance data when approving
         if (certData) {

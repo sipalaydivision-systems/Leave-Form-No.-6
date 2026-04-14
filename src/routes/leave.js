@@ -826,7 +826,7 @@ router.post('/api/resubmit-leave', requireAuth(), (req, res) => {
 // ---------------------------------------------------------------------------
 router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res) => {
     try {
-        const { applicationId, action, approverPortal: _approverPortal, portal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, ctoEarned, ctoLess, ctoBalance } = req.body;
+        const { applicationId, action, approverPortal: _approverPortal, portal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, wlEarned, wlLess, wlBalance, ctoEarned, ctoLess, ctoBalance, daysApproved } = req.body;
         const approverPortal = _approverPortal || portal;
         const ip = getClientIp(req);
 
@@ -1000,6 +1000,10 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
                 if (ctoEarned !== undefined) app.ctoEarned = ctoEarned;
                 if (ctoLess !== undefined) app.ctoLess = ctoLess;
                 if (ctoBalance !== undefined) app.ctoBalance = ctoBalance;
+                if (wlEarned !== undefined) app.wlEarned = wlEarned;
+                if (wlLess !== undefined) app.wlLess = wlLess;
+                if (wlBalance !== undefined) app.wlBalance = wlBalance;
+                if (daysApproved !== undefined) app.daysApproved = daysApproved;
 
                 console.log(`[WORKFLOW] HR approved - Moving to ASDS. Authorized Officer: ${authorizedOfficerName || 'Not specified'}`);
             } else if (currentApprover === 'ASDS') {

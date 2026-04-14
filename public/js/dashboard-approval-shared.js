@@ -154,16 +154,18 @@ export async function showApprovalModal(app, portal, user, onDone) {
         const ctoRecords = ctoRes?.records || [];
         const ctoBalance = ctoRecords.reduce((s, r) => s + toNum(r.balance || (toNum(r.daysGranted || r.days_granted) - toNum(r.daysUsed || r.days_used))), 0);
 
-        const vlEarned = toNum(credits.vacationLeaveEarned || credits.vacation_leave_earned);
-        const vlSpent = toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
-        const slEarned = toNum(credits.sickLeaveEarned || credits.sick_leave_earned);
-        const slSpent = toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
-        const splEarned = toNum(credits.splEarned || credits.spl || 3);
-        const splSpent = toNum(credits.splSpent);
-        const flEarned = toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
-        const flSpent = toNum(credits.forceLeaveSpent);
-        const wlEarned = toNum(credits.wellnessEarned || credits.wellness_earned || 5);
-        const wlSpent = toNum(credits.wellnessSpent || credits.wellness_spent);
+        // Use Admin Officer V-certified values when available; fall back to live credits
+        const hasCertified = app.vlEarned !== undefined || app.vlLess !== undefined;
+        const vlEarned  = hasCertified && app.vlEarned !== undefined ? toNum(app.vlEarned)  : toNum(credits.vacationLeaveEarned || credits.vacation_leave_earned);
+        const vlSpent   = hasCertified && app.vlLess   !== undefined ? toNum(app.vlLess)    : toNum(credits.vacationLeaveSpent || credits.vacation_leave_spent);
+        const slEarned  = hasCertified && app.slEarned !== undefined ? toNum(app.slEarned)  : toNum(credits.sickLeaveEarned || credits.sick_leave_earned);
+        const slSpent   = hasCertified && app.slLess   !== undefined ? toNum(app.slLess)    : toNum(credits.sickLeaveSpent || credits.sick_leave_spent);
+        const splEarned = hasCertified && app.splEarned !== undefined ? toNum(app.splEarned) : toNum(credits.splEarned || credits.spl || 3);
+        const splSpent  = hasCertified && app.splLess  !== undefined ? toNum(app.splLess)   : toNum(credits.splSpent);
+        const flEarned  = hasCertified && app.flEarned !== undefined ? toNum(app.flEarned)  : toNum(credits.forceLeaveEarned || credits.mandatoryForced || 5);
+        const flSpent   = hasCertified && app.flLess   !== undefined ? toNum(app.flLess)    : toNum(credits.forceLeaveSpent);
+        const wlEarned  = hasCertified && app.wlEarned !== undefined ? toNum(app.wlEarned)  : toNum(credits.wellnessEarned || credits.wellness_earned || 5);
+        const wlSpent   = hasCertified && app.wlLess   !== undefined ? toNum(app.wlLess)    : toNum(credits.wellnessSpent || credits.wellness_spent);
 
         if (!creditsRes) {
             balanceHtml = '<div style="margin-bottom:var(--space-3);padding:var(--space-2);background:var(--color-warning-bg);border-radius:var(--radius-sm);font-size:var(--text-xs)">Could not load leave credits.</div>';
