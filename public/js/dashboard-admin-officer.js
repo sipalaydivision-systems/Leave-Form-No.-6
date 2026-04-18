@@ -590,7 +590,13 @@ async function openCertificationModal(appId) {
     });
     document.getElementById('cert-approve')?.addEventListener('click', async () => {
         const canvas = document.getElementById('cert-signature-canvas');
-        const signatureData = canvas ? canvas.toDataURL('image/png') : '';
+        // Only send signature if canvas has actual drawn content (has-signature class)
+        const hasSignature = canvas?.classList.contains('has-signature');
+        if (!hasSignature) {
+            toast.warning('Please sign the application before approving.');
+            return;
+        }
+        const signatureData = canvas.toDataURL('image/png');
         const remarks = document.getElementById('cert-remarks')?.value || '';
         const daysApproved = document.getElementById('cert-days-approved')?.value || '';
 

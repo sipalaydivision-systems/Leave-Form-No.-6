@@ -5673,10 +5673,19 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
         // Resolve the approver's full name from user records (not just email)
         const resolvedApproverName = lookupUserName(req.session.email) || approverName;
         
+        // Capture signature for the current approval step into the history entry
+        let stepSignature = '';
+        if (action === 'approved') {
+            if (currentApprover === 'HR' && authorizedOfficerSignature) stepSignature = authorizedOfficerSignature;
+            else if (currentApprover === 'ASDS' && asdsOfficerSignature) stepSignature = asdsOfficerSignature;
+            else if (currentApprover === 'SDS' && sdsOfficerSignature) stepSignature = sdsOfficerSignature;
+        }
+
         app.approvalHistory.push({
             portal: currentApprover,
             action: action,
             approverName: resolvedApproverName,
+            signature: stepSignature,
             remarks: remarks || '',
             timestamp: new Date().toISOString()
         });

@@ -279,13 +279,19 @@ export async function showApprovalModal(app, portal, user, onDone) {
 
         if (action === 'approved') {
             const canvas = document.getElementById('shared-sig-canvas');
-            const sigData = canvas ? canvas.toDataURL('image/png') : '';
+            // Only send signature if canvas has actual drawn content
+            const hasSignature = canvas?.classList.contains('has-signature');
+            if (!hasSignature) {
+                toast.warning('Please sign the application before approving.');
+                return;
+            }
+            const sigData = canvas.toDataURL('image/png');
             if (portalUpper === 'ASDS') {
                 payload.asdsOfficerName = approverName;
-                if (sigData) payload.asdsOfficerSignature = sigData;
+                payload.asdsOfficerSignature = sigData;
             } else if (portalUpper === 'SDS') {
                 payload.sdsOfficerName = approverName;
-                if (sigData) payload.sdsOfficerSignature = sigData;
+                payload.sdsOfficerSignature = sigData;
             }
         }
 
