@@ -38,15 +38,13 @@ body {
 .form-page {
     width: 210mm;
     min-height: 297mm;
-    max-height: 297mm;
     background: #fff;
-    padding: 6mm 8mm 5mm 8mm;
+    padding: 10mm 12mm 10mm 12mm;
     box-sizing: border-box;
     box-shadow: 0 2px 16px rgba(0,0,0,.2);
-    font-size: 8px;
+    font-size: 10px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
@@ -60,43 +58,43 @@ body {
 .header-row {
     display: flex;
     align-items: flex-start;
-    gap: 4px;
-    margin-bottom: 1px;
+    gap: 6px;
+    margin-bottom: 4px;
 }
 .header-meta {
     flex: 0 0 auto;
-    font-size: 6.5px;
+    font-size: 8px;
     line-height: 1.3;
     white-space: nowrap;
-    min-width: 84px;
+    min-width: 96px;
 }
 .header-center {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 10px;
 }
-.header-center img { width: 40px; height: 40px; flex-shrink: 0; }
-.header-text { text-align: center; line-height: 1.3; }
-.header-text .rp   { font-size: 7.5px; font-style: italic; }
-.header-text .dept { font-size: 9px; font-weight: bold; }
-.header-text .reg  { font-size: 7px; font-weight: bold; letter-spacing: 0.4px; }
-.header-text .div  { font-size: 8.5px; font-weight: bold; }
+.header-center img { width: 54px; height: 54px; flex-shrink: 0; }
+.header-text { text-align: center; line-height: 1.35; }
+.header-text .rp   { font-size: 9.5px; font-style: italic; }
+.header-text .dept { font-size: 11px; font-weight: bold; }
+.header-text .reg  { font-size: 9px; font-weight: bold; letter-spacing: 0.4px; }
+.header-text .div  { font-size: 10.5px; font-weight: bold; }
 .stamp-box {
     flex: 0 0 auto;
     border: 0.8px solid #000;
-    width: 84px; height: 34px;
-    font-size: 6.5px; text-align: center;
-    padding: 2px 2px; box-sizing: border-box;
+    width: 96px; height: 44px;
+    font-size: 8px; text-align: center;
+    padding: 3px; box-sizing: border-box;
     display: flex; align-items: center; justify-content: center;
 }
 
 /* ── Form title ─────────────────────────────────── */
 .form-title {
     text-align: center;
-    font-size: 12.5px; font-weight: bold;
-    margin: 2px 0 3px;
+    font-size: 16px; font-weight: bold;
+    margin: 6px 0 6px;
     letter-spacing: 0.5px;
 }
 
@@ -109,16 +107,16 @@ body {
 .field-row + .field-row { border-top: none; }
 .field-row.last { border-bottom: 0.8px solid #000; }
 .field-cell {
-    padding: 1.5px 4px;
+    padding: 3px 5px;
     border-right: 0.8px solid #000;
-    flex: 1; min-height: 14px;
+    flex: 1; min-height: 22px;
 }
 .field-cell:last-child { border-right: none; }
-.field-label { font-size: 7.5px; color: #333; margin-bottom: 1px; }
+.field-label { font-size: 9px; color: #333; margin-bottom: 2px; }
 .field-value {
-    font-size: 9px; font-weight: bold;
+    font-size: 10.5px; font-weight: bold;
     border-bottom: 0.5px solid #000;
-    min-height: 11px; display: block;
+    min-height: 14px; display: block;
 }
 .name-grid {
     display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
@@ -130,7 +128,7 @@ body {
 .section-header {
     background: #000; color: #fff;
     text-align: center; font-weight: bold;
-    font-size: 8.5px; padding: 2px 0;
+    font-size: 10.5px; padding: 4px 0;
     letter-spacing: 0.5px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -140,56 +138,55 @@ body {
 .details-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
-    flex: 1 0 auto;
 }
 .details-col {
-    padding: 2px 4px;
+    padding: 5px 7px;
     border-right: 0.8px solid #000;
-    font-size: 7.5px;
+    font-size: 9.5px;
 }
 .details-col:last-child { border-right: none; }
 .col-header {
-    font-size: 7.5px; font-weight: bold;
-    text-decoration: underline; margin-bottom: 2px;
+    font-size: 10px; font-weight: bold;
+    text-decoration: underline; margin-bottom: 4px;
 }
 .leave-option {
     display: flex; align-items: baseline;
-    gap: 2px; margin-bottom: 1px; line-height: 1.2;
+    gap: 3px; margin-bottom: 2px; line-height: 1.3;
 }
-.chk { font-size: 9px; flex-shrink: 0; line-height: 1; }
-.leave-option-text { font-size: 7.5px; }
-.leave-option-text em { font-size: 6px; font-style: normal; color: #444; }
+.chk { font-size: 11px; flex-shrink: 0; line-height: 1; }
+.leave-option-text { font-size: 9px; }
+.leave-option-text em { font-size: 7.5px; font-style: normal; color: #444; }
 .others-line {
-    border-top: 0.5px solid #000; margin-top: 2px; padding-top: 1px;
+    border-top: 0.5px solid #000; margin-top: 3px; padding-top: 2px;
 }
 .others-input {
     border-bottom: 0.5px solid #000;
-    display: inline-block; min-width: 150px; font-size: 7.5px;
+    display: inline-block; min-width: 160px; font-size: 9px;
 }
-.details-sub { margin-bottom: 3px; }
+.details-sub { margin-bottom: 5px; }
 .details-sub-label {
-    font-size: 7px; font-style: italic;
-    font-weight: bold; margin-bottom: 1px;
+    font-size: 9px; font-style: italic;
+    font-weight: bold; margin-bottom: 2px;
 }
 .detail-item {
     display: flex; align-items: baseline;
-    gap: 3px; margin-bottom: 1px; font-size: 7.5px;
+    gap: 4px; margin-bottom: 2px; font-size: 9px;
 }
 .detail-fill {
     border-bottom: 0.5px solid #000;
-    flex: 1; min-height: 10px; font-size: 7.5px;
+    flex: 1; min-height: 12px; font-size: 9px;
 }
 
 /* ── Section 6C/6D ──────────────────────────────── */
 .bottom-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
-    min-height: 22mm;
+    min-height: 28mm;
 }
 .bottom-col {
-    padding: 2px 4px;
+    padding: 5px 7px;
     border-right: 0.8px solid #000;
-    font-size: 7.5px;
+    font-size: 9.5px;
 }
 .bottom-col:last-child {
     border-right: none;
@@ -213,68 +210,67 @@ body {
 .action-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
-    flex: 2 0 auto;
     min-height: 55mm;
 }
 .action-col {
-    padding: 2px 4px;
+    padding: 5px 7px;
     border-right: 0.8px solid #000;
-    font-size: 7.5px;
+    font-size: 9.5px;
     display: flex;
     flex-direction: column;
 }
 .action-col:last-child { border-right: none; }
 .action-col .officer-block { margin-top: auto; }
 .col-sub-header {
-    font-size: 8px; font-weight: bold;
-    text-decoration: underline; margin-bottom: 2px;
+    font-size: 10px; font-weight: bold;
+    text-decoration: underline; margin-bottom: 4px;
 }
 .credits-table {
     width: 100%; border-collapse: collapse;
-    font-size: 8px; margin-top: 3px;
+    font-size: 9.5px; margin-top: 4px;
 }
 .credits-table th, .credits-table td {
-    border: 0.5px solid #000; padding: 1.5px 3px;
+    border: 0.5px solid #000; padding: 3px 5px;
     text-align: center;
 }
-.credits-table th { background: #eee; font-weight: bold; font-size: 7.5px; }
+.credits-table th { background: #eee; font-weight: bold; font-size: 9px; }
 .credits-table td:first-child { text-align: left; font-style: italic; }
 
 /* ── Officer blocks (7A, 7B) ────────────────────── */
 .officer-block {
-    margin-top: 4px; text-align: center;
+    margin-top: 6px; text-align: center;
 }
 .officer-sig-img {
-    display: none; height: 26px;
-    max-width: 120px; object-fit: contain;
-    margin: 0 auto 1px;
+    display: none; height: 32px;
+    max-width: 140px; object-fit: contain;
+    margin: 0 auto 2px;
 }
 .officer-sig-img.shown { display: block; }
 
 /* ── Employee (applicant) signature ─────────────── */
 .employee-sig-img {
-    display: none; height: 34px;
-    max-width: 180px; object-fit: contain;
-    margin: 0 auto 1px;
+    display: none; height: 40px;
+    max-width: 200px; object-fit: contain;
+    margin: 0 auto 2px;
 }
 .employee-sig-img.shown { display: block; }
 .officer-name {
-    font-size: 9px; font-weight: bold;
+    font-size: 11px; font-weight: bold;
     border-bottom: 0.5px solid #000;
     display: inline-block;
 }
-.officer-title { font-size: 7.5px; }
+.officer-title { font-size: 9px; line-height: 1.3; }
 
 /* ── Section 7C/7D ──────────────────────────────── */
 .approval-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
-    min-height: 22mm;
+    min-height: 26mm;
 }
 .approval-col {
-    padding: 2px 4px;
+    padding: 5px 7px;
     border-right: 0.8px solid #000;
-    font-size: 7.5px;
+    font-size: 9.5px;
 }
 .approval-col:last-child { border-right: none; }
 .approval-line {
@@ -288,19 +284,16 @@ body {
 
 /* ── Final signature ────────────────────────────── */
 .final-sig {
-    margin-top: 4px; text-align: center;
-    border-top: 0.8px solid #000;
-    padding-top: 3px;
-    min-height: 18mm;
+    margin-top: 10px; text-align: center;
+    padding-top: 4px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
 }
 .final-sig-img {
-    display: none; height: 30px;
-    max-width: 140px; object-fit: contain;
-    margin: 0 auto 1px;
+    display: none; height: 36px;
+    max-width: 160px; object-fit: contain;
+    margin: 0 auto 2px;
 }
 .final-sig-img.shown { display: block; }
 
@@ -314,13 +307,9 @@ body {
     .page-wrapper { padding: 0; }
     .form-page {
         width: 210mm;
-        height: 297mm;
-        min-height: unset;
-        max-height: 297mm;
-        overflow: hidden;
+        min-height: 297mm;
         box-shadow: none;
-        padding: 6mm 8mm 5mm 8mm;
-        page-break-after: avoid;
+        padding: 10mm 12mm 10mm 12mm;
         page-break-inside: avoid;
     }
     /* Force signature images to render on print when shown */
@@ -533,7 +522,7 @@ body {
                 <div class="officer-block">
                     <img id="sig-hr" class="officer-sig-img" alt="HR Signature">
                     <div><span class="officer-name" id="f-hr-name"></span></div>
-                    <div class="officer-title">Administrative Officer IV-Personnel Section</div>
+                    <div class="officer-title" id="f-hr-designation">Administrative Officer IV-Personnel Section</div>
                 </div>
             </div>
             <div class="action-col">
@@ -553,7 +542,7 @@ body {
                 <div class="officer-block">
                     <img id="sig-asds" class="officer-sig-img" alt="ASDS Signature">
                     <div><span class="officer-name" id="f-asds-name"></span></div>
-                    <div class="officer-title">OIC-Assistant Schools Division Superintendent</div>
+                    <div class="officer-title" id="f-asds-designation">OIC-Assistant Schools Division Superintendent</div>
                 </div>
             </div>
         </div>
@@ -587,8 +576,9 @@ body {
         <div class="final-sig">
             <img id="sig-sds" class="final-sig-img" alt="SDS Signature">
             <div><span class="officer-name" id="f-sds-name"></span></div>
-            <div class="officer-title">Officer-In-Charge</div>
-            <div class="officer-title">Office of the Schools Division Superintendent</div>
+            <div class="officer-title" id="f-sds-des1">Assistant Schools Division Superintendent</div>
+            <div class="officer-title" id="f-sds-des2">Officer-In-Charge</div>
+            <div class="officer-title" id="f-sds-des3">Office of the Schools Division Superintendent</div>
         </div>
 
     </div><!-- /form-content -->
@@ -675,6 +665,16 @@ body {
         return;
     }
 
+    // Fetch approver config (IT-managed names + designations); failure is non-fatal
+    let approvers = {};
+    try {
+        const r = await fetch('/api/approvers');
+        if (r.ok) {
+            const j = await r.json();
+            approvers = j.approvers || {};
+        }
+    } catch (_) { /* fall back to application-specific names only */ }
+
     document.getElementById('form-content').style.display = 'block';
 
     // ── Fields 1–5 ──────────────────────────────────
@@ -751,10 +751,17 @@ body {
     const asdsEntry = history.find(h => (h.portal||'').toUpperCase() === 'ASDS' && h.action === 'approved');
     const sdsEntry  = history.find(h => (h.portal||'').toUpperCase() === 'SDS'  && h.action === 'approved');
 
-    // Names: dynamic from approval history; designations are constant in HTML
-    setText('f-hr-name',   app.authorizedOfficerName || (hrEntry   && hrEntry.approverName)   || '');
-    setText('f-asds-name', app.asdsOfficerName       || (asdsEntry && asdsEntry.approverName) || '');
-    setText('f-sds-name',  app.sdsOfficerName        || (sdsEntry  && sdsEntry.approverName)  || '');
+    // Names: precedence is application-specific > CMS default > approval history
+    setText('f-hr-name',   app.authorizedOfficerName || approvers.hr?.name   || (hrEntry   && hrEntry.approverName)   || '');
+    setText('f-asds-name', app.asdsOfficerName       || approvers.asds?.name || (asdsEntry && asdsEntry.approverName) || '');
+    setText('f-sds-name',  app.sdsOfficerName        || approvers.sds?.name  || (sdsEntry  && sdsEntry.approverName)  || '');
+
+    // Designations: pull from IT-managed CMS if present, otherwise keep the HTML default
+    if (approvers.hr?.designation)   setText('f-hr-designation',   approvers.hr.designation);
+    if (approvers.asds?.designation) setText('f-asds-designation', approvers.asds.designation);
+    if (approvers.sds?.designation1) setText('f-sds-des1', approvers.sds.designation1);
+    if (approvers.sds?.designation2) setText('f-sds-des2', approvers.sds.designation2);
+    if (approvers.sds?.designation3) setText('f-sds-des3', approvers.sds.designation3);
 
     // ── Signatures ───────────────────────────────────
     setSig('sig-employee', app.employeeSignature || app.employee_signature || '');

@@ -463,6 +463,7 @@ const schoolsFile = path.join(dataDir, 'schools.json');
 const initialCreditsFile = path.join(dataDir, 'initial-credits.json');
 const activityLogsFile = path.join(dataDir, 'activity-logs.json');
 const systemStateFile = path.join(dataDir, 'system-state.json');
+const approversFile = path.join(dataDir, 'approvers.json');
 
 // Upload directories (inside dataDir so they persist on Railway Volume)
 const uploadsDir = path.join(dataDir, 'uploads');
@@ -594,6 +595,7 @@ ensureFile(activityLogsFile);
 ensureFile(schoolsFile, '{}'); // schools.json is object-shaped, not array
 ensureFile(initialCreditsFile, '{}'); // expects {lookupMap:{}, credits:[]} shape, not []
 ensureFile(systemStateFile, '{}'); // stores object {lastAccruedMonth:...}, NOT array
+ensureFile(approversFile, '{}'); // approver config {hr:{name,designation},asds:{...},sds:{...}}
 
 // Helper functions
 
@@ -2354,6 +2356,7 @@ app.get('/asds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'publ
 app.get('/sds-dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sds-dashboard.html')));
 app.get('/activity-logs', (req, res) => res.sendFile(path.join(__dirname, 'public', 'activity-logs.html')));
 app.get('/data-management', (req, res) => res.sendFile(path.join(__dirname, 'public', 'data-management.html')));
+app.get('/approver-management', (req, res) => res.sendFile(path.join(__dirname, 'public', 'approver-management.html')));
 
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
@@ -2935,6 +2938,56 @@ app.post('/api/it/reset-pin', requireAuth('it'), (req, res) => {
     } catch (error) {
         console.error('Error resetting IT PIN:', error);
         res.status(500).json({ success: false, error: 'An error occurred. Please try again.' });
+    }
+});
+
+// ========== APPROVER CONFIGURATION (CMS) ==========
+// Public read: any authenticated user — the printable form needs this
+app.get('/api/approvers', requireAuth(), (req, res) => {
+    try {
+        const data = readJSON(approversFile);
+        res.json({ success: true, approvers: data || {} });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// IT-only write: update names and designations for HR / ASDS / SDS blocks on the CSC form
+// PUT /api/approvers  { hr:{name,designation}, asds:{name,designation}, sds:{name,designation1,designation2,designation3} }
+app.put('/api/approvers', requireAuth('it'), (req, res) => {
+    try {
+        const { hr, asds, sds } = req.body || {};
+        const sanitize = (s) => (typeof s === 'string' ? s.trim().slice(0, 200) : '');
+
+        const current = readJSON(approversFile) || {};
+        const next = {
+            hr: {
+                name: sanitize(hr?.name ?? current.hr?.name),
+                designation: sanitize(hr?.designation ?? current.hr?.designation) || 'Administrative Officer IV-Personnel Section'
+            },
+            asds: {
+                name: sanitize(asds?.name ?? current.asds?.name),
+                designation: sanitize(asds?.designation ?? current.asds?.designation) || 'OIC-Assistant Schools Division Superintendent'
+            },
+            sds: {
+                name: sanitize(sds?.name ?? current.sds?.name),
+                designation1: sanitize(sds?.designation1 ?? current.sds?.designation1) || 'Assistant Schools Division Superintendent',
+                designation2: sanitize(sds?.designation2 ?? current.sds?.designation2) || 'Officer-In-Charge',
+                designation3: sanitize(sds?.designation3 ?? current.sds?.designation3) || 'Office of the Schools Division Superintendent'
+            },
+            updatedAt: new Date().toISOString(),
+            updatedBy: req.session.email || ''
+        };
+
+        writeJSON(approversFile, next);
+        logActivity('APPROVER_CONFIG_UPDATED', 'it', {
+            userEmail: req.session.email,
+            ip: getClientIp(req),
+            userAgent: req.get('user-agent')
+        });
+        res.json({ success: true, approvers: next });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
