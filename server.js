@@ -5819,11 +5819,9 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
                 // HR approved -> goes to ASDS
                 app.currentApprover = 'ASDS';
                 app.hrApprovedAt = new Date().toISOString();
-                
-                // Store authorized officer info for Section 7.A of the final form
-                if (authorizedOfficerName) {
-                    app.authorizedOfficerName = authorizedOfficerName;
-                }
+
+                // Section 7.A name is sourced from approvers.json (IT-managed),
+                // not from whoever is logged in. Only the signature is captured.
                 if (authorizedOfficerSignature) {
                     app.authorizedOfficerSignature = authorizedOfficerSignature;
                 }
@@ -5854,11 +5852,8 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
                 // ASDS approved -> goes to SDS
                 app.currentApprover = 'SDS';
                 app.asdsApprovedAt = new Date().toISOString();
-                
-                // Store ASDS/OIC-ASDS officer info for Section 7.B of the final form
-                if (asdsOfficerName) {
-                    app.asdsOfficerName = asdsOfficerName;
-                }
+
+                // Section 7.B name is sourced from approvers.json (IT-managed).
                 if (asdsOfficerSignature) {
                     app.asdsOfficerSignature = asdsOfficerSignature;
                 }
@@ -5870,11 +5865,8 @@ app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res
                 app.currentApprover = null;
                 app.sdsApprovedAt = new Date().toISOString();
                 app.finalApprovalAt = new Date().toISOString();
-                
-                // Store SDS officer info
-                if (sdsOfficerName) {
-                    app.sdsOfficerName = sdsOfficerName;
-                }
+
+                // Final-approval name is sourced from approvers.json (IT-managed).
                 if (sdsOfficerSignature) {
                     app.sdsOfficerSignature = sdsOfficerSignature;
                 }

@@ -207,14 +207,14 @@ body {
 }
 
 /* ── Section 7 grid ─────────────────────────────── */
-/* Border on sides only — top is supplied by the black section-header,
-   bottom is omitted so this block flows continuously into .approval-grid. */
+/* Border on sides and bottom; top is supplied by the black section-header. */
 .action-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border-left: 0.8px solid #000;
     border-right: 0.8px solid #000;
     border-bottom: 0.8px solid #000;
-    min-height: 55mm;
+    flex: 2 0 auto;
+    min-height: 60mm;
 }
 .action-col {
     padding: 5px 7px;
@@ -270,15 +270,13 @@ body {
     display: grid; grid-template-columns: 1fr 1fr;
     border-left: 0.8px solid #000;
     border-right: 0.8px solid #000;
-    min-height: 26mm;
+    flex: 1 0 auto;
+    min-height: 30mm;
 }
 .approval-col {
     padding: 5px 7px;
-    border-right: 0.8px solid #000;
     font-size: 9.5px;
 }
-.approval-col:last-child { border-right: none; }
-.approval-col:last-child { border-right: none; }
 .approval-line {
     border-bottom: 0.5px solid #000;
     min-height: 11px; margin-bottom: 2px; display: block;
@@ -292,15 +290,16 @@ body {
 .final-sig {
     margin: 0;
     text-align: center;
-    padding: 10px 8px 12px;
+    padding: 14px 8px 18px;
     border-left: 0.8px solid #000;
     border-right: 0.8px solid #000;
     border-bottom: 0.8px solid #000;
     display: flex;
     flex-direction: column;
     align-items: center;
-    flex: 1 0 auto;
-    justify-content: flex-end;
+    flex: 2 0 auto;
+    justify-content: center;
+    min-height: 30mm;
 }
 .final-sig-img {
     display: none; height: 36px;
@@ -765,10 +764,11 @@ body {
     const asdsEntry = history.find(h => (h.portal||'').toUpperCase() === 'ASDS' && h.action === 'approved');
     const sdsEntry  = history.find(h => (h.portal||'').toUpperCase() === 'SDS'  && h.action === 'approved');
 
-    // Names: precedence is application-specific > CMS default > approval history
-    setText('f-hr-name',   app.authorizedOfficerName || approvers.hr?.name   || (hrEntry   && hrEntry.approverName)   || '');
-    setText('f-asds-name', app.asdsOfficerName       || approvers.asds?.name || (asdsEntry && asdsEntry.approverName) || '');
-    setText('f-sds-name',  app.sdsOfficerName        || approvers.sds?.name  || (sdsEntry  && sdsEntry.approverName)  || '');
+    // Names: IT-managed approver CMS is authoritative; fall back to legacy
+    // per-application fields or approval-history entry name for older records.
+    setText('f-hr-name',   approvers.hr?.name   || app.authorizedOfficerName || (hrEntry   && hrEntry.approverName)   || '');
+    setText('f-asds-name', approvers.asds?.name || app.asdsOfficerName       || (asdsEntry && asdsEntry.approverName) || '');
+    setText('f-sds-name',  approvers.sds?.name  || app.sdsOfficerName        || (sdsEntry  && sdsEntry.approverName)  || '');
 
     // Designations: pull from IT-managed CMS if present, otherwise keep the HTML default
     if (approvers.hr?.designation)   setText('f-hr-designation',   approvers.hr.designation);
