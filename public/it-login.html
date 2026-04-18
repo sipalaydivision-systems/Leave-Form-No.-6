@@ -468,6 +468,7 @@
                     messageDiv.textContent = 'Login successful! Redirecting...';
                     messageDiv.style.display = 'block';
                     localStorage.setItem('itUser', JSON.stringify(data.user));
+                    localStorage.setItem('userRole', 'it');
                     setTimeout(() => { window.location.href = '/it-dashboard.html'; }, 1000);
                 } else {
                     messageDiv.className = 'message error';

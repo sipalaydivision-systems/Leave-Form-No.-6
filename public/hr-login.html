@@ -1188,6 +1188,7 @@
                 
                 if (result.success) {
                     sessionStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('userRole', 'ao');
                     messageDiv.className = 'message success';
                     messageDiv.textContent = 'Login successful! Redirecting...';
                     messageDiv.style.display = 'block';

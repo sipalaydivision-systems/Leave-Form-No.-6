@@ -9,8 +9,26 @@
     'use strict';
     const _originalFetch = window.fetch;
 
-    // Detect which portal we're on and return the appropriate login URL
+    // Map a role code to its login page (single source of truth)
+    function loginUrlForRole(role) {
+        switch (role) {
+            case 'hr':   return '/admin-officer-login.html'; // Admin Officer V Portal
+            case 'ao':   return '/hr-login.html';            // HR Portal
+            case 'asds': return '/asds-login.html';
+            case 'sds':  return '/sds-login.html';
+            case 'it':   return '/it-login.html';
+            case 'user': return '/login.html';
+            default:     return null;
+        }
+    }
+
+    // Detect which portal the user actually logged into; fall back to URL path.
     function getLoginRedirect() {
+        try {
+            var role = localStorage.getItem('userRole');
+            var url = loginUrlForRole(role);
+            if (url) return url;
+        } catch (_) {}
         var path = window.location.pathname;
         if (path.includes('admin-officer-')) return '/admin-officer-login.html';
         if (path.includes('edit-employee-cards') || path.includes('employee-leavecard') || path.includes('hr-')) return '/hr-login.html';
@@ -64,9 +82,12 @@
                     var exempt = AUTH_EXEMPT.some(function(p) { return url.includes(p); });
                     if (!exempt) {
                         _isRedirecting = true;
+                        // Resolve the redirect URL BEFORE wiping the userRole key
+                        // so the user returns to the portal they were actually on.
+                        var redirectUrl = getLoginRedirect();
                         clearUserData();
                         console.warn('[AUTH] Session expired or invalid. Redirecting to login...');
-                        window.location.href = getLoginRedirect();
+                        window.location.href = redirectUrl;
                     }
                 }
                 return response;
@@ -91,7 +112,19 @@
     var TIMEOUT_MS = 300000;  // total before forced logout = 5 minutes
 
     // ── portal helpers (duplicated to keep this IIFE self-contained) ──────────
+    // Prefer the role the user actually logged in with; fall back to URL path.
     function getLoginUrl() {
+        try {
+            var role = localStorage.getItem('userRole');
+            switch (role) {
+                case 'hr':   return '/admin-officer-login.html';
+                case 'ao':   return '/hr-login.html';
+                case 'asds': return '/asds-login.html';
+                case 'sds':  return '/sds-login.html';
+                case 'it':   return '/it-login.html';
+                case 'user': return '/login.html';
+            }
+        } catch (_) {}
         var p = window.location.pathname;
         if (p.includes('admin-officer-')) return '/admin-officer-login.html';
         if (p.includes('edit-employee-cards') || p.includes('employee-leavecard') || p.includes('hr-')) return '/hr-login.html';
@@ -188,9 +221,12 @@
         hideWarning();
         clearTimeout(_warnTimer);
         clearTimeout(_logoutTimer);
+        // Resolve the login URL BEFORE wiping storage so we can redirect
+        // back to the portal the user was actually on (not the employee default)
+        var redirectUrl = getLoginUrl();
         fetch('/api/logout', { method: 'POST' }).catch(function () {});
         wipeStorage();
-        window.location.href = getLoginUrl();
+        window.location.href = redirectUrl;
     }
 
     // ── timer management ──────────────────────────────────────────────────────
