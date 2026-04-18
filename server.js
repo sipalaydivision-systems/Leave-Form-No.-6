@@ -2522,7 +2522,7 @@ function createAdminRegisterHandler(config) {
             }
             const existingPortal = isEmailRegisteredInAnyPortal(email, excludePortals);
             if (existingPortal) {
-                return res.status(400).json({ success: false, error: `This email is already registered in the ${existingPortal} portal. Each email can only be used in one portal.` });
+                return res.status(400).json({ success: false, error: `This email is already registered in another admin portal (${existingPortal}). An account cannot hold two admin roles simultaneously.` });
             }
             if (pendingRegs.find(r => r.email === email && r.portal === portalName && r.status === 'pending')) {
                 return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
@@ -2733,7 +2733,7 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
         // NOTE: Cross-portal check removed — all 6 portals were excluded, making it a no-op.
         // Employee-duplicate check above is sufficient. Admins ARE employees per policy.
 
-        if (pendingRegs.find(r => r.email === email && r.status === 'pending')) {
+        if (pendingRegs.find(r => r.email === email && r.portal === 'employee' && r.status === 'pending')) {
             return res.status(400).json({ success: false, error: 'Registration already pending IT approval' });
         }
 
@@ -3061,7 +3061,7 @@ app.get('/api/user-details', requireAuth(), (req, res) => {
 // ========== ADMIN OFFICER V REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/admin-officer-register', apiRateLimiter, createAdminRegisterHandler({
     portalName: 'hr', portalLabel: 'Admin Officer V', userFile: hrUsersFile,
-    excludePortals: ['hr', 'user'],
+    excludePortals: ['hr', 'user', 'ao', 'asds', 'sds'],
     defaultValues: { office: 'Schools Division', position: 'Administrative Officer V' }
 }));
 app.post('/api/admin-officer-login', loginRateLimiter, createLoginHandler({
@@ -3072,7 +3072,7 @@ app.post('/api/admin-officer-login', loginRateLimiter, createLoginHandler({
 // ========== ASDS REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/asds-register', apiRateLimiter, createAdminRegisterHandler({
     portalName: 'asds', portalLabel: 'ASDS', userFile: asdsUsersFile,
-    excludePortals: ['asds', 'user']
+    excludePortals: ['asds', 'user', 'ao', 'hr', 'sds']
 }));
 app.post('/api/asds-login', loginRateLimiter, createLoginHandler({
     portalName: 'asds', userFile: asdsUsersFile, sessionRole: 'asds',
@@ -3082,7 +3082,7 @@ app.post('/api/asds-login', loginRateLimiter, createLoginHandler({
 // ========== SDS REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/sds-register', apiRateLimiter, createAdminRegisterHandler({
     portalName: 'sds', portalLabel: 'SDS', userFile: sdsUsersFile,
-    excludePortals: ['sds', 'user'],
+    excludePortals: ['sds', 'user', 'ao', 'hr', 'asds'],
     defaultValues: { office: 'Office of the Schools Division Superintendent' }
 }));
 app.post('/api/sds-login', loginRateLimiter, createLoginHandler({
@@ -3093,7 +3093,7 @@ app.post('/api/sds-login', loginRateLimiter, createLoginHandler({
 // ========== HR PORTAL REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
     portalName: 'ao', portalLabel: 'HR', userFile: aoUsersFile,
-    excludePortals: ['ao', 'user']
+    excludePortals: ['ao', 'user', 'hr', 'asds', 'sds']
 }));
 app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
     portalName: 'ao', userFile: aoUsersFile, sessionRole: 'ao',
