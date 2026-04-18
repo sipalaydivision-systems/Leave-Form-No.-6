@@ -140,6 +140,7 @@ body {
 .details-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
+    flex: 1 0 auto;
 }
 .details-col {
     padding: 2px 4px;
@@ -183,6 +184,7 @@ body {
 .bottom-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
+    min-height: 22mm;
 }
 .bottom-col {
     padding: 2px 4px;
@@ -211,7 +213,8 @@ body {
 .action-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
-    flex: 1;
+    flex: 2 0 auto;
+    min-height: 55mm;
 }
 .action-col {
     padding: 2px 4px;
@@ -266,7 +269,7 @@ body {
 .approval-grid {
     display: grid; grid-template-columns: 1fr 1fr;
     border: 0.8px solid #000; border-top: none;
-    min-height: 44px;
+    min-height: 22mm;
 }
 .approval-col {
     padding: 2px 4px;
@@ -288,6 +291,11 @@ body {
     margin-top: 4px; text-align: center;
     border-top: 0.8px solid #000;
     padding-top: 3px;
+    min-height: 18mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 .final-sig-img {
     display: none; height: 30px;
