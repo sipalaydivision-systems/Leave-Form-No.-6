@@ -78,15 +78,17 @@
 
 // =============================================================================
 // Inactivity Auto-Logout
-// Monitors user activity and logs out automatically after 1 minute of idle time.
-// A 10-second countdown warning appears at the 50-second mark.
+// Monitors user activity (mouse movement, clicks, keypresses, scroll, touch,
+// and API calls) and logs out automatically after 5 minutes of idle time.
+// A 10-second countdown warning modal appears at the 4 min 50 s mark so the
+// user can click "Stay Logged In" to extend the session.
 // =============================================================================
 (function () {
     'use strict';
 
     var IDLE_MS    = 290000;  // show warning after 4 min 50 s of inactivity
     var WARN_MS    = 10000;   // countdown duration (10 s)
-    var TIMEOUT_MS = 300000;  // total before forced logout (4 min 50 s + 10 s)
+    var TIMEOUT_MS = 300000;  // total before forced logout = 5 minutes
 
     // ── portal helpers (duplicated to keep this IIFE self-contained) ──────────
     function getLoginUrl() {
