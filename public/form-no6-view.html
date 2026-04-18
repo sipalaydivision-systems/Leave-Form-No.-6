@@ -207,9 +207,13 @@ body {
 }
 
 /* ── Section 7 grid ─────────────────────────────── */
+/* Border on sides only — top is supplied by the black section-header,
+   bottom is omitted so this block flows continuously into .approval-grid. */
 .action-grid {
     display: grid; grid-template-columns: 1fr 1fr;
-    border: 0.8px solid #000; border-top: none;
+    border-left: 0.8px solid #000;
+    border-right: 0.8px solid #000;
+    border-bottom: 0.8px solid #000;
     min-height: 55mm;
 }
 .action-col {
@@ -264,7 +268,8 @@ body {
 /* ── Section 7C/7D ──────────────────────────────── */
 .approval-grid {
     display: grid; grid-template-columns: 1fr 1fr;
-    border: 0.8px solid #000; border-top: none;
+    border-left: 0.8px solid #000;
+    border-right: 0.8px solid #000;
     min-height: 26mm;
 }
 .approval-col {
@@ -272,6 +277,7 @@ body {
     border-right: 0.8px solid #000;
     font-size: 9.5px;
 }
+.approval-col:last-child { border-right: none; }
 .approval-col:last-child { border-right: none; }
 .approval-line {
     border-bottom: 0.5px solid #000;
@@ -282,13 +288,19 @@ body {
     align-items: baseline; margin-bottom: 2px; font-size: 8px;
 }
 
-/* ── Final signature ────────────────────────────── */
+/* ── Final signature — continuous with Section 7, no divider line ── */
 .final-sig {
-    margin-top: 10px; text-align: center;
-    padding-top: 4px;
+    margin: 0;
+    text-align: center;
+    padding: 10px 8px 12px;
+    border-left: 0.8px solid #000;
+    border-right: 0.8px solid #000;
+    border-bottom: 0.8px solid #000;
     display: flex;
     flex-direction: column;
     align-items: center;
+    flex: 1 0 auto;
+    justify-content: flex-end;
 }
 .final-sig-img {
     display: none; height: 36px;
@@ -308,6 +320,7 @@ body {
     .form-page {
         width: 210mm;
         min-height: 297mm;
+        height: 297mm;
         box-shadow: none;
         padding: 10mm 12mm 10mm 12mm;
         page-break-inside: avoid;
@@ -572,7 +585,7 @@ body {
             </div>
         </div>
 
-        <!-- ── Final signature (SDS) ── -->
+        <!-- ── Final signature (SDS) — inside Section 7's bordered container ── -->
         <div class="final-sig">
             <img id="sig-sds" class="final-sig-img" alt="SDS Signature">
             <div><span class="officer-name" id="f-sds-name"></span></div>
@@ -732,9 +745,10 @@ body {
     setText('f-date-to',   fmtDate(app.dateTo   || app.date_to));
 
     // ── 6D Commutation ───────────────────────────────
-    const comm = (app.commutation || '').toLowerCase();
+    // Only tick when an explicit choice was made; otherwise leave both empty.
+    const comm = (app.commutation || '').toLowerCase().trim();
     setChk('chk-comm-req', comm === 'requested');
-    setChk('chk-comm-not', comm !== 'requested');
+    setChk('chk-comm-not', comm === 'not_requested' || comm === 'not requested');
 
     // ── 7A Credits ───────────────────────────────────
     setText('f-credits-as-of', getLastDayOfPrevMonth());
