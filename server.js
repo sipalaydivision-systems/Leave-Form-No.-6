@@ -257,6 +257,11 @@ function loadPersistedSessions() {
 // Load persisted sessions on startup
 loadPersistedSessions();
 
+// Schedule periodic session persistence (every 30 seconds)
+setInterval(() => {
+    persistSessions();
+}, 30 * 1000);
+
 function generateSessionToken() {
     return crypto.randomBytes(48).toString('hex');
 }
