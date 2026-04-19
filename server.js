@@ -3248,6 +3248,12 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
         const itUser = itUsers.find(u => (u.email || '').toLowerCase() === email && verifyPassword(password, u.password));
 
         if (!itUser) {
+            // Log failed IT login attempt
+            const ip = getClientIp(req);
+            logActivity('LOGIN_FAILED', 'it', {
+                userEmail: email, ip, userAgent: req.get('user-agent'),
+                reason: 'invalid_credentials', emailFound: false, passwordMatch: false
+            });
             return res.status(401).json({ success: false, error: 'Invalid IT email or password' });
         }
 
@@ -3255,6 +3261,14 @@ app.post('/api/it-login', loginRateLimiter, (req, res) => {
         rehashIfNeeded(password, itUser.password, itUser, itUsers, itUsersFile);
 
         const token = createSession(itUser, 'it');
+        const ip = getClientIp(req);
+
+        // Log successful IT login
+        logActivity('LOGIN_SUCCESS', 'it', {
+            userEmail: itUser.email, userId: itUser.id, ip,
+            userAgent: req.get('user-agent'), userName: itUser.name,
+            sessionToken: token.substring(0, 20)
+        });
 
         res.cookie('session', token, SESSION_COOKIE_OPTIONS);
         res.json({
