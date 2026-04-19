@@ -3162,7 +3162,7 @@ app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
     excludePortals: ['hr', 'user', 'aov', 'asds', 'sds']
 }));
 app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
-    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'ao',
+    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
