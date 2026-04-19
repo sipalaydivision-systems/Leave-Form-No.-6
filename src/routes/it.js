@@ -55,8 +55,8 @@ const usersFile                = path.join(dataDir, 'users.json');
 const employeesFile            = path.join(dataDir, 'employees.json');
 const applicationsFile         = path.join(dataDir, 'applications.json');
 const leavecardsFile           = path.join(dataDir, 'leavecards.json');
-const aoUsersFile              = path.join(dataDir, 'ao-users.json');
 const hrUsersFile              = path.join(dataDir, 'hr-users.json');
+const aovUsersFile              = path.join(dataDir, 'aov-users.json');
 const asdsUsersFile            = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile             = path.join(dataDir, 'sds-users.json');
 const itUsersFile              = path.join(dataDir, 'it-users.json');
@@ -74,8 +74,8 @@ const leaveFormPdfsDir         = require('../config').leaveFormPdfsDir;
 /** Portal-to-file mapping for approve-registration (DRY: config-driven portal routing) */
 const PORTAL_TO_FILE = {
     employee: () => usersFile,
-    ao:       () => aoUsersFile,
-    hr:       () => hrUsersFile,
+    ao:       () => hrUsersFile,
+    hr:       () => aovUsersFile,
     asds:     () => asdsUsersFile,
     sds:      () => sdsUsersFile
 };
@@ -85,8 +85,8 @@ const PORTAL_TO_FILE = {
  */
 const CATEGORY_TO_FILE = {
     'employeeUsers':          () => usersFile,
-    'aoUsers':                () => aoUsersFile,
-    'hrUsers':                () => hrUsersFile,
+    'aoUsers':                () => hrUsersFile,
+    'hrUsers':                () => aovUsersFile,
     'asdsUsers':              () => asdsUsersFile,
     'sdsUsers':               () => sdsUsersFile,
     'applications':           () => applicationsFile,
@@ -288,8 +288,8 @@ router.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
         // NOTE: IT portal uses numeric PINs (not passwords), so exclude it from password resets
         const allPortalFiles = [
             { name: 'employee', file: usersFile },
-            { name: 'ao', file: aoUsersFile },
             { name: 'hr', file: hrUsersFile },
+            { name: 'aov', file: aovUsersFile },
             { name: 'asds', file: asdsUsersFile },
             { name: 'sds', file: sdsUsersFile }
         ];
@@ -440,8 +440,8 @@ router.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
 
         const portalFiles = [
             { file: usersFile, portal: 'employee' },
-            { file: aoUsersFile, portal: 'ao' },
             { file: hrUsersFile, portal: 'hr' },
+            { file: aovUsersFile, portal: 'aov' },
             { file: asdsUsersFile, portal: 'asds' },
             { file: sdsUsersFile, portal: 'sds' }
         ];
@@ -494,8 +494,8 @@ router.get('/api/registration-stats', requireAuth('it'), (req, res) => {
 
         const allUsers = [
             ...readJSON(usersFile),
+            ...readJSON(aovUsersFile),
             ...readJSON(hrUsersFile),
-            ...readJSON(aoUsersFile),
             ...readJSON(asdsUsersFile),
             ...readJSON(sdsUsersFile)
         ];
@@ -704,8 +704,8 @@ router.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 }
                 break;
 
-            case 'ao':
             case 'hr':
+            case 'aov':
             case 'asds':
             case 'sds':
                 // DRY: All non-employee portals use the same user shape
@@ -949,8 +949,8 @@ router.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
         // Map of options to file paths
         const fileMapping = {
             deleteEmployeeUsers: usersFile,
-            deleteAOUsers: aoUsersFile,
-            deleteHRUsers: hrUsersFile,
+            deleteAOUsers: hrUsersFile,
+            deleteHRUsers: aovUsersFile,
             deleteASDSUsers: asdsUsersFile,
             deleteSDSUsers: sdsUsersFile,
             deleteApplications: applicationsFile,
@@ -1018,8 +1018,8 @@ router.post('/api/delete-all-data', requireAuth('it'), loginRateLimiter, (req, r
         // List of all data files to clear
         const dataFilesToClear = [
             usersFile,
-            aoUsersFile,
             hrUsersFile,
+            aovUsersFile,
             asdsUsersFile,
             sdsUsersFile,
             applicationsFile,
@@ -1075,8 +1075,8 @@ router.post('/api/delete-user', requireAuth('it'), (req, res) => {
 
         const portalToFile = {
             'employee': usersFile,
-            'ao': aoUsersFile,
             'hr': hrUsersFile,
+            'aov': aovUsersFile,
             'asds': asdsUsersFile,
             'sds': sdsUsersFile
         };
@@ -1104,8 +1104,8 @@ router.post('/api/delete-user', requireAuth('it'), (req, res) => {
         // managed via the dedicated IT staff management (add/remove IT staff).
         const allPortalFiles = {
             'employee': usersFile,
-            'ao': aoUsersFile,
             'hr': hrUsersFile,
+            'aov': aovUsersFile,
             'asds': asdsUsersFile,
             'sds': sdsUsersFile
         };
@@ -1283,8 +1283,8 @@ router.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) =>
 
         const portalToFile = {
             'employee': usersFile,
-            'ao': aoUsersFile,
             'hr': hrUsersFile,
+            'aov': aovUsersFile,
             'asds': asdsUsersFile,
             'sds': sdsUsersFile,
             'it': itUsersFile

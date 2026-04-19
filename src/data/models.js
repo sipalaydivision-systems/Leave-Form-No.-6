@@ -92,7 +92,7 @@ function createAccrualTransaction(month, year, runningVL, runningSL, source, acc
  * Build a portal user object from a pending registration record.
  *
  * @param {object} registration - The pending registration record.
- * @param {string} role         - Portal role (`'user'`, `'ao'`, `'hr'`, `'asds'`, `'sds'`).
+ * @param {string} role         - Portal role (`'user'`, `'hr'`, `'aov'`, `'asds'`, `'sds'`).
  * @returns {object} User object ready for insertion into the portal's user file.
  */
 function buildPortalUser(registration, role) {

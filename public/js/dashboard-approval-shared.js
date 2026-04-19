@@ -259,14 +259,14 @@ export async function showApprovalModal(app, portal, user, onDone) {
     // Build return-to options based on portal level
     const RETURN_OPTIONS = {
         ASDS: [
-            { value: 'HR',       label: 'Admin Officer V (previous approver)' },
-            { value: 'AO',       label: 'HR Portal' },
+            { value: 'AOV',       label: 'Admin Officer V (previous approver)' },
+            { value: 'HR',       label: 'HR Portal' },
             { value: 'EMPLOYEE', label: 'Employee (for revision)' },
         ],
         SDS: [
             { value: 'ASDS',     label: 'ASDS (previous approver)' },
-            { value: 'HR',       label: 'Admin Officer V' },
-            { value: 'AO',       label: 'HR Portal' },
+            { value: 'AOV',       label: 'Admin Officer V' },
+            { value: 'HR',       label: 'HR Portal' },
             { value: 'EMPLOYEE', label: 'Employee (for revision)' },
         ],
     };

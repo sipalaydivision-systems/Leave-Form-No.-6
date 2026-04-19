@@ -413,7 +413,7 @@ async function loadUsers() {
             searchKeys: ['name', 'email', 'portal', 'position', 'employeeNo', 'office'],
             pageSize: 20,
             filters: [
-                { key: 'portal', label: 'Portal', options: ['All', 'employee', 'ao', 'hr', 'asds', 'sds', 'it'] },
+                { key: 'portal', label: 'Portal', options: ['All', 'employee', 'hr', 'aov', 'asds', 'sds', 'it'] },
                 { key: 'status', label: 'Status', options: ['All', 'approved', 'pending', 'rejected'] },
             ],
             emptyTitle: 'No Users',

@@ -1188,7 +1188,7 @@
                 
                 if (result.success) {
                     sessionStorage.setItem('user', JSON.stringify(result.user));
-                    localStorage.setItem('userRole', 'ao');
+                    localStorage.setItem('userRole', 'hr');
                     messageDiv.className = 'message success';
                     messageDiv.textContent = 'Login successful! Redirecting...';
                     messageDiv.style.display = 'block';
@@ -1362,7 +1362,7 @@
         let otpTimerInterval = null;
         let otpExpireTime = null;
         let currentForgotPasswordEmail = null;
-        let currentUserType = 'ao';
+        let currentUserType = 'hr';
 
         function openForgotPasswordModal(e) {
             e.preventDefault();
@@ -1400,7 +1400,7 @@
             fetch('/api/forgot-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, userType: 'ao' })
+                body: JSON.stringify({ email, userType: 'hr' })
             })
             .then(r => r.json())
             .then(data => {
@@ -1498,7 +1498,7 @@
             fetch('/api/forgot-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: currentForgotPasswordEmail, userType: 'ao' })
+                body: JSON.stringify({ email: currentForgotPasswordEmail, userType: 'hr' })
             })
             .then(r => r.json())
             .then(data => {

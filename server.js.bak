@@ -135,8 +135,8 @@ function isEmailRegisteredInAnyPortal(email, excludePortals) {
     const skipSet = new Set(Array.isArray(excludePortals) ? excludePortals : [excludePortals]);
     const portalFiles = [
         { name: 'user', file: usersFile },
+        { name: 'ao', file: aoUsersFile },
         { name: 'hr', file: hrUsersFile },
-        { name: 'aov', file: aovUsersFile },
         { name: 'asds', file: asdsUsersFile },
         { name: 'sds', file: sdsUsersFile },
         { name: 'it', file: itUsersFile }
@@ -346,19 +346,19 @@ function requireAuth(...allowedRoles) {
 // School-level AOs can only see employees from their own school.
 const DIVISION_OFFICES = ['CID', 'OSDS', 'SGOD', 'ASDS', 'ASDS - Assistant Schools Division Superintendent'];
 
-function isHrDivisionLevel(hrOffice) {
-    if (!hrOffice) return false;
-    return DIVISION_OFFICES.some(d => hrOffice.toUpperCase().includes(d));
+function isAoDivisionLevel(aoOffice) {
+    if (!aoOffice) return false;
+    return DIVISION_OFFICES.some(d => aoOffice.toUpperCase().includes(d));
 }
 
-function isEmployeeInAoSchool(employeeOffice, hrOffice) {
-    if (!hrOffice || !employeeOffice) return false;
+function isEmployeeInAoSchool(employeeOffice, aoOffice) {
+    if (!aoOffice || !employeeOffice) return false;
     // Division-level AOs see everyone
-    if (isHrDivisionLevel(hrOffice)) return true;
+    if (isAoDivisionLevel(aoOffice)) return true;
     // Exact match
-    if (employeeOffice === hrOffice) return true;
+    if (employeeOffice === aoOffice) return true;
     // Normalize for comparison (strip whitespace, case)
-    const normAo = hrOffice.toUpperCase().replace(/\s+/g, ' ').trim();
+    const normAo = aoOffice.toUpperCase().replace(/\s+/g, ' ').trim();
     const normEmp = employeeOffice.toUpperCase().replace(/\s+/g, ' ').trim();
     return normAo === normEmp;
 }
@@ -452,8 +452,8 @@ const usersFile = path.join(dataDir, 'users.json');
 const employeesFile = path.join(dataDir, 'employees.json');
 const applicationsFile = path.join(dataDir, 'applications.json');
 const leavecardsFile = path.join(dataDir, 'leavecards.json');
+const aoUsersFile = path.join(dataDir, 'ao-users.json');
 const hrUsersFile = path.join(dataDir, 'hr-users.json');
-const aovUsersFile = path.join(dataDir, 'aov-users.json');
 const asdsUsersFile = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile = path.join(dataDir, 'sds-users.json');
 const itUsersFile = path.join(dataDir, 'it-users.json');
@@ -583,8 +583,8 @@ ensureFile(usersFile);
 ensureFile(employeesFile);
 ensureFile(applicationsFile);
 ensureFile(leavecardsFile);
+ensureFile(aoUsersFile);
 ensureFile(hrUsersFile);
-ensureFile(aovUsersFile);
 ensureFile(asdsUsersFile);
 ensureFile(sdsUsersFile);
 ensureFile(itUsersFile);
@@ -683,13 +683,13 @@ function writeJSON(filepath, data) {
 // ========== SHARED HELPERS (DRY: extracted from repeated inline patterns) ==========
 
 /** Admin role names — used for self-or-admin access checks throughout the API */
-const ADMIN_ROLES = ['hr', 'aov', 'asds', 'sds', 'it'];
+const ADMIN_ROLES = ['ao', 'hr', 'asds', 'sds', 'it'];
 
 /** Portal-to-file mapping for approve-registration (DRY: config-driven portal routing) */
 const PORTAL_TO_FILE = {
     employee: () => usersFile,
-    ao: () => hrUsersFile,
-    hr: () => aovUsersFile,
+    ao: () => aoUsersFile,
+    hr: () => hrUsersFile,
     asds: () => asdsUsersFile,
     sds: () => sdsUsersFile
 };
@@ -700,8 +700,8 @@ const PORTAL_TO_FILE = {
  */
 const CATEGORY_TO_FILE = {
     'employeeUsers': () => usersFile,
-    'aoUsers': () => hrUsersFile,
-    'hrUsers': () => aovUsersFile,
+    'aoUsers': () => aoUsersFile,
+    'hrUsers': () => hrUsersFile,
     'asdsUsers': () => asdsUsersFile,
     'sdsUsers': () => sdsUsersFile,
     'applications': () => applicationsFile,
@@ -755,7 +755,7 @@ function findApplicationIndexById(applications, idParam) {
 function lookupUserName(email) {
     if (!email) return 'Unknown';
     const portalFiles = [
-        hrUsersFile, aovUsersFile, asdsUsersFile, sdsUsersFile, usersFile, itUsersFile
+        aoUsersFile, hrUsersFile, asdsUsersFile, sdsUsersFile, usersFile, itUsersFile
     ];
     for (const file of portalFiles) {
         const users = readJSON(file);
@@ -785,10 +785,10 @@ function isSelfOrAdmin(req, targetEmail) {
  * @param {Array} [employeesCache] - Optional pre-loaded employees array
  * @returns {boolean} true if access is allowed (division AO, or employee is in AO's school, or not AO role)
  */
-function isHrAccessAllowed(req, employeeEmail, usersCache, employeesCache) {
-    if (req.session.role !== 'hr') return true;
+function isAoAccessAllowed(req, employeeEmail, usersCache, employeesCache) {
+    if (req.session.role !== 'ao') return true;
     if (!req.session.office) return true;
-    if (isHrDivisionLevel(req.session.office)) return true;
+    if (isAoDivisionLevel(req.session.office)) return true;
     const empOffice = getEmployeeOffice(employeeEmail, usersCache, employeesCache);
     return isEmployeeInAoSchool(empOffice, req.session.office);
 }
@@ -1188,7 +1188,7 @@ function normalizeLeaveCardTransactions(transactions) {
  * Build a portal user object from a registration record.
  * DRY: Replaces the 5-case switch in approve-registration where 90% of fields are identical.
  * @param {object} registration - The pending registration record
- * @param {string} role - Portal role ('user', 'hr', 'aov', 'asds', 'sds')
+ * @param {string} role - Portal role ('user', 'ao', 'hr', 'asds', 'sds')
  * @returns {object} User object ready to push into portal's user file
  */
 function buildPortalUser(registration, role) {
@@ -2079,8 +2079,8 @@ function generateLoginFormEmail(userEmail, userName, portal, temporaryPassword =
     let portalDisplayName = '';
     switch(portal) {
         case 'employee': portalDisplayName = 'Employee'; break;
-        case 'hr': portalDisplayName = 'Administrative Officer'; break;
-        case 'aov': portalDisplayName = 'Human Resource'; break;
+        case 'ao': portalDisplayName = 'Administrative Officer'; break;
+        case 'hr': portalDisplayName = 'Human Resource'; break;
         case 'asds': portalDisplayName = 'ASDS'; break;
         case 'sds': portalDisplayName = 'Schools Division Superintendent'; break;
         default: portalDisplayName = 'Leave Form Portal';
@@ -2257,7 +2257,7 @@ function notifyLeaveRejected(app, rejectedBy, reason) {
  */
 function notifyNextApprover(app, approverRole) {
     if (!MAILERSEND_API_KEY) return;
-    const portalToFile = { 'AOV': aovUsersFile, 'HR': hrUsersFile, 'ASDS': asdsUsersFile, 'SDS': sdsUsersFile };
+    const portalToFile = { 'HR': hrUsersFile, 'AO': aoUsersFile, 'ASDS': asdsUsersFile, 'SDS': sdsUsersFile };
     const file = portalToFile[approverRole];
     if (!file) return;
     
@@ -2434,8 +2434,8 @@ app.post('/api/change-password', requireAuth(), (req, res) => {
         const portal = session.portal;
         const allPortalFiles = [
             { name: 'user', file: usersFile },
+            { name: 'ao', file: aoUsersFile },
             { name: 'hr', file: hrUsersFile },
-            { name: 'aov', file: aovUsersFile },
             { name: 'asds', file: asdsUsersFile },
             { name: 'sds', file: sdsUsersFile }
         ];
@@ -2820,8 +2820,8 @@ app.post('/api/it/reset-password', requireAuth('it'), (req, res) => {
         // NOTE: IT portal uses numeric PINs (not passwords), so exclude it from password resets
         const allPortalFiles = [
             { name: 'employee', file: usersFile },
+            { name: 'ao', file: aoUsersFile },
             { name: 'hr', file: hrUsersFile },
-            { name: 'aov', file: aovUsersFile },
             { name: 'asds', file: asdsUsersFile },
             { name: 'sds', file: sdsUsersFile }
         ];
@@ -3113,19 +3113,19 @@ app.get('/api/user-details', requireAuth(), (req, res) => {
 
 // ========== ADMIN OFFICER V REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/admin-officer-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'aov', portalLabel: 'Admin Officer V', userFile: aovUsersFile,
-    excludePortals: ['aov', 'user', 'hr', 'asds', 'sds'],
+    portalName: 'hr', portalLabel: 'Admin Officer V', userFile: hrUsersFile,
+    excludePortals: ['hr', 'user', 'ao', 'asds', 'sds'],
     defaultValues: { office: 'Schools Division', position: 'Administrative Officer V' }
 }));
 app.post('/api/admin-officer-login', loginRateLimiter, createLoginHandler({
-    portalName: 'aov', userFile: aovUsersFile, sessionRole: 'aov',
+    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
 // ========== ASDS REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/asds-register', apiRateLimiter, createAdminRegisterHandler({
     portalName: 'asds', portalLabel: 'ASDS', userFile: asdsUsersFile,
-    excludePortals: ['asds', 'user', 'hr', 'aov', 'sds']
+    excludePortals: ['asds', 'user', 'ao', 'hr', 'sds']
 }));
 app.post('/api/asds-login', loginRateLimiter, createLoginHandler({
     portalName: 'asds', userFile: asdsUsersFile, sessionRole: 'asds',
@@ -3135,7 +3135,7 @@ app.post('/api/asds-login', loginRateLimiter, createLoginHandler({
 // ========== SDS REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/sds-register', apiRateLimiter, createAdminRegisterHandler({
     portalName: 'sds', portalLabel: 'SDS', userFile: sdsUsersFile,
-    excludePortals: ['sds', 'user', 'hr', 'aov', 'asds'],
+    excludePortals: ['sds', 'user', 'ao', 'hr', 'asds'],
     defaultValues: { office: 'Office of the Schools Division Superintendent' }
 }));
 app.post('/api/sds-login', loginRateLimiter, createLoginHandler({
@@ -3145,11 +3145,11 @@ app.post('/api/sds-login', loginRateLimiter, createLoginHandler({
 
 // ========== HR PORTAL REGISTRATION & LOGIN (DRY: uses factory) ==========
 app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
-    excludePortals: ['hr', 'user', 'aov', 'asds', 'sds']
+    portalName: 'ao', portalLabel: 'HR', userFile: aoUsersFile,
+    excludePortals: ['ao', 'user', 'hr', 'asds', 'sds']
 }));
 app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
-    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
+    portalName: 'ao', userFile: aoUsersFile, sessionRole: 'ao',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
@@ -3309,15 +3309,15 @@ app.post('/api/update-employee-profile', requireAuth('user'), createProfileUpdat
 }));
 
 // Update AO Profile
-app.post('/api/update-hr-profile', requireAuth('hr'), createProfileUpdateHandler({
-    portalName: 'hr', portalLabel: 'AO', userFile: hrUsersFile,
+app.post('/api/update-ao-profile', requireAuth('ao'), createProfileUpdateHandler({
+    portalName: 'ao', portalLabel: 'AO', userFile: aoUsersFile,
     updatableFields: ['school', 'position'],
     responseFields: ['id', 'email', 'name', 'school', 'position']
 }));
 
 // Update HR Profile
-app.post('/api/update-aov-profile', requireAuth('aov'), createProfileUpdateHandler({
-    portalName: 'aov', portalLabel: 'HR', userFile: aovUsersFile,
+app.post('/api/update-hr-profile', requireAuth('hr'), createProfileUpdateHandler({
+    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
     updatableFields: ['office', 'position'],
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
@@ -3358,8 +3358,8 @@ app.get('/api/all-registered-users', requireAuth('it'), (req, res) => {
 
         const portalFiles = [
             { file: usersFile, portal: 'employee' },
+            { file: aoUsersFile, portal: 'ao' },
             { file: hrUsersFile, portal: 'hr' },
-            { file: aovUsersFile, portal: 'aov' },
             { file: asdsUsersFile, portal: 'asds' },
             { file: sdsUsersFile, portal: 'sds' }
         ];
@@ -3408,8 +3408,8 @@ app.get('/api/registration-stats', requireAuth('it'), (req, res) => {
 
         const allUsers = [
             ...readJSON(usersFile),
-            ...readJSON(aovUsersFile),
             ...readJSON(hrUsersFile),
+            ...readJSON(aoUsersFile),
             ...readJSON(asdsUsersFile),
             ...readJSON(sdsUsersFile)
         ];
@@ -3638,8 +3638,8 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                 }
                 break;
 
+            case 'ao':
             case 'hr':
-            case 'aov':
             case 'asds':
             case 'sds':
                 // DRY: All non-employee portals use the same user shape
@@ -3871,8 +3871,8 @@ app.post('/api/delete-selected-data', requireAuth('it'), (req, res) => {
         // Map of options to file paths
         const fileMapping = {
             deleteEmployeeUsers: usersFile,
-            deleteAOUsers: hrUsersFile,
-            deleteHRUsers: aovUsersFile,
+            deleteAOUsers: aoUsersFile,
+            deleteHRUsers: hrUsersFile,
             deleteASDSUsers: asdsUsersFile,
             deleteSDSUsers: sdsUsersFile,
             deleteApplications: applicationsFile,
@@ -3937,8 +3937,8 @@ app.post('/api/delete-all-data', requireAuth('it'), loginRateLimiter, (req, res)
         // List of all data files to clear
         const dataFilesToClear = [
             usersFile,                  // Employee users
-            hrUsersFile,                // AO users
-            aovUsersFile,                // HR users
+            aoUsersFile,                // AO users
+            hrUsersFile,                // HR users
             asdsUsersFile,              // ASDS users
             sdsUsersFile,               // SDS users
             applicationsFile,           // Leave applications
@@ -3990,8 +3990,8 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
 
         const portalToFile = {
             'employee': usersFile,
+            'ao': aoUsersFile,
             'hr': hrUsersFile,
-            'aov': aovUsersFile,
             'asds': asdsUsersFile,
             'sds': sdsUsersFile
         };
@@ -4021,8 +4021,8 @@ app.post('/api/delete-user', requireAuth('it'), (req, res) => {
         // Deleting an employee should NOT delete their IT admin account.
         const allPortalFiles = {
             'employee': usersFile,
+            'ao': aoUsersFile,
             'hr': hrUsersFile,
-            'aov': aovUsersFile,
             'asds': asdsUsersFile,
             'sds': sdsUsersFile
         };
@@ -4197,8 +4197,8 @@ app.post('/api/delete-multiple-users', requireAuth('it'), async (req, res) => {
 
         const portalToFile = {
             'employee': usersFile,
+            'ao': aoUsersFile,
             'hr': hrUsersFile,
-            'aov': aovUsersFile,
             'asds': asdsUsersFile,
             'sds': sdsUsersFile,
             'it': itUsersFile
@@ -4516,7 +4516,7 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
             soFilePath: null,  // Will be set if SO file was uploaded
             isSchoolBased: schoolBased,
             status: 'pending',
-            currentApprover: 'HR',
+            currentApprover: 'AO',
             approvalHistory: [],
             submittedAt: new Date().toISOString()
         };
@@ -4566,7 +4566,7 @@ app.post('/api/submit-leave', requireAuth(), (req, res) => {
         
         // Send email notifications (fire-and-forget)
         notifyLeaveSubmitted(newApplication);
-        notifyNextApprover(newApplication, 'HR');
+        notifyNextApprover(newApplication, 'AO');
         
         res.json({ 
             success: true, 
@@ -4748,7 +4748,7 @@ app.get('/api/leave-form-pdf-status/:id', requireAuth(), (req, res) => {
 });
 
 // Get applications pending for a specific portal (includes returned applications)
-app.get('/api/pending-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/pending-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -4764,7 +4764,7 @@ app.get('/api/pending-applications/:portal', requireAuth('hr', 'aov', 'asds', 's
 });
 
 // Get approved applications for a specific portal (SDS or ASDS)
-app.get('/api/approved-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/approved-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -4786,13 +4786,13 @@ app.get('/api/approved-applications/:portal', requireAuth('hr', 'aov', 'asds', '
 });
 
 // Get HR-approved applications (applications that HR has processed and forwarded to next level)
-app.get('/api/hr-approved-applications', requireAuth('aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/hr-approved-applications', requireAuth('hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
         
         // Get applications where HR has approved them (hrApprovedAt exists and currentApprover is not HR)
         let hrApprovedApps = applications.filter(a => {
-            return a.hrApprovedAt && a.currentApprover !== 'AOV';
+            return a.hrApprovedAt && a.currentApprover !== 'HR';
         });
         
         res.json({ success: true, applications: hrApprovedApps });
@@ -4802,14 +4802,14 @@ app.get('/api/hr-approved-applications', requireAuth('aov', 'asds', 'sds', 'it')
 });
 
 // Get all users for demographics
-app.get('/api/all-users', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/all-users', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         // SECURITY: Strip password hashes before sending to client
         let safeUsers = users.map(({ password, ...rest }) => rest);
         
         // AO school-based filtering: AO can only see users from their school
-        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
             safeUsers = safeUsers.filter(u => isEmployeeInAoSchool(u.office || u.school, req.session.office));
         }
         
@@ -4820,19 +4820,19 @@ app.get('/api/all-users', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, r
 });
 
 // Get all applications for demographics
-app.get('/api/all-applications', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         let applications = readJSONArray(applicationsFile);
         
         // AO school-based filtering: AO can only see applications from their school's employees
         // S2 fix: Pre-load user/employee data once, pass as cache to avoid O(N×2) disk reads
-        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
-            const hrOffice = req.session.office;
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const aoOffice = req.session.office;
             const usersCache = readJSON(usersFile);
             const employeesCache = readJSON(employeesFile);
             applications = applications.filter(app => {
                 const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
-                return isEmployeeInAoSchool(empOffice, hrOffice);
+                return isEmployeeInAoSchool(empOffice, aoOffice);
             });
         }
         
@@ -4844,7 +4844,7 @@ app.get('/api/all-applications', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), 
 
 // Leave calendar data — returns approved leaves with date ranges for calendar display
 // Accessible to all admin roles for planning purposes
-app.get('/api/leave-calendar', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const { month, year } = req.query;
         const applications = readJSONArray(applicationsFile);
@@ -4865,13 +4865,13 @@ app.get('/api/leave-calendar', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (r
         }
         
         // AO school-based filtering
-        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
-            const hrOffice = req.session.office;
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const aoOffice = req.session.office;
             const usersCache = readJSON(usersFile);
             const employeesCache = readJSON(employeesFile);
             relevantApps = relevantApps.filter(a => {
                 const empOffice = getEmployeeOffice(a.employeeEmail || a.email, usersCache, employeesCache);
-                return isEmployeeInAoSchool(empOffice, hrOffice);
+                return isEmployeeInAoSchool(empOffice, aoOffice);
             });
         }
         
@@ -4932,7 +4932,7 @@ app.get('/api/leave-utilization/top5', requireAuth('asds', 'sds', 'it'), (req, r
 // Merges registered user accounts with leave card holders so that
 // employees from Excel migration also appear even if they haven't
 // registered an account yet.
-app.get('/api/all-employees', requireAuth('hr', 'aov', 'it'), (req, res) => {
+app.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         const leavecards = readJSON(leavecardsFile);
@@ -4974,10 +4974,10 @@ app.get('/api/all-employees', requireAuth('hr', 'aov', 'it'), (req, res) => {
         let employees = Array.from(employeeMap.values());
         
         // AO school-based filtering: AO can only see employees from their own school
-        if (req.session.role === 'hr' && req.session.office) {
-            const hrOffice = req.session.office;
-            if (!isHrDivisionLevel(hrOffice)) {
-                employees = employees.filter(emp => isEmployeeInAoSchool(emp.office, hrOffice));
+        if (req.session.role === 'ao' && req.session.office) {
+            const aoOffice = req.session.office;
+            if (!isAoDivisionLevel(aoOffice)) {
+                employees = employees.filter(emp => isEmployeeInAoSchool(emp.office, aoOffice));
 
             }
         }
@@ -4989,7 +4989,7 @@ app.get('/api/all-employees', requireAuth('hr', 'aov', 'it'), (req, res) => {
 });
 
 // Get all applications for a portal (pending, approved, and rejected by this portal)
-app.get('/api/portal-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
+app.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -5009,13 +5009,13 @@ app.get('/api/portal-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sd
         
         // AO school-based filtering: AO can only see applications from their school's employees
         // S2 fix: Pre-load data once for filter loop
-        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
-            const hrOffice = req.session.office;
+        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+            const aoOffice = req.session.office;
             const usersCache = readJSON(usersFile);
             const employeesCache = readJSON(employeesFile);
             portalApps = portalApps.filter(app => {
                 const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
-                return isEmployeeInAoSchool(empOffice, hrOffice);
+                return isEmployeeInAoSchool(empOffice, aoOffice);
             });
 
         }
@@ -5040,7 +5040,7 @@ app.get('/api/leave-credits', requireAuth(), (req, res) => {
         }
         
         // AO school-based filtering
-        if (!isHrAccessAllowed(req, employeeId)) {
+        if (!isAoAccessAllowed(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         
@@ -5444,7 +5444,7 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
         
         // Reset status and send back to AO
         app.status = 'pending';
-        app.currentApprover = 'HR';
+        app.currentApprover = 'AO';
         app.resubmittedAt = new Date().toISOString();
         
         applications[appIndex] = app;
@@ -5475,7 +5475,7 @@ app.post('/api/resubmit-leave', requireAuth(), (req, res) => {
 });
 
 // Update leave credits for an employee
-app.post('/api/update-leave-credits', requireAuth('hr', 'it'), (req, res) => {
+app.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
     try {
         const { 
             applicationId, 
@@ -5500,7 +5500,7 @@ app.post('/api/update-leave-credits', requireAuth('hr', 'it'), (req, res) => {
         }
         
         // AO school-based filtering
-        if (!isHrAccessAllowed(req, employeeEmail)) {
+        if (!isAoAccessAllowed(req, employeeEmail)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         
@@ -5662,7 +5662,7 @@ app.post('/api/update-leave-credits', requireAuth('hr', 'it'), (req, res) => {
 });
 
 // Approve, return, or reject application
-app.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, res) => {
+app.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res) => {
     try {
         const { applicationId, action, approverPortal: _approverPortal, portal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, wlEarned, wlLess, wlBalance, ctoEarned, ctoLess, ctoBalance, daysApproved } = req.body;
         const approverPortal = _approverPortal || portal;
@@ -5687,13 +5687,13 @@ app.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, re
 
 
         // AO school-based filtering
-        if (!isHrAccessAllowed(req, app.employeeEmail || app.email)) {
+        if (!isAoAccessAllowed(req, app.employeeEmail || app.email)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         
         // SECURITY: Use session role instead of trusting client-provided portal
         // Map session role to portal name (prevents portal spoofing attack)
-        const roleToPortal = { 'hr': 'HR', 'aov': 'AOV', 'asds': 'ASDS', 'sds': 'SDS' };
+        const roleToPortal = { 'ao': 'AO', 'hr': 'HR', 'asds': 'ASDS', 'sds': 'SDS' };
         const sessionRole = req.session?.role;
         const currentApprover = roleToPortal[sessionRole] || (approverPortal || '').toUpperCase();
         
@@ -5729,7 +5729,7 @@ app.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, re
         // Capture signature for the current approval step into the history entry
         let stepSignature = '';
         if (action === 'approved') {
-            if (currentApprover === 'AOV' && authorizedOfficerSignature) stepSignature = authorizedOfficerSignature;
+            if (currentApprover === 'HR' && authorizedOfficerSignature) stepSignature = authorizedOfficerSignature;
             else if (currentApprover === 'ASDS' && asdsOfficerSignature) stepSignature = asdsOfficerSignature;
             else if (currentApprover === 'SDS' && sdsOfficerSignature) stepSignature = sdsOfficerSignature;
         }
@@ -5747,11 +5747,11 @@ app.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, re
             // Return application to a specific step or previous step for compliance
             // Workflow: Employee <- AO <- HR <- ASDS <- SDS
             // With returnTo parameter, approver can send directly to any lower step
-            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'HR', 'AOV', 'ASDS'
+            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'AO', 'HR', 'ASDS'
             let returnedTo = null;
             
             // Define the workflow hierarchy (lower index = lower in chain)
-            const workflowOrder = ['EMPLOYEE', 'HR', 'AOV', 'ASDS', 'SDS'];
+            const workflowOrder = ['EMPLOYEE', 'AO', 'HR', 'ASDS', 'SDS'];
             const currentIndex = workflowOrder.indexOf(currentApprover);
             
             if (returnTo && workflowOrder.indexOf(returnTo) < currentIndex) {
@@ -5766,18 +5766,18 @@ app.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, re
                 returnedTo = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
             } else {
                 // Default: return to previous step
-                if (currentApprover === 'HR') {
+                if (currentApprover === 'AO') {
                     app.status = 'returned';
                     app.currentApprover = 'EMPLOYEE';
                     returnedTo = 'Employee';
-                } else if (currentApprover === 'AOV') {
+                } else if (currentApprover === 'HR') {
+                    app.status = 'pending';
+                    app.currentApprover = 'AO';
+                    returnedTo = 'AO';
+                } else if (currentApprover === 'ASDS') {
                     app.status = 'pending';
                     app.currentApprover = 'HR';
                     returnedTo = 'HR';
-                } else if (currentApprover === 'ASDS') {
-                    app.status = 'pending';
-                    app.currentApprover = 'AOV';
-                    returnedTo = 'AOV';
                 } else if (currentApprover === 'SDS') {
                     app.status = 'pending';
                     app.currentApprover = 'ASDS';
@@ -5810,12 +5810,12 @@ app.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, re
             
         } else if (action === 'approved') {
             // Determine next approver based on workflow
-            if (currentApprover === 'HR') {
+            if (currentApprover === 'AO') {
                 // AO approved -> goes to HR
-                app.currentApprover = 'AOV';
+                app.currentApprover = 'HR';
                 app.aoApprovedAt = new Date().toISOString();
                 console.log(`[WORKFLOW] AO approved - Moving to HR`);
-            } else if (currentApprover === 'AOV') {
+            } else if (currentApprover === 'HR') {
                 // HR approved -> goes to ASDS
                 app.currentApprover = 'ASDS';
                 app.hrApprovedAt = new Date().toISOString();
@@ -6292,7 +6292,7 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
         }
         
         // AO school-based filtering
-        if (employeeId && !isHrAccessAllowed(req, employeeId)) {
+        if (employeeId && !isAoAccessAllowed(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
         let ctoRecords = readJSON(ctoRecordsFile);
@@ -6355,7 +6355,7 @@ app.get('/api/cto-records', requireAuth(), (req, res) => {
 });
 
 // Add/Update CTO record
-app.post('/api/update-cto-records', requireAuth('hr', 'it'), (req, res) => {
+app.post('/api/update-cto-records', requireAuth('ao', 'it'), (req, res) => {
     try {
         const { employeeId, type, soDetails, dateIssued, daysGranted, daysUsed, periodCovered, soImage } = req.body;
 
@@ -6364,7 +6364,7 @@ app.post('/api/update-cto-records', requireAuth('hr', 'it'), (req, res) => {
         }
 
         // AO school-based filtering
-        if (!isHrAccessAllowed(req, employeeId)) {
+        if (!isAoAccessAllowed(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
@@ -6409,7 +6409,7 @@ app.post('/api/update-cto-records', requireAuth('hr', 'it'), (req, res) => {
 });
 
 // Update CTO record (deduct days used)
-app.put('/api/cto-records/:recordId', requireAuth('hr', 'it'), (req, res) => {
+app.put('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
     try {
         const recordId = req.params.recordId;
         const { daysUsed, fullUpdate, type, soDetails, dateIssued, periodCovered, daysGranted, soImage } = req.body;
@@ -6423,7 +6423,7 @@ app.put('/api/cto-records/:recordId', requireAuth('hr', 'it'), (req, res) => {
         }
 
         // AO school-based filtering
-        if (!isHrAccessAllowed(req, ctoRecords[index].employeeId || ctoRecords[index].email)) {
+        if (!isAoAccessAllowed(req, ctoRecords[index].employeeId || ctoRecords[index].email)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
@@ -6456,7 +6456,7 @@ app.put('/api/cto-records/:recordId', requireAuth('hr', 'it'), (req, res) => {
 });
 
 // DELETE /api/cto-records/:recordId — Remove a CTO record
-app.delete('/api/cto-records/:recordId', requireAuth('hr', 'it'), (req, res) => {
+app.delete('/api/cto-records/:recordId', requireAuth('ao', 'it'), (req, res) => {
     try {
         const recordId = req.params.recordId;
 
@@ -6468,14 +6468,14 @@ app.delete('/api/cto-records/:recordId', requireAuth('hr', 'it'), (req, res) => 
             return res.status(404).json({ success: false, error: 'Record not found' });
         }
 
-        if (!isHrAccessAllowed(req, ctoRecords[index].employeeId || ctoRecords[index].email)) {
+        if (!isAoAccessAllowed(req, ctoRecords[index].employeeId || ctoRecords[index].email)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
         const deleted = ctoRecords.splice(index, 1)[0];
         writeJSON(ctoRecordsFile, ctoRecords);
 
-        logActivity('CTO_RECORD_DELETED', 'hr', {
+        logActivity('CTO_RECORD_DELETED', 'ao', {
             userEmail: req.session?.email || 'unknown',
             ip: getClientIp(req),
             recordId,
@@ -6644,7 +6644,7 @@ if (!fs.existsSync(backupDir)) {
 // List of all data files to backup/restore
 const DATA_FILES = [
     'users.json', 'employees.json', 'applications.json', 'leavecards.json',
-    'hr-users.json', 'aov-users.json', 'asds-users.json', 'sds-users.json',
+    'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json',
     'it-users.json', 'pending-registrations.json',
     'cto-records.json', 'schools.json', 'initial-credits.json',
     'activity-logs.json', 'system-state.json'
@@ -6771,7 +6771,7 @@ app.get('/api/data/export', requireAuth('it'), (req, res) => {
     try {
         const bundle = {};
         // Files that contain user authentication data (passwords must be stripped)
-        const sensitiveFiles = ['users.json', 'hr-users.json', 'aov-users.json', 'asds-users.json', 'sds-users.json', 'it-users.json'];
+        const sensitiveFiles = ['users.json', 'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json', 'it-users.json'];
         for (const file of DATA_FILES) {
             const filePath = path.join(dataDir, file);
             if (fs.existsSync(filePath)) {
@@ -8102,8 +8102,8 @@ app.get('/api/system-status', requireAuth('it'), (req, res) => {
     try {
         const itUsers = readJSON(itUsersFile);
         const users = readJSON(usersFile);
-        const aoUsers = readJSON(hrUsersFile);
-        const hrUsers = readJSON(aovUsersFile);
+        const aoUsers = readJSON(aoUsersFile);
+        const hrUsers = readJSON(hrUsersFile);
         const leavecards = readJSON(leavecardsFile);
         const ctoRecords = readJSON(path.join(dataDir, 'cto-records.json'));
         res.json({

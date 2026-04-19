@@ -33,7 +33,7 @@ const pendingRegistrationsFile = path.join(dataDir, 'pending-registrations.json'
 // Constants
 // ---------------------------------------------------------------------------
 
-const ADMIN_ROLES = ['ao', 'hr', 'asds', 'sds', 'it'];
+const ADMIN_ROLES = ['hr', 'aov', 'asds', 'sds', 'it'];
 
 /**
  * SECURITY: Allow access to own data or if caller is an admin.

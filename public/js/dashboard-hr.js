@@ -68,7 +68,7 @@ async function fetchUser() {
     const data = await res.json();
     const u = data.user || data;
     const role = (u.role || u.portal || '').toLowerCase();
-    if (role !== 'ao' && role !== 'it') { window.location.href = '/hr-login'; return null; }
+    if (role !== 'hr' && role !== 'it') { window.location.href = '/hr-login'; return null; }
     if (u.mustChangePassword) { window.location.href = '/change-password.html'; return null; }
     return u;
 }
@@ -152,7 +152,7 @@ function onTabChange(tabId) {
             break;
         case 'calendar':
             if (!leaveCalendar) {
-                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'ao', email: user.email });
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'hr', email: user.email });
             }
             leaveCalendar.load();
             break;
@@ -169,7 +169,7 @@ function getGreeting() {
 
 function setupTopbar() {
     const title = document.getElementById('topbar-title');
-    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'HR';
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'AOV';
     if (title) title.textContent = `HR Dashboard — ${firstName}`;
 
     // Hero
@@ -208,9 +208,9 @@ async function loadOverviewData() {
     allApplications = data.applications || data || [];
 
     const pending = allApplications.filter(a =>
-        a.status === 'pending' && (a.currentApprover || a.current_approver || '').toUpperCase() === 'AO'
+        a.status === 'pending' && (a.currentApprover || a.current_approver || '').toUpperCase() === 'HR'
     );
-    const approved = allApplications.filter(a => a.status !== 'pending' || (a.currentApprover || a.current_approver || '').toUpperCase() !== 'AO');
+    const approved = allApplications.filter(a => a.status !== 'pending' || (a.currentApprover || a.current_approver || '').toUpperCase() !== 'HR');
 
     const now = new Date();
     const thisMonth = approved.filter(a => {
@@ -360,7 +360,7 @@ function renderTypesChart(apps) {
 // ---------------------------------------------------------------------------
 function renderPendingTable() {
     const pending = allApplications.filter(a =>
-        a.status === 'pending' && (a.currentApprover || a.current_approver || '').toUpperCase() === 'AO'
+        a.status === 'pending' && (a.currentApprover || a.current_approver || '').toUpperCase() === 'HR'
     );
 
     const tableData = pending.map(app => ({
@@ -411,7 +411,7 @@ function renderPendingTable() {
 // ---------------------------------------------------------------------------
 function renderApprovedTable() {
     const processed = allApplications.filter(a =>
-        a.status !== 'pending' || (a.currentApprover || a.current_approver || '').toUpperCase() !== 'AO'
+        a.status !== 'pending' || (a.currentApprover || a.current_approver || '').toUpperCase() !== 'HR'
     );
 
     const tableData = processed.map(app => ({
@@ -609,7 +609,7 @@ async function processApproval(appId, action, remarks) {
                 applicationId: appId,
                 action,
                 remarks,
-                portal: 'AO',
+                portal: 'HR',
                 approverName: user.name || user.fullName || '',
             }),
         });
@@ -698,7 +698,7 @@ function showApplicationDetail(appId) {
         ${timeline}
     `;
 
-    const isPending = status === 'pending' && approver.toUpperCase() === 'AO';
+    const isPending = status === 'pending' && approver.toUpperCase() === 'HR';
     const employeeEmail = app.employeeEmail || app.employee_email || '';
     const viewCardBtn = employeeEmail
         ? `<button class="btn btn-ghost btn-sm" onclick="window.location.href='/edit-employee-cards.html?email=${encodeURIComponent(employeeEmail)}&back=hr-dashboard'">View Leave Card</button>`

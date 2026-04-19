@@ -368,7 +368,7 @@ async function loadApplications() {
                     if (row.status === 'returned') {
                         btns += ` <button class="btn btn-primary btn-sm btn-resubmit-app" data-id="${escapeHtml(row.id)}">Resubmit</button>`;
                     }
-                    if (row.status === 'pending' && (row.currentApprover === 'AO' || row.currentApprover === 'EMPLOYEE')) {
+                    if (row.status === 'pending' && (row.currentApprover === 'HR' || row.currentApprover === 'EMPLOYEE')) {
                         btns += ` <button class="btn btn-ghost btn-sm btn-cancel-app" data-id="${escapeHtml(row.id)}" style="color:var(--color-danger)">Cancel</button>`;
                     }
                     return `<div class="cell-actions">${btns}</div>`;

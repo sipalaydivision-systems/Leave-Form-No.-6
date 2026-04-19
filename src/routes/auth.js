@@ -27,8 +27,8 @@ const { parseFullNameIntoParts } = require('../utils/name-parser');
 const dataDir = require('../config').dataDir;
 
 const usersFile                = path.join(dataDir, 'users.json');
-const aoUsersFile              = path.join(dataDir, 'ao-users.json');
 const hrUsersFile              = path.join(dataDir, 'hr-users.json');
+const aovUsersFile              = path.join(dataDir, 'aov-users.json');
 const asdsUsersFile            = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile             = path.join(dataDir, 'sds-users.json');
 const itUsersFile              = path.join(dataDir, 'it-users.json');
@@ -127,8 +127,8 @@ function isEmailRegisteredInAnyPortal(email, excludePortals) {
     const skipSet = new Set(Array.isArray(excludePortals) ? excludePortals : [excludePortals]);
     const portalFiles = [
         { name: 'user', file: usersFile },
-        { name: 'ao', file: aoUsersFile },
         { name: 'hr', file: hrUsersFile },
+        { name: 'aov', file: aovUsersFile },
         { name: 'asds', file: asdsUsersFile },
         { name: 'sds', file: sdsUsersFile },
         { name: 'it', file: itUsersFile }
@@ -472,12 +472,12 @@ router.post('/api/login', loginRateLimiter, createLoginHandler({
 
 // Admin Officer V
 router.post('/api/admin-officer-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'hr', portalLabel: 'Admin Officer V', userFile: hrUsersFile,
-    excludePortals: ['hr', 'user'],
+    portalName: 'aov', portalLabel: 'Admin Officer V', userFile: aovUsersFile,
+    excludePortals: ['aov', 'user'],
     defaultValues: { office: 'Schools Division', position: 'Administrative Officer V' }
 }));
 router.post('/api/admin-officer-login', loginRateLimiter, createLoginHandler({
-    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
+    portalName: 'aov', userFile: aovUsersFile, sessionRole: 'aov',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
@@ -504,11 +504,11 @@ router.post('/api/sds-login', loginRateLimiter, createLoginHandler({
 
 // HR Portal (first-level approver, internal role: ao)
 router.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
-    portalName: 'ao', portalLabel: 'HR', userFile: aoUsersFile,
-    excludePortals: ['ao', 'user']
+    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
+    excludePortals: ['hr', 'user']
 }));
 router.post('/api/hr-login', loginRateLimiter, createLoginHandler({
-    portalName: 'ao', userFile: aoUsersFile, sessionRole: 'ao',
+    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
@@ -516,14 +516,14 @@ router.post('/api/hr-login', loginRateLimiter, createLoginHandler({
 // PROFILE UPDATE ENDPOINTS (DRY: uses createProfileUpdateHandler factory)
 // =========================================================================
 
-router.post('/api/update-ao-profile', requireAuth('ao'), createProfileUpdateHandler({
-    portalName: 'ao', portalLabel: 'AO', userFile: aoUsersFile,
+router.post('/api/update-hr-profile', requireAuth('hr'), createProfileUpdateHandler({
+    portalName: 'hr', portalLabel: 'AO', userFile: hrUsersFile,
     updatableFields: ['school', 'position'],
     responseFields: ['id', 'email', 'name', 'school', 'position']
 }));
 
-router.post('/api/update-hr-profile', requireAuth('hr'), createProfileUpdateHandler({
-    portalName: 'hr', portalLabel: 'HR', userFile: hrUsersFile,
+router.post('/api/update-aov-profile', requireAuth('aov'), createProfileUpdateHandler({
+    portalName: 'aov', portalLabel: 'HR', userFile: aovUsersFile,
     updatableFields: ['office', 'position'],
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));

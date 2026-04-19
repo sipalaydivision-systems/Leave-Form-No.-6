@@ -64,7 +64,7 @@ async function fetchUser() {
     const data = await res.json();
     const u = data.user || data;
     const role = (u.role || u.portal || '').toLowerCase();
-    if (role !== 'hr' && role !== 'it') { window.location.href = '/hr-login'; return null; }
+    if (role !== 'aov' && role !== 'it') { window.location.href = '/hr-login'; return null; }
     if (u.mustChangePassword) { window.location.href = '/change-password.html'; return null; }
     return u;
 }
@@ -144,7 +144,7 @@ function onTabChange(tabId) {
         case 'cards': if (!employeesTable) loadEmployees(); break;
         case 'calendar':
             if (!leaveCalendar) {
-                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'hr', email: user.email });
+                leaveCalendar = initLeaveCalendar({ el: '#calendar-content', role: 'aov', email: user.email });
             }
             leaveCalendar.load();
             break;
@@ -162,7 +162,7 @@ function getGreeting() {
 
 function setupTopbar() {
     const title = document.getElementById('topbar-title');
-    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'HR';
+    const firstName = user.firstName || user.first_name || (user.name || '').split(' ')[0] || 'AOV';
     if (title) title.textContent = `HR Dashboard — ${firstName}`;
 
     // Hero
@@ -640,7 +640,7 @@ function showReturnModal(appId) {
         <div class="form-group" style="margin-top:var(--space-3)">
             <label class="form-label">Return To</label>
             <select class="form-input" id="return-target">
-                <option value="AO">HR Portal (previous approver)</option>
+                <option value="HR">HR Portal (previous approver)</option>
                 <option value="EMPLOYEE">Employee (for revision)</option>
             </select>
         </div>
@@ -663,7 +663,7 @@ function showReturnModal(appId) {
     document.getElementById('return-cancel')?.addEventListener('click', () => modal.close());
     document.getElementById('return-confirm')?.addEventListener('click', async () => {
         const reason = document.getElementById('return-reason')?.value || '';
-        const returnTo = document.getElementById('return-target')?.value || 'AO';
+        const returnTo = document.getElementById('return-target')?.value || 'HR';
         if (!reason.trim()) { toast.warning('Please provide a reason for return.'); return; }
         await processHRAction(appId, 'returned', reason, '', null, returnTo);
         modal.close();
@@ -679,7 +679,7 @@ async function processHRAction(appId, action, remarks, signature, certData, retu
             applicationId: appId,
             action,
             remarks,
-            portal: 'HR',
+            portal: 'AOV',
             approverName: user.name || user.fullName || '',
             authorizedOfficerName: user.name || user.fullName || '',
             authorizedOfficerSignature: signature || undefined,

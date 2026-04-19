@@ -927,10 +927,10 @@
         document.getElementById('ts-submitted').classList.add('completed');
 
         if (app.aoApprovedAt) document.getElementById('ts-ao').classList.add('completed');
-        else if (app.currentApprover === 'AO') document.getElementById('ts-ao').classList.add('active');
+        else if (app.currentApprover === 'HR') document.getElementById('ts-ao').classList.add('active');
 
         if (app.hrApprovedAt) document.getElementById('ts-hr').classList.add('completed');
-        else if (app.currentApprover === 'HR') document.getElementById('ts-hr').classList.add('active');
+        else if (app.currentApprover === 'AOV') document.getElementById('ts-hr').classList.add('active');
 
         if (app.asdsApprovedAt) document.getElementById('ts-asds').classList.add('completed');
         else if (app.currentApprover === 'ASDS') document.getElementById('ts-asds').classList.add('active');
@@ -951,7 +951,7 @@
             document.getElementById('tracker-status-text').style.color = 'var(--color-warning)';
             stopPolling();
         } else {
-            const names = { AO: 'HR', HR: 'Admin Officer V', ASDS: 'ASDS', SDS: 'SDS' };
+            const names = { AO: 'AOV', HR: 'Admin Officer V', ASDS: 'ASDS', SDS: 'SDS' };
             document.getElementById('tracker-status-text').textContent =
                 'Pending ' + (names[app.currentApprover] || '') + ' Approval';
         }

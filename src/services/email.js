@@ -25,8 +25,8 @@ const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH
     ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'data')
     : path.join(__dirname, '..', '..', 'data');
 
-const aoUsersFile   = path.join(dataDir, 'ao-users.json');
 const hrUsersFile   = path.join(dataDir, 'hr-users.json');
+const aovUsersFile   = path.join(dataDir, 'aov-users.json');
 const asdsUsersFile = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile  = path.join(dataDir, 'sds-users.json');
 
@@ -111,7 +111,7 @@ function sendEmail(recipientEmail, recipientName, subject, htmlContent) {
  *
  * @param {string}      userEmail         - User's email address.
  * @param {string}      userName          - User's full name.
- * @param {string}      portal            - Portal type (`'employee'`, `'ao'`, `'hr'`, `'asds'`, `'sds'`).
+ * @param {string}      portal            - Portal type (`'employee'`, `'hr'`, `'aov'`, `'asds'`, `'sds'`).
  * @param {string|null} [temporaryPassword=null] - Temporary password (shown when set).
  * @returns {string} Complete HTML document.
  */
@@ -121,8 +121,8 @@ function generateLoginFormEmail(userEmail, userName, portal, temporaryPassword =
     let portalDisplayName = '';
     switch (portal) {
         case 'employee': portalDisplayName = 'Employee'; break;
-        case 'ao':       portalDisplayName = 'Administrative Officer'; break;
-        case 'hr':       portalDisplayName = 'Human Resource'; break;
+        case 'hr':       portalDisplayName = 'Administrative Officer'; break;
+        case 'aov':       portalDisplayName = 'Human Resource'; break;
         case 'asds':     portalDisplayName = 'ASDS'; break;
         case 'sds':      portalDisplayName = 'Schools Division Superintendent'; break;
         default:         portalDisplayName = 'Leave Form Portal';
@@ -396,11 +396,11 @@ function notifyLeaveRejected(app, rejectedBy, reason) {
  * waiting for their review.
  *
  * @param {object} app          - The leave application object.
- * @param {string} approverRole - Role tag (`'HR'`, `'AO'`, `'ASDS'`, `'SDS'`).
+ * @param {string} approverRole - Role tag (`'AOV'`, `'HR'`, `'ASDS'`, `'SDS'`).
  */
 function notifyNextApprover(app, approverRole) {
     if (!MAILERSEND_API_KEY) return;
-    const portalToFile = { 'HR': hrUsersFile, 'AO': aoUsersFile, 'ASDS': asdsUsersFile, 'SDS': sdsUsersFile };
+    const portalToFile = { 'AOV': aovUsersFile, 'HR': hrUsersFile, 'ASDS': asdsUsersFile, 'SDS': sdsUsersFile };
     const file = portalToFile[approverRole];
     if (!file) return;
 

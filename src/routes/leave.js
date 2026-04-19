@@ -24,10 +24,10 @@ const {
 const {
     usersFile, employeesFile, applicationsFile, leavecardsFile,
     ctoRecordsFile,
-    isAoDivisionLevel, isEmployeeInAoSchool, getEmployeeOffice,
+    isHrDivisionLevel, isEmployeeInAoSchool, getEmployeeOffice,
     logActivity, getClientIp,
     findApplicationById, findApplicationIndexById, lookupUserName,
-    isSelfOrAdmin, isAoAccessAllowed,
+    isSelfOrAdmin, isHrAccessAllowed,
     isSchoolBased, generateApplicationId,
 } = require('../utils/helpers');
 const { ADMIN_ROLES } = require('../config/constants');
@@ -246,7 +246,7 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             soFilePath: null,  // Will be set if SO file was uploaded
             isSchoolBased: schoolBased,
             status: 'pending',
-            currentApprover: 'AO',
+            currentApprover: 'HR',
             approvalHistory: [],
             submittedAt: new Date().toISOString()
         };
@@ -317,7 +317,7 @@ router.post('/api/submit-leave', requireAuth(), (req, res) => {
             .then(() => notifyLeaveSubmitted(newApplication))
             .catch(err => console.error('[EMAIL] Failed to notify employee of submission:', err.message));
         Promise.resolve()
-            .then(() => notifyNextApprover(newApplication, 'AO'))
+            .then(() => notifyNextApprover(newApplication, 'HR'))
             .catch(err => console.error('[EMAIL] Failed to notify HR of new application:', err.message));
 
         res.json({
@@ -406,7 +406,7 @@ router.get('/api/application-details/:id', requireAuth(), (req, res) => {
 // ---------------------------------------------------------------------------
 // GET /api/pending-applications/:portal — Pending applications for a portal
 // ---------------------------------------------------------------------------
-router.get('/api/pending-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/pending-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -424,7 +424,7 @@ router.get('/api/pending-applications/:portal', requireAuth('ao', 'hr', 'asds', 
 // ---------------------------------------------------------------------------
 // GET /api/approved-applications/:portal — Approved applications for a portal
 // ---------------------------------------------------------------------------
-router.get('/api/approved-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/approved-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -448,13 +448,13 @@ router.get('/api/approved-applications/:portal', requireAuth('ao', 'hr', 'asds',
 // ---------------------------------------------------------------------------
 // GET /api/hr-approved-applications — HR-processed applications
 // ---------------------------------------------------------------------------
-router.get('/api/hr-approved-applications', requireAuth('hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/hr-approved-applications', requireAuth('aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const applications = readJSONArray(applicationsFile);
 
         // Get applications where HR has approved them (hrApprovedAt exists and currentApprover is not HR)
         let hrApprovedApps = applications.filter(a => {
-            return a.hrApprovedAt && a.currentApprover !== 'HR';
+            return a.hrApprovedAt && a.currentApprover !== 'AOV';
         });
 
         res.json({ success: true, applications: hrApprovedApps });
@@ -466,14 +466,14 @@ router.get('/api/hr-approved-applications', requireAuth('hr', 'asds', 'sds', 'it
 // ---------------------------------------------------------------------------
 // GET /api/all-users — All users for demographics
 // ---------------------------------------------------------------------------
-router.get('/api/all-users', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/all-users', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         // SECURITY: Strip password hashes before sending to client
         let safeUsers = users.map(({ password, ...rest }) => rest);
 
         // AO school-based filtering: AO can only see users from their school
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
+        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
             safeUsers = safeUsers.filter(u => isEmployeeInAoSchool(u.office || u.school, req.session.office));
         }
 
@@ -486,19 +486,19 @@ router.get('/api/all-users', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req,
 // ---------------------------------------------------------------------------
 // GET /api/all-applications — All applications for demographics
 // ---------------------------------------------------------------------------
-router.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/all-applications', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         let applications = readJSONArray(applicationsFile);
 
         // AO school-based filtering: AO can only see applications from their school's employees
         // S2 fix: Pre-load user/employee data once, pass as cache to avoid O(N*2) disk reads
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const aoOffice = req.session.office;
+        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
+            const hrOffice = req.session.office;
             const usersCache = readJSON(usersFile);
             const employeesCache = readJSON(employeesFile);
             applications = applications.filter(app => {
                 const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
-                return isEmployeeInAoSchool(empOffice, aoOffice);
+                return isEmployeeInAoSchool(empOffice, hrOffice);
             });
         }
 
@@ -511,7 +511,7 @@ router.get('/api/all-applications', requireAuth('ao', 'hr', 'asds', 'sds', 'it')
 // ---------------------------------------------------------------------------
 // GET /api/leave-calendar — Leave calendar data
 // ---------------------------------------------------------------------------
-router.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/leave-calendar', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const { month, year } = req.query;
         const applications = readJSONArray(applicationsFile);
@@ -532,13 +532,13 @@ router.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), 
         }
 
         // AO school-based filtering
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const aoOffice = req.session.office;
+        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
+            const hrOffice = req.session.office;
             const usersCache = readJSON(usersFile);
             const employeesCache = readJSON(employeesFile);
             relevantApps = relevantApps.filter(a => {
                 const empOffice = getEmployeeOffice(a.employeeEmail || a.email, usersCache, employeesCache);
-                return isEmployeeInAoSchool(empOffice, aoOffice);
+                return isEmployeeInAoSchool(empOffice, hrOffice);
             });
         }
 
@@ -564,7 +564,7 @@ router.get('/api/leave-calendar', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), 
 // ---------------------------------------------------------------------------
 // GET /api/all-employees — All registered employees (for AO card management)
 // ---------------------------------------------------------------------------
-router.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
+router.get('/api/all-employees', requireAuth('hr', 'aov', 'it'), (req, res) => {
     try {
         const users = readJSON(usersFile);
         const leavecards = readJSON(leavecardsFile);
@@ -606,10 +606,10 @@ router.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
         let employees = Array.from(employeeMap.values());
 
         // AO school-based filtering: AO can only see employees from their own school
-        if (req.session.role === 'ao' && req.session.office) {
-            const aoOffice = req.session.office;
-            if (!isAoDivisionLevel(aoOffice)) {
-                employees = employees.filter(emp => isEmployeeInAoSchool(emp.office, aoOffice));
+        if (req.session.role === 'hr' && req.session.office) {
+            const hrOffice = req.session.office;
+            if (!isHrDivisionLevel(hrOffice)) {
+                employees = employees.filter(emp => isEmployeeInAoSchool(emp.office, hrOffice));
             }
         }
 
@@ -622,7 +622,7 @@ router.get('/api/all-employees', requireAuth('ao', 'hr', 'it'), (req, res) => {
 // ---------------------------------------------------------------------------
 // GET /api/portal-applications/:portal — All applications for a portal
 // ---------------------------------------------------------------------------
-router.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', 'sds', 'it'), (req, res) => {
+router.get('/api/portal-applications/:portal', requireAuth('hr', 'aov', 'asds', 'sds', 'it'), (req, res) => {
     try {
         const portal = req.params.portal.toUpperCase();
         const applications = readJSONArray(applicationsFile);
@@ -639,13 +639,13 @@ router.get('/api/portal-applications/:portal', requireAuth('ao', 'hr', 'asds', '
 
         // AO school-based filtering: AO can only see applications from their school's employees
         // S2 fix: Pre-load data once for filter loop
-        if (req.session.role === 'ao' && req.session.office && !isAoDivisionLevel(req.session.office)) {
-            const aoOffice = req.session.office;
+        if (req.session.role === 'hr' && req.session.office && !isHrDivisionLevel(req.session.office)) {
+            const hrOffice = req.session.office;
             const usersCache = readJSON(usersFile);
             const employeesCache = readJSON(employeesFile);
             portalApps = portalApps.filter(app => {
                 const empOffice = getEmployeeOffice(app.employeeEmail || app.email, usersCache, employeesCache);
-                return isEmployeeInAoSchool(empOffice, aoOffice);
+                return isEmployeeInAoSchool(empOffice, hrOffice);
             });
         }
 
@@ -791,7 +791,7 @@ router.post('/api/resubmit-leave', requireAuth(), (req, res) => {
 
         // Reset status and send back to AO
         app.status = 'pending';
-        app.currentApprover = 'AO';
+        app.currentApprover = 'HR';
         app.resubmittedAt = new Date().toISOString();
 
         applications[appIndex] = app;
@@ -824,7 +824,7 @@ router.post('/api/resubmit-leave', requireAuth(), (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/approve-leave — Approve, return, or reject application (~445 lines)
 // ---------------------------------------------------------------------------
-router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, res) => {
+router.post('/api/approve-leave', requireAuth('aov', 'hr', 'asds', 'sds'), (req, res) => {
     try {
         const { applicationId, action, approverPortal: _approverPortal, portal, approverName, remarks, authorizedOfficerName, authorizedOfficerSignature, asdsOfficerName, asdsOfficerSignature, sdsOfficerName, sdsOfficerSignature, vlEarned, vlLess, vlBalance, slEarned, slLess, slBalance, splEarned, splLess, splBalance, flEarned, flLess, flBalance, wlEarned, wlLess, wlBalance, ctoEarned, ctoLess, ctoBalance, daysApproved } = req.body;
         const approverPortal = _approverPortal || portal;
@@ -848,13 +848,13 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
         const app = applications[appIndex];
 
         // AO school-based filtering
-        if (!isAoAccessAllowed(req, app.employeeEmail || app.email)) {
+        if (!isHrAccessAllowed(req, app.employeeEmail || app.email)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
         // SECURITY: Use session role instead of trusting client-provided portal
         // Map session role to portal name (prevents portal spoofing attack)
-        const roleToPortal = { 'ao': 'AO', 'hr': 'HR', 'asds': 'ASDS', 'sds': 'SDS' };
+        const roleToPortal = { 'hr': 'HR', 'aov': 'AOV', 'asds': 'ASDS', 'sds': 'SDS' };
         const sessionRole = req.session?.role;
         const currentApprover = roleToPortal[sessionRole] || (approverPortal || '').toUpperCase();
 
@@ -899,11 +899,11 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
             // Return application to a specific step or previous step for compliance
             // Workflow: Employee <- AO <- HR <- ASDS <- SDS
             // With returnTo parameter, approver can send directly to any lower step
-            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'AO', 'HR', 'ASDS'
+            const returnTo = req.body.returnTo; // Optional: 'EMPLOYEE', 'HR', 'AOV', 'ASDS'
             let returnedTo = null;
 
             // Define the workflow hierarchy (lower index = lower in chain)
-            const workflowOrder = ['EMPLOYEE', 'AO', 'HR', 'ASDS', 'SDS'];
+            const workflowOrder = ['EMPLOYEE', 'HR', 'AOV', 'ASDS', 'SDS'];
             const currentIndex = workflowOrder.indexOf(currentApprover);
 
             if (returnTo && workflowOrder.indexOf(returnTo) < currentIndex) {
@@ -918,18 +918,18 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
                 returnedTo = returnTo === 'EMPLOYEE' ? 'Employee' : returnTo;
             } else {
                 // Default: return to previous step
-                if (currentApprover === 'AO') {
+                if (currentApprover === 'HR') {
                     app.status = 'returned';
                     app.currentApprover = 'EMPLOYEE';
                     returnedTo = 'Employee';
-                } else if (currentApprover === 'HR') {
-                    app.status = 'pending';
-                    app.currentApprover = 'AO';
-                    returnedTo = 'AO';
-                } else if (currentApprover === 'ASDS') {
+                } else if (currentApprover === 'AOV') {
                     app.status = 'pending';
                     app.currentApprover = 'HR';
                     returnedTo = 'HR';
+                } else if (currentApprover === 'ASDS') {
+                    app.status = 'pending';
+                    app.currentApprover = 'AOV';
+                    returnedTo = 'AOV';
                 } else if (currentApprover === 'SDS') {
                     app.status = 'pending';
                     app.currentApprover = 'ASDS';
@@ -966,12 +966,12 @@ router.post('/api/approve-leave', requireAuth('hr', 'ao', 'asds', 'sds'), (req, 
 
         } else if (action === 'approved') {
             // Determine next approver based on workflow
-            if (currentApprover === 'AO') {
+            if (currentApprover === 'HR') {
                 // AO approved -> goes to HR
-                app.currentApprover = 'HR';
+                app.currentApprover = 'AOV';
                 app.aoApprovedAt = new Date().toISOString();
                 console.log(`[WORKFLOW] AO approved - Moving to HR`);
-            } else if (currentApprover === 'HR') {
+            } else if (currentApprover === 'AOV') {
                 // HR approved -> goes to ASDS
                 app.currentApprover = 'ASDS';
                 app.hrApprovedAt = new Date().toISOString();

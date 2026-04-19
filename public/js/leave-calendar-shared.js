@@ -3,7 +3,7 @@
  *
  * Usage:
  *   import { initLeaveCalendar } from './leave-calendar-shared.js';
- *   const cal = initLeaveCalendar({ el: '#calendar-content', role: 'ao' });
+ *   const cal = initLeaveCalendar({ el: '#calendar-content', role: 'hr' });
  *   cal.load();                // fetch and render
  *   cal.destroy();             // cleanup
  *
@@ -88,7 +88,7 @@ export function initLeaveCalendar(opts) {
     if (!container) return { load() {}, destroy() {} };
 
     const role     = (opts.role || 'user').toLowerCase();
-    const isAdmin  = ['ao','hr','asds','sds','it'].includes(role);
+    const isAdmin  = ['hr','aov','asds','sds','it'].includes(role);
     const email    = opts.email || '';
 
     const now = new Date();

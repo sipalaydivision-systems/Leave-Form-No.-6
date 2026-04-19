@@ -20,8 +20,8 @@ const STATUS = Object.freeze({
 });
 
 const PORTAL = Object.freeze({
-    AO:   'AO',
-    HR:   'HR',
+    AO:   'HR',
+    HR:   'AOV',
     ASDS: 'ASDS',
     SDS:  'SDS',
     IT:   'IT',

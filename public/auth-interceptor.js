@@ -12,8 +12,8 @@
     // Map a role code to its login page (single source of truth)
     function loginUrlForRole(role) {
         switch (role) {
-            case 'hr':   return '/admin-officer-login.html'; // Admin Officer V Portal
-            case 'ao':   return '/hr-login.html';            // HR Portal
+            case 'aov':   return '/admin-officer-login.html'; // Admin Officer V Portal
+            case 'hr':   return '/hr-login.html';            // HR Portal
             case 'asds': return '/asds-login.html';
             case 'sds':  return '/sds-login.html';
             case 'it':   return '/it-login.html';
@@ -117,8 +117,8 @@
         try {
             var role = localStorage.getItem('userRole');
             switch (role) {
-                case 'hr':   return '/admin-officer-login.html';
-                case 'ao':   return '/hr-login.html';
+                case 'aov':   return '/admin-officer-login.html';
+                case 'hr':   return '/hr-login.html';
                 case 'asds': return '/asds-login.html';
                 case 'sds':  return '/sds-login.html';
                 case 'it':   return '/it-login.html';

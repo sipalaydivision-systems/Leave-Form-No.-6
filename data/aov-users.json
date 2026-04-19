@@ -1,0 +1,20 @@
+[
+  {
+    "id": "078cc98c-2d38-4f86-8533-8a6899f8169c",
+    "email": "testhr@deped.gov.ph",
+    "password": "$2b$12$d1QJnb2XcdyhSSj2RjWX2.OX/QSP57RttGd8PDRoYXpbTxAz70m6a",
+    "name": "Test, Test Test",
+    "fullName": "Test, Test Test",
+    "firstName": "Test",
+    "lastName": "Test",
+    "middleName": "Test",
+    "suffix": "",
+    "office": "OSDS",
+    "position": "Administrative Officer IV",
+    "salaryGrade": 15,
+    "step": 3,
+    "salary": 43015,
+    "role": "hr",
+    "createdAt": "2026-02-22T06:43:45.832Z"
+  }
+]

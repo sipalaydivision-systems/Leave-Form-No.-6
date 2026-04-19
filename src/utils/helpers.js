@@ -18,8 +18,8 @@ const usersFile = path.join(dataDir, 'users.json');
 const employeesFile = path.join(dataDir, 'employees.json');
 const applicationsFile = path.join(dataDir, 'applications.json');
 const leavecardsFile = path.join(dataDir, 'leavecards.json');
-const aoUsersFile = path.join(dataDir, 'ao-users.json');
 const hrUsersFile = path.join(dataDir, 'hr-users.json');
+const aovUsersFile = path.join(dataDir, 'aov-users.json');
 const asdsUsersFile = path.join(dataDir, 'asds-users.json');
 const sdsUsersFile = path.join(dataDir, 'sds-users.json');
 const itUsersFile = path.join(dataDir, 'it-users.json');
@@ -34,19 +34,19 @@ const systemStateFile = path.join(dataDir, 'system-state.json');
 // AO school-based filtering helpers
 // ---------------------------------------------------------------------------
 
-function isAoDivisionLevel(aoOffice) {
-    if (!aoOffice) return false;
-    return DIVISION_OFFICES.some(d => aoOffice.toUpperCase().includes(d));
+function isHrDivisionLevel(hrOffice) {
+    if (!hrOffice) return false;
+    return DIVISION_OFFICES.some(d => hrOffice.toUpperCase().includes(d));
 }
 
-function isEmployeeInAoSchool(employeeOffice, aoOffice) {
-    if (!aoOffice || !employeeOffice) return false;
+function isEmployeeInAoSchool(employeeOffice, hrOffice) {
+    if (!hrOffice || !employeeOffice) return false;
     // Division-level AOs see everyone
-    if (isAoDivisionLevel(aoOffice)) return true;
+    if (isHrDivisionLevel(hrOffice)) return true;
     // Exact match
-    if (employeeOffice === aoOffice) return true;
+    if (employeeOffice === hrOffice) return true;
     // Normalize for comparison (strip whitespace, case)
-    const normAo = aoOffice.toUpperCase().replace(/\s+/g, ' ').trim();
+    const normAo = hrOffice.toUpperCase().replace(/\s+/g, ' ').trim();
     const normEmp = employeeOffice.toUpperCase().replace(/\s+/g, ' ').trim();
     return normAo === normEmp;
 }
@@ -172,7 +172,7 @@ function findApplicationIndexById(applications, idParam) {
 function lookupUserName(email) {
     if (!email) return 'Unknown';
     const portalFiles = [
-        aoUsersFile, hrUsersFile, asdsUsersFile, sdsUsersFile, usersFile, itUsersFile
+        hrUsersFile, aovUsersFile, asdsUsersFile, sdsUsersFile, usersFile, itUsersFile
     ];
     for (const file of portalFiles) {
         const users = readJSON(file);
@@ -196,10 +196,10 @@ function isSelfOrAdmin(req, targetEmail) {
 /**
  * Check AO school-based access for a specific employee.
  */
-function isAoAccessAllowed(req, employeeEmail, usersCache, employeesCache) {
-    if (req.session.role !== 'ao') return true;
+function isHrAccessAllowed(req, employeeEmail, usersCache, employeesCache) {
+    if (req.session.role !== 'hr') return true;
     if (!req.session.office) return true;
-    if (isAoDivisionLevel(req.session.office)) return true;
+    if (isHrDivisionLevel(req.session.office)) return true;
     const empOffice = getEmployeeOffice(employeeEmail, usersCache, employeesCache);
     return isEmployeeInAoSchool(empOffice, req.session.office);
 }
@@ -258,8 +258,8 @@ module.exports = {
     employeesFile,
     applicationsFile,
     leavecardsFile,
-    aoUsersFile,
     hrUsersFile,
+    aovUsersFile,
     asdsUsersFile,
     sdsUsersFile,
     itUsersFile,
@@ -271,7 +271,7 @@ module.exports = {
     systemStateFile,
 
     // AO filtering
-    isAoDivisionLevel,
+    isHrDivisionLevel,
     isEmployeeInAoSchool,
     getEmployeeOffice,
 
@@ -286,7 +286,7 @@ module.exports = {
 
     // Access control
     isSelfOrAdmin,
-    isAoAccessAllowed,
+    isHrAccessAllowed,
 
     // Leave helpers
     isSchoolBased,

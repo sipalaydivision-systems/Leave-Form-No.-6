@@ -18,7 +18,7 @@ const { dataDir } = require('../config');
 const { getLatestLeaveCard, normalizeLeaveCardTransactions } = require('../services/leave-balance');
 const {
     usersFile, employeesFile, leavecardsFile,
-    isSelfOrAdmin, isAoAccessAllowed,
+    isSelfOrAdmin, isHrAccessAllowed,
     logActivity, getClientIp,
 } = require('../utils/helpers');
 
@@ -38,7 +38,7 @@ router.get('/api/leave-credits', requireAuth(), (req, res) => {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
-        if (!isAoAccessAllowed(req, employeeId)) {
+        if (!isHrAccessAllowed(req, employeeId)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
@@ -293,7 +293,7 @@ router.get('/api/employee-leavecard', requireAuth(), (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/update-leave-credits — Update leave credits (AO/IT only)
 // ---------------------------------------------------------------------------
-router.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => {
+router.post('/api/update-leave-credits', requireAuth('hr', 'it'), (req, res) => {
     try {
         const {
             applicationId,
@@ -320,7 +320,7 @@ router.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => 
         }
 
         // AO school-based filtering
-        if (!isAoAccessAllowed(req, employeeEmail)) {
+        if (!isHrAccessAllowed(req, employeeEmail)) {
             return res.status(403).json({ success: false, error: 'Access denied. This employee is not from your school.' });
         }
 
@@ -491,7 +491,7 @@ router.post('/api/update-leave-credits', requireAuth('ao', 'it'), (req, res) => 
 // ---------------------------------------------------------------------------
 // DELETE /api/leave-credits/transaction/:txId — Remove one transaction by ID
 // ---------------------------------------------------------------------------
-router.delete('/api/leave-credits/transaction/:txId', requireAuth('ao', 'it'), (req, res) => {
+router.delete('/api/leave-credits/transaction/:txId', requireAuth('hr', 'it'), (req, res) => {
     try {
         const { txId } = req.params;
         const employeeId = req.query.employeeId;
@@ -534,7 +534,7 @@ router.delete('/api/leave-credits/transaction/:txId', requireAuth('ao', 'it'), (
         leavecards[idx] = card;
         writeJSON(leavecardsFile, leavecards);
 
-        logActivity('LEAVE_TRANSACTION_DELETED', 'ao', {
+        logActivity('LEAVE_TRANSACTION_DELETED', 'hr', {
             userEmail: req.session.email,
             employeeId,
             transactionId: txId,

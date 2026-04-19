@@ -27,7 +27,7 @@ const { dataDir } = require('../config');
 const { dedupeMonthlyAccrualEntries } = require('../services/leave-balance');
 const {
     usersFile, employeesFile, applicationsFile, leavecardsFile,
-    aoUsersFile, hrUsersFile, asdsUsersFile, sdsUsersFile, itUsersFile,
+    hrUsersFile, aovUsersFile, asdsUsersFile, sdsUsersFile, itUsersFile,
     systemStateFile, activityLogsFile,
     logActivity, getClientIp,
 } = require('../utils/helpers');
@@ -58,7 +58,7 @@ if (!fs.existsSync(backupDir)) {
 // List of all data files to backup/restore
 const DATA_FILES = [
     'users.json', 'employees.json', 'applications.json', 'leavecards.json',
-    'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json',
+    'hr-users.json', 'aov-users.json', 'asds-users.json', 'sds-users.json',
     'it-users.json', 'pending-registrations.json',
     'cto-records.json', 'schools.json', 'initial-credits.json',
     'activity-logs.json', 'system-state.json'
@@ -230,8 +230,8 @@ router.get('/api/system-status', requireAuth('it'), (req, res) => {
     try {
         const itUsers = readJSON(itUsersFile);
         const users = readJSON(usersFile);
-        const aoUsers = readJSON(aoUsersFile);
-        const hrUsers = readJSON(hrUsersFile);
+        const aoUsers = readJSON(hrUsersFile);
+        const hrUsers = readJSON(aovUsersFile);
         const leavecards = readJSON(leavecardsFile);
         const ctoRecords = readJSON(path.join(dataDir, 'cto-records.json'));
         res.json({
@@ -417,7 +417,7 @@ router.get('/api/data/export', requireAuth('it'), (req, res) => {
     try {
         const bundle = {};
         // Files that contain user authentication data (passwords must be stripped)
-        const sensitiveFiles = ['users.json', 'ao-users.json', 'hr-users.json', 'asds-users.json', 'sds-users.json', 'it-users.json'];
+        const sensitiveFiles = ['users.json', 'hr-users.json', 'aov-users.json', 'asds-users.json', 'sds-users.json', 'it-users.json'];
         for (const file of DATA_FILES) {
             const filePath = path.join(dataDir, file);
             if (fs.existsSync(filePath)) {
