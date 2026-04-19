@@ -2573,8 +2573,18 @@ function createLoginHandler(config) {
             const { email, password } = req.body;
             const ip = getClientIp(req);
             let users = readJSON(userFile);
-            const user = users.find(u => (u.email || '').toLowerCase() === email.toLowerCase() && verifyPassword(password, u.password));
+            const emailMatch = users.find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+            const pwMatch = emailMatch ? verifyPassword(password, emailMatch.password) : false;
+            const user = emailMatch && pwMatch ? emailMatch : null;
+
             if (!user) {
+                // DEBUG: Log detailed reason for login failure
+                console.log(`[LOGIN_DEBUG] ${portalName} portal login failed for ${email}:`);
+                console.log(`  - Email found: ${!!emailMatch}`);
+                if (emailMatch) {
+                    console.log(`  - Password hash: ${emailMatch.password.substring(0, 20)}...`);
+                    console.log(`  - Password match: ${pwMatch}`);
+                }
                 logActivity('LOGIN_FAILED', portalName, {
                     userEmail: email, ip, userAgent: req.get('user-agent')
                 });
