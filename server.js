@@ -3149,7 +3149,7 @@ app.post('/api/hr-register', apiRateLimiter, createAdminRegisterHandler({
     excludePortals: ['hr', 'user', 'aov', 'asds', 'sds']
 }));
 app.post('/api/hr-login', loginRateLimiter, createLoginHandler({
-    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'hr',
+    portalName: 'hr', userFile: hrUsersFile, sessionRole: 'ao',
     responseFields: ['id', 'email', 'name', 'office', 'position']
 }));
 
@@ -3643,8 +3643,10 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
             case 'asds':
             case 'sds':
                 // DRY: All non-employee portals use the same user shape
+                // Map portal names to actual role codes: 'hr' portal → 'ao' role, 'aov' portal → 'aov' role
+                const portalToRole = { 'hr': 'ao', 'aov': 'aov', 'asds': 'asds', 'sds': 'sds' };
                 targetFile = PORTAL_TO_FILE[registration.portal]();
-                newUser = buildPortalUser(registration, registration.portal);
+                newUser = buildPortalUser(registration, portalToRole[registration.portal]);
                 break;
         }
 
