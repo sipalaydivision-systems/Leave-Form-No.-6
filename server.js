@@ -1194,7 +1194,7 @@ function normalizeLeaveCardTransactions(transactions) {
  * Build a portal user object from a registration record.
  * DRY: Replaces the 5-case switch in approve-registration where 90% of fields are identical.
  * @param {object} registration - The pending registration record
- * @param {string} role - Portal role ('user', 'hr', 'aov', 'asds', 'sds')
+ * @param {string} role - Portal role ('employee', 'hr', 'aov', 'asds', 'sds')
  * @returns {object} User object ready to push into portal's user file
  */
 function buildPortalUser(registration, role) {
@@ -2704,7 +2704,7 @@ function createProfileUpdateHandler(config) {
             for (const field of responseFields) {
                 if (users[userIndex][field] !== undefined) responseUser[field] = users[userIndex][field];
             }
-            responseUser.role = portalName === 'employee' ? 'user' : portalName;
+            responseUser.role = portalName === 'employee' ? 'employee' : portalName;
             res.json({ success: true, message: 'Profile updated successfully', user: responseUser });
         } catch (error) {
             console.error(`Error updating ${portalLabel} profile:`, error);
@@ -2805,7 +2805,7 @@ app.post('/api/register', apiRateLimiter, (req, res) => {
 
 // Apply rate limiting to login endpoint
 app.post('/api/login', loginRateLimiter, createLoginHandler({
-    portalName: 'employee', userFile: usersFile, sessionRole: 'user',
+    portalName: 'employee', userFile: usersFile, sessionRole: 'employee',
     responseFields: ['id', 'email', 'name', 'office', 'position', 'employeeNo', 'salaryGrade', 'step', 'salary']
 }));
 
@@ -3509,7 +3509,7 @@ app.post('/api/approve-registration', requireAuth('it'), (req, res) => {
                     salaryGrade: registration.salaryGrade,
                     step: registration.step,
                     salary: registration.salary,
-                    role: 'user',
+                    role: 'employee',
                     createdAt: registration.createdAt
                 };
 
