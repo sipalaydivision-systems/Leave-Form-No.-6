@@ -117,3 +117,35 @@ All leave applications follow: **Employee → HR Portal → Admin Officer V Port
 ## Important References
 
 - `BACKEND_ARCHITECTURE.md` — Comprehensive system design with Mermaid diagrams, all API endpoints with line numbers, data schemas, helper function reference, middleware stack, and security mechanisms.
+
+## System Diagrams Sync Rule
+
+**When making architecture changes, always update `BACKEND_ARCHITECTURE.md` first.** This is the single source of truth.
+
+The system diagrams (IT-only portal) are **auto-generated** from `BACKEND_ARCHITECTURE.md` via the sync script. When you modify:
+
+- Route modules (`src/routes/`)
+- Service layer (`src/services/`)
+- Data models (`src/data/models.js`)
+- Authentication flow
+- Approval workflow steps
+- Data storage (new JSON files, PG schema)
+- Middleware stack
+
+Then:
+
+1. **Update `BACKEND_ARCHITECTURE.md`** to reflect the changes
+2. **Run `node scripts/sync-diagrams.js`** to regenerate `public/it-system-diagrams.html`
+3. **Commit both files** (`BACKEND_ARCHITECTURE.md` + `public/it-system-diagrams.html`) in a single commit
+
+The sync script automatically:
+- Extracts route modules from `src/routes/`
+- Extracts services from `src/services/`
+- Extracts data files from `src/data/` and `data/`
+- Reads sections from `BACKEND_ARCHITECTURE.md`
+- Updates timestamps and metadata in IT system diagrams
+- Preserves manual diagram structure (updates metadata only)
+
+**Note:** The script adds metadata and sync timestamps. For significant architecture changes (new services, workflows, database tables), manually review `BACKEND_ARCHITECTURE.md` and diagram sections to ensure they accurately reflect the changes.
+
+This keeps diagrams in sync with the actual codebase structure and prevents documentation drift.
