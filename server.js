@@ -2381,13 +2381,18 @@ app.get('/api/validate-session', (req, res) => {
 app.get('/api/me', (req, res) => {
     const token = extractToken(req);
     if (!token) {
+        console.log('[API /me] DEBUG: No token found in cookies');
         return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
+    console.log(`[API /me] DEBUG: Token found: ${token.substring(0, 20)}...`);
     const session = validateSession(token);
     if (!session) {
+        console.log(`[API /me] DEBUG: Session validation failed for token ${token.substring(0, 20)}...`);
+        console.log(`[API /me] DEBUG: Active sessions count: ${activeSessions.size}`);
         res.clearCookie('session', { path: '/' });
         return res.status(401).json({ success: false, error: 'Session expired' });
     }
+    console.log(`[API /me] DEBUG: Session found. Role: ${session.role}, Email: ${session.email}`);
     res.json({
         success: true,
         user: {
