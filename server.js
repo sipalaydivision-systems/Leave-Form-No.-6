@@ -2579,6 +2579,7 @@ function createLoginHandler(config) {
 
             if (!user) {
                 // DEBUG: Log detailed reason for login failure
+                const failureReason = emailMatch ? (pwMatch ? 'unknown' : 'password_mismatch') : 'email_not_found';
                 console.log(`[LOGIN_DEBUG] ${portalName} portal login failed for ${email}:`);
                 console.log(`  - Email found: ${!!emailMatch}`);
                 if (emailMatch) {
@@ -2586,7 +2587,8 @@ function createLoginHandler(config) {
                     console.log(`  - Password match: ${pwMatch}`);
                 }
                 logActivity('LOGIN_FAILED', portalName, {
-                    userEmail: email, ip, userAgent: req.get('user-agent')
+                    userEmail: email, ip, userAgent: req.get('user-agent'),
+                    reason: failureReason, emailFound: !!emailMatch, passwordMatch: pwMatch
                 });
                 let pendingRegs = readJSON(pendingRegistrationsFile);
                 const pending = pendingRegs.find(r => r.email === email && r.portal === portalName && r.status === 'pending');
