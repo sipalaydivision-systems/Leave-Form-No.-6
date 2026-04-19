@@ -2573,7 +2573,7 @@ function createLoginHandler(config) {
             const { email, password } = req.body;
             const ip = getClientIp(req);
             let users = readJSON(userFile);
-            const user = users.find(u => u.email === email && verifyPassword(password, u.password));
+            const user = users.find(u => (u.email || '').toLowerCase() === email.toLowerCase() && verifyPassword(password, u.password));
             if (!user) {
                 logActivity('LOGIN_FAILED', portalName, {
                     userEmail: email, ip, userAgent: req.get('user-agent')

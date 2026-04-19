@@ -248,6 +248,10 @@
     EVENTS.forEach(function (evt) {
         document.addEventListener(evt, function () {
             // Only reset if we're not already showing the final-second countdown
+            var modal = document.getElementById('_idleModal');
+            if (modal && modal.classList.contains('open')) {
+                return; // Don't reset timer during countdown
+            }
             resetIdle();
         }, { passive: true, capture: true });
     });
