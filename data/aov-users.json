@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "aov-test-001",
+    "email": "testaov@deped.gov.ph",
+    "password": "$2b$12$OuTtrSb2mR7wtoaqkZa9r./qAcbSxFqoPUFvmZQUM376rpDujke1K",
+    "name": "Test AOV Officer",
+    "fullName": "Test AOV Officer",
+    "firstName": "Test",
+    "lastName": "Officer",
+    "middleName": "",
+    "suffix": "",
+    "office": "Central Office",
+    "position": "Admin Officer V",
+    "salaryGrade": "17",
+    "step": "2",
+    "salary": "48000",
+    "role": "aov",
+    "createdAt": "2026-04-19T16:00:00.000Z"
+  }
+]
