@@ -155,11 +155,11 @@ async function loadOverviewData() {
 
     renderPipeline(allApps);
 
-    // Row 3: Doughnut + Top 5
+    // Row 3: Doughnut + Leave Trend
     destroyChart(typesChart);
     typesChart = renderTypesDoughnut('#chart-types', 'chart-types-total', allApps);
 
-    loadTop5Overview();
+    loadOverviewTrendChart(allApps);
 
     // Row 4: Office breakdown + Recent pending
     renderOfficeBreakdown(allApps);
@@ -206,40 +206,50 @@ function renderPipeline(apps) {
 }
 
 // ---------------------------------------------------------------------------
-// Top 5 Leave Utilization (overview section)
+// Leave Trend Chart (overview section)
 // ---------------------------------------------------------------------------
-async function loadTop5Overview() {
-    const el = document.getElementById('top5-overview');
-    if (!el) return;
-    try {
-        const year = new Date().getFullYear();
-        const res = await fetch(`/api/leave-utilization/top5?year=${year}`);
-        if (!res.ok) { el.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Unable to load.</p>'; return; }
-        const data = await res.json();
-        const top5 = data.top5 || [];
-        if (top5.length === 0) {
-            renderEmptyState(el, { icon: 'document', title: 'No Data', description: 'No approved leaves this year.' });
-            return;
+function loadOverviewTrendChart(apps) {
+    const container = document.getElementById('chart-overview-trend');
+    if (!container) return;
+
+    const typeMap = {};
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Aggregate approved leave by type for current month
+    apps.forEach(app => {
+        if (app.status !== 'approved') return;
+        const approvalDate = new Date(app.sdsApprovedAt || app.sds_approved_at || app.updatedAt || '');
+        if (isNaN(approvalDate.getTime())) return;
+
+        if (approvalDate.getFullYear() === currentYear && approvalDate.getMonth() === currentMonth) {
+            const leaveType = (app.leaveType || 'Others').replace('leave_', '').toUpperCase();
+            const days = parseFloat(app.numDays || app.num_days) || 0;
+            if (!typeMap[leaveType]) typeMap[leaveType] = 0;
+            typeMap[leaveType] += days;
         }
-        const rankClass = ['', 'gold', 'silver', 'bronze'];
-        let html = '<ul class="top5-list">';
-        for (const e of top5) {
-            const cls = rankClass[e.rank] || 'other';
-            html += `<li class="top5-item">
-                <div class="top5-rank ${cls}">${e.rank}</div>
-                <div class="top5-info">
-                    <div class="top5-name">${esc(e.name)}</div>
-                    <div class="top5-office">${esc(e.office)}${e.position ? ' · ' + esc(e.position) : ''}</div>
-                </div>
-                <div style="text-align:right">
-                    <div class="top5-days">${e.totalDays}</div>
-                    <div class="top5-days-label">${e.count} app${e.count > 1 ? 's' : ''}</div>
-                </div>
-            </li>`;
-        }
-        html += '</ul>';
-        el.innerHTML = html;
-    } catch { el.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Failed to load.</p>'; }
+    });
+
+    const types = Object.keys(typeMap);
+    if (types.length === 0) {
+        container.innerHTML = '<p style="padding:var(--space-4);text-align:center;color:var(--color-text-muted)">No approved leaves this month</p>';
+        return;
+    }
+
+    const colors = ['#2F4FDD', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+    destroyChart(reportCharts.overviewTrend);
+    reportCharts.overviewTrend = renderTypesDoughnut(container, null, {
+        labels: types,
+        datasets: [{
+            label: 'Approved Leave Days',
+            data: types.map(t => typeMap[t]),
+            backgroundColor: types.map((_, i) => colors[i % colors.length]),
+            borderColor: '#fff',
+            borderWidth: 2,
+        }],
+        options: { responsive: true, maintainAspectRatio: true }
+    });
 }
 
 // ---------------------------------------------------------------------------
