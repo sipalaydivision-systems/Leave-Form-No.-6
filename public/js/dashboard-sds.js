@@ -98,7 +98,7 @@ function onTabChange(tabId) {
             leaveCalendar.load();
             break;
         case 'reports':
-            if (!top5Loaded) { loadTop5Utilization(); top5Loaded = true; }
+            if (!top5Loaded) { loadReportsTrendChart(allApps); top5Loaded = true; }
             destroyChart(reportCharts.status);
             destroyChart(reportCharts.office);
             reportCharts = renderReportCharts(allApps, '#chart-status', '#chart-office');
@@ -384,38 +384,81 @@ function renderDecidedTable() {
 }
 
 // ---------------------------------------------------------------------------
-// Top 5 Leave Utilization
+// Leave Trend by Type (Reports)
 // ---------------------------------------------------------------------------
-async function loadTop5Utilization() {
-    const container = document.getElementById('top5-utilization');
+async function loadReportsTrendChart(apps) {
+    const select = document.getElementById('reports-trend-period-select');
+    const container = document.getElementById('chart-reports-trend');
     if (!container) return;
-    try {
-        const year = new Date().getFullYear();
-        const res = await fetch(`/api/leave-utilization/top5?year=${year}`);
-        if (!res.ok) { container.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Unable to load data.</p>'; return; }
-        const data = await res.json();
-        const top5 = data.top5 || [];
-        if (top5.length === 0) {
-            renderEmptyState(container, { icon: 'document', title: 'No Data', description: 'No approved leave applications yet.' });
+
+    function renderTrend(period) {
+        const typeMap = {};
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+
+        // Filter and aggregate data based on period
+        apps.forEach(app => {
+            if (app.status !== 'approved') return;
+            const approvalDate = new Date(app.sdsApprovedAt || app.sds_approved_at || app.updatedAt || '');
+            if (isNaN(approvalDate.getTime())) return;
+
+            let include = false;
+            let label = '';
+
+            if (period === 'weekly') {
+                const weekAgo = new Date(now);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                if (approvalDate >= weekAgo) {
+                    const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][approvalDate.getDay()];
+                    label = dayOfWeek + ' ' + (approvalDate.getMonth() + 1) + '/' + approvalDate.getDate();
+                    include = true;
+                }
+            } else if (period === 'monthly') {
+                if (approvalDate.getFullYear() === currentYear && approvalDate.getMonth() === currentMonth) {
+                    label = (approvalDate.getMonth() + 1) + '/' + approvalDate.getFullYear();
+                    include = true;
+                }
+            } else if (period === 'yearly') {
+                label = String(approvalDate.getFullYear());
+                include = true;
+            }
+
+            if (include) {
+                const leaveType = (app.leaveType || 'Others').replace('leave_', '').toUpperCase();
+                const days = parseFloat(app.numDays || app.num_days) || 0;
+                if (!typeMap[leaveType]) typeMap[leaveType] = 0;
+                typeMap[leaveType] += days;
+            }
+        });
+
+        const types = Object.keys(typeMap);
+        if (types.length === 0) {
+            container.innerHTML = '<p style="padding:var(--space-4);text-align:center;color:var(--color-text-muted)">No data for selected period</p>';
             return;
         }
-        let html = '<div class="table-container"><table class="data-table"><thead><tr>';
-        html += '<th>Rank</th><th>Employee</th><th>Office</th><th>Applications</th><th>Total Days</th>';
-        html += '</tr></thead><tbody>';
-        const medals = ['', '#FFD700', '#C0C0C0', '#CD7F32'];
-        for (const e of top5) {
-            const medal = e.rank <= 3 ? `<span style="color:${medals[e.rank]};font-weight:bold">#${e.rank}</span>` : `#${e.rank}`;
-            html += `<tr>
-                <td>${medal}</td>
-                <td>${esc(e.name)}</td>
-                <td>${esc(e.office)}</td>
-                <td>${e.count}</td>
-                <td><strong>${e.totalDays}</strong></td>
-            </tr>`;
-        }
-        html += '</tbody></table></div>';
-        container.innerHTML = html;
-    } catch { container.innerHTML = '<p style="padding:var(--space-4);color:var(--color-text-muted)">Failed to load utilization data.</p>'; }
+
+        const colors = ['#2F4FDD', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+        const datasets = [{
+            label: 'Approved Leave Days',
+            data: types.map(t => typeMap[t]),
+            backgroundColor: types.map((_, i) => colors[i % colors.length]),
+            borderColor: '#fff',
+            borderWidth: 2,
+        }];
+
+        destroyChart(reportCharts.trend);
+        reportCharts.trend = renderTypesDoughnut(container, null, {
+            labels: types,
+            datasets,
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+    }
+
+    if (select) {
+        select.addEventListener('change', () => renderTrend(select.value));
+    }
+    renderTrend(select?.value || 'monthly');
 }
 
 function bindTableActions(selector) {

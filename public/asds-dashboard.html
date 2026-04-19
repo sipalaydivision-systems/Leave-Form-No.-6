@@ -340,18 +340,26 @@
 
                 <!-- Reports -->
                 <div data-tab-panel="reports" style="display:none">
-                    <!-- Top 5 Leave Utilization -->
+                    <!-- Leave Trend by Type -->
                     <div class="card" style="margin-bottom:var(--space-4)">
                         <div class="section-header">
                             <div class="section-header-icon orange">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M12 17V5M6 17v-2"/></svg>
                             </div>
                             <div class="section-header-text">
-                                <div class="section-header-title">Top 5 Leave Utilization</div>
-                                <div class="section-header-subtitle">Employees with highest approved leave days</div>
+                                <div class="section-header-title">Leave Trend by Type</div>
+                                <div class="section-header-subtitle">Approved leave days by type</div>
                             </div>
                         </div>
-                        <div id="top5-utilization"></div>
+                        <div style="margin-bottom: var(--space-3)">
+                            <label style="font-size: var(--text-sm); color: var(--color-text-muted)">Time Period:</label>
+                            <select id="reports-trend-period-select" style="margin-top: 8px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md)">
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly" selected>Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        <div id="chart-reports-trend" style="height: 300px;"></div>
                     </div>
 
                     <div class="chart-grid">
