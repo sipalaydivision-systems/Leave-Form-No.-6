@@ -689,7 +689,8 @@ const ADMIN_ROLES = ['hr', 'aov', 'asds', 'sds', 'it'];
 const PORTAL_TO_FILE = {
     employee: () => usersFile,
     ao: () => hrUsersFile,
-    hr: () => aovUsersFile,
+    hr: () => hrUsersFile,
+    aov: () => aovUsersFile,
     asds: () => asdsUsersFile,
     sds: () => sdsUsersFile
 };
